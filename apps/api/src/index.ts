@@ -7,6 +7,7 @@ import authRouter from './modules/auth/routes';
 import businessRouter from './modules/businesses/routes';
 import supplierRouter from './modules/suppliers/routes';
 import categoryRouter from './modules/categories/routes';
+import productRouter from './modules/products/routes';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -24,5 +25,6 @@ app.route('/api/auth', authRouter);
 app.route('/api/businesses', businessRouter);
 app.route('/api/suppliers', supplierRouter);
 app.route('/api/categories', categoryRouter);
+app.route('/api/products', productRouter);
 
 export default app;

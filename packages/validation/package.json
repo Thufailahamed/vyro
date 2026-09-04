@@ -10,7 +10,8 @@
     "./auth": "./src/auth.ts",
     "./business": "./src/business.ts",
     "./supplier": "./src/supplier.ts",
-    "./category": "./src/category.ts"
+    "./category": "./src/category.ts",
+    "./product": "./src/product.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

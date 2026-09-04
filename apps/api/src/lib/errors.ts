@@ -5,6 +5,8 @@ export type ErrorCode =
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'RATE_LIMITED'
+  | 'PAYLOAD_TOO_LARGE'
+  | 'INVALID_REFERENCE'
   | 'INTERNAL';
 
 export class HttpError extends Error {
