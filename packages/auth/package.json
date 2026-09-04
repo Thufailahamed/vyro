@@ -12,6 +12,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@vyro/db": "workspace:*",
+    "@vyro/shared": "workspace:*",
     "better-auth": "^1.0.0",
     "@better-auth/drizzle-adapter": "^1.0.0",
     "drizzle-orm": "^0.45.2"
