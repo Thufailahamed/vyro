@@ -17,6 +17,7 @@ import deliveryRouter from './modules/deliveries/routes';
 import paymentRouter from './modules/payments/routes';
 import notificationRouter from './modules/notifications/routes';
 import adminRouter from './modules/admin/routes';
+import userSettingsRouter from './modules/settings/routes';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -44,5 +45,6 @@ app.route('/api/deliveries', deliveryRouter);
 app.route('/api/payments', paymentRouter);
 app.route('/api/notifications', notificationRouter);
 app.route('/api/admin', adminRouter);
+app.route('/api/settings', userSettingsRouter);
 
 export default app;

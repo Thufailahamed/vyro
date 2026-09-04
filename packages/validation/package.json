@@ -15,7 +15,12 @@
     "./supplierProduct": "./src/supplierProduct.ts",
     "./cart": "./src/cart.ts",
     "./delivery": "./src/delivery.ts",
-    "./payment": "./src/payment.ts"
+    "./payment": "./src/payment.ts",
+    "./settings": "./src/settings.ts",
+    "./analytics": "./src/analytics.ts",
+    "./adminUsers": "./src/adminUsers.ts",
+    "./businessTypes": "./src/businessTypes.ts",
+    "./supplierTypes": "./src/supplierTypes.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
