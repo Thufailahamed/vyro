@@ -26,6 +26,7 @@ import supplierTypesRouter from './modules/supplierTypes/routes';
 import supplierAnalyticsRouter from './modules/analytics/supplier/routes';
 import adminAnalyticsRouter from './modules/analytics/admin/routes';
 import adminUsersRouter from './modules/admin/users';
+import adminSupplierDetailRouter from './modules/admin/supplierDetail';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -62,5 +63,6 @@ app.route('/api/suppliers/types', supplierTypesRouter);
 app.route('/api/analytics/supplier', supplierAnalyticsRouter);
 app.route('/api/analytics/admin', adminAnalyticsRouter);
 app.route('/api/admin/users', adminUsersRouter);
+app.route('/api/admin', adminSupplierDetailRouter);
 
 export default app;
