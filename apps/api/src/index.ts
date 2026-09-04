@@ -6,6 +6,7 @@ import { errorEnvelope, HttpError } from './lib/errors';
 import authRouter from './modules/auth/routes';
 import businessRouter from './modules/businesses/routes';
 import supplierRouter from './modules/suppliers/routes';
+import categoryRouter from './modules/categories/routes';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -16,12 +17,12 @@ app.onError((err, c) => {
   return c.json(env.body, env.status as 400 | 401 | 403 | 404 | 409 | 429 | 500);
 });
 
-// Silence unused-import lint while keeping HttpError available for future use.
 void HttpError;
 
 app.get('/api/health', (c) => c.json({ ok: true }));
 app.route('/api/auth', authRouter);
 app.route('/api/businesses', businessRouter);
 app.route('/api/suppliers', supplierRouter);
+app.route('/api/categories', categoryRouter);
 
 export default app;

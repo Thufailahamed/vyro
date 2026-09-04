@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./auth": "./src/auth.ts",
     "./business": "./src/business.ts",
-    "./supplier": "./src/supplier.ts"
+    "./supplier": "./src/supplier.ts",
+    "./category": "./src/category.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
