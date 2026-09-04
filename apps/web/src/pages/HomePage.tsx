@@ -350,7 +350,7 @@ export function HomePage() {
             },
           ].map((item, i) => (
             <div key={item.tag} className={`p-8 ${i === 0 ? 'bg-ink text-paper' : 'bg-paper'}`}>
-              <span className={`text-[10px] font-bold uppercase tracking-[0.16em] ${i === 0 ? 'text-volt' : 'text-copper'}`}>
+              <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${i === 0 ? 'text-volt' : 'text-copper'}`}>
                 {item.tag}
               </span>
               <h3 className="mt-4 font-display text-2xl">{item.title}</h3>
