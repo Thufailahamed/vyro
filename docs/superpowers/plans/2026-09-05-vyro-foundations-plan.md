@@ -2213,7 +2213,6 @@ export async function computeSupplierAnalytics(
 import { Hono } from 'hono';
 import type { Env } from '../../../env';
 import { session } from '../../../middleware/session';
-import { requireRole } from '../../../middleware/rbac';
 import type { Ctx } from '../../../middleware/session';
 import { httpError } from '../../../lib/errors';
 import { supplierAnalyticsQuery } from '@vyro/validation/analytics';
@@ -2228,12 +2227,17 @@ router.get('/', async (c) => {
   const parsed = supplierAnalyticsQuery.safeParse(c.req.query());
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
   const range = (parsed.data.range ?? '30d') as AnalyticsRange;
-  const supplierId = parsed.data.supplierId ?? ctx.businesses?.[0]?.id ?? ctx.suppliers?.[0]?.id;
-  if (!supplierId) throw httpError(400, 'VALIDATION_ERROR', 'supplierId required');
-  await ensureSupplierMember(c.env.DB, supplierId, ctx.userId, ctx.isAdmin);
-  // requireRole only checked when supplierId given; default to caller's first supplier OK above.
-  if (parsed.data.supplierId) {
-    await requireRole({ supplier: ['owner', 'manager', 'sales'] })(c as any, async () => {});
+  // Resolve supplierId from query, or fall back to caller's first supplier membership.
+  let supplierId = parsed.data.supplierId;
+  if (!supplierId) {
+    const first = ctx.suppliers?.[0]?.id;
+    if (!first) throw httpError(400, 'VALIDATION_ERROR', 'supplierId required');
+    supplierId = first;
+  }
+  try {
+    await ensureSupplierMember(c.env.DB, supplierId, ctx.userId, ctx.isAdmin);
+  } catch {
+    throw httpError(403, 'FORBIDDEN', 'Supplier membership required');
   }
   const key = `supplier:${supplierId}:${range}:${dayBucket()}`;
   const data = await cached(key, 60_000, () =>
