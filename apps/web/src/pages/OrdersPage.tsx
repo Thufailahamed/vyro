@@ -90,40 +90,39 @@ export function OrdersPage() {
       : allOrders.filter((o) => o.status.toLowerCase() === filter.toLowerCase());
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-          My Purchase Orders
+    <div className="space-y-8 max-w-6xl mx-auto">
+      <header>
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-cyan/15 text-cyan-deep">Orders</span>
+        <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight text-slate-950 text-balance">
+          My purchase orders
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+        <p className="mt-1 text-sm text-slate-500">
           Monitor incoming fulfillment milestones, delivery receipts, and supplier status updates.
         </p>
-      </div>
+      </header>
 
-      {/* Filter Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+      {/* Filter chips */}
+      <div className="flex flex-wrap items-center gap-2">
         {STATUS_FILTERS.map((tab) => {
           const count =
             tab.id === 'all'
               ? allOrders.length
               : allOrders.filter((o) => o.status.toLowerCase() === tab.id).length;
-
+          const active = filter === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                filter === tab.id
-                  ? 'bg-brand-600 text-white shadow-soft-sm'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              className={`inline-flex items-center gap-2 h-8 px-3 rounded-full border text-xs font-medium transition-colors ${
+                active
+                  ? 'bg-slate-950 text-white border-slate-950'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-950'
               }`}
             >
               <span>{tab.label}</span>
               <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                  filter === tab.id
-                    ? 'bg-white/20 text-white'
-                    : 'bg-slate-100 text-slate-500'
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold num-tabular ${
+                  active ? 'bg-cyan text-slate-950' : 'bg-slate-100 text-slate-500'
                 }`}
               >
                 {count}
@@ -161,7 +160,7 @@ export function OrdersPage() {
             >
               <div className="space-y-1.5">
                 <div className="flex items-center gap-3">
-                  <span className="font-mono font-bold text-sm text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 group-hover:border-brand-300 transition-colors">
+                  <span className="font-mono font-semibold text-sm text-slate-950 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 group-hover:border-cyan/50 transition-colors">
                     {o.poNumber}
                   </span>
                   <StatusBadge status={o.status} />
