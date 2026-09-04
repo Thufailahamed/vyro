@@ -79,3 +79,12 @@ export async function findSupplierById(d1: D1Database, id: string) {
       .get() ?? null
   );
 }
+
+export async function setSupplierStatus(
+  d1: D1Database,
+  id: string,
+  status: 'active' | 'suspended',
+): Promise<void> {
+  const db = getDb(d1);
+  await db.update(suppliers).set({ status, updatedAt: Date.now() }).where(eq(suppliers.id, id)).run();
+}

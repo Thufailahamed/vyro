@@ -8,6 +8,7 @@ import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
 import { suppliers, businesses, auditLogs, purchaseOrders } from '@vyro/db/schema';
 import { eq, sql } from 'drizzle-orm';
+import { findSupplierById, setSupplierStatus } from '../suppliers/repository';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -43,13 +44,12 @@ router.post('/suppliers/:id/freeze', async (c) => {
   const parsed = freezeSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
 
-  const db = getDb(c.env.DB);
-  const sup = await db.select().from(suppliers).where(eq(suppliers.id, idParsed.data.id)).get();
+  const sup = await findSupplierById(c.env.DB, idParsed.data.id);
   if (!sup) throw httpError(404, 'NOT_FOUND', 'Supplier not found');
 
-  // Soft "freeze" = mark with reason in audit; future schema field can be added.
-  await db.update(suppliers).set({ updatedAt: Date.now() }).where(eq(suppliers.id, sup.id));
+  await setSupplierStatus(c.env.DB, sup.id, 'suspended');
 
+  const db = getDb(c.env.DB);
   await db.insert(auditLogs).values({
     id: crypto.randomUUID(),
     actorUserId: ctx.userId,
@@ -62,7 +62,34 @@ router.post('/suppliers/:id/freeze', async (c) => {
     createdAt: Date.now(),
   });
 
-  return c.json({ ok: true });
+  return c.json({ ok: true, status: 'suspended' });
+});
+
+router.post('/suppliers/:id/unfreeze', async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const idParsed = idParam.safeParse(c.req.param());
+  if (!idParsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid id');
+
+  const sup = await findSupplierById(c.env.DB, idParsed.data.id);
+  if (!sup) throw httpError(404, 'NOT_FOUND', 'Supplier not found');
+
+  await setSupplierStatus(c.env.DB, sup.id, 'active');
+
+  const db = getDb(c.env.DB);
+  await db.insert(auditLogs).values({
+    id: crypto.randomUUID(),
+    actorUserId: ctx.userId,
+    action: 'supplier.unfreeze',
+    resourceType: 'supplier',
+    resourceId: sup.id,
+    metadata: null,
+    ip: c.req.header('cf-connecting-ip') ?? null,
+    userAgent: c.req.header('user-agent') ?? null,
+    createdAt: Date.now(),
+  });
+
+  return c.json({ ok: true, status: 'active' });
 });
 
 router.get('/disputed', async (c) => {
