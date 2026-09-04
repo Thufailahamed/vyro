@@ -12,7 +12,8 @@
     "./supplier": "./src/supplier.ts",
     "./category": "./src/category.ts",
     "./product": "./src/product.ts",
-    "./supplierProduct": "./src/supplierProduct.ts"
+    "./supplierProduct": "./src/supplierProduct.ts",
+    "./cart": "./src/cart.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
