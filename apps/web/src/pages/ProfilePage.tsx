@@ -2,6 +2,9 @@ import { Link } from 'react-router-dom';
 import { Button, Badge, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { Surface } from '@/components/brand/Surface';
+import { ProfileForm } from './profile/ProfileForm';
+import { NotificationsForm } from './profile/NotificationsForm';
+import { SecurityForm } from './profile/SecurityForm';
 
 export function ProfilePage() {
   const { user, signOut } = useAuth();
@@ -81,6 +84,10 @@ export function ProfilePage() {
           </ul>
         )}
       </Surface>
+
+      <ProfileForm />
+      <NotificationsForm />
+      <SecurityForm />
     </div>
   );
 }
