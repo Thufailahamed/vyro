@@ -37,17 +37,17 @@ export async function getOrCreateUserSettings(
   return defaults;
 }
 
-export type UserSettingsPatch = Partial<{
-  displayName: string | null;
-  avatarUrl: string | null;
-  phone: string | null;
-  preferredCurrency: 'LKR';
-  notifyOrderUpdates: boolean;
-  notifyMessages: boolean;
-  notifyMarketing: boolean;
-  twoFactorEnabled: boolean;
-  sessionTimeoutMin: number;
-}>;
+export type UserSettingsPatch = {
+  displayName?: string | null | undefined;
+  avatarUrl?: string | null | undefined;
+  phone?: string | null | undefined;
+  preferredCurrency?: 'LKR' | undefined;
+  notifyOrderUpdates?: boolean | undefined;
+  notifyMessages?: boolean | undefined;
+  notifyMarketing?: boolean | undefined;
+  twoFactorEnabled?: boolean | undefined;
+  sessionTimeoutMin?: number | undefined;
+};
 
 export async function patchUserSettings(
   d1: D1Database,
