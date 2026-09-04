@@ -25,6 +25,8 @@ interface CartItem {
   offer: { minOrderQty: number };
 }
 
+const STEPS = ['Review Cart', 'Checkout & Notes', 'PO Confirmation'];
+
 export function CartPage() {
   const { user } = useAuth();
   const businessId = user?.memberships?.[0]?.businessId;
@@ -45,21 +47,17 @@ export function CartPage() {
   if (!user || !businessId) {
     return (
       <div className="max-w-xl mx-auto py-12">
-        <Card className="p-8 text-center space-y-4">
-          <div className="h-12 w-12 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center mx-auto">
+        <Card className="p-10 text-center space-y-4">
+          <div className="h-12 w-12 rounded-2xl bg-sky-50 text-sky-700 flex items-center justify-center mx-auto">
             <Building2Icon size={24} />
           </div>
-          <h2 className="text-xl font-bold text-slate-800">Business Profile Required</h2>
-          <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto">
-            Please sign in and set up your business profile to view and manage wholesale orders.
+          <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Business profile required</h2>
+          <p className="text-sm text-slate-500 max-w-sm mx-auto">
+            Sign in and set up your business profile to view your wholesale cart.
           </p>
           <div className="pt-2 flex justify-center gap-3">
-            <Link to="/onboarding/business">
-              <Button>Set Up Business</Button>
-            </Link>
-            <Link to="/login">
-              <Button variant="outline">Sign In</Button>
-            </Link>
+            <Link to="/onboarding/business"><Button>Set up business</Button></Link>
+            <Link to="/login"><Button variant="outline">Sign in</Button></Link>
           </div>
         </Card>
       </div>
@@ -90,160 +88,161 @@ export function CartPage() {
   const supplierCount = data?.supplierCount ?? 0;
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
-      {/* Checkout Flow Step Indicator */}
-      <div className="flex items-center justify-center gap-3 text-xs font-semibold pb-2">
-        <div className="flex items-center gap-2 text-brand-700 bg-brand-50 px-3 py-1.5 rounded-full border border-brand-200 shadow-soft-sm">
-          <span className="h-5 w-5 rounded-full bg-brand-600 text-white flex items-center justify-center text-[10px] font-bold">1</span>
-          <span>Review Cart</span>
-        </div>
-        <div className="h-px w-8 bg-slate-300" />
-        <div className="flex items-center gap-2 text-slate-600 px-3 py-1.5">
-          <span className="h-5 w-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">2</span>
-          <span>Checkout & Notes</span>
-        </div>
-        <div className="h-px w-8 bg-slate-300" />
-        <div className="flex items-center gap-2 text-slate-600 px-3 py-1.5">
-          <span className="h-5 w-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">3</span>
-          <span>PO Confirmation</span>
-        </div>
-      </div>
+    <div className="space-y-8 max-w-6xl mx-auto">
+      {/* Stepper */}
+      <ol className="flex items-center justify-center gap-2 text-xs font-medium">
+        {STEPS.map((s, i) => (
+          <li key={s} className="flex items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-2 px-3 h-7 rounded-full border transition-colors ${
+                i === 0
+                  ? 'bg-slate-950 text-white border-slate-950'
+                  : 'bg-white text-slate-500 border-slate-200'
+              }`}
+            >
+              <span
+                className={`size-5 rounded-full inline-flex items-center justify-center text-[10px] font-bold ${
+                  i === 0 ? 'bg-cyan text-slate-950' : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                {i + 1}
+              </span>
+              {s}
+            </span>
+            {i < STEPS.length - 1 && <span className="h-px w-10 bg-slate-200" aria-hidden />}
+          </li>
+        ))}
+      </ol>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-            Wholesale Cart
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Review items, quantities, and supplier breakdown before issuing Purchase Orders.
-          </p>
-        </div>
-      </div>
+      {/* Header */}
+      <header>
+        <Badge variant="brand">Cart</Badge>
+        <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight text-slate-950 text-balance">
+          Your wholesale cart
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Review items and quantities. On checkout we'll split this into {supplierCount > 0 ? supplierCount : 'one'} dedicated Purchase Order{supplierCount > 1 ? 's' : ''}.
+        </p>
+      </header>
 
       {items.length === 0 ? (
         <EmptyState
           icon={<ShoppingCartIcon size={28} />}
-          title="Your wholesale cart is empty"
-          description="Browse our catalog of verified manufacturers and distributors to add products to your cart."
+          title="Your cart is empty"
+          description="Browse our catalog of verified manufacturers and distributors to add products."
           action={
             <Link to="/search">
               <Button>
-                <PackageIcon size={16} /> Browse Wholesale Catalog
+                <PackageIcon size={16} /> Browse wholesale catalog
               </Button>
             </Link>
           }
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          {/* Items List */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Multi-supplier Notice */}
-            <div className="rounded-2xl bg-brand-50/70 border border-brand-200 p-4 text-xs text-brand-900 flex items-start gap-3 shadow-soft-sm">
-              <StoreIcon size={18} className="text-brand-700 shrink-0 mt-0.5" />
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8 items-start">
+          <div className="space-y-4">
+            {/* Multi-supplier notice */}
+            <div className="rounded-lg border-l-4 border-cyan bg-cyan/5 border border-cyan/30 p-4 text-sm text-slate-800 flex items-start gap-3">
+              <span className="size-8 rounded-md bg-cyan text-slate-950 inline-flex items-center justify-center shrink-0">
+                <StoreIcon size={16} />
+              </span>
               <div>
-                <strong className="font-bold">Multi-Supplier Partitioning:</strong> Items in your cart originate from{' '}
-                <span className="font-bold underline">{supplierCount} different supplier{supplierCount > 1 ? 's' : ''}</span>.
-                On checkout, VYRO will split your order into {supplierCount} dedicated Purchase Order{supplierCount > 1 ? 's' : ''} with direct tracking.
+                <strong className="font-semibold">Multi-supplier notice.</strong>{' '}
+                Items in your cart originate from{' '}
+                <strong className="font-semibold underline decoration-cyan-deep decoration-2 underline-offset-2">
+                  {supplierCount} different supplier{supplierCount > 1 ? 's' : ''}
+                </strong>
+                . On checkout, VYRO will split into {supplierCount} direct Purchase Order{supplierCount > 1 ? 's' : ''}.
               </div>
             </div>
 
-            <div className="space-y-3">
+            <ul className="space-y-3">
               {items.map((it) => (
-                <Card
-                  key={it.id}
-                  hoverEffect
-                  className="p-5 border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                >
-                  <div className="space-y-1.5 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
-                        <StoreIcon size={12} className="text-slate-400" />
+                <li key={it.id}>
+                  <Card hoverEffect className="p-5 border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                        <StoreIcon size={12} className="text-slate-500" />
                         {it.supplier.name}
                       </span>
-                    </div>
-
-                    <h3 className="font-bold text-base text-slate-900 leading-snug">
-                      {it.product.name}
-                    </h3>
-
-                    <div className="text-xs text-slate-500 flex items-center gap-2">
-                      <span>Unit Price: <strong className="text-slate-700">{formatLKR(it.priceCents)}</strong></span>
-                      <span>•</span>
-                      <span>Order Qty: <strong className="text-slate-700">{it.quantity}</strong></span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-3 sm:pt-0">
-                    <div className="text-left sm:text-right">
-                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                        Line Total
-                      </div>
-                      <div className="text-lg font-black text-slate-900">
-                        {formatLKR(it.lineTotalCents)}
+                      <h3 className="font-semibold text-base text-slate-950 leading-snug truncate">
+                        {it.product.name}
+                      </h3>
+                      <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
+                        <span>Unit price <strong className="text-slate-800 font-mono">{formatLKR(it.priceCents)}</strong></span>
+                        <span className="text-slate-300">•</span>
+                        <span>Qty <strong className="text-slate-800 num-tabular">{it.quantity}</strong></span>
                       </div>
                     </div>
 
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => remove(it.id)}
-                      loading={deletingId === it.id}
-                      className="text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                      title="Remove item"
-                    >
-                      <Trash2Icon size={16} />
-                    </Button>
-                  </div>
-                </Card>
+                    <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-3 sm:pt-0">
+                      <div className="text-left sm:text-right">
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Line total</div>
+                        <div className="text-lg font-bold font-mono text-slate-950 num-tabular">
+                          {formatLKR(it.lineTotalCents)}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => remove(it.id)}
+                        loading={deletingId === it.id}
+                        className="text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                        aria-label="Remove item"
+                      >
+                        <Trash2Icon size={16} />
+                      </Button>
+                    </div>
+                  </Card>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
 
-          {/* Order Summary Sidebar */}
-          <div className="space-y-4">
-            <Card className="p-6 border-slate-200/90 space-y-5 sticky top-24 shadow-soft-sm">
-              <h2 className="text-lg font-bold text-slate-900 pb-3 border-b border-slate-100">
-                Order Summary
-              </h2>
-
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between text-slate-600">
-                  <span>Distinct Items</span>
-                  <span className="font-semibold text-slate-800">{items.length}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Suppliers Involved</span>
-                  <span className="font-semibold text-slate-800">{supplierCount}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Purchase Orders Issued</span>
-                  <span className="font-semibold text-brand-700">{supplierCount} POs</span>
-                </div>
-                <div className="pt-3 border-t border-slate-200 flex justify-between items-baseline">
-                  <span className="font-bold text-slate-900 text-base">Subtotal</span>
-                  <div className="text-right">
-                    <div className="text-2xl font-black text-brand-700">
-                      {formatLKR(subtotal)}
-                    </div>
-                    <div className="text-[11px] text-slate-600">LKR wholesale net</div>
-                  </div>
-                </div>
+          {/* Summary */}
+          <Card className="p-6 border-slate-200 space-y-5 lg:sticky lg:top-24 shadow-soft-sm">
+            <h2 className="text-lg font-semibold text-slate-950 pb-3 border-b border-slate-200">Order summary</h2>
+            <dl className="space-y-3 text-sm">
+              <div className="flex justify-between text-slate-600">
+                <dt>Items</dt>
+                <dd className="font-semibold text-slate-800 num-tabular">{items.length}</dd>
               </div>
-
-              <Link to="/checkout" className="block pt-2">
-                <Button size="lg" className="w-full font-bold shadow-soft-sm justify-center">
-                  Proceed to Checkout <ArrowRightIcon size={18} />
-                </Button>
-              </Link>
-
-              <div className="pt-2 text-center text-xs text-slate-600 flex items-center justify-center gap-1.5">
-                <ShieldCheckIcon size={14} className="text-emerald-600" />
-                <span>Protected by VYRO Purchase Order Escrow</span>
+              <div className="flex justify-between text-slate-600">
+                <dt>Suppliers involved</dt>
+                <dd className="font-semibold text-slate-800 num-tabular">{supplierCount}</dd>
               </div>
-            </Card>
-          </div>
+              <div className="flex justify-between text-slate-600">
+                <dt>Purchase orders issued</dt>
+                <dd className="font-semibold text-cyan-deep num-tabular">{supplierCount} PO{supplierCount > 1 ? 's' : ''}</dd>
+              </div>
+              <div className="pt-3 border-t border-slate-200 flex justify-between items-baseline">
+                <dt className="font-semibold text-slate-950 text-base">Subtotal</dt>
+                <dd className="text-right">
+                  <div className="text-2xl font-bold font-mono text-slate-950 num-tabular">{formatLKR(subtotal)}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mt-0.5">LKR wholesale net</div>
+                </dd>
+              </div>
+            </dl>
+            <Link to="/checkout" className="block">
+              <Button size="lg" className="w-full font-semibold">
+                Proceed to checkout <ArrowRightIcon size={18} />
+              </Button>
+            </Link>
+            <p className="pt-1 text-center text-xs text-slate-500 flex items-center justify-center gap-1.5">
+              <ShieldCheckIcon size={14} className="text-emerald-600" /> Protected by VYRO Purchase Order Escrow
+            </p>
+          </Card>
         </div>
       )}
     </div>
+  );
+}
+
+function Badge({ variant, children }: { variant: 'brand'; children: React.ReactNode }) {
+  const cls = variant === 'brand' ? 'bg-cyan/15 text-cyan-deep' : '';
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${cls}`}>
+      {children}
+    </span>
   );
 }

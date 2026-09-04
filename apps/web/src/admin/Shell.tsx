@@ -42,42 +42,49 @@ function Redirect({ path }: { path: string }) {
 }
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `px-3 py-1.5 rounded text-sm ${isActive ? 'bg-brand-50 text-brand-700' : 'hover:bg-slate-100'}`;
+  `inline-flex items-center h-8 px-3 rounded-full text-xs font-medium transition-colors ${isActive ? 'bg-slate-950 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`;
 
 export function AdminShell() {
   const { user, setUser } = useAdminAuth();
   const navigate = useNavigate();
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b bg-white">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/admin" className="font-bold text-brand-700 flex items-center gap-2">
-            <StoreIcon size={18} /> VYRO Admin
+    <div className="min-h-screen bg-pearl text-ink-1">
+      <header className="sticky top-0 z-40 bg-midnight-2 text-paper border-b border-midnight-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+          <Link to="/admin" className="flex items-center gap-2.5 font-semibold text-paper">
+            <span className="inline-flex items-center justify-center">
+              <svg viewBox="0 0 32 32" className="h-8 w-8 rounded-md" aria-hidden>
+                <rect width="32" height="32" rx="7" fill="#5EE2FF" />
+                <path d="M9 8h4l5 12 5-12h4l-7 16h-4L9 8z" fill="#0A0B10" />
+              </svg>
+            </span>
+            <span className="font-semibold tracking-tight">VYRO Admin</span>
           </Link>
-          {user && (
-            <nav className="flex items-center gap-1">
+          {user ? (
+            <nav className="flex items-center gap-1 flex-wrap">
               <NavLink to="/admin/suppliers" className={linkClass}>Suppliers</NavLink>
               <NavLink to="/admin/businesses" className={linkClass}>Businesses</NavLink>
               <NavLink to="/admin/disputed" className={linkClass}>Disputed</NavLink>
               <NavLink to="/admin/audit" className={linkClass}>Audit</NavLink>
+              <div className="h-6 w-px bg-white/15 mx-1" aria-hidden />
+              <Link to="/" className="text-xs text-ink-4 hover:text-cyan transition-colors">← Web</Link>
               <button
                 onClick={async () => {
                   await api.post('/auth/sign-out');
                   setUser(null);
                   navigate('/admin/login');
                 }}
-                className="ml-2 text-sm text-muted inline-flex items-center gap-1"
+                className="ml-1 inline-flex items-center gap-1 h-8 px-3 rounded-full text-xs font-medium text-slate-300 hover:bg-white/5 hover:text-white transition-colors"
               >
                 <LogOutIcon size={14} /> Sign out
               </button>
             </nav>
-          )}
-          {user && (
-            <Link to="/" className="ml-3 text-xs text-muted hover:text-fg">← Back to web</Link>
+          ) : (
+            <span className="text-xs text-ink-4">Sign in to administer</span>
           )}
         </div>
       </header>
-      <main className="max-w-6xl mx-auto px-4 py-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <Outlet />
       </main>
     </div>

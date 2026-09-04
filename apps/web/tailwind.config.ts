@@ -1,10 +1,14 @@
 import type { Config } from 'tailwindcss';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default {
   content: [
-    './index.html',
-    './src/**/*.{ts,tsx}',
-    '../../packages/ui/src/**/*.{ts,tsx}',
+    path.join(__dirname, 'index.html'),
+    path.join(__dirname, 'src/**/*.{ts,tsx}'),
+    path.join(__dirname, '../../packages/ui/src/**/*.{ts,tsx}'),
   ],
   theme: {
     extend: {

@@ -13,6 +13,7 @@ import { OrdersPage } from './pages/OrdersPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { SupplierOrdersPage } from './pages/SupplierOrdersPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { DashboardPage } from './pages/DashboardPage';
 
 import { AdminAuthProvider, AdminShell, RequireAdmin } from './admin/Shell';
 import { AdminHomePage } from './admin/HomePage';
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/orders/:id" element={<OrderDetailPage />} />
         <Route path="/supplier/orders" element={<SupplierOrdersPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
 

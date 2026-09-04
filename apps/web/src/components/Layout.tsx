@@ -12,6 +12,7 @@ import {
   ShieldCheckIcon,
   TruckIcon,
   FileTextIcon,
+  TrendingUpIcon,
 } from './icons';
 import { Button } from './ui';
 
@@ -46,20 +47,18 @@ export function Layout() {
           {/* Brand Logo */}
           <div className="flex items-center gap-6">
             <Link to="/" className="flex items-center gap-2.5 group">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-brand-700 via-brand-600 to-sky-400 flex items-center justify-center text-white shadow-soft-sm group-hover:scale-105 transition-transform">
-                <span className="font-black tracking-tighter text-lg">V</span>
-              </div>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold text-xl tracking-tight text-slate-900 group-hover:text-brand-700 transition-colors">
-                    VYRO
-                  </span>
-                  <span className="px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase rounded bg-slate-100 text-slate-600 border border-slate-200">
-                    LK
-                  </span>
-                </div>
-                <span className="text-[10px] text-slate-600 -mt-1 font-medium hidden sm:inline">
-                  B2B Procurement Platform
+              <span className="relative inline-flex items-center justify-center">
+                <svg viewBox="0 0 32 32" className="h-9 w-9 rounded-lg shadow-soft-sm group-hover:scale-105 transition-transform" aria-hidden>
+                  <rect width="32" height="32" rx="7" fill="#0A0B10" />
+                  <path d="M9 8h4l5 12 5-12h4l-7 16h-4L9 8z" fill="#5EE2FF" />
+                </svg>
+              </span>
+              <div className="flex flex-col leading-tight">
+                <span className="font-extrabold text-xl tracking-tight text-slate-900 group-hover:text-sky-600 transition-colors">
+                  VYRO
+                </span>
+                <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
+                  Sri Lanka B2B Procurement
                 </span>
               </div>
             </Link>
@@ -68,8 +67,15 @@ export function Layout() {
             <nav className="hidden md:flex items-center gap-1">
               <NavLink to="/search" className={navLinkClass}>
                 <SearchIcon size={16} />
-                <span>Search Products</span>
+                <span>Discover</span>
               </NavLink>
+
+              {user && (
+                <NavLink to="/dashboard" className={navLinkClass}>
+                  <TrendingUpIcon size={16} />
+                  <span>Dashboard</span>
+                </NavLink>
+              )}
 
               {user && (
                 <NavLink to="/orders" className={navLinkClass}>

@@ -72,24 +72,29 @@ export function BusinessOnboardingPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto py-6 space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-          Set Up Your Business Profile
+    <div className="max-w-2xl mx-auto py-6 space-y-7">
+      <div className="pb-4 border-b border-slate-200">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-violet/15 text-violet mb-2.5">
+          <Building2Icon size={12} /> Step 1 of 1 · Business registration
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-950 text-balance">
+          Set up your business profile
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+        <p className="mt-1 text-sm text-slate-500">
           Register your business entity to issue formal Purchase Orders and unlock wholesale pricing.
         </p>
       </div>
 
       <ErrorBanner message={err} />
 
-      <form onSubmit={submit} className="space-y-6">
+      <form onSubmit={submit} className="space-y-5">
         {/* Section 1: Entity Info */}
         <Card className="p-6 border-slate-200/90 space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-            <Building2Icon size={18} className="text-brand-600" />
-            <h2 className="text-base font-bold text-slate-900">1. Business Information</h2>
+          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+            <span className="size-7 rounded-md bg-violet/15 text-violet inline-flex items-center justify-center">
+              <Building2Icon size={13} />
+            </span>
+            <h2 className="text-base font-semibold text-slate-950">Business information</h2>
           </div>
 
           <div className="space-y-4">
@@ -125,9 +130,11 @@ export function BusinessOnboardingPage() {
 
         {/* Section 2: Contact Details */}
         <Card className="p-6 border-slate-200/90 space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-            <UserIcon size={18} className="text-brand-600" />
-            <h2 className="text-base font-bold text-slate-900">2. Primary Procurement Contact</h2>
+          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+            <span className="size-7 rounded-md bg-cyan/15 text-cyan-deep inline-flex items-center justify-center">
+              <UserIcon size={13} />
+            </span>
+            <h2 className="text-base font-semibold text-slate-950">Primary procurement contact</h2>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -157,9 +164,11 @@ export function BusinessOnboardingPage() {
 
         {/* Section 3: Operating Location */}
         <Card className="p-6 border-slate-200/90 space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-            <MapPinIcon size={18} className="text-brand-600" />
-            <h2 className="text-base font-bold text-slate-900">3. Operating Address & Dispatch Delivery</h2>
+          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+            <span className="size-7 rounded-md bg-mint/15 text-mint inline-flex items-center justify-center">
+              <MapPinIcon size={13} />
+            </span>
+            <h2 className="text-base font-semibold text-slate-950">Operating address & dispatch</h2>
           </div>
 
           <div className="space-y-4">

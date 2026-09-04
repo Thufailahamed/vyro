@@ -1,34 +1,64 @@
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
-import { Button, Card } from '@/components/ui';
+import { Button } from '@/components/ui';
 import {
   SearchIcon,
   ArrowRightIcon,
   StoreIcon,
-  Building2Icon,
   ShieldCheckIcon,
   TruckIcon,
   PackageIcon,
   FileTextIcon,
   TrendingUpIcon,
   SparklesIcon,
+  ShoppingCartIcon,
+  Building2Icon,
+  CheckCircleIcon,
+  FilterIcon,
 } from '@/components/icons';
 
-const POPULAR_CATEGORIES = [
-  { name: 'Rice & Grains', query: 'rice', icon: '🌾', count: '45+ suppliers' },
-  { name: 'Sugar & Commodities', query: 'sugar', icon: '🍬', count: '30+ suppliers' },
-  { name: 'Cement & Building Materials', query: 'cement', icon: '🏗️', count: '60+ suppliers' },
-  { name: 'Packaging & Boxes', query: 'packaging', icon: '📦', count: '40+ suppliers' },
-  { name: 'Spices & Agri Produce', query: 'spices', icon: '🌿', count: '55+ suppliers' },
-  { name: 'Beverages & Wholesale', query: 'tea', icon: '☕', count: '35+ suppliers' },
+const CATEGORIES: Array<{
+  name: string;
+  query: string;
+  Icon: ComponentType<{ size?: number; className?: string }>;
+  count: string;
+  tint: string;
+}> = [
+  { name: 'Rice & Grains', query: 'rice', Icon: PackageIcon, count: '45+ suppliers', tint: 'bg-cyan/15 text-cyan-deep' },
+  { name: 'Sugar & Commodities', query: 'sugar', Icon: ShoppingCartIcon, count: '30+ suppliers', tint: 'bg-amber/15 text-amber' },
+  { name: 'Cement & Building', query: 'cement', Icon: Building2Icon, count: '60+ suppliers', tint: 'bg-violet/15 text-violet' },
+  { name: 'Packaging & Boxes', query: 'packaging', Icon: PackageIcon, count: '40+ suppliers', tint: 'bg-mint/15 text-mint' },
+  { name: 'Spices & Agri', query: 'spices', Icon: FilterIcon, count: '55+ suppliers', tint: 'bg-mint/15 text-mint' },
+  { name: 'Beverages & Tea', query: 'tea', Icon: SparklesIcon, count: '35+ suppliers', tint: 'bg-amber/15 text-amber' },
 ];
 
 const METRICS = [
-  { label: 'Total Volume Procured', value: '₨ 180M+', change: '+24% this month' },
-  { label: 'Active Wholesale Suppliers', value: '620+', change: 'Verified in SL' },
-  { label: 'Districts Covered', value: '25 / 25', change: 'Island-wide delivery' },
-  { label: 'Avg PO Acceptance', value: '< 3.5 hrs', change: 'Real-time response' },
+  { label: 'Volume procured', value: '₨ 180M+', change: '+24% MoM', Icon: TrendingUpIcon },
+  { label: 'Verified suppliers', value: '620+', change: 'KYC complete', Icon: StoreIcon },
+  { label: 'Districts covered', value: '25 / 25', change: 'Island-wide', Icon: TruckIcon },
+  { label: 'Avg acceptance', value: '< 3.5 hrs', change: 'Real-time', Icon: CheckCircleIcon },
+];
+
+const STEPS = [
+  {
+    n: '01',
+    title: 'Search & compare',
+    body: 'Source raw materials and FMCG. Compare unit pricing, MOQs, and lead times across verified suppliers in a single view.',
+    Icon: SearchIcon,
+  },
+  {
+    n: '02',
+    title: 'Automated PO split',
+    body: 'Cart items from multiple suppliers. On checkout, VYRO partitions the cart into individual, legally binding purchase orders.',
+    Icon: FileTextIcon,
+  },
+  {
+    n: '03',
+    title: 'Track to delivery',
+    body: 'Suppliers accept, fulfill, and update status. Every transition is sealed with a cryptographic audit trail.',
+    Icon: ShieldCheckIcon,
+  },
 ];
 
 export function HomePage() {
@@ -46,187 +76,215 @@ export function HomePage() {
   }
 
   return (
-    <div className="space-y-16 py-4">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-brand-900 via-slate-900 to-slate-950 text-white p-8 sm:p-12 lg:p-16 shadow-soft-lg">
-        {/* Ambient Glows */}
-        <div className="pointer-events-none absolute -top-24 -left-24 h-96 w-96 rounded-full bg-brand-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -right-24 h-96 w-96 rounded-full bg-sky-400/15 blur-3xl" />
+    <div className="space-y-20 py-4">
+      {/* HERO — Midnight + cyan */}
+      <section className="relative overflow-hidden rounded-3xl bg-midnight text-paper shadow-glow-cyan">
+        <div className="grid-bg absolute inset-0 opacity-[0.05] pointer-events-none" aria-hidden />
+        <div className="pointer-events-none absolute -top-40 left-1/4 h-[480px] w-[480px] rounded-full bg-cyan/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -right-16 h-80 w-80 rounded-full bg-violet/15 blur-3xl" />
 
-        <div className="relative z-10 max-w-3xl mx-auto text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-semibold text-brand-200">
-            <SparklesIcon size={14} className="text-sky-300" />
-            <span>Sri Lanka's Next-Generation B2B Wholesale Network</span>
+        <div className="relative z-10 px-6 sm:px-12 lg:px-20 py-14 sm:py-20 lg:py-24 max-w-5xl">
+          <div className="flex items-center gap-2 mb-7">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-cyan/15 text-cyan border border-cyan/30">
+              <span className="size-1.5 rounded-full bg-cyan animate-pulse" />
+              Sri Lanka · B2B Wholesale
+            </span>
+            <span className="text-[10px] font-mono text-ink-4 uppercase tracking-wider num-tabular hidden sm:inline">
+              v3 · Verified since 2024
+            </span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.15]">
-            Wholesale Procurement, <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-brand-300 to-blue-200">
-              Sorted for Sri Lanka.
-            </span>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.05] text-paper text-balance max-w-3xl">
+            Wholesale procurement,<br />
+            <span className="text-cyan">sorted for Sri Lanka.</span>
           </h1>
 
-          <p className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
-            Search verified manufacturers and direct importers, compare minimum order quantities, and generate multi-supplier purchase orders in seconds.
+          <p className="mt-5 text-base sm:text-lg text-ink-3 max-w-2xl leading-relaxed">
+            Discover verified manufacturers and direct importers. Compare MOQs, generate multi-supplier purchase orders, and audit every fulfillment — in one cinematic surface.
           </p>
 
-          {/* Quick Search Form */}
-          <form onSubmit={handleSearchSubmit} className="max-w-xl mx-auto mt-8 flex flex-col sm:flex-row gap-2 bg-white/10 p-2 rounded-2xl backdrop-blur-md border border-white/20 shadow-2xl">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="mt-8 max-w-2xl bg-paper/10 backdrop-blur-md p-2 rounded-2xl border border-paper/20 flex flex-col sm:flex-row gap-2 shadow-soft-lg"
+          >
             <div className="relative flex-1 flex items-center">
-              <SearchIcon size={20} className="absolute left-3.5 text-slate-400" />
+              <SearchIcon size={18} className="absolute left-3.5 text-ink-4" />
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search rice, cement, packaging, sugar..."
-                className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-10 pr-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-soft-sm"
+                placeholder="Search rice, cement, packaging, sugar…"
+                className="w-full bg-paper text-slate-950 placeholder:text-slate-400 pl-10 pr-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan/50 border border-transparent"
               />
             </div>
-            <Button type="submit" size="lg" className="bg-brand-500 hover:bg-brand-400 text-white font-semibold">
-              Find Offers
+            <Button type="submit" size="lg" className="bg-cyan text-midnight hover:bg-cyan/90 font-semibold">
+              Find offers
+              <ArrowRightIcon size={16} />
             </Button>
           </form>
 
-          {/* Quick CTAs */}
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-            <Link to="/search">
-              <Button variant="outline" className="bg-white/10 hover:bg-white/20 text-white border-white/20 text-sm">
-                Explore Full Catalog <ArrowRightIcon size={16} />
-              </Button>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <Link
+              to="/search"
+              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-medium text-ink-2 border border-paper/15 hover:bg-paper/5 hover:text-paper transition-colors"
+            >
+              Explore full catalog <ArrowRightIcon size={13} />
             </Link>
             {!user && (
-              <Link to="/onboarding/supplier">
-                <Button variant="ghost" className="text-slate-300 hover:text-white hover:bg-white/10 text-sm">
-                  <StoreIcon size={16} /> List Your Business as a Supplier
-                </Button>
+              <Link
+                to="/onboarding/supplier"
+                className="inline-flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-medium text-cyan hover:text-cyan/80 transition-colors"
+              >
+                <StoreIcon size={13} /> List your business as supplier
               </Link>
             )}
           </div>
         </div>
       </section>
 
-      {/* Live Metrics Grid */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        {METRICS.map((m) => (
-          <Card key={m.label} className="text-center p-6 border-slate-200/70">
-            <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              {m.value}
-            </div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mt-1">
-              {m.label}
-            </div>
-            <div className="mt-2 text-xs font-medium text-brand-600 inline-flex items-center gap-1">
-              <TrendingUpIcon size={13} /> {m.change}
-            </div>
-          </Card>
-        ))}
+      {/* METRICS — eyebrow strip */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            Platform telemetry
+          </h2>
+          <span className="text-[11px] text-slate-400 font-mono num-tabular">
+            Updated {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {METRICS.map((m) => {
+            const Icon = m.Icon;
+            return (
+              <div
+                key={m.label}
+                className="bg-paper rounded-xl border border-slate-200 p-4 shadow-soft-sm hover:border-slate-300 transition-colors"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="size-7 rounded-md bg-slate-950 text-cyan inline-flex items-center justify-center">
+                    <Icon size={13} />
+                  </span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 num-tabular">
+                    {m.change}
+                  </span>
+                </div>
+                <div className="text-2xl font-semibold font-mono text-slate-950 num-tabular leading-tight">
+                  {m.value}
+                </div>
+                <div className="mt-0.5 text-[11px] text-slate-500 font-medium uppercase tracking-wider">
+                  {m.label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </section>
 
-      {/* Popular Categories */}
-      <section className="space-y-6">
-        <div className="flex items-center justify-between">
+      {/* CATEGORIES */}
+      <section className="space-y-5">
+        <div className="flex items-end justify-between">
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-              Browse Wholesale Sectors
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-cyan-deep mb-1">
+              Sectors
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-950 text-balance">
+              Browse wholesale sectors
             </h2>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Direct pricing from Sri Lankan producers and licensed distributors
+            <p className="mt-1 text-sm text-slate-500">
+              Direct pricing from Sri Lankan producers and licensed distributors.
             </p>
           </div>
-          <Link to="/search" className="text-sm font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1">
-            View all <ArrowRightIcon size={16} />
+          <Link
+            to="/search"
+            className="text-sm font-semibold text-cyan-deep hover:underline inline-flex items-center gap-1 shrink-0"
+          >
+            View all <ArrowRightIcon size={15} />
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-          {POPULAR_CATEGORIES.map((cat) => (
-            <Link
-              key={cat.name}
-              to={`/search?q=${encodeURIComponent(cat.query)}`}
-              className="group flex flex-col p-4 rounded-2xl bg-white border border-slate-200/80 hover:border-brand-300 hover:shadow-soft-md transition-all text-center"
-            >
-              <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">
-                {cat.icon}
-              </div>
-              <div className="text-xs font-bold text-slate-800 group-hover:text-brand-600 transition-colors">
-                {cat.name}
-              </div>
-              <div className="text-[11px] text-slate-600 mt-1 font-medium">
-                {cat.count}
-              </div>
-            </Link>
-          ))}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {CATEGORIES.map((c) => {
+            const Icon = c.Icon;
+            return (
+              <Link
+                key={c.name}
+                to={`/search?q=${encodeURIComponent(c.query)}`}
+                className="group flex flex-col items-start p-4 rounded-xl bg-paper border border-slate-200 hover:border-slate-950 hover:-translate-y-0.5 transition-all duration-200 shadow-soft-sm hover:shadow-soft-md"
+              >
+                <span className={`size-9 rounded-md inline-flex items-center justify-center mb-3 ${c.tint}`}>
+                  <Icon size={16} />
+                </span>
+                <div className="text-sm font-semibold text-slate-950 leading-tight">{c.name}</div>
+                <div className="text-[11px] text-slate-500 mt-0.5 num-tabular">{c.count}</div>
+              </Link>
+            );
+          })}
         </div>
       </section>
 
-      {/* How It Works: 3 Steps */}
-      <section className="bg-white rounded-3xl border border-slate-200/80 p-8 sm:p-12 space-y-8 shadow-soft-sm">
-        <div className="text-center max-w-xl mx-auto space-y-2">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-            How Procurement Works on VYRO
+      {/* HOW IT WORKS */}
+      <section className="bg-paper rounded-2xl border border-slate-200 shadow-soft-sm overflow-hidden">
+        <header className="px-8 pt-10 pb-8 border-b border-slate-100">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-cyan-deep mb-1">
+            Three-step process
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-950 text-balance">
+            How procurement works on VYRO
           </h2>
-          <p className="text-sm text-slate-500">
-            Eliminate phone calls, messy WhatsApp receipts, and price ambiguity.
+          <p className="mt-1 text-sm text-slate-500 max-w-2xl">
+            Eliminate phone calls, messy receipts, and price ambiguity. Pure software-grade sourcing.
           </p>
-        </div>
+        </header>
 
-        <div className="grid md:grid-cols-3 gap-8 relative">
-          <div className="flex flex-col items-start p-6 rounded-2xl bg-slate-50 border border-slate-200/70">
-            <div className="h-10 w-10 rounded-xl bg-brand-600 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-soft-sm">
-              1
-            </div>
-            <h3 className="font-bold text-base text-slate-900 mb-1">
-              Search & Compare Offers
-            </h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Find raw materials, FMCG, and industrial goods. Compare unit pricing, Minimum Order Quantities (MOQs), and delivery lead times side-by-side.
-            </p>
-          </div>
-
-          <div className="flex flex-col items-start p-6 rounded-2xl bg-slate-50 border border-slate-200/70">
-            <div className="h-10 w-10 rounded-xl bg-brand-600 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-soft-sm">
-              2
-            </div>
-            <h3 className="font-bold text-base text-slate-900 mb-1">
-              Automated PO Generation
-            </h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Mix items from different suppliers in one cart. On checkout, VYRO automatically partitions your cart into individual, legally binding Purchase Orders.
-            </p>
-          </div>
-
-          <div className="flex flex-col items-start p-6 rounded-2xl bg-slate-50 border border-slate-200/70">
-            <div className="h-10 w-10 rounded-xl bg-brand-600 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-soft-sm">
-              3
-            </div>
-            <h3 className="font-bold text-base text-slate-900 mb-1">
-              Track to Delivery & Audit
-            </h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Suppliers accept or reject orders directly in their dashboard. Track status changes from accepted to delivered with a complete cryptographic audit trail.
-            </p>
-          </div>
-        </div>
+        <ol className="grid md:grid-cols-3 relative divide-y md:divide-y-0 md:divide-x divide-slate-100">
+          {STEPS.map((s, idx) => {
+            const Icon = s.Icon;
+            return (
+              <li key={s.n} className="p-8 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-3xl font-semibold text-cyan-deep/40 num-tabular">
+                    {s.n}
+                  </span>
+                  <span className="size-9 rounded-md bg-slate-950 text-cyan inline-flex items-center justify-center">
+                    <Icon size={15} />
+                  </span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-slate-950">{s.title}</h3>
+                  <p className="mt-2 text-sm text-slate-600 leading-relaxed">{s.body}</p>
+                </div>
+                {idx === 0 && (
+                  <span className="absolute top-8 right-1/3 hidden md:block text-[10px] uppercase tracking-wider text-slate-300 font-mono">
+                    ↓
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ol>
       </section>
 
-      {/* Supplier Recruitment Banner */}
-      <section className="rounded-3xl bg-gradient-to-r from-slate-900 via-slate-800 to-brand-950 text-white p-8 sm:p-12 flex flex-col md:flex-row items-center justify-between gap-8">
-        <div className="space-y-3 max-w-xl">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-500/20 text-brand-300 text-xs font-semibold">
-            <StoreIcon size={14} /> For Manufacturers & Wholesalers
+      {/* SUPPLIER CTA — Midnight */}
+      <section className="relative overflow-hidden rounded-2xl bg-midnight text-paper p-8 sm:p-12 shadow-glow-violet">
+        <div className="pointer-events-none absolute -top-24 right-0 h-72 w-72 rounded-full bg-violet/25 blur-3xl" />
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="space-y-3 max-w-xl">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-violet/15 text-violet border border-violet/30">
+              <StoreIcon size={12} /> For manufacturers & wholesalers
+            </span>
+            <h3 className="text-2xl sm:text-3xl font-semibold tracking-tight text-paper text-balance">
+              Grow B2B sales across <span className="text-violet">Sri Lanka.</span>
+            </h3>
+            <p className="text-sm text-ink-3 leading-relaxed">
+              List your catalog directly in front of vetted restaurants, retailers, supermarkets, and builders seeking verified bulk suppliers.
+            </p>
           </div>
-          <h3 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            Grow your B2B sales across Sri Lanka
-          </h3>
-          <p className="text-sm text-slate-300 leading-relaxed">
-            Get your catalog listed directly in front of vetted restaurants, retailers, supermarkets, and builders looking for verified bulk suppliers.
-          </p>
-        </div>
-        <div className="shrink-0 flex flex-col sm:flex-row gap-3">
-          <Link to="/onboarding/supplier">
-            <Button size="lg" className="bg-brand-500 hover:bg-brand-400 text-white font-semibold">
-              List Your Business <ArrowRightIcon size={18} />
-            </Button>
+          <Link
+            to="/onboarding/supplier"
+            className="inline-flex items-center gap-2 h-11 px-5 bg-violet text-paper rounded-md text-sm font-semibold hover:bg-violet/90 transition-colors shrink-0 shadow-soft-md"
+          >
+            <PackageIcon size={16} /> List your business
+            <ArrowRightIcon size={16} />
           </Link>
         </div>
       </section>

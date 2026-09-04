@@ -58,13 +58,16 @@ export function SearchPage() {
   return (
     <div className="space-y-8">
       {/* Header & Search Bar */}
-      <div className="space-y-4 max-w-3xl">
+      <div className="space-y-5 max-w-3xl">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-            Wholesale Product Catalog
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-cyan/15 text-cyan-deep mb-2.5">
+            <SearchIcon size={11} /> Wholesale catalog
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-950 text-balance">
+            Compare live <span className="text-cyan-deep">Sri Lankan wholesale</span> offers
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Compare live supplier offers, minimum order quantities, and unit prices in Sri Lankan Rupees.
+          <p className="mt-1 text-sm text-slate-500">
+            Live supplier offers, minimum order quantities, and unit prices in LKR.
           </p>
         </div>
 
@@ -75,7 +78,7 @@ export function SearchPage() {
             placeholder="Search by product name, category, or brand (e.g. rice, cement, sugar)..."
             value={q}
             onChange={(e) => handleInputChange(e.target.value)}
-            className="pl-11 pr-10 py-3 text-base rounded-xl border-slate-300 shadow-soft-sm focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
+            className="pl-11 pr-10 py-3 text-base rounded-md border-slate-200 focus:border-cyan-deep focus:ring-2 focus:ring-cyan/30"
             autoFocus
           />
           {q && (
@@ -89,23 +92,26 @@ export function SearchPage() {
         </div>
 
         {/* Quick Filter Pills */}
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mr-1">
-            Quick tags:
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mr-1.5">
+            Quick tags
           </span>
-          {QUICK_FILTERS.map((term) => (
-            <button
-              key={term}
-              onClick={() => handleFilterClick(term)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all ${
-                q.toLowerCase() === term.toLowerCase()
-                  ? 'bg-brand-600 text-white border-brand-600 shadow-soft-sm'
-                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-              }`}
-            >
-              {term}
-            </button>
-          ))}
+          {QUICK_FILTERS.map((term) => {
+            const active = q.toLowerCase() === term.toLowerCase();
+            return (
+              <button
+                key={term}
+                onClick={() => handleFilterClick(term)}
+                className={`px-3 h-7 rounded-full text-xs font-medium transition-all ${
+                  active
+                    ? 'bg-slate-950 text-white'
+                    : 'bg-paper text-slate-600 border border-slate-200 hover:border-slate-300 hover:text-slate-950'
+                }`}
+              >
+                {term}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -113,7 +119,11 @@ export function SearchPage() {
       {q && data && (
         <div className="flex items-center justify-between border-b border-slate-200 pb-3">
           <span className="text-sm font-semibold text-slate-700">
-            {data.hits.length} product{data.hits.length === 1 ? '' : 's'} matching "{q}"
+            <span className="font-mono num-tabular text-slate-950">{data.hits.length}</span> product
+            {data.hits.length === 1 ? '' : 's'} matching <span className="font-mono text-slate-950">"{q}"</span>
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Sorted by relevance
           </span>
         </div>
       )}
@@ -237,7 +247,7 @@ export function SearchPage() {
           </div>
           <div className="flex flex-wrap justify-center gap-2 pt-2">
             {QUICK_FILTERS.slice(0, 4).map((f) => (
-              <Button key={f} size="sm" variant="secondary" onClick={() => handleFilterClick(f)}>
+              <Button key={f} size="sm" variant="outline" onClick={() => handleFilterClick(f)}>
                 {f}
               </Button>
             ))}

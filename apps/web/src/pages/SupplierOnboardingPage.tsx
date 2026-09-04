@@ -76,27 +76,29 @@ export function SupplierOnboardingPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto py-6 space-y-6">
-      <div>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200 mb-2">
-          <StoreIcon size={14} /> Supplier Merchant Program
+    <div className="max-w-2xl mx-auto py-6 space-y-7">
+      <div className="pb-4 border-b border-slate-200">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-mint/15 text-mint mb-2.5">
+          <StoreIcon size={12} /> Supplier merchant program
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-          List Your Business as a Supplier
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-950 text-balance">
+          List your business as a supplier
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+        <p className="mt-1 text-sm text-slate-500">
           Receive wholesale purchase orders directly from hotels, supermarkets, contractors, and retailers across Sri Lanka.
         </p>
       </div>
 
       <ErrorBanner message={err} />
 
-      <form onSubmit={submit} className="space-y-6">
+      <form onSubmit={submit} className="space-y-5">
         {/* Section 1: Business Identity */}
         <Card className="p-6 border-slate-200/90 space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-            <StoreIcon size={18} className="text-emerald-600" />
-            <h2 className="text-base font-bold text-slate-900">1. Supplier & Brand Details</h2>
+          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+            <span className="size-7 rounded-md bg-mint/15 text-mint inline-flex items-center justify-center">
+              <StoreIcon size={13} />
+            </span>
+            <h2 className="text-base font-semibold text-slate-950">Supplier & brand details</h2>
           </div>
 
           <div className="space-y-4">
@@ -143,9 +145,11 @@ export function SupplierOnboardingPage() {
 
         {/* Section 2: Contact Person & Communication */}
         <Card className="p-6 border-slate-200/90 space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-            <UserIcon size={18} className="text-emerald-600" />
-            <h2 className="text-base font-bold text-slate-900">2. Sales & Operations Contact</h2>
+          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+            <span className="size-7 rounded-md bg-cyan/15 text-cyan-deep inline-flex items-center justify-center">
+              <UserIcon size={13} />
+            </span>
+            <h2 className="text-base font-semibold text-slate-950">Sales & operations contact</h2>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -187,9 +191,11 @@ export function SupplierOnboardingPage() {
 
         {/* Section 3: Distribution Center & Warehouse */}
         <Card className="p-6 border-slate-200/90 space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-            <MapPinIcon size={18} className="text-emerald-600" />
-            <h2 className="text-base font-bold text-slate-900">3. Warehouse / Depot Location</h2>
+          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+            <span className="size-7 rounded-md bg-violet/15 text-violet inline-flex items-center justify-center">
+              <MapPinIcon size={13} />
+            </span>
+            <h2 className="text-base font-semibold text-slate-950">Warehouse / depot location</h2>
           </div>
 
           <div className="space-y-4">
