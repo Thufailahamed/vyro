@@ -200,7 +200,9 @@ GET /api/analytics/supplier?supplierId=...&range=30d
       range,
       metrics: {
         revenueCents, ordersCount, avgOrderValueCents,
-        repeatCustomerRate, lowStockCount, avgLeadTimeDays
+        repeatCustomerRate,                          -- distinct businesses / total orders in range, 0..1
+        lowStockCount,                              -- supplier_products with availability_status='low' or 'out_of_stock'
+        avgLeadTimeDays                             -- mean default_lead_time_days across active supplier_products
       },
       revenueTrend: [{ day: 'YYYY-MM-DD', cents: N }, ...],
       ordersByDay: [{ day, count }, ...],
@@ -213,8 +215,13 @@ GET /api/analytics/admin?range=30d
     {
       range,
       metrics: {
-        gmvCents, takeRateCents, activeBuyers, activeSuppliers,
-        newSignups, disputeRate, completionRate
+        gmvCents,                                  -- sum of total_cents for non-cancelled POs in range
+        takeRateCents,                             -- floor(gmvCents * platform_fee_bps / 10000)
+        activeBuyers,                              -- distinct businesses with ≥1 non-cancelled PO in range
+        activeSuppliers,                           -- distinct suppliers with ≥1 non-cancelled PO in range
+        newSignups,                                -- users created in range (any role)
+        disputeRate,                               -- disputed POs / total POs in range, 0..1
+        completionRate                             -- completed POs / non-cancelled POs in range, 0..1
       },
       gmvByDay: [{ day, cents }],
       topCategories: [{ categoryId, name, cents }],     -- top 10
