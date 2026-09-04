@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Button, EmptyState } from '@/components/ui';
+import { Button, EmptyState, PageHeader, MetricStack } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
 import { ShoppingCartIcon, Trash2Icon, PackageIcon } from '@/components/icons';
@@ -81,19 +81,20 @@ export function CartPage() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <div className="vyro-kicker">Cart</div>
-        <h1 className="mt-2 vyro-display text-4xl">Review the flow.</h1>
-        <div className="mt-6 max-w-xl">
-          <FlowLine
-            nodes={[
-              { label: 'Cart', state: 'active' },
-              { label: 'Checkout', state: 'idle' },
-              { label: 'Purchase orders', state: 'idle' },
-            ]}
-          />
-        </div>
-      </header>
+      <PageHeader
+        kicker="Cart"
+        title="Review the flow."
+        sub="Lines grouped by supplier. Checkout creates one purchase order per supplier."
+      />
+      <div className="max-w-xl">
+        <FlowLine
+          nodes={[
+            { label: 'Cart', state: 'active' },
+            { label: 'Checkout', state: 'idle' },
+            { label: 'Purchase orders', state: 'idle' },
+          ]}
+        />
+      </div>
 
       {items.length === 0 ? (
         <EmptyState
@@ -143,22 +144,19 @@ export function CartPage() {
 
           <Surface kind="floating" className="p-6 lg:sticky lg:top-8">
             <h2 className="font-display text-xl">Totals</h2>
-            <dl className="mt-5 space-y-3 text-sm">
-              <div className="flex justify-between text-ink-3">
-                <dt>Suppliers</dt>
-                <dd className="vyro-metric text-ink">{supplierCount}</dd>
-              </div>
-              <div className="flex justify-between text-ink-3">
-                <dt>Purchase orders</dt>
-                <dd className="vyro-metric text-ink">{supplierCount}</dd>
-              </div>
-              <div className="pt-4 border-t border-ink/10">
-                <dt className="text-[11px] uppercase tracking-[0.14em] text-ink-4">Subtotal</dt>
-                <MetricNumber size="md" className="mt-1">
-                  {formatLKR(subtotal)}
-                </MetricNumber>
-              </div>
-            </dl>
+            <MetricStack
+              className="mt-5"
+              items={[
+                { label: 'Suppliers', value: String(supplierCount) },
+                { label: 'Purchase orders', value: String(supplierCount) },
+              ]}
+            />
+            <div className="pt-4 mt-4 border-t border-ink/10">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-ink-4 font-semibold">Subtotal</div>
+              <MetricNumber size="md" className="mt-1">
+                {formatLKR(subtotal)}
+              </MetricNumber>
+            </div>
             <Link to="/checkout" className="block mt-6">
               <Button size="lg" className="w-full">
                 Checkout
