@@ -23,6 +23,7 @@ import { LoginPage as AdminLoginPage } from './admin/LoginPage';
 import { SuppliersPage, BusinessesPage } from './admin/Lists';
 import { SupplierDetailPage } from './admin/SupplierDetailPage';
 import { BusinessDetailPage } from './admin/BusinessDetailPage';
+import { UsersPage } from './admin/UsersPage';
 import { DisputedPage, AuditPage } from './admin/DisputedAndAudit';
 
 import { SupplierShell } from './supplier/Shell';
@@ -79,6 +80,7 @@ export default function App() {
           <Route path="businesses/:id" element={<RequireAdmin><BusinessDetailPage /></RequireAdmin>} />
           <Route path="disputed" element={<RequireAdmin><DisputedPage /></RequireAdmin>} />
           <Route path="audit" element={<RequireAdmin><AuditPage /></RequireAdmin>} />
+          <Route path="users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
       </Route>

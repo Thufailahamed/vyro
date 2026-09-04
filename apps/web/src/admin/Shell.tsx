@@ -95,6 +95,9 @@ export function AdminShell() {
             <NavLink to="/admin/audit" className={linkClass}>
               Audit
             </NavLink>
+            <NavLink to="/admin/users" className={linkClass}>
+              Users
+            </NavLink>
           </nav>
         ) : (
           <p className="p-4 text-xs text-paper/40">Sign in to administer</p>
