@@ -15,4 +15,4 @@ export const adminUsersListQuery = z
   })
   .strict();
 
-export const adminUserIdParam = z.object({ id: z.string().uuid() }).strict();
+export const adminUserIdParam = z.object({ id: z.string().min(1) }).strict();
