@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { PageHeader } from '@/components/ui';
 import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, Surface } from '@/components/brand/Surface';
 
@@ -35,10 +36,12 @@ export function AdminHomePage() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <div className="vyro-kicker">Operations</div>
-        <h1 className="mt-2 vyro-display text-4xl sm:text-5xl">VYRO CONTROL</h1>
-        <p className="mt-2 text-sm text-ink-4 max-w-xl">Platform activity across businesses, suppliers, orders and disputes.</p>
+      <header className="bg-ink text-paper p-8">
+        <PageHeader
+          kicker={<span className="text-volt">Operations</span>}
+          title={<span className="text-paper">VYRO CONTROL</span>}
+          sub={<span className="text-paper/60">Platform activity across businesses, suppliers, orders and disputes.</span>}
+        />
       </header>
 
       <Surface kind="ink" className="p-6">
