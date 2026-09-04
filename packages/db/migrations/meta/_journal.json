@@ -8,6 +8,13 @@
       "when": 1788533136851,
       "tag": "0000_parallel_shinobi_shaw",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788547670372,
+      "tag": "0001_settings",
+      "breakpoints": true
     }
   ]
 }

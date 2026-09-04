@@ -18,3 +18,6 @@ export * from './deliveries';
 export * from './payments';
 export * from './notifications';
 export * from './auditLogs';
+export * from './userSettings';
+export * from './platformSettings';
+export * from './supplierSettings';
