@@ -2,7 +2,8 @@ import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Button, EmptyState, StatusBadge } from '@/components/ui';
+import { Button, EmptyState, StatusBadge, PageHeader, PageSection, StatusDots } from '@/components/ui';
+import type { OrderStatus } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { formatCompactLKR, formatLKR } from '@/lib/format';
 import { StoreIcon, CheckCircleIcon, XIcon } from '@/components/icons';
@@ -58,10 +59,7 @@ export function SupplierOrdersPage() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <div className="vyro-kicker">{supplierName}</div>
-        <h1 className="mt-2 vyro-display text-4xl sm:text-5xl">Supplier command</h1>
-      </header>
+      <PageHeader kicker={supplierName} title="Supplier command." sub="Accept, prepare, dispatch." />
 
       <div className="grid md:grid-cols-3 gap-px bg-ink/10">
         <div className="bg-ink text-paper p-6">
@@ -96,17 +94,16 @@ export function SupplierOrdersPage() {
         />
       </Surface>
 
-      <section>
-        <h2 className="font-display text-2xl mb-4">Awaiting acceptance</h2>
+      <PageSection eyebrow="Now" title="Awaiting acceptance">
         {pending.length === 0 ? (
           <EmptyState icon={<CheckCircleIcon size={20} />} title="All caught up." description="No pending purchase orders." />
         ) : (
           <div className="space-y-3">
             {pending.map((o) => (
               <Surface key={o.id} kind="elevated" className="p-5 flex flex-col sm:flex-row sm:items-center gap-4 shadow-[inset_3px_0_0_0_#C4843A]">
-                <div className="flex-1">
+                <div className="flex-1 space-y-1">
                   <div className="vyro-metric">{o.poNumber}</div>
-                  <StatusBadge status={o.status} />
+                  <StatusDots status={(o.status as OrderStatus) ?? 'pending'} />
                 </div>
                 <MetricNumber size="sm">{formatLKR(o.totalCents)}</MetricNumber>
                 <div className="flex gap-2">
@@ -126,10 +123,9 @@ export function SupplierOrdersPage() {
             ))}
           </div>
         )}
-      </section>
+      </PageSection>
 
-      <section>
-        <h2 className="font-display text-2xl mb-4">Fulfillment</h2>
+      <PageSection eyebrow="In motion" title="Fulfillment">
         {active.length === 0 ? (
           <p className="text-sm text-ink-4">No historical purchase orders yet.</p>
         ) : (
@@ -137,14 +133,14 @@ export function SupplierOrdersPage() {
             {active.map((o) => (
               <Link key={o.id} to={`/orders/${o.id}`} className="flex items-center gap-4 py-4 hover:bg-paper/80">
                 <span className="vyro-metric text-sm w-32">{o.poNumber}</span>
-                <StatusBadge status={o.status} />
+                <StatusDots status={(o.status as OrderStatus) ?? 'pending'} />
                 <span className="flex-1" />
                 <span className="vyro-metric text-sm">{formatLKR(o.totalCents)}</span>
               </Link>
             ))}
           </div>
         )}
-      </section>
+      </PageSection>
     </div>
   );
 }
