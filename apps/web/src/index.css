@@ -5,16 +5,71 @@
 @layer base {
   :root {
     color-scheme: light;
+    --vyro-grid: linear-gradient(to right, rgba(10, 11, 16, 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(10, 11, 16, 0.04) 1px, transparent 1px);
   }
 
   body {
-    @apply bg-slate-50 text-slate-900 antialiased selection:bg-brand-500/20 selection:text-brand-900 min-h-screen;
+    @apply bg-pearl text-ink-1 antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-family: var(--font-geist);
   }
 
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: none;
     margin: 0;
+  }
+
+  ::selection {
+    background: rgba(94, 226, 255, 0.35);
+    color: #0A0B10;
+  }
+
+  *:focus-visible {
+    outline: 2px solid #5EE2FF;
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+@layer utilities {
+  .num-tabular {
+    font-feature-settings: "tnum", "cv02", "cv03";
+    font-variant-numeric: tabular-nums;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  .grain::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.03;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .grid-bg {
+    background-image: var(--vyro-grid);
+    background-size: 56px 56px;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(10, 11, 16, 0.18) transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

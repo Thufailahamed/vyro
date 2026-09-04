@@ -13,6 +13,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.59.0",
     "@vyro/auth": "workspace:*",
+    "@vyro/ui": "workspace:*",
     "@vyro/validation": "workspace:*",
     "better-auth": "^1.7.2",
     "react": "^19.0.0",
