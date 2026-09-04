@@ -22,7 +22,7 @@ export function ProfilePage() {
       <PageHeader kicker="Account" title={user.name ?? 'Profile'} sub={user.email} actions={<Button variant="ghost" onClick={() => signOut()} className="text-rose">Sign out</Button>} />
 
       <Surface kind="split" className="grid sm:grid-cols-[auto_1fr] items-center gap-6 p-6">
-        <span className="size-16 bg-ink text-volt text-xl font-display font-bold inline-flex items-center justify-center">
+        <span className="size-16 bg-ink text-volt text-xl font-display font-semibold inline-flex items-center justify-center">
           {(user.name || 'U').slice(0, 2).toUpperCase()}
         </span>
         <div className="flex items-center justify-between gap-4">

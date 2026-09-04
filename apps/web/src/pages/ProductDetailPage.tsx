@@ -189,7 +189,7 @@ export function ProductDetailPage() {
 
 function Award({ children, copper }: { children: string; copper?: boolean }) {
   return (
-    <span className={`text-[10px] font-bold uppercase tracking-[0.14em] px-2 py-0.5 ${copper ? 'bg-copper text-paper' : 'bg-ink text-volt'}`}>
+    <span className={`text-[10px] font-semibold uppercase tracking-[0.14em] px-2 py-0.5 ${copper ? 'bg-copper text-paper' : 'bg-ink text-volt'}`}>
       {children}
     </span>
   );
