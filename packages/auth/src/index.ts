@@ -12,6 +12,9 @@ export function createAuth(env: AuthEnv) {
     database: drizzleAdapter(db, { provider: 'sqlite', schema: authSchema }),
     emailAndPassword: { enabled: true, autoSignIn: true },
     session: { expiresIn: 60 * 60 * 24 * 30, updateAge: 60 * 60 * 24 },
+    advanced: {
+      useSecureCookies: env.ENVIRONMENT === 'production',
+    },
     user: {
       additionalFields: {
         phone: { type: 'string', required: false },

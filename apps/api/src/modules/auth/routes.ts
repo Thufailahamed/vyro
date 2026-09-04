@@ -91,17 +91,18 @@ router.get('/me', async (c) => {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!session) throw httpError(401, 'UNAUTHORIZED', 'No active session');
   const ctx = await loadSessionContext(c.env.DB, session.user.id);
+  const isAdmin = Boolean(ctx?.isAdmin || (session.user as any)?.isPlatformAdmin);
   return c.json({
     user: {
+      ...session.user,
       userId: session.user.id,
       id: session.user.id,
       email: session.user.email,
       name: session.user.name,
-      isAdmin: ctx?.isAdmin ?? false,
-      isPlatformAdmin: ctx?.isAdmin ?? false,
+      isAdmin,
+      isPlatformAdmin: isAdmin,
       memberships: ctx?.businesses ?? [],
       supplierMemberships: ctx?.suppliers ?? [],
-      ...session.user,
     },
   });
 });

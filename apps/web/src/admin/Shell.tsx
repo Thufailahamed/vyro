@@ -4,31 +4,61 @@ import { api, ApiError } from '@/lib/api';
 import { BrandMark, BrandWordmark } from '@/components/brand/BrandMark';
 import { cn } from '@vyro/ui';
 
-interface AdminAuthState {
-  user: { isAdmin: boolean } | null;
-  setUser: (u: { isAdmin: boolean } | null) => void;
+export interface AdminAuthState {
+  user: { isAdmin: boolean; email?: string; name?: string } | null;
+  setUser: (u: { isAdmin: boolean; email?: string; name?: string } | null) => void;
+  refresh: () => Promise<{ isAdmin: boolean; email?: string; name?: string } | null>;
+  loading: boolean;
 }
 
-const AdminAuthContext = createContext<AdminAuthState>({ user: null, setUser: () => {} });
-const useAdminAuth = () => useContext(AdminAuthContext);
+const AdminAuthContext = createContext<AdminAuthState>({
+  user: null,
+  setUser: () => {},
+  refresh: async () => null,
+  loading: true,
+});
+
+export const useAdminAuth = () => useContext(AdminAuthContext);
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<{ isAdmin: boolean } | null>(null);
+  const [user, setUser] = useState<{ isAdmin: boolean; email?: string; name?: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = async () => {
+    try {
+      const d = await api.get<{ user: { isAdmin: boolean; email?: string; name?: string } | null }>('/auth/me');
+      setUser(d.user);
+      return d.user;
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) setUser(null);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    api
-      .get<{ user: { isAdmin: boolean } | null }>('/auth/me')
-      .then((d) => setUser(d.user))
-      .catch((e) => {
-        if (e instanceof ApiError && e.status === 401) setUser(null);
-      });
+    void refresh();
   }, []);
-  return <AdminAuthContext.Provider value={{ user, setUser }}>{children}</AdminAuthContext.Provider>;
+
+  return (
+    <AdminAuthContext.Provider value={{ user, setUser, refresh, loading }}>
+      {children}
+    </AdminAuthContext.Provider>
+  );
 }
 
 export function RequireAdmin({ children }: { children: ReactNode }) {
-  const { user } = useAdminAuth();
+  const { user, loading } = useAdminAuth();
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-16 text-sm text-ink-4">
+        Loading control session...
+      </div>
+    );
+  }
   if (!user) return <Navigate to="/admin/login" replace />;
-  if (!user.isAdmin) return <p className="text-sm text-rose p-6">Forbidden: admin role required.</p>;
+  if (!user.isAdmin) return <div className="p-8 text-sm text-rose font-medium">Forbidden: Platform administrator privileges required.</div>;
   return <>{children}</>;
 }
 

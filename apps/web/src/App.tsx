@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { HomePage } from './pages/HomePage';
 import { AboutPage, HowItWorksPage } from './pages/MarketingPages';
@@ -48,22 +48,23 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
 
-      {/* Admin SPA — same host, /admin/* prefix */}
+      {/* Admin SPA — shared AdminAuthProvider */}
       <Route
-        path="/admin/*"
         element={
           <AdminAuthProvider>
-            <AdminShell />
+            <Outlet />
           </AdminAuthProvider>
         }
       >
-        <Route index element={<RequireAdmin><AdminHomePage /></RequireAdmin>} />
-        <Route path="login" element={<AdminLoginPage />} />
-        <Route path="suppliers" element={<RequireAdmin><SuppliersPage /></RequireAdmin>} />
-        <Route path="businesses" element={<RequireAdmin><BusinessesPage /></RequireAdmin>} />
-        <Route path="disputed" element={<RequireAdmin><DisputedPage /></RequireAdmin>} />
-        <Route path="audit" element={<RequireAdmin><AuditPage /></RequireAdmin>} />
-        <Route path="*" element={<Navigate to="/admin" replace />} />
+        <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route path="/admin" element={<AdminShell />}>
+          <Route index element={<RequireAdmin><AdminHomePage /></RequireAdmin>} />
+          <Route path="suppliers" element={<RequireAdmin><SuppliersPage /></RequireAdmin>} />
+          <Route path="businesses" element={<RequireAdmin><BusinessesPage /></RequireAdmin>} />
+          <Route path="disputed" element={<RequireAdmin><DisputedPage /></RequireAdmin>} />
+          <Route path="audit" element={<RequireAdmin><AuditPage /></RequireAdmin>} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
+        </Route>
       </Route>
     </Routes>
   );
