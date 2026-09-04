@@ -1,11 +1,14 @@
 name = "vyro-api"
 main = "src/index.ts"
 compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
 binding = "DB"
 database_name = "vyro"
-database_id = "local-vyro"
+database_id = "41f2e2e3-29b0-4b20-8e36-92314adcf914"
+migrations_dir = "../../packages/db/migrations"
+
 
 [[r2_buckets]]
 binding = "PRODUCTS"
@@ -13,7 +16,8 @@ bucket_name = "vyro-products"
 
 [[kv_namespaces]]
 binding = "CACHE"
-id = "local-cache"
+id = "5a6075baf1834db294abf12405ced2b8"
+
 
 [[queues.producers]]
 binding = "AUDIT_QUEUE"
@@ -27,3 +31,7 @@ queue = "notifications"
 ENVIRONMENT = "local"
 WEB_ORIGIN = "http://localhost:5173"
 ADMIN_ORIGIN = "http://localhost:5174"
+BETTER_AUTH_SECRET = "vyro-local-dev-secret-must-be-32-chars-long"
+BETTER_AUTH_URL = "https://vyro-api.thufailahamed627.workers.dev"
+
+

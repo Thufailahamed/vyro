@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { HomePage } from './pages/HomePage';
+import { AboutPage, HowItWorksPage } from './pages/MarketingPages';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { BusinessOnboardingPage } from './pages/BusinessOnboardingPage';
@@ -14,6 +15,7 @@ import { OrderDetailPage } from './pages/OrderDetailPage';
 import { SupplierOrdersPage } from './pages/SupplierOrdersPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { DashboardPage } from './pages/DashboardPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 
 import { AdminAuthProvider, AdminShell, RequireAdmin } from './admin/Shell';
 import { AdminHomePage } from './admin/HomePage';
@@ -27,6 +29,8 @@ export default function App() {
       {/* Public web SPA */}
       <Route element={<Layout />}>
         <Route path="/" element={<HomePage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/how-it-works" element={<HowItWorksPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/onboarding/business" element={<BusinessOnboardingPage />} />
@@ -40,6 +44,7 @@ export default function App() {
         <Route path="/supplier/orders" element={<SupplierOrdersPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
 
@@ -52,7 +57,7 @@ export default function App() {
           </AdminAuthProvider>
         }
       >
-        <Route index element={<Navigate to="/admin/suppliers" replace />} />
+        <Route index element={<RequireAdmin><AdminHomePage /></RequireAdmin>} />
         <Route path="login" element={<AdminLoginPage />} />
         <Route path="suppliers" element={<RequireAdmin><SuppliersPage /></RequireAdmin>} />
         <Route path="businesses" element={<RequireAdmin><BusinessesPage /></RequireAdmin>} />

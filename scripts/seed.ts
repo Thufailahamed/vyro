@@ -9,12 +9,12 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const SQL = `-- VYRO seed (idempotent inserts)
-INSERT OR IGNORE INTO business_types (id, name, slug, audience, created_at, updated_at) VALUES
-  ('bt-restaurant', 'Restaurant', 'restaurant', 'business', 0, 0),
-  ('bt-hotel',       'Hotel',       'hotel',       'business', 0, 0),
-  ('bt-cafe',        'Café',        'cafe',        'business', 0, 0),
-  ('bt-supplier-grocery', 'Grocery Wholesaler', 'grocery-wholesaler', 'supplier', 0, 0),
-  ('bt-supplier-beverage', 'Beverage Distributor', 'beverage-distributor', 'supplier', 0, 0);
+INSERT OR IGNORE INTO business_types (id, slug, name, active) VALUES
+  ('bt-restaurant', 'restaurant', 'Restaurant', 1),
+  ('bt-hotel',       'hotel',       'Hotel',       1),
+  ('bt-cafe',        'cafe',        'Café',        1),
+  ('bt-supplier-grocery', 'grocery-wholesaler', 'Grocery Wholesaler', 1),
+  ('bt-supplier-beverage', 'beverage-distributor', 'Beverage Distributor', 1);
 
 INSERT OR IGNORE INTO categories (id, slug, name, parent_id, sort_order, active) VALUES
   ('cat-staples',   'staples',   'Staples',   NULL, 1, 1),

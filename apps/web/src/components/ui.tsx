@@ -1,5 +1,12 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes, ReactNode } from 'react';
-import { AlertCircleIcon, CheckCircleIcon } from './icons';
+import type {
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  TextareaHTMLAttributes,
+  SelectHTMLAttributes,
+  ReactNode,
+} from 'react';
+import { AlertCircleIcon, ArrowRightIcon, CheckCircleIcon } from './icons';
+import { FlowCanvas } from './brand/FlowLine';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success';
@@ -19,57 +26,52 @@ export function Button({
   icon,
   ...rest
 }: ButtonProps) {
-  const baseClasses = 'inline-flex items-center justify-center font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none active:scale-[0.98] select-none';
-
   const sizeClasses = {
-    sm: 'text-xs px-2.5 py-1.5 rounded-lg gap-1.5',
-    md: 'text-sm px-4 py-2 rounded-lg gap-2 shadow-soft-sm',
-    lg: 'text-base px-5 py-2.5 rounded-xl gap-2.5 shadow-soft-sm',
+    sm: 'text-xs h-8 px-3 gap-1.5',
+    md: 'text-sm h-10 px-4 gap-2',
+    lg: 'text-base h-12 px-5 gap-2.5',
   }[size];
 
   const variantClasses = {
-    primary: 'bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800 focus-visible:ring-brand-500 border border-transparent',
-    secondary: 'bg-slate-100 text-slate-800 hover:bg-slate-200 active:bg-slate-300 focus-visible:ring-slate-400 border border-transparent',
-    outline: 'border border-slate-300 bg-white text-slate-750 hover:bg-slate-50 hover:border-slate-400 text-slate-700 active:bg-slate-100 focus-visible:ring-brand-500 shadow-soft-sm',
-    ghost: 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 active:bg-slate-200 focus-visible:ring-slate-400 border border-transparent shadow-none',
-    danger: 'bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800 focus-visible:ring-rose-500 border border-transparent',
-    success: 'bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 focus-visible:ring-emerald-500 border border-transparent',
+    primary: 'vyro-btn-primary',
+    secondary: 'vyro-btn-secondary',
+    outline: 'vyro-btn-secondary',
+    ghost: 'bg-transparent text-ink hover:bg-ink/5 shadow-none',
+    danger: 'bg-rose text-paper hover:opacity-90',
+    success: 'bg-ink text-volt hover:bg-charcoal',
   }[variant];
 
   return (
     <button
       {...rest}
       disabled={disabled || loading}
-      className={`${baseClasses} ${sizeClasses} ${variantClasses} ${className}`}
+      className={`vyro-btn ${sizeClasses} ${variantClasses} disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none ${className}`}
     >
       {loading ? (
-        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" fill="none" viewBox="0 0 24 24">
+        <svg className="animate-spin h-4 w-4 text-current" fill="none" viewBox="0 0 24 24" aria-hidden>
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
       ) : icon ? (
-        <span className="shrink-0">{icon}</span>
+        <span className="vyro-btn-icon shrink-0">{icon}</span>
       ) : null}
       {children}
+      {variant === 'primary' && !loading && (
+        <ArrowRightIcon size={15} className="vyro-btn-arrow shrink-0" />
+      )}
     </button>
   );
 }
 
 export function GhostButton({ className = '', ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { children?: ReactNode }) {
-  return (
-    <Button
-      variant="outline"
-      className={className}
-      {...rest}
-    />
-  );
+  return <Button variant="outline" className={className} {...rest} />;
 }
 
 export function Input({ className = '', ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-soft-sm transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 ${className}`}
+      className={`w-full h-11 bg-paper px-3.5 text-sm text-ink placeholder:text-ink-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] transition-shadow duration-200 focus:outline-none focus:shadow-[inset_0_0_0_1px_#0C0E0B,0_0_0_3px_rgba(198,220,74,0.35)] disabled:cursor-not-allowed disabled:bg-bone disabled:text-ink-4 ${className}`}
     />
   );
 }
@@ -78,7 +80,7 @@ export function Textarea({ className = '', ...props }: TextareaHTMLAttributes<HT
   return (
     <textarea
       {...props}
-      className={`w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-soft-sm transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 ${className}`}
+      className={`w-full bg-paper px-3.5 py-3 text-sm text-ink placeholder:text-ink-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] transition-shadow duration-200 focus:outline-none focus:shadow-[inset_0_0_0_1px_#0C0E0B,0_0_0_3px_rgba(198,220,74,0.35)] disabled:cursor-not-allowed disabled:bg-bone ${className}`}
     />
   );
 }
@@ -88,13 +90,13 @@ export function Select({ className = '', children, ...props }: SelectHTMLAttribu
     <div className="relative w-full">
       <select
         {...props}
-        className={`w-full appearance-none rounded-lg border border-slate-300 bg-white px-3.5 py-2 pr-9 text-sm text-slate-900 shadow-soft-sm transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 ${className}`}
+        className={`w-full appearance-none h-11 bg-paper px-3.5 pr-9 text-sm text-ink shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] focus:outline-none focus:shadow-[inset_0_0_0_1px_#0C0E0B,0_0_0_3px_rgba(198,220,74,0.35)] ${className}`}
       >
         {children}
       </select>
-      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500">
+      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-ink-4">
         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 9l6 6 6-6" />
         </svg>
       </div>
     </div>
@@ -103,7 +105,7 @@ export function Select({ className = '', children, ...props }: SelectHTMLAttribu
 
 export function Label({ children, htmlFor, className = '' }: { children: ReactNode; htmlFor?: string; className?: string }) {
   return (
-    <label htmlFor={htmlFor} className={`block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5 ${className}`}>
+    <label htmlFor={htmlFor} className={`block text-[11px] font-semibold text-ink-3 tracking-[0.14em] uppercase mb-1.5 ${className}`}>
       {children}
     </label>
   );
@@ -122,9 +124,7 @@ export function Card({
   return (
     <div
       {...props}
-      className={`bg-white border border-slate-200/80 rounded-xl p-5 shadow-soft-sm ${
-        hoverEffect ? 'hover:shadow-soft-md hover:border-brand-200/90 transition-all duration-200' : ''
-      } ${className}`}
+      className={`vyro-surface p-5 ${hoverEffect ? 'transition-transform duration-240 ease-vyro hover:-translate-y-0.5 hover:shadow-2' : ''} ${className}`}
     >
       {children}
     </div>
@@ -141,16 +141,16 @@ export function Badge({
   className?: string;
 }) {
   const styles = {
-    neutral: 'bg-slate-100 text-slate-700 border-slate-200',
-    brand: 'bg-brand-50 text-brand-700 border-brand-200',
-    success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    warning: 'bg-amber-50 text-amber-800 border-amber-200',
-    danger: 'bg-rose-50 text-rose-700 border-rose-200',
-    purple: 'bg-purple-50 text-purple-700 border-purple-200',
+    neutral: 'bg-mist text-ink-3',
+    brand: 'bg-volt/20 text-ink',
+    success: 'bg-mint/15 text-mint',
+    warning: 'bg-amber/15 text-amber',
+    danger: 'bg-rose/15 text-rose',
+    purple: 'bg-copper/15 text-copper-deep',
   }[variant];
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles} ${className}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] uppercase ${styles} ${className}`}>
       {children}
     </span>
   );
@@ -158,44 +158,44 @@ export function Badge({
 
 export function StatusBadge({ status }: { status: string }) {
   const normalized = status.toLowerCase().replace(/_/g, ' ');
-
   let variant: 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'purple' = 'neutral';
-  let dotColor = 'bg-slate-400';
+  let dotColor = 'bg-ink-4';
 
   switch (status.toLowerCase()) {
     case 'pending':
       variant = 'warning';
-      dotColor = 'bg-amber-500';
+      dotColor = 'bg-amber';
       break;
     case 'accepted':
     case 'confirmed':
+    case 'preparing':
       variant = 'brand';
-      dotColor = 'bg-brand-500';
+      dotColor = 'bg-volt-deep';
       break;
     case 'in_transit':
     case 'shipped':
       variant = 'purple';
-      dotColor = 'bg-purple-500';
+      dotColor = 'bg-copper';
       break;
     case 'delivered':
     case 'completed':
       variant = 'success';
-      dotColor = 'bg-emerald-500';
+      dotColor = 'bg-mint';
       break;
     case 'cancelled':
     case 'rejected':
       variant = 'danger';
-      dotColor = 'bg-rose-500';
+      dotColor = 'bg-rose';
       break;
     case 'disputed':
       variant = 'danger';
-      dotColor = 'bg-rose-600 animate-pulse';
+      dotColor = 'bg-rose animate-pulse';
       break;
   }
 
   return (
-    <Badge variant={variant} className="capitalize">
-      <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+    <Badge variant={variant} className="capitalize tracking-normal normal-case">
+      <span className={`w-1.5 h-1.5 rotate-45 ${dotColor}`} />
       {normalized}
     </Badge>
   );
@@ -204,8 +204,8 @@ export function StatusBadge({ status }: { status: string }) {
 export function ErrorBanner({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <div className="flex items-start gap-3 bg-rose-50/90 border border-rose-200 text-rose-800 text-sm rounded-xl p-4 shadow-soft-sm animate-in fade-in-50 duration-200">
-      <AlertCircleIcon size={18} className="text-rose-600 shrink-0 mt-0.5" />
+    <div className="flex items-start gap-3 bg-rose/10 text-rose text-sm p-4 animate-fade-in">
+      <AlertCircleIcon size={18} className="shrink-0 mt-0.5" />
       <div className="font-medium">{message}</div>
     </div>
   );
@@ -214,8 +214,8 @@ export function ErrorBanner({ message }: { message?: string }) {
 export function SuccessBanner({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <div className="flex items-start gap-3 bg-emerald-50/90 border border-emerald-200 text-emerald-800 text-sm rounded-xl p-4 shadow-soft-sm animate-in fade-in-50 duration-200">
-      <CheckCircleIcon size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+    <div className="flex items-start gap-3 bg-mint/10 text-mint text-sm p-4 animate-fade-in">
+      <CheckCircleIcon size={18} className="shrink-0 mt-0.5" />
       <div className="font-medium">{message}</div>
     </div>
   );
@@ -233,11 +233,16 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="text-center py-12 px-4 rounded-2xl border-2 border-dashed border-slate-200 bg-white/50 my-6">
-      {icon && <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 mb-4 shadow-soft-sm">{icon}</div>}
-      <h3 className="text-base font-semibold text-slate-800">{title}</h3>
-      {description && <p className="mt-1 text-sm text-slate-500 max-w-sm mx-auto">{description}</p>}
-      {action && <div className="mt-5">{action}</div>}
+    <div className="relative text-center py-16 px-6 my-4 overflow-hidden vyro-surface">
+      <div className="absolute inset-x-0 top-0 opacity-70">
+        <FlowCanvas density="dense" />
+      </div>
+      <div className="relative">
+        {icon && <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center bg-ink text-volt">{icon}</div>}
+        <h3 className="vyro-display text-2xl text-ink">{title}</h3>
+        {description && <p className="mt-2 text-sm text-ink-4 max-w-sm mx-auto">{description}</p>}
+        {action && <div className="mt-6">{action}</div>}
+      </div>
     </div>
   );
 }
@@ -254,18 +259,15 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200 mb-6">
+    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-8 mb-8 border-b border-ink/10">
       <div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
-          {badge}
-        </div>
-        {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
+        {badge && <div className="mb-3">{badge}</div>}
+        <h1 className="vyro-display text-3xl sm:text-4xl text-ink">{title}</h1>
+        {description && <p className="mt-2 text-sm text-ink-4 max-w-xl">{description}</p>}
       </div>
       {action && <div className="flex items-center gap-3 shrink-0">{action}</div>}
     </div>
   );
 }
 
-// Re-export chart primitives from @vyro/ui
 export { Sparkline, BarChart, ProgressRing, StatTile, TimeSeries } from '@vyro/ui';

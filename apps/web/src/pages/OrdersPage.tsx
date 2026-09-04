@@ -2,17 +2,11 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Card, StatusBadge, Button, EmptyState } from '@/components/ui';
+import { StatusBadge, Button, EmptyState } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
-import {
-  PackageIcon,
-  ClockIcon,
-  ChevronRightIcon,
-  SearchIcon,
-  Building2Icon,
-  FileTextIcon,
-} from '@/components/icons';
+import { PackageIcon, SearchIcon } from '@/components/icons';
+import { MetricNumber, Surface } from '@/components/brand/Surface';
 
 interface Order {
   id: string;
@@ -25,7 +19,7 @@ interface Order {
 }
 
 const STATUS_FILTERS = [
-  { id: 'all', label: 'All Orders' },
+  { id: 'all', label: 'All' },
   { id: 'pending', label: 'Pending' },
   { id: 'accepted', label: 'Accepted' },
   { id: 'delivered', label: 'Delivered' },
@@ -46,159 +40,83 @@ export function OrdersPage() {
 
   if (!user) {
     return (
-      <div className="max-w-xl mx-auto py-12 text-center">
-        <Card className="p-8 space-y-4">
-          <PackageIcon size={32} className="mx-auto text-slate-400" />
-          <h2 className="text-xl font-bold text-slate-800">Sign in to view orders</h2>
-          <p className="text-xs text-slate-500">Access your historical and active purchase orders.</p>
-          <Link to="/login">
-            <Button>Sign In</Button>
-          </Link>
-        </Card>
+      <div className="py-12">
+        <h2 className="vyro-display text-3xl">Sign in to view orders</h2>
+        <Link to="/login" className="mt-4 inline-block">
+          <Button>Sign in</Button>
+        </Link>
       </div>
     );
   }
 
   if (!businessId) {
     return (
-      <div className="max-w-xl mx-auto py-12 text-center">
-        <Card className="p-8 space-y-4">
-          <Building2Icon size={32} className="mx-auto text-slate-400" />
-          <h2 className="text-xl font-bold text-slate-800">No Business Registered</h2>
-          <p className="text-xs text-slate-500">Set up your business to begin ordering and track procurement history.</p>
-          <Link to="/onboarding/business">
-            <Button>Register Business</Button>
-          </Link>
-        </Card>
+      <div className="py-12">
+        <h2 className="vyro-display text-3xl">No business registered</h2>
+        <Link to="/onboarding/business" className="mt-4 inline-block">
+          <Button>Register</Button>
+        </Link>
       </div>
     );
   }
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4 max-w-5xl mx-auto py-4">
-        <div className="h-8 w-48 bg-slate-200 rounded animate-pulse" />
-        <div className="h-40 bg-slate-100 rounded-2xl animate-pulse border border-slate-200" />
-      </div>
-    );
-  }
+  if (isLoading) return <div className="h-48 bg-mist animate-pulse" />;
 
   const allOrders = data?.orders ?? [];
-  const filteredOrders =
-    filter === 'all'
-      ? allOrders
-      : allOrders.filter((o) => o.status.toLowerCase() === filter.toLowerCase());
+  const filteredOrders = filter === 'all' ? allOrders : allOrders.filter((o) => o.status.toLowerCase() === filter);
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
+    <div className="space-y-8">
       <header>
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-cyan/15 text-cyan-deep">Orders</span>
-        <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight text-slate-950 text-balance">
-          My purchase orders
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Monitor incoming fulfillment milestones, delivery receipts, and supplier status updates.
-        </p>
+        <div className="vyro-kicker">Orders</div>
+        <h1 className="mt-2 vyro-display text-4xl">Purchase orders</h1>
       </header>
-
-      {/* Filter chips */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap gap-2">
         {STATUS_FILTERS.map((tab) => {
-          const count =
-            tab.id === 'all'
-              ? allOrders.length
-              : allOrders.filter((o) => o.status.toLowerCase() === tab.id).length;
+          const count = tab.id === 'all' ? allOrders.length : allOrders.filter((o) => o.status.toLowerCase() === tab.id).length;
           const active = filter === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
-              className={`inline-flex items-center gap-2 h-8 px-3 rounded-full border text-xs font-medium transition-colors ${
-                active
-                  ? 'bg-slate-950 text-white border-slate-950'
-                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-950'
-              }`}
+              className={`h-8 px-3 text-xs font-medium ${active ? 'bg-ink text-volt' : 'text-ink-3 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.12)]'}`}
             >
-              <span>{tab.label}</span>
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold num-tabular ${
-                  active ? 'bg-cyan text-slate-950' : 'bg-slate-100 text-slate-500'
-                }`}
-              >
-                {count}
-              </span>
+              {tab.label} <span className="vyro-metric ml-1">{count}</span>
             </button>
           );
         })}
       </div>
-
-      {/* Orders List */}
       {filteredOrders.length === 0 ? (
         <EmptyState
-          icon={<PackageIcon size={28} />}
-          title={filter === 'all' ? 'No orders placed yet' : `No ${filter} orders`}
+          icon={<PackageIcon size={20} />}
+          title={filter === 'all' ? 'No orders yet.' : `No ${filter} orders`}
           description={
-            filter === 'all'
-              ? 'Find verified wholesale items from our catalog and create your first purchase order.'
-              : `You have no orders currently in "${filter}" state.`
+            filter === 'all' ? 'Source from the catalog to issue your first purchase order.' : `Nothing currently ${filter}.`
           }
           action={
             <Link to="/search">
               <Button>
-                <SearchIcon size={16} /> Search Products
+                <SearchIcon size={14} /> Catalog
               </Button>
             </Link>
           }
         />
       ) : (
-        <div className="space-y-3">
+        <div className="divide-y divide-ink/10 border-y border-ink/10">
           {filteredOrders.map((o) => (
-            <Card
-              key={o.id}
-              hoverEffect
-              className="p-5 border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
-            >
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono font-semibold text-sm text-slate-950 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 group-hover:border-cyan/50 transition-colors">
-                    {o.poNumber}
-                  </span>
-                  <StatusBadge status={o.status} />
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <ClockIcon size={13} className="text-slate-400" />
-                  <span>Placed on {new Date(o.createdAt).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-3 sm:pt-0">
-                <div className="text-left sm:text-right">
-                  <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                    PO Value
-                  </div>
-                  <div className="text-lg font-black text-slate-900">
-                    {formatLKR(o.totalCents)}
-                  </div>
-                </div>
-
-                <Link to={`/orders/${o.id}`}>
-                  <Button variant="outline" size="sm" className="group-hover:border-brand-300 group-hover:text-brand-700">
-                    <span>Details</span>
-                    <ChevronRightIcon size={15} />
-                  </Button>
-                </Link>
-              </div>
-            </Card>
+            <Link key={o.id} to={`/orders/${o.id}`} className="flex flex-col sm:flex-row sm:items-center gap-3 py-5 hover:bg-paper/80 px-1">
+              <span className="vyro-metric text-sm w-36">{o.poNumber}</span>
+              <StatusBadge status={o.status} />
+              <span className="text-xs text-ink-4 flex-1">
+                {new Date(o.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+              <MetricNumber size="sm">{formatLKR(o.totalCents)}</MetricNumber>
+            </Link>
           ))}
         </div>
       )}
     </div>
   );
 }
+
+void Surface;

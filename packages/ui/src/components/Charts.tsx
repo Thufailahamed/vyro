@@ -11,11 +11,11 @@ interface SparklineProps {
 }
 
 const TONE_MAP: Record<NonNullable<SparklineProps['tone']>, { stroke: string; fill: string }> = {
-  cyan: { stroke: '#06B6D4', fill: 'rgba(6, 182, 212, 0.12)' },
-  mint: { stroke: '#10B981', fill: 'rgba(16, 185, 129, 0.12)' },
-  amber: { stroke: '#F59E0B', fill: 'rgba(245, 158, 11, 0.12)' },
-  rose: { stroke: '#F43F5E', fill: 'rgba(244, 63, 94, 0.12)' },
-  violet: { stroke: '#8B5CF6', fill: 'rgba(139, 92, 246, 0.12)' },
+  cyan: { stroke: '#C6DC4A', fill: 'rgba(198, 220, 74, 0.16)' },
+  mint: { stroke: '#3D8B6E', fill: 'rgba(61, 139, 110, 0.14)' },
+  amber: { stroke: '#C4843A', fill: 'rgba(196, 132, 58, 0.14)' },
+  rose: { stroke: '#C45A4A', fill: 'rgba(196, 90, 74, 0.14)' },
+  violet: { stroke: '#B87A4E', fill: 'rgba(184, 122, 78, 0.16)' },
 };
 
 export function Sparkline({
@@ -166,7 +166,7 @@ export function ProgressRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="#E2E8F0"
+          stroke="#E5E0D4"
           strokeWidth={strokeWidth}
         />
         <circle
@@ -223,8 +223,8 @@ export function StatTile({
       type="button"
       onClick={onClick}
       className={cn(
-        'w-full text-left bg-paper border border-slate-200 rounded-xl p-4 shadow-soft-sm transition-all',
-        onClick && 'hover:border-slate-300 hover:-translate-y-0.5 hover:shadow-soft-md cursor-pointer',
+        'w-full text-left bg-paper border border-ink/10 p-4 transition-all',
+        onClick && 'hover:border-ink/30 hover:-translate-y-0.5 cursor-pointer',
       )}
     >
       <div className="flex items-start justify-between mb-3">
@@ -294,7 +294,7 @@ export function TimeSeries({
             x2={400 - padX}
             y1={padY + (height - padY * 2) * y}
             y2={padY + (height - padY * 2) * y}
-            stroke="#E2E8F0"
+            stroke="#E5E0D4"
             strokeDasharray="2 3"
             strokeWidth={0.5}
           />

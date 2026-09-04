@@ -1,12 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Link } from 'react-router-dom';
-import {
-  AlertCircleIcon,
-  FileTextIcon,
-  ClockIcon,
-  CheckCircleIcon,
-} from './icons';
+import { ClockIcon, CheckCircleIcon } from './icons';
 
 interface Order {
   id: string;
@@ -36,15 +31,10 @@ export function DisputedPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-        <div className="flex items-center gap-3">
-          <span className="size-10 rounded-lg bg-rose/15 text-rose inline-flex items-center justify-center">
-            <AlertCircleIcon size={18} />
-          </span>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Disputed orders</h1>
-            <p className="text-sm text-slate-500">Active escalations requiring platform arbitration</p>
-          </div>
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-ink/10">
+        <div>
+          <div className="vyro-kicker">Arbitration</div>
+          <h1 className="mt-1 vyro-display text-3xl">Disputed orders</h1>
         </div>
         <span
           className={`inline-flex items-center h-7 px-3 rounded-full text-xs font-medium border num-tabular self-start sm:self-auto ${
@@ -119,15 +109,10 @@ export function AuditPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-        <div className="flex items-center gap-3">
-          <span className="size-10 rounded-lg bg-violet/15 text-violet inline-flex items-center justify-center">
-            <FileTextIcon size={18} />
-          </span>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-950">System audit trail</h1>
-            <p className="text-sm text-slate-500">Immutable, chronological transaction and transition logs</p>
-          </div>
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-ink/10">
+        <div>
+          <div className="vyro-kicker">Ledger</div>
+          <h1 className="mt-1 vyro-display text-3xl">System audit trail</h1>
         </div>
         <span className="inline-flex items-center h-7 px-3 rounded-full text-xs font-medium bg-paper border border-slate-200 text-slate-700 self-start sm:self-auto num-tabular">
           {logs.length} recent events
@@ -169,7 +154,7 @@ export function AuditPage() {
                     actor <code className="text-slate-700 font-mono">{l.actorUserId.slice(0, 6)}…</code>
                   </span>
                 )}
-                <Link to={`/audit/${l.resourceId}`} className="font-semibold text-cyan-deep hover:underline">
+                <Link to={`/audit/${l.resourceId}`} className="font-semibold text-copper hover:text-ink">
                   Inspect →
                 </Link>
               </div>

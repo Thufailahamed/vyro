@@ -17,12 +17,12 @@ import { cn } from './lib/cn';
 // BUTTON
 // ============================================
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-all duration-140 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-paper',
+          'inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper focus-visible:ring-offset-2 focus-visible:ring-offset-paper rounded-xs',
   {
     variants: {
       variant: {
-        primary: 'bg-ink-1 text-paper hover:bg-ink-2 active:scale-[0.98] shadow-1',
-        accent: 'bg-cyan text-ink-1 hover:bg-cyan-glow active:scale-[0.98] shadow-glow',
+        primary: 'bg-ink-1 text-paper hover:bg-ink-2 active:scale-[0.99]',
+        accent: 'bg-volt text-ink-1 hover:bg-volt-glow active:scale-[0.99]',
         outline: 'border border-line bg-paper text-ink-1 hover:border-ink-3 hover:bg-pearl active:scale-[0.98]',
         ghost: 'text-ink-1 hover:bg-ink-7 active:scale-[0.98]',
         danger: 'bg-rose text-paper hover:opacity-90 active:scale-[0.98]',
@@ -74,7 +74,7 @@ Button.displayName = 'Button';
 // INPUT
 // ============================================
 const inputVariants = cva(
-  'flex w-full rounded-md border bg-paper text-ink-1 placeholder:text-ink-4 transition-colors duration-140 focus-visible:outline-none focus-visible:border-cyan-deep focus-visible:ring-2 focus-visible:ring-cyan/30 disabled:opacity-50 disabled:cursor-not-allowed',
+        'flex w-full rounded-xs border bg-paper text-ink-1 placeholder:text-ink-4 transition-colors duration-200 focus-visible:outline-none focus-visible:border-ink-1 focus-visible:ring-2 focus-visible:ring-volt/40 disabled:opacity-50 disabled:cursor-not-allowed',
   {
     variants: {
       size: { sm: 'h-8 px-2.5 text-body-sm', md: 'h-9 px-3 text-body', lg: 'h-11 px-4 text-body-lg' },

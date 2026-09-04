@@ -2,17 +2,12 @@ import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Button, Card, EmptyState, StatusBadge } from '@/components/ui';
+import { Button, EmptyState, StatusBadge } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
-import { formatLKR } from '@/lib/format';
-import {
-  StoreIcon,
-  CheckCircleIcon,
-  XIcon,
-  ClockIcon,
-  ChevronRightIcon,
-  AlertCircleIcon,
-} from '@/components/icons';
+import { formatCompactLKR, formatLKR } from '@/lib/format';
+import { StoreIcon, CheckCircleIcon, XIcon } from '@/components/icons';
+import { FlowLine } from '@/components/brand/FlowLine';
+import { MetricNumber, Surface } from '@/components/brand/Surface';
 
 interface Order {
   id: string;
@@ -25,6 +20,7 @@ interface Order {
 export function SupplierOrdersPage() {
   const { user } = useAuth();
   const supplierId = user?.supplierMemberships?.[0]?.supplierId;
+  const supplierName = user?.supplierMemberships?.[0]?.supplierName;
   const { data, refetch, isLoading } = useQuery({
     queryKey: ['supplier-orders', supplierId],
     queryFn: () => api.get<{ orders: Order[] }>(`/purchase-orders?supplierId=${supplierId}`),
@@ -44,190 +40,113 @@ export function SupplierOrdersPage() {
 
   if (!user || !supplierId) {
     return (
-      <div className="max-w-md mx-auto py-12 text-center">
-        <Card className="p-8 space-y-4">
-          <StoreIcon size={32} className="mx-auto text-slate-400" />
-          <h2 className="text-xl font-bold text-slate-800">Supplier Access Required</h2>
-          <p className="text-xs text-slate-500">Sign in with an authorized supplier account to access the merchant orders inbox.</p>
-          <Link to="/onboarding/supplier">
-            <Button>List as Supplier</Button>
-          </Link>
-        </Card>
+      <div className="py-12">
+        <h2 className="vyro-display text-3xl">Supplier access required</h2>
+        <Link to="/onboarding/supplier" className="mt-4 inline-block">
+          <Button>List as supplier</Button>
+        </Link>
       </div>
     );
   }
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4 max-w-5xl mx-auto py-4">
-        <div className="h-8 w-48 bg-slate-200 rounded animate-pulse" />
-        <div className="h-48 bg-slate-100 rounded-2xl animate-pulse border border-slate-200" />
-      </div>
-    );
-  }
+  if (isLoading) return <div className="h-48 bg-mist animate-pulse" />;
 
-  const pending = data?.orders.filter((o) => o.status === 'pending') ?? [];
-  const active = data?.orders.filter((o) => o.status !== 'pending') ?? [];
+  const orders = data?.orders ?? [];
+  const pending = orders.filter((o) => o.status === 'pending');
+  const active = orders.filter((o) => o.status !== 'pending');
+  const revenue = orders.reduce((a, b) => a + b.totalCents, 0);
 
   return (
-    <div className="space-y-10 max-w-6xl mx-auto">
+    <div className="space-y-8">
       <header>
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider bg-cyan/15 text-cyan-deep mb-3">
-          <StoreIcon size={12} /> Merchant operations
-        </div>
-        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-950 text-balance">
-          Supplier order inbox
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Review incoming purchase orders from Sri Lankan buyers, confirm acceptance, and update fulfillment milestones.
-        </p>
+        <div className="vyro-kicker">{supplierName}</div>
+        <h1 className="mt-2 vyro-display text-4xl sm:text-5xl">Supplier command</h1>
       </header>
 
-      {/* Pending Incoming Orders Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-          <div className="flex items-center gap-2.5">
-            <span className="size-7 rounded-md bg-amber/15 text-amber inline-flex items-center justify-center"><AlertCircleIcon size={14} /></span>
-            <h2 className="text-lg font-semibold text-slate-950">Awaiting acceptance</h2>
-            {pending.length > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber text-white animate-pulse num-tabular">
-                {pending.length} NEW
-              </span>
-            )}
-          </div>
-          <span className="text-xs text-slate-500 font-mono">24h SLA target</span>
+      <div className="grid md:grid-cols-3 gap-px bg-ink/10">
+        <div className="bg-ink text-paper p-6">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-volt">Incoming</div>
+          <MetricNumber size="lg" className="mt-2 text-paper">
+            {pending.length}
+          </MetricNumber>
         </div>
+        <div className="bg-paper p-6">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-ink-4">Revenue on book</div>
+          <MetricNumber size="md" className="mt-2">
+            {formatCompactLKR(revenue)}
+          </MetricNumber>
+        </div>
+        <div className="bg-paper p-6">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-ink-4">All orders</div>
+          <MetricNumber size="md" className="mt-2">
+            {orders.length}
+          </MetricNumber>
+        </div>
+      </div>
 
+      <Surface kind="ink" className="p-6">
+        <FlowLine
+          tone="paper"
+          nodes={[
+            { label: 'Incoming', state: pending.length ? 'active' : 'done' },
+            { label: 'Accepted', state: 'idle' },
+            { label: 'Delivery', state: 'idle' },
+            { label: 'Customers', state: 'idle' },
+          ]}
+        />
+      </Surface>
+
+      <section>
+        <h2 className="font-display text-2xl mb-4">Awaiting acceptance</h2>
         {pending.length === 0 ? (
-          <Card className="p-10 text-center text-slate-500 bg-pearl border-slate-200">
-            <CheckCircleIcon size={28} className="mx-auto text-mint mb-3" />
-            <h3 className="font-semibold text-slate-950 text-base">All caught up</h3>
-            <p className="text-xs text-slate-500 mt-1">No pending purchase orders waiting for your review.</p>
-          </Card>
+          <EmptyState icon={<CheckCircleIcon size={20} />} title="All caught up." description="No pending purchase orders." />
         ) : (
           <div className="space-y-3">
             {pending.map((o) => (
-              <Card
-                key={o.id}
-                hoverEffect
-                className="p-5 border-l-4 border-l-amber bg-paper border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-soft-sm"
-              >
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono font-semibold text-sm text-slate-950 bg-white px-2.5 py-1 rounded-md border border-slate-200">
-                      {o.poNumber}
-                    </span>
-                    <StatusBadge status={o.status} />
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <ClockIcon size={13} className="text-slate-400" />
-                    <span className="num-tabular">Received {new Date(o.createdAt).toLocaleString('en-US', {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    })}</span>
-                  </div>
+              <Surface key={o.id} kind="elevated" className="p-5 flex flex-col sm:flex-row sm:items-center gap-4 shadow-[inset_3px_0_0_0_#C4843A]">
+                <div className="flex-1">
+                  <div className="vyro-metric">{o.poNumber}</div>
+                  <StatusBadge status={o.status} />
                 </div>
-
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 border-t sm:border-t-0 pt-3 sm:pt-0">
-                  <div className="text-left sm:text-right">
-                    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                      Order value
-                    </div>
-                    <div className="text-xl font-bold font-mono text-slate-950 num-tabular">
-                      {formatLKR(o.totalCents)}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="success"
-                      disabled={busyId === o.id}
-                      loading={busyId === o.id}
-                      onClick={() => transition(o.id, 'accepted')}
-                    >
-                      <CheckCircleIcon size={14} /> Accept
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      disabled={busyId === o.id}
-                      onClick={() => transition(o.id, 'rejected')}
-                    >
-                      <XIcon size={14} /> Reject
-                    </Button>
-                    <Link to={`/orders/${o.id}`}>
-                      <Button variant="outline" size="sm">
-                        View
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Active & Completed Orders History */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-          <h2 className="text-lg font-bold text-slate-900">Fulfillment & History</h2>
-          <span className="text-xs text-slate-500">{active.length} order{active.length === 1 ? '' : 's'}</span>
-        </div>
-
-        {active.length === 0 ? (
-          <Card className="p-8 text-center text-slate-500 bg-slate-50/60 border-slate-200">
-            <p className="text-xs text-slate-500">No historical purchase orders recorded yet.</p>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {active.map((o) => (
-              <Card
-                key={o.id}
-                hoverEffect
-                className="p-5 border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
-              >
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono font-bold text-sm text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
-                      {o.poNumber}
-                    </span>
-                    <StatusBadge status={o.status} />
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <ClockIcon size={13} className="text-slate-400" />
-                    <span>{new Date(o.createdAt).toLocaleString('en-US', {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    })}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-3 sm:pt-0">
-                  <div className="text-left sm:text-right">
-                    <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                      Amount
-                    </div>
-                    <div className="text-lg font-black text-slate-900">
-                      {formatLKR(o.totalCents)}
-                    </div>
-                  </div>
-
+                <MetricNumber size="sm">{formatLKR(o.totalCents)}</MetricNumber>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="success" loading={busyId === o.id} onClick={() => transition(o.id, 'accepted')}>
+                    Accept
+                  </Button>
+                  <Button size="sm" variant="danger" disabled={busyId === o.id} onClick={() => transition(o.id, 'rejected')}>
+                    <XIcon size={14} />
+                  </Button>
                   <Link to={`/orders/${o.id}`}>
-                    <Button variant="outline" size="sm" className="group-hover:border-brand-300 group-hover:text-brand-700">
-                      <span>Details</span>
-                      <ChevronRightIcon size={15} />
+                    <Button variant="secondary" size="sm">
+                      View
                     </Button>
                   </Link>
                 </div>
-              </Card>
+              </Surface>
             ))}
           </div>
         )}
-      </div>
+      </section>
+
+      <section>
+        <h2 className="font-display text-2xl mb-4">Fulfillment</h2>
+        {active.length === 0 ? (
+          <p className="text-sm text-ink-4">No historical purchase orders yet.</p>
+        ) : (
+          <div className="divide-y divide-ink/10 border-y border-ink/10">
+            {active.map((o) => (
+              <Link key={o.id} to={`/orders/${o.id}`} className="flex items-center gap-4 py-4 hover:bg-paper/80">
+                <span className="vyro-metric text-sm w-32">{o.poNumber}</span>
+                <StatusBadge status={o.status} />
+                <span className="flex-1" />
+                <span className="vyro-metric text-sm">{formatLKR(o.totalCents)}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
+
+void StoreIcon;

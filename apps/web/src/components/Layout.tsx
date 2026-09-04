@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
@@ -7,242 +7,348 @@ import {
   ShoppingCartIcon,
   PackageIcon,
   StoreIcon,
-  Building2Icon,
   LogOutIcon,
-  ShieldCheckIcon,
   TruckIcon,
   FileTextIcon,
-  TrendingUpIcon,
+  LayoutGridIcon,
+  BellIcon,
+  UserIcon,
 } from './icons';
 import { Button } from './ui';
+import { BrandMark, BrandWordmark } from './brand/BrandMark';
+import { FlowPathMini } from './brand/FlowLine';
+import { cn } from '@vyro/ui';
 
 export function Layout() {
+  const location = useLocation();
+  const isAuth = location.pathname === '/login' || location.pathname === '/signup';
+  if (isAuth) return <Outlet />;
+  const isMarketing = ['/', '/about', '/how-it-works'].includes(location.pathname);
+  if (isMarketing) return <MarketingShell />;
+  return <WorkspaceShell />;
+}
+
+function MarketingShell() {
+  const { user } = useAuth();
+  return (
+    <div className="min-h-dvh bg-bone text-ink">
+      <header className="sticky top-0 z-40 border-b border-ink/10 bg-bone/90 backdrop-blur-md">
+        <div className="max-w-stage mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-4">
+          <Link to="/" className="flex items-center gap-3">
+            <BrandMark size={28} />
+            <BrandWordmark size="sm" />
+          </Link>
+          <nav className="hidden md:flex items-center gap-8 text-sm">
+            <Link to="/how-it-works" className="text-ink-3 hover:text-ink transition-colors">
+              How it works
+            </Link>
+            <Link to="/about" className="text-ink-3 hover:text-ink transition-colors">
+              About
+            </Link>
+            <Link to="/search" className="text-ink-3 hover:text-ink transition-colors">
+              Catalog
+            </Link>
+            <Link to="/onboarding/supplier" className="text-ink-3 hover:text-ink transition-colors">
+              For suppliers
+            </Link>
+          </nav>
+          <div className="flex items-center gap-2">
+            {user ? (
+              <Link to="/dashboard">
+                <Button size="sm">Open workspace</Button>
+              </Link>
+            ) : (
+              <>
+                <Link to="/login" className="hidden sm:block">
+                  <Button variant="ghost" size="sm">
+                    Sign in
+                  </Button>
+                </Link>
+                <Link to="/signup">
+                  <Button size="sm">Start procuring</Button>
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+      <main>
+        <Outlet />
+      </main>
+      <MarketingFooter />
+    </div>
+  );
+}
+
+function MarketingFooter() {
+  return (
+    <footer className="bg-ink text-paper mt-0">
+      <div className="max-w-stage mx-auto px-5 sm:px-8 py-16 grid gap-12 md:grid-cols-[1.4fr_1fr_1fr]">
+        <div>
+          <div className="flex items-center gap-3">
+            <BrandMark size={32} tone="volt" />
+            <BrandWordmark tone="paper" />
+          </div>
+          <p className="mt-5 max-w-sm text-sm text-paper/60 leading-relaxed">
+            The operating layer connecting businesses to suppliers, orders, payments and delivery.
+          </p>
+          <div className="mt-6 text-volt max-w-xs">
+            <FlowPathMini />
+          </div>
+        </div>
+        <div>
+          <div className="vyro-kicker text-copper">Product</div>
+          <ul className="mt-4 space-y-2 text-sm text-paper/70">
+            <li>
+              <Link to="/search" className="hover:text-volt">
+                Catalog
+              </Link>
+            </li>
+            <li>
+              <Link to="/how-it-works" className="hover:text-volt">
+                How it works
+              </Link>
+            </li>
+            <li>
+              <Link to="/onboarding/business" className="hover:text-volt">
+                Register a business
+              </Link>
+            </li>
+            <li>
+              <Link to="/onboarding/supplier" className="hover:text-volt">
+                Become a supplier
+              </Link>
+            </li>
+          </ul>
+        </div>
+        <div>
+          <div className="vyro-kicker text-copper">VYRO</div>
+          <ul className="mt-4 space-y-2 text-sm text-paper/70">
+            <li>VYRO Procurement</li>
+            <li>VYRO Pay</li>
+            <li>VYRO Logistics</li>
+            <li>VYRO Credit</li>
+          </ul>
+        </div>
+      </div>
+      <div className="border-t border-paper/10 px-5 sm:px-8 py-5 text-[11px] text-paper/40 flex flex-col sm:flex-row justify-between gap-2 max-w-stage mx-auto">
+        <span>© {new Date().getFullYear()} VYRO. Sri Lanka.</span>
+        <span>Flow · Movement · Connection · Commerce</span>
+      </div>
+    </footer>
+  );
+}
+
+function WorkspaceShell() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-
-  const businessId = user?.memberships?.[0]?.businessId;
+  const business = user?.memberships?.[0];
+  const businessId = business?.businessId;
   const isSupplier = (user?.supplierMemberships?.length ?? 0) > 0;
+  const supplier = user?.supplierMemberships?.[0];
 
   const { data: cartData } = useQuery({
     queryKey: ['cart', businessId],
     queryFn: () => api.get<{ items: Array<{ id: string }> }>(`/cart?businessId=${businessId}`),
     enabled: !!businessId,
   });
+  const { data: notifData } = useQuery({
+    queryKey: ['notifications-me'],
+    queryFn: () => api.get<{ notifications: Array<{ id: string; readAt: number | null }> }>('/notifications/me'),
+    enabled: !!user,
+  });
 
   const cartCount = cartData?.items?.length ?? 0;
+  const unread = notifData?.notifications?.filter((n) => !n.readAt).length ?? 0;
 
-  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-      isActive
-        ? 'bg-brand-50 text-brand-700 shadow-soft-sm font-semibold'
-        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
-    }`;
+  const primary = [
+    { to: '/dashboard', label: 'Command', icon: LayoutGridIcon, show: !!user },
+    { to: '/search', label: 'Discover', icon: SearchIcon, show: true },
+    { to: '/orders', label: 'Orders', icon: PackageIcon, show: !!user },
+    { to: '/cart', label: 'Cart', icon: ShoppingCartIcon, show: true, badge: cartCount },
+  ].filter((i) => i.show);
+
+  const contextual = [
+    { to: '/supplier/orders', label: 'Incoming', icon: StoreIcon, show: isSupplier },
+    { to: '/notifications', label: 'Signals', icon: BellIcon, show: !!user, badge: unread },
+    { to: '/profile', label: 'Account', icon: UserIcon, show: true },
+  ].filter((i) => i.show);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          
-          {/* Brand Logo */}
-          <div className="flex items-center gap-6">
-            <Link to="/" className="flex items-center gap-2.5 group">
-              <span className="relative inline-flex items-center justify-center">
-                <svg viewBox="0 0 32 32" className="h-9 w-9 rounded-lg shadow-soft-sm group-hover:scale-105 transition-transform" aria-hidden>
-                  <rect width="32" height="32" rx="7" fill="#0A0B10" />
-                  <path d="M9 8h4l5 12 5-12h4l-7 16h-4L9 8z" fill="#5EE2FF" />
-                </svg>
-              </span>
-              <div className="flex flex-col leading-tight">
-                <span className="font-extrabold text-xl tracking-tight text-slate-900 group-hover:text-sky-600 transition-colors">
-                  VYRO
-                </span>
-                <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
-                  Sri Lanka B2B Procurement
-                </span>
-              </div>
-            </Link>
+    <div className="min-h-dvh bg-bone text-ink lg:flex">
+      <aside className="hidden lg:flex w-sidebar shrink-0 flex-col bg-ink text-paper min-h-dvh sticky top-0">
+        <Link to="/" className="flex items-center gap-3 px-5 h-16 border-b border-paper/10">
+          <BrandMark size={28} tone="volt" />
+          <BrandWordmark tone="paper" size="sm" />
+        </Link>
 
-            {/* Main Navigation links */}
-            <nav className="hidden md:flex items-center gap-1">
-              <NavLink to="/search" className={navLinkClass}>
-                <SearchIcon size={16} />
-                <span>Discover</span>
-              </NavLink>
-
-              {user && (
-                <NavLink to="/dashboard" className={navLinkClass}>
-                  <TrendingUpIcon size={16} />
-                  <span>Dashboard</span>
-                </NavLink>
-              )}
-
-              {user && (
-                <NavLink to="/orders" className={navLinkClass}>
-                  <PackageIcon size={16} />
-                  <span>My Orders</span>
-                </NavLink>
-              )}
-
-              {user && isSupplier && (
-                <NavLink to="/supplier/orders" className={navLinkClass}>
-                  <StoreIcon size={16} />
-                  <span>Supplier Inbox</span>
-                </NavLink>
-              )}
-            </nav>
+        <div className="px-4 pt-5 pb-3">
+          <div className="vyro-kicker text-volt/80 mb-2">Workspace</div>
+          <div className="bg-paper/5 px-3 py-2.5">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-paper/40">
+              {isSupplier && !business ? 'Supplier' : 'Business'}
+            </div>
+            <div className="mt-1 text-sm font-semibold truncate">
+              {business?.businessName ?? supplier?.supplierName ?? 'Guest catalog'}
+            </div>
           </div>
+        </div>
 
-          {/* Right Header: Cart + Profile + Auth */}
-          <div className="flex items-center gap-2.5">
-            <NavLink
-              to="/cart"
-              className={({ isActive }) =>
-                `relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                  isActive
-                    ? 'bg-brand-50 text-brand-700'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
-                }`
-              }
-            >
+        <nav className="flex-1 px-3 space-y-6 overflow-y-auto">
+          <NavGroup title="Operate" items={primary} />
+          <NavGroup title="Context" items={contextual} />
+        </nav>
+
+        <div className="p-4 border-t border-paper/10">
+          {user ? (
+            <div className="flex items-center gap-3">
+              <Link to="/profile" className="flex-1 min-w-0 flex items-center gap-2.5">
+                <span className="size-8 bg-volt text-ink text-[11px] font-bold inline-flex items-center justify-center">
+                  {(user.name || 'U').slice(0, 2).toUpperCase()}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm truncate">{user.name}</span>
+                  <span className="block text-[10px] text-paper/40 truncate">{user.email}</span>
+                </span>
+              </Link>
+              <button
+                title="Sign out"
+                onClick={async () => {
+                  await signOut();
+                  navigate('/');
+                }}
+                className="size-9 inline-flex items-center justify-center text-paper/50 hover:text-volt hover:bg-paper/5"
+              >
+                <LogOutIcon size={16} />
+              </button>
+            </div>
+          ) : (
+            <Link to="/login">
+              <Button size="sm" className="w-full bg-volt text-ink hover:bg-volt-glow">
+                Sign in
+              </Button>
+            </Link>
+          )}
+        </div>
+      </aside>
+
+      <div className="flex-1 min-w-0 flex flex-col">
+        <header className="lg:hidden sticky top-0 z-40 h-14 px-4 flex items-center justify-between bg-bone/95 backdrop-blur border-b border-ink/10">
+          <Link to="/" className="flex items-center gap-2">
+            <BrandMark size={24} />
+            <span className="vyro-display text-lg">VYRO</span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/notifications" className="relative p-2">
+              <BellIcon size={18} />
+              {unread > 0 && <span className="absolute top-1.5 right-1.5 size-1.5 bg-volt rounded-full" />}
+            </Link>
+            <Link to="/cart" className="relative p-2">
               <ShoppingCartIcon size={18} />
-              <span className="hidden sm:inline">Cart</span>
               {cartCount > 0 && (
-                <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-brand-600 rounded-full animate-in zoom-in-75">
+                <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 bg-ink text-volt text-[10px] font-mono inline-flex items-center justify-center">
                   {cartCount}
                 </span>
               )}
-            </NavLink>
-
-            <div className="h-6 w-px bg-slate-200 mx-1 hidden sm:block" />
-
-            {user ? (
-              <div className="flex items-center gap-2">
-                <Link
-                  to="/profile"
-                  className="flex items-center gap-2.5 p-1.5 pr-3 rounded-lg hover:bg-slate-100 transition-colors"
-                >
-                  <div className="h-8 w-8 rounded-full bg-brand-100 text-brand-700 font-semibold text-xs flex items-center justify-center border border-brand-200">
-                    {user.name ? user.name.slice(0, 2).toUpperCase() : 'U'}
-                  </div>
-                  <div className="hidden lg:flex flex-col text-left">
-                    <span className="text-xs font-semibold text-slate-800 leading-tight">
-                      {user.name}
-                    </span>
-                    <span className="text-[10px] text-slate-600">
-                      {user.memberships?.[0]?.businessName ?? (isSupplier ? 'Supplier' : 'Buyer')}
-                    </span>
-                  </div>
-                </Link>
-
-                <button
-                  title="Sign out"
-                  onClick={async () => {
-                    await signOut();
-                    navigate('/');
-                  }}
-                  className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                >
-                  <LogOutIcon size={18} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <NavLink to="/login">
-                  <Button variant="ghost" size="sm">
-                    Sign In
-                  </Button>
-                </NavLink>
-                <NavLink to="/signup">
-                  <Button variant="primary" size="sm">
-                    Create Account
-                  </Button>
-                </NavLink>
-              </div>
-            )}
+            </Link>
           </div>
-        </div>
+        </header>
 
-        {/* Mobile secondary navigation */}
-        <div className="md:hidden flex items-center justify-around border-t border-slate-100 px-3 py-2 bg-slate-50/70 text-xs">
-          <NavLink to="/search" className="flex items-center gap-1 text-slate-700 font-medium py-1">
-            <SearchIcon size={15} /> Search
-          </NavLink>
-          {user && (
-            <NavLink to="/orders" className="flex items-center gap-1 text-slate-700 font-medium py-1">
-              <PackageIcon size={15} /> Orders
-            </NavLink>
-          )}
-          {user && isSupplier && (
-            <NavLink to="/supplier/orders" className="flex items-center gap-1 text-slate-700 font-medium py-1">
-              <StoreIcon size={15} /> Inbox
-            </NavLink>
-          )}
-          <NavLink to="/profile" className="flex items-center gap-1 text-slate-700 font-medium py-1">
-            <Building2Icon size={15} /> Account
-          </NavLink>
-        </div>
-      </header>
+        <main className="flex-1 w-full max-w-stage mx-auto px-4 sm:px-6 lg:px-10 py-8 pb-24 lg:pb-12">
+          <Outlet />
+        </main>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Outlet />
-      </main>
-
-      {/* Professional Footer */}
-      <footer className="border-t border-slate-200 bg-white mt-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          
-          {/* Trust Value Props Bar */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-12 border-b border-slate-100">
-            <div className="flex items-start gap-3.5">
-              <div className="h-10 w-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center shrink-0">
-                <ShieldCheckIcon size={22} />
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-slate-900">Verified Sri Lankan Suppliers</h4>
-                <p className="text-xs text-slate-500 mt-0.5">Strict business authentication with local VAT/BR and address verification.</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3.5">
-              <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <FileTextIcon size={22} />
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-slate-900">Transparent LKR Pricing</h4>
-                <p className="text-xs text-slate-500 mt-0.5">Direct manufacturer wholesale quotes without hidden commissions or FX markups.</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3.5">
-              <div className="h-10 w-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-                <TruckIcon size={22} />
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-slate-900">Purchase Order Lifecycle</h4>
-                <p className="text-xs text-slate-500 mt-0.5">Automated PO generation, supplier acceptance, and audited dispute resolution.</p>
-              </div>
-            </div>
+        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-ink/10 bg-paper/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+          <div className="grid grid-cols-5 h-16">
+            <MobileTab to="/search" icon={SearchIcon} label="Discover" />
+            <MobileTab to="/dashboard" icon={LayoutGridIcon} label="Command" />
+            <MobileTab to="/orders" icon={PackageIcon} label="Orders" />
+            <MobileTab to="/cart" icon={ShoppingCartIcon} label="Cart" badge={cartCount} />
+            <MobileTab to={isSupplier ? '/supplier/orders' : '/profile'} icon={isSupplier ? StoreIcon : UserIcon} label={isSupplier ? 'Inbox' : 'You'} />
           </div>
-
-          <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-            <div className="flex items-center gap-2">
-              <span className="font-bold tracking-tight text-slate-700">VYRO</span>
-              <span>•</span>
-              <span>Sri Lanka's B2B Wholesale & Procurement Infrastructure</span>
-            </div>
-            <div className="flex items-center gap-6">
-              <Link to="/search" className="hover:text-slate-900 transition-colors">Catalog</Link>
-              <Link to="/onboarding/business" className="hover:text-slate-900 transition-colors">Register Business</Link>
-              <Link to="/onboarding/supplier" className="hover:text-slate-900 transition-colors">Become a Supplier</Link>
-            </div>
-            <div>
-              © {new Date().getFullYear()} VYRO Technologies. All rights reserved.
-            </div>
-          </div>
-        </div>
-      </footer>
+        </nav>
+      </div>
     </div>
   );
 }
+
+function NavGroup({
+  title,
+  items,
+}: {
+  title: string;
+  items: Array<{ to: string; label: string; icon: typeof SearchIcon; badge?: number }>;
+}) {
+  return (
+    <div>
+      <div className="px-3 mb-2 text-[10px] uppercase tracking-[0.16em] text-paper/35">{title}</div>
+      <div className="space-y-0.5">
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                cn(
+                  'relative flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-200',
+                  isActive ? 'nav-active text-volt' : 'text-paper/70 hover:text-paper hover:bg-paper/5',
+                )
+              }
+            >
+              <Icon size={16} />
+              <span className="flex-1">{item.label}</span>
+              {item.badge ? (
+                <span className="min-w-5 h-5 px-1 bg-volt text-ink text-[10px] font-mono inline-flex items-center justify-center">
+                  {item.badge}
+                </span>
+              ) : null}
+            </NavLink>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function MobileTab({
+  to,
+  icon: Icon,
+  label,
+  badge,
+}: {
+  to: string;
+  icon: typeof SearchIcon;
+  label: string;
+  badge?: number;
+}) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        cn(
+          'flex flex-col items-center justify-center gap-1 text-[10px] tracking-wide relative',
+          isActive ? 'text-ink' : 'text-ink-4',
+        )
+      }
+    >
+      {({ isActive }) => (
+        <>
+          {isActive && <span className="absolute top-0 inset-x-6 h-0.5 bg-volt" />}
+          <span className="relative">
+            <Icon size={18} />
+            {badge ? (
+              <span className="absolute -top-1.5 -right-2 min-w-3.5 h-3.5 px-0.5 bg-ink text-volt text-[9px] font-mono inline-flex items-center justify-center">
+                {badge}
+              </span>
+            ) : null}
+          </span>
+          {label}
+        </>
+      )}
+    </NavLink>
+  );
+}
+
+void FileTextIcon;
+void TruckIcon;

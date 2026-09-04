@@ -2,21 +2,14 @@ import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Button, Card, EmptyState, Input } from '@/components/ui';
+import { Button, EmptyState, Input } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
-import {
-  SearchIcon,
-  PackageIcon,
-  StoreIcon,
-  ArrowRightIcon,
-  SparklesIcon,
-  CheckCircleIcon,
-  XIcon,
-} from '@/components/icons';
+import { SearchIcon, PackageIcon, StoreIcon, XIcon } from '@/components/icons';
+import { ProductPlaceholder } from '@/components/brand/Surface';
 
 interface Hit {
   product: { id: string; name: string; unit: string; brand: string | null };
-  bestOffer: { priceCents: number; supplier: { id: string; name: string } } | null;
+  bestOffer: { priceCents: number; supplier: { id: string; name: string }; leadTimeDays?: number } | null;
   offerCount: number;
 }
 
@@ -27,12 +20,9 @@ export function SearchPage() {
   const initialQ = searchParams.get('q') || '';
   const [q, setQ] = useState(initialQ);
 
-  // Sync state if URL search param changes
   useEffect(() => {
     const urlQ = searchParams.get('q') || '';
-    if (urlQ !== q) {
-      setQ(urlQ);
-    }
+    if (urlQ !== q) setQ(urlQ);
   }, [searchParams]);
 
   const { data, isLoading } = useQuery({
@@ -48,64 +38,38 @@ export function SearchPage() {
 
   function handleInputChange(val: string) {
     setQ(val);
-    if (val.trim()) {
-      setSearchParams({ q: val.trim() });
-    } else {
-      setSearchParams({});
-    }
+    setSearchParams(val.trim() ? { q: val.trim() } : {});
   }
 
   return (
     <div className="space-y-8">
-      {/* Header & Search Bar */}
-      <div className="space-y-5 max-w-3xl">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-cyan/15 text-cyan-deep mb-2.5">
-            <SearchIcon size={11} /> Wholesale catalog
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-950 text-balance">
-            Compare live <span className="text-cyan-deep">Sri Lankan wholesale</span> offers
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Live supplier offers, minimum order quantities, and unit prices in LKR.
-          </p>
-        </div>
-
-        {/* Enhanced Search Input */}
-        <div className="relative">
-          <SearchIcon size={20} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+      <header className="max-w-3xl">
+        <div className="vyro-kicker">Catalog</div>
+        <h1 className="mt-2 vyro-display text-4xl sm:text-5xl text-balance">Find what your business needs.</h1>
+        <div className="relative mt-6">
+          <SearchIcon size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-4" />
           <Input
-            placeholder="Search by product name, category, or brand (e.g. rice, cement, sugar)..."
+            placeholder="Search product, brand, or category"
             value={q}
             onChange={(e) => handleInputChange(e.target.value)}
-            className="pl-11 pr-10 py-3 text-base rounded-md border-slate-200 focus:border-cyan-deep focus:ring-2 focus:ring-cyan/30"
+            className="pl-11"
             autoFocus
           />
           {q && (
-            <button
-              onClick={() => handleInputChange('')}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-            >
+            <button onClick={() => handleInputChange('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-4 p-1">
               <XIcon size={16} />
             </button>
           )}
         </div>
-
-        {/* Quick Filter Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mr-1.5">
-            Quick tags
-          </span>
+        <div className="flex flex-wrap gap-2 mt-4">
           {QUICK_FILTERS.map((term) => {
             const active = q.toLowerCase() === term.toLowerCase();
             return (
               <button
                 key={term}
                 onClick={() => handleFilterClick(term)}
-                className={`px-3 h-7 rounded-full text-xs font-medium transition-all ${
-                  active
-                    ? 'bg-slate-950 text-white'
-                    : 'bg-paper text-slate-600 border border-slate-200 hover:border-slate-300 hover:text-slate-950'
+                className={`h-8 px-3 text-xs font-medium tracking-wide ${
+                  active ? 'bg-ink text-volt' : 'bg-paper text-ink-3 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.12)] hover:text-ink'
                 }`}
               >
                 {term}
@@ -113,146 +77,75 @@ export function SearchPage() {
             );
           })}
         </div>
-      </div>
+      </header>
 
-      {/* Results Header */}
       {q && data && (
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <span className="text-sm font-semibold text-slate-700">
-            <span className="font-mono num-tabular text-slate-950">{data.hits.length}</span> product
-            {data.hits.length === 1 ? '' : 's'} matching <span className="font-mono text-slate-950">"{q}"</span>
-          </span>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Sorted by relevance
+        <div className="flex items-baseline justify-between border-b border-ink/10 pb-3">
+          <span className="text-sm text-ink-3">
+            <span className="vyro-metric text-ink">{data.hits.length}</span> matches
           </span>
         </div>
       )}
 
-      {/* Loading Skeleton */}
       {isLoading && q && (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-64 rounded-2xl bg-slate-100 animate-pulse border border-slate-200" />
+            <div key={i} className="h-80 bg-mist animate-pulse" />
           ))}
         </div>
       )}
 
-      {/* Products Grid */}
       {data && data.hits.length > 0 && (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {data.hits.map((h) => (
-            <Card
+            <Link
               key={h.product.id}
-              hoverEffect
-              className="flex flex-col justify-between border-slate-200/90 rounded-2xl p-5 group"
+              to={`/products/${h.product.id}`}
+              className="group bg-paper flex flex-col shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08)] hover:-translate-y-0.5 transition-transform duration-240"
             >
-              <div>
-                {/* Category / Unit tags */}
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200/80">
-                    <PackageIcon size={13} className="text-slate-500" />
-                    <span>Unit: {h.product.unit}</span>
-                  </div>
-                  {h.product.brand && (
-                    <span className="text-xs font-semibold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-100">
-                      {h.product.brand}
-                    </span>
-                  )}
-                </div>
-
-                {/* Title */}
-                <h3 className="font-bold text-base text-slate-900 group-hover:text-brand-600 transition-colors leading-snug">
-                  <Link to={`/products/${h.product.id}`} className="hover:underline">
-                    {h.product.name}
-                  </Link>
-                </h3>
-
-                {/* Offer Details */}
+              <ProductPlaceholder seed={h.product.id} className="h-44" />
+              <div className="p-5 flex-1 flex flex-col">
+                <div className="text-[11px] uppercase tracking-[0.12em] text-ink-4">{h.product.unit}</div>
+                <h3 className="mt-1 font-display text-xl leading-tight group-hover:text-copper">{h.product.name}</h3>
                 {h.bestOffer ? (
-                  <div className="mt-4 p-3.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Best Direct Price
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                        <CheckCircleIcon size={12} /> Verified
-                      </span>
+                  <>
+                    <div className="mt-4 vyro-metric text-3xl">{formatLKR(h.bestOffer.priceCents)}</div>
+                    <div className="mt-1 text-xs text-ink-4 flex items-center gap-1.5">
+                      <StoreIcon size={12} /> {h.bestOffer.supplier.name}
                     </div>
-
-                    <div className="text-xl font-black text-brand-700 tracking-tight">
-                      {formatLKR(h.bestOffer.priceCents)}
-                      <span className="text-xs font-normal text-slate-500 ml-1">
-                        / {h.product.unit}
-                      </span>
+                    <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity text-[11px] text-ink-3">
+                      {h.offerCount} offer{h.offerCount === 1 ? '' : 's'} · available now
                     </div>
-
-                    <div className="flex items-center gap-1.5 text-xs text-slate-600 pt-0.5">
-                      <StoreIcon size={14} className="text-slate-400 shrink-0" />
-                      <span className="font-medium truncate">{h.bestOffer.supplier.name}</span>
-                    </div>
-
-                    {h.offerCount > 1 && (
-                      <div className="text-[11px] font-medium text-brand-600 pt-1 flex items-center gap-1">
-                        <SparklesIcon size={12} />
-                        +{h.offerCount - 1} other supplier offer{h.offerCount > 2 ? 's' : ''} available
-                      </div>
-                    )}
-                  </div>
+                  </>
                 ) : (
-                  <div className="mt-4 p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-amber-800">
-                    No active supplier offers currently listed for this product.
-                  </div>
+                  <p className="mt-4 text-xs text-amber">No live offer</p>
                 )}
+                <div className="mt-auto pt-4 text-xs font-semibold tracking-wide">Compare →</div>
               </div>
-
-              {/* Action Button */}
-              <div className="mt-5 pt-3 border-t border-slate-100">
-                <Link to={`/products/${h.product.id}`} className="block">
-                  <Button variant="outline" className="w-full justify-between text-xs group-hover:border-brand-300 group-hover:text-brand-700">
-                    <span>Compare All Offers</span>
-                    <ArrowRightIcon size={15} />
-                  </Button>
-                </Link>
-              </div>
-            </Card>
+            </Link>
           ))}
         </div>
       )}
 
-      {/* Empty State: No results */}
       {data && data.hits.length === 0 && q && (
         <EmptyState
-          icon={<SearchIcon size={24} />}
-          title={`No products found for "${q}"`}
-          description="Try checking for spelling mistakes or try a broader search term like 'rice', 'sugar', or 'cement'."
-          action={
-            <Button variant="outline" onClick={() => handleFilterClick('Rice')}>
-              View Rice Offers
-            </Button>
-          }
+          icon={<SearchIcon size={20} />}
+          title="Nothing in the flow yet."
+          description="Try a broader term — rice, sugar, cement."
         />
       )}
 
-      {/* Initial state: Prompt to search */}
       {!q && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center max-w-xl mx-auto space-y-4 shadow-soft-sm">
-          <div className="h-12 w-12 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center mx-auto">
-            <SearchIcon size={24} />
-          </div>
-          <div>
-            <h3 className="font-bold text-slate-800 text-base">Search the Wholesale Catalog</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              Type a product name above or click any of the popular tags to explore live wholesale quotes across Sri Lanka.
-            </p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-2 pt-2">
-            {QUICK_FILTERS.slice(0, 4).map((f) => (
-              <Button key={f} size="sm" variant="outline" onClick={() => handleFilterClick(f)}>
-                {f}
-              </Button>
-            ))}
-          </div>
-        </div>
+        <EmptyState
+          icon={<PackageIcon size={20} />}
+          title="Your procurement starts here."
+          description="Search the catalog or pick a sector tag."
+          action={
+            <Button variant="secondary" onClick={() => handleFilterClick('Rice')}>
+              Browse rice
+            </Button>
+          }
+        />
       )}
     </div>
   );

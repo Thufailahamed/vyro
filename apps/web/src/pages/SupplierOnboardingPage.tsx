@@ -1,18 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Button, Card, ErrorBanner, Input, Label, Select, Textarea } from '@/components/ui';
+import { Button, ErrorBanner, Input, Label, Textarea } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import {
-  StoreIcon,
-  PhoneIcon,
-  MailIcon,
-  MapPinIcon,
-  UserIcon,
-  ArrowRightIcon,
-  FileTextIcon,
-  ShieldCheckIcon,
-} from '@/components/icons';
+import { FlowLine } from '@/components/brand/FlowLine';
 
 interface BusinessType {
   id: string;
@@ -23,6 +14,7 @@ interface BusinessType {
 export function SupplierOnboardingPage() {
   const { user, refresh } = useAuth();
   const [types, setTypes] = useState<BusinessType[]>([]);
+  const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     name: '',
     businessTypeSlug: '',
@@ -47,206 +39,125 @@ export function SupplierOnboardingPage() {
 
   if (!user) {
     return (
-      <div className="max-w-md mx-auto py-12 text-center">
-        <Card className="p-8 space-y-4">
-          <StoreIcon size={32} className="mx-auto text-slate-400" />
-          <h2 className="text-xl font-bold text-slate-800">Sign In Required</h2>
-          <p className="text-xs text-slate-500">Sign in to list your business catalog as an authorized supplier.</p>
-          <Link to="/login">
-            <Button>Sign In to Continue</Button>
-          </Link>
-        </Card>
+      <div className="py-12">
+        <h2 className="vyro-display text-3xl">Sign in required</h2>
+        <Link to="/login" className="mt-4 inline-block">
+          <Button>Sign in</Button>
+        </Link>
       </div>
     );
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit() {
     setErr('');
     setLoading(true);
     try {
       await api.post('/suppliers/onboard', form);
       await refresh();
-      navigate('/profile');
+      navigate('/supplier/orders');
     } catch (e) {
-      setErr(e instanceof ApiError ? `${e.message}` : 'Supplier onboarding failed. Please check your information.');
+      setErr(e instanceof ApiError ? `${e.message}` : 'Supplier onboarding failed.');
     } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <div className="max-w-2xl mx-auto py-6 space-y-7">
-      <div className="pb-4 border-b border-slate-200">
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-mint/15 text-mint mb-2.5">
-          <StoreIcon size={12} /> Supplier merchant program
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-950 text-balance">
-          List your business as a supplier
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Receive wholesale purchase orders directly from hotels, supermarkets, contractors, and retailers across Sri Lanka.
-        </p>
-      </div>
+  const labels = ['Category', 'Identity', 'Place', 'Contact'];
 
+  return (
+    <div className="max-w-2xl mx-auto py-4 space-y-10">
+      <FlowLine
+        nodes={labels.map((label, i) => ({
+          label,
+          state: i < step ? 'done' : i === step ? 'active' : 'idle',
+        }))}
+      />
       <ErrorBanner message={err} />
 
-      <form onSubmit={submit} className="space-y-5">
-        {/* Section 1: Business Identity */}
-        <Card className="p-6 border-slate-200/90 space-y-4">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
-            <span className="size-7 rounded-md bg-mint/15 text-mint inline-flex items-center justify-center">
-              <StoreIcon size={13} />
-            </span>
-            <h2 className="text-base font-semibold text-slate-950">Supplier & brand details</h2>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="s-name">Company / Wholesale Trading Name</Label>
-              <Input
-                id="s-name"
-                required
-                placeholder="e.g. Ceylon Agro Mills & Exports Ltd"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="s-type">Wholesale Category</Label>
-              <Select
-                id="s-type"
-                required
-                value={form.businessTypeSlug}
-                onChange={(e) => setForm({ ...form, businessTypeSlug: e.target.value })}
+      {step === 0 && (
+        <div>
+          <h1 className="vyro-display text-4xl sm:text-5xl text-balance">What do you supply?</h1>
+          <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-px bg-ink/10">
+            {types.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  setForm({ ...form, businessTypeSlug: t.slug });
+                  setStep(1);
+                }}
+                className="p-5 text-left bg-paper hover:bg-ink hover:text-paper transition-colors"
               >
-                <option value="">Select primary category...</option>
-                {types.map((t) => (
-                  <option key={t.id} value={t.slug}>
-                    {t.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
+                <span className="font-display text-lg">{t.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
+      {step === 1 && (
+        <div className="space-y-4">
+          <h1 className="vyro-display text-4xl">Name the supplier.</h1>
+          <Label htmlFor="s-name">Trading name</Label>
+          <Input id="s-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <Label htmlFor="s-desc">Capabilities</Label>
+          <Textarea id="s-desc" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <div className="flex gap-3">
+            <Button variant="ghost" onClick={() => setStep(0)}>
+              Back
+            </Button>
+            <Button disabled={!form.name.trim()} onClick={() => setStep(2)}>
+              Continue
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="space-y-4">
+          <h1 className="vyro-display text-4xl">Where do you dispatch from?</h1>
+          <Label htmlFor="s-addr">Warehouse address</Label>
+          <Input id="s-addr" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+          <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="s-desc">Company & Capabilities Overview</Label>
-              <Textarea
-                id="s-desc"
-                rows={3}
-                placeholder="Describe your manufacturing capacity, lead times, or product portfolio..."
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
+              <Label htmlFor="s-city">City</Label>
+              <Input id="s-city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
             </div>
-          </div>
-        </Card>
-
-        {/* Section 2: Contact Person & Communication */}
-        <Card className="p-6 border-slate-200/90 space-y-4">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
-            <span className="size-7 rounded-md bg-cyan/15 text-cyan-deep inline-flex items-center justify-center">
-              <UserIcon size={13} />
-            </span>
-            <h2 className="text-base font-semibold text-slate-950">Sales & operations contact</h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="s-person">Key Account Manager Name</Label>
-              <Input
-                id="s-person"
-                required
-                placeholder="e.g. Nimal Fernando"
-                value={form.contactPerson}
-                onChange={(e) => setForm({ ...form, contactPerson: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="s-phone">Direct Phone / Hotline</Label>
-              <Input
-                id="s-phone"
-                required
-                placeholder="e.g. 011 234 5678"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <Label htmlFor="s-email">Official Order Notification Email</Label>
-              <Input
-                id="s-email"
-                type="email"
-                required
-                placeholder="orders@supplier.lk"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
+              <Label htmlFor="s-district">District</Label>
+              <Input id="s-district" value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value })} />
             </div>
           </div>
-        </Card>
-
-        {/* Section 3: Distribution Center & Warehouse */}
-        <Card className="p-6 border-slate-200/90 space-y-4">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
-            <span className="size-7 rounded-md bg-violet/15 text-violet inline-flex items-center justify-center">
-              <MapPinIcon size={13} />
-            </span>
-            <h2 className="text-base font-semibold text-slate-950">Warehouse / depot location</h2>
+          <div className="flex gap-3">
+            <Button variant="ghost" onClick={() => setStep(1)}>
+              Back
+            </Button>
+            <Button disabled={!form.address || !form.city || !form.district} onClick={() => setStep(3)}>
+              Continue
+            </Button>
           </div>
+        </div>
+      )}
 
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="s-addr">Warehouse / Facility Street Address</Label>
-              <Input
-                id="s-addr"
-                required
-                placeholder="e.g. Industrial Zone, Block B, Kelaniya"
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="s-city">City / Hub</Label>
-                <Input
-                  id="s-city"
-                  required
-                  placeholder="e.g. Kelaniya"
-                  value={form.city}
-                  onChange={(e) => setForm({ ...form, city: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="s-district">District</Label>
-                <Input
-                  id="s-district"
-                  required
-                  placeholder="e.g. Gampaha"
-                  value={form.district}
-                  onChange={(e) => setForm({ ...form, district: e.target.value })}
-                />
-              </div>
-            </div>
+      {step === 3 && (
+        <div className="space-y-4">
+          <h1 className="vyro-display text-4xl">Who receives orders?</h1>
+          <Label htmlFor="s-person">Account manager</Label>
+          <Input id="s-person" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} />
+          <Label htmlFor="s-phone">Phone</Label>
+          <Input id="s-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <Label htmlFor="s-email">Order email</Label>
+          <Input id="s-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <div className="flex gap-3">
+            <Button variant="ghost" onClick={() => setStep(2)}>
+              Back
+            </Button>
+            <Button loading={loading} disabled={!form.contactPerson || !form.phone || !form.email} onClick={submit}>
+              Publish listing
+            </Button>
           </div>
-        </Card>
-
-        <Button
-          type="submit"
-          disabled={loading}
-          loading={loading}
-          size="lg"
-          className="w-full font-bold shadow-soft-sm justify-center bg-emerald-600 hover:bg-emerald-700"
-        >
-          <span>Publish Supplier Listing</span>
-          <ArrowRightIcon size={18} />
-        </Button>
-      </form>
+        </div>
+      )}
     </div>
   );
 }

@@ -11,7 +11,9 @@
     "test": "turbo run test",
     "db:migrate": "pnpm --filter @vyro/db migrate",
     "db:seed": "pnpm --filter @vyro/db seed",
-    "db:studio": "pnpm --filter @vyro/db studio"
+    "db:studio": "pnpm --filter @vyro/db studio",
+    "deploy:backend": "node scripts/deploy-backend.mjs",
+    "deploy:backend:seed": "node scripts/deploy-backend.mjs --seed"
   },
   "devDependencies": {
     "turbo": "^2.1.0",
