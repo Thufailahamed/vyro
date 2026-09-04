@@ -23,6 +23,18 @@ import { LoginPage as AdminLoginPage } from './admin/LoginPage';
 import { SuppliersPage, BusinessesPage } from './admin/Lists';
 import { DisputedPage, AuditPage } from './admin/DisputedAndAudit';
 
+import { SupplierShell } from './supplier/Shell';
+import { SupplierDashboardPage } from './supplier/DashboardPage';
+import { SupplierProductsPage } from './supplier/ProductsPage';
+import { SupplierProductFormPage } from './supplier/ProductFormPage';
+import { SupplierPricingPage } from './supplier/PricingPage';
+import { SupplierInventoryPage } from './supplier/InventoryPage';
+import { SupplierAnalyticsPage } from './supplier/AnalyticsPage';
+import { SupplierCustomersPage } from './supplier/CustomersPage';
+import { SupplierDeliveriesPage } from './supplier/DeliveriesPage';
+import { SupplierPaymentsPage } from './supplier/PaymentsPage';
+import { SupplierSettingsPage } from './supplier/SettingsPage';
+
 export default function App() {
   return (
     <Routes>
@@ -65,6 +77,22 @@ export default function App() {
           <Route path="audit" element={<RequireAdmin><AuditPage /></RequireAdmin>} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
+      </Route>
+
+      {/* Supplier SPA — nested under shared AuthProvider in Layout */}
+      <Route path="/supplier" element={<SupplierShell />}>
+        <Route index element={<SupplierDashboardPage />} />
+        <Route path="products" element={<SupplierProductsPage />} />
+        <Route path="products/new" element={<SupplierProductFormPage mode="create" />} />
+        <Route path="products/:id/edit" element={<SupplierProductFormPage mode="edit" />} />
+        <Route path="pricing" element={<SupplierPricingPage />} />
+        <Route path="inventory" element={<SupplierInventoryPage />} />
+        <Route path="analytics" element={<SupplierAnalyticsPage />} />
+        <Route path="customers" element={<SupplierCustomersPage />} />
+        <Route path="deliveries" element={<SupplierDeliveriesPage />} />
+        <Route path="payments" element={<SupplierPaymentsPage />} />
+        <Route path="settings" element={<SupplierSettingsPage />} />
+        <Route path="*" element={<Navigate to="/supplier" replace />} />
       </Route>
     </Routes>
   );
