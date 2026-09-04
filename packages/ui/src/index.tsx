@@ -869,4 +869,5 @@ export { ToastProvider, useToast } from './components/Toast';
 export type { ToastItem } from './components/Toast';
 export { Progress } from './components/Progress';
 export type { ProgressProps } from './components/Progress';
+export { Sparkline, BarChart, ProgressRing, StatTile, TimeSeries } from './components/Charts';
 export { AuthProvider, useAuth, AdminAuthProvider, useAdminAuth, api } from './components/auth';

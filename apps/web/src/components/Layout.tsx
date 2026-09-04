@@ -12,6 +12,7 @@ import {
   ShieldCheckIcon,
   TruckIcon,
   FileTextIcon,
+  TrendingUpIcon,
 } from './icons';
 import { Button } from './ui';
 
@@ -68,6 +69,13 @@ export function Layout() {
                 <SearchIcon size={16} />
                 <span>Discover</span>
               </NavLink>
+
+              {user && (
+                <NavLink to="/dashboard" className={navLinkClass}>
+                  <TrendingUpIcon size={16} />
+                  <span>Dashboard</span>
+                </NavLink>
+              )}
 
               {user && (
                 <NavLink to="/orders" className={navLinkClass}>
