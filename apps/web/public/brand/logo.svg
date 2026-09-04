@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 32" fill="none">
+  <rect width="32" height="32" rx="7" fill="#0A0B10"/>
+  <path d="M9 8h4l5 12 5-12h4l-7 16h-4L9 8z" fill="#5EE2FF"/>
+  <text x="44" y="22" fill="#0A0B10" font-family="Geist, sans-serif" font-weight="600" font-size="20" letter-spacing="-0.02em">VYRO</text>
+</svg>

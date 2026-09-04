@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button, Card, ErrorBanner, Input, Label } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { MailIcon, ArrowRightIcon } from '@/components/icons';
+import { MailIcon, ArrowRightIcon, ShieldCheckIcon, SparklesIcon } from '@/components/icons';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -29,72 +29,66 @@ export function LoginPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto py-8 sm:py-12">
-      <Card className="p-8 sm:p-10 border-slate-200/90 shadow-soft-lg space-y-6">
-        {/* Brand Header */}
-        <div className="text-center space-y-2">
-          <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-brand-700 via-brand-600 to-sky-400 flex items-center justify-center text-white mx-auto shadow-soft-sm font-black text-2xl">
-            V
-          </div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900">
-            Sign in to VYRO
-          </h1>
-          <p className="text-xs text-slate-500">
-            Sri Lanka's wholesale & B2B procurement network
+    <div className="min-h-screen flex flex-col lg:flex-row bg-slate-50">
+      {/* Cinematic midnight left */}
+      <aside className="relative lg:w-[44%] bg-slate-950 text-white px-8 py-10 lg:px-16 lg:py-16 flex flex-col justify-between overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.06] grid-bg pointer-events-none" aria-hidden />
+        <div className="absolute -top-1/3 -right-1/3 size-[600px] rounded-full bg-sky-400/10 blur-3xl pointer-events-none" aria-hidden />
+        <Link to="/" className="relative z-10 inline-flex items-center gap-2.5 group">
+          <span className="h-8 w-8 rounded-md bg-sky-300 inline-flex items-center justify-center text-slate-950 font-black text-lg shadow-soft-sm">V</span>
+          <span className="font-semibold text-xl tracking-tight">VYRO</span>
+        </Link>
+        <div className="relative z-10 max-w-md">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-balance text-white">
+            Sign in to your procurement workspace.
+          </h2>
+          <p className="mt-3 text-sm text-slate-400 leading-relaxed">
+            Source verified Sri Lankan suppliers. Manage multi-business purchasing at scale.
           </p>
+          <ul className="mt-8 space-y-3">
+            {[
+              { icon: ShieldCheckIcon, label: 'Verified suppliers, every transaction' },
+              { icon: SparklesIcon, label: 'Quote-to-PO in minutes' },
+              { icon: ShieldCheckIcon, label: 'LKR-native, no FX surprises' },
+            ].map((p) => (
+              <li key={p.label} className="flex items-center gap-3 text-sm text-slate-200">
+                <span className="size-7 rounded-full bg-sky-400/15 text-sky-300 inline-flex items-center justify-center">
+                  <p.icon size={14} />
+                </span>
+                {p.label}
+              </li>
+            ))}
+          </ul>
         </div>
+        <p className="relative z-10 text-xs text-slate-500">© {new Date().getFullYear()} VYRO</p>
+      </aside>
 
-        <ErrorBanner message={err} />
-
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="email">Business Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="name@company.lk"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <Label htmlFor="password">Password</Label>
-            </div>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          <Button
-            type="submit"
-            disabled={loading}
-            loading={loading}
-            size="lg"
-            className="w-full font-bold shadow-soft-sm justify-center"
-          >
-            <span>Sign In</span>
-            <ArrowRightIcon size={16} />
-          </Button>
-        </form>
-
-        <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-600 space-y-2">
-          <p>
-            Don't have a VYRO account yet?{' '}
-            <Link to="/signup" className="font-bold text-brand-700 hover:underline">
-              Create an account
-            </Link>
-          </p>
+      {/* Form right */}
+      <main className="flex-1 flex items-center justify-center px-6 py-12 lg:py-16">
+        <div className="w-full max-w-md">
+          <Card className="p-8 sm:p-10">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Welcome back</h1>
+            <p className="mt-2 text-sm text-slate-500">Sign in with your business email.</p>
+            <form onSubmit={onSubmit} className="mt-7 space-y-5">
+              {err && <ErrorBanner message={err} />}
+              <div className="space-y-1.5">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@business.lk" required />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
+              </div>
+              <Button type="submit" loading={loading} className="w-full">
+                Sign in <ArrowRightIcon size={16} />
+              </Button>
+            </form>
+            <p className="mt-7 text-center text-sm text-slate-500">
+              New to VYRO? <Link to="/signup" className="font-medium text-sky-600 hover:underline">Create an account</Link>
+            </p>
+          </Card>
         </div>
-      </Card>
+      </main>
     </div>
   );
 }

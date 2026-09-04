@@ -13,11 +13,13 @@
   "dependencies": {
     "@tanstack/react-query": "^5.59.0",
     "@vyro/auth": "workspace:*",
+    "@vyro/ui": "workspace:*",
     "@vyro/validation": "workspace:*",
     "better-auth": "^1.7.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^7.0.0"
+    "react-router-dom": "^7.0.0",
+    "framer-motion": "^11.11.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
