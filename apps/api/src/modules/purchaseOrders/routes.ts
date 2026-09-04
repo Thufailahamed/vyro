@@ -9,6 +9,7 @@ import { getDb } from '@vyro/db';
 import { businessMembers, supplierMembers, businesses, suppliers } from '@vyro/db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 import { checkoutService } from './service';
+import { findPurchaseOrder, listEventsForPo } from './eventsRepository';
 import {
   findPo,
   listPoEvents,
@@ -125,6 +126,16 @@ router.post('/:id/transition', session(), async (c) => {
     reason: parsed.data.reason ?? null,
   });
   return c.json({ ok: true });
+});
+
+router.get('/:id/events', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const poId = c.req.param('id');
+  const po = await findPurchaseOrder(c.env.DB, poId);
+  if (!po) throw httpError(404, 'NOT_FOUND', 'PO not found');
+  const events = await listEventsForPo(c.env.DB, poId);
+  return c.json({ events });
 });
 
 export default router;
