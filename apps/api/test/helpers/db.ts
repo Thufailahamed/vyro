@@ -23,6 +23,9 @@ export async function freshDb(env: Env): Promise<void> {
       'DELETE FROM notifications; ' +
       'DELETE FROM audit_logs; ' +
       'DELETE FROM sessions; ' +
+      'DELETE FROM user_settings; ' +
+      'DELETE FROM supplier_settings; ' +
+      'DELETE FROM platform_settings; ' +
       'DELETE FROM users; ' +
       'DELETE FROM business_types;',
   );
