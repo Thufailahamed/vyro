@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Button, ErrorBanner, Label, Textarea } from '@/components/ui';
+import { Button, ErrorBanner, Label, Textarea, PageHeader } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { ArrowLeftIcon } from '@/components/icons';
@@ -58,15 +58,16 @@ export function CheckoutPage() {
           ]}
         />
       </div>
-      <header className="flex items-end justify-between gap-4">
-        <div>
-          <div className="vyro-kicker">Checkout</div>
-          <h1 className="mt-2 vyro-display text-4xl">Issue purchase orders</h1>
-        </div>
-        <Link to="/cart" className="text-xs text-ink-4 inline-flex items-center gap-1 hover:text-ink">
-          <ArrowLeftIcon size={14} /> Cart
-        </Link>
-      </header>
+      <PageHeader
+        kicker="Checkout"
+        title="Issue purchase orders."
+        sub="One PO per supplier. Acceptance logged on the order journey."
+        actions={
+          <Link to="/cart" className="text-xs text-ink-4 inline-flex items-center gap-1 hover:text-ink">
+            <ArrowLeftIcon size={14} /> Cart
+          </Link>
+        }
+      />
       <ErrorBanner message={err} />
       <div className="grid lg:grid-cols-[1fr_300px] gap-8">
         <Surface className="p-6">
