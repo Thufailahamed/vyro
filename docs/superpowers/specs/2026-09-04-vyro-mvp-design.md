@@ -354,7 +354,7 @@ POST   /api/orders/:id/deliver           (supplier)
 POST   /api/orders/:id/complete          (business)
 POST   /api/orders/:id/cancel            (business, before accepted)
 
-GET    /api/deliveries
+GET    /api/deliveries?orderId=
 POST   /api/deliveries                   (admin / supplier ops)
 PATCH  /api/deliveries/:id
 
@@ -405,7 +405,7 @@ Encoded as `canTransition(from, to, actorRole)` with explicit transition table. 
    - Allocate `po_number` = `PO-<year>-<5-digit-seq>` (atomic counter row in D1 transaction).
    - Insert `purchase_orders` row.
    - Insert `purchase_order_items` with price snapshot (product name + unit price copied at checkout time, immune to later edits).
-4. Mark cart `status='converted'`.
+4. Mark cart `status='converted'`. Leave `cart_items` rows in place for audit (a fresh cart starts empty on the next user action).
 5. Return `{ pos: [{ id, poNumber, supplierId, total }] }`.
 
 Atomicity: single D1 batch. Any failure rolls back all.
@@ -446,6 +446,7 @@ Routes:
   /orders
   /orders/:id
   /catalog                         supplier only
+  /customers                       supplier only (recent + lookup)
   /business
 ```
 
