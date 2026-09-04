@@ -20,6 +20,8 @@ import adminRouter from './modules/admin/routes';
 import userSettingsRouter from './modules/settings/routes';
 import supplierSettingsRouter from './modules/settings/supplier';
 import adminSettingsRouter from './modules/settings/admin';
+import businessTypesRouter from './modules/businessTypes/routes';
+import supplierTypesRouter from './modules/supplierTypes/routes';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -50,5 +52,7 @@ app.route('/api/admin', adminRouter);
 app.route('/api/settings', userSettingsRouter);
 app.route('/api/suppliers', supplierSettingsRouter);
 app.route('/api/admin/settings', adminSettingsRouter);
+app.route('/api/businesses/types', businessTypesRouter);
+app.route('/api/suppliers/types', supplierTypesRouter);
 
 export default app;
