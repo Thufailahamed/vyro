@@ -108,39 +108,39 @@ export function OrderDetailPage() {
       <div className="flex items-center justify-between">
         <Link
           to="/orders"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-soft-sm"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-950 transition-colors bg-white px-3 py-1.5 rounded-md border border-slate-200 shadow-soft-sm"
         >
-          <ArrowLeftIcon size={14} /> Back to My Orders
+          <ArrowLeftIcon size={14} /> Back to my orders
         </Link>
         <StatusBadge status={order.status} />
       </div>
 
       {/* PO Overview Header */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-soft-sm flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+      <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-soft-sm flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div className="space-y-2">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Official Purchase Order
+          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+            Official purchase order
           </div>
-          <h1 className="text-3xl font-black font-mono tracking-tight text-slate-900">
+          <h1 className="text-3xl font-semibold font-mono tracking-tight text-slate-950">
             {order.poNumber}
           </h1>
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <ClockIcon size={14} className="text-slate-400" />
-            <span>Placed on {new Date(order.createdAt).toLocaleString('en-US', {
+            <span className="num-tabular">Placed {new Date(order.createdAt).toLocaleString('en-US', {
               dateStyle: 'medium',
               timeStyle: 'short',
             })}</span>
           </div>
         </div>
 
-        <div className="text-left sm:text-right space-y-1 bg-slate-50 sm:bg-transparent p-4 sm:p-0 rounded-2xl">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Total Payable
+        <div className="text-left sm:text-right space-y-1 bg-pearl sm:bg-transparent p-4 sm:p-0 rounded-lg">
+          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+            Total payable
           </span>
-          <div className="text-3xl font-black text-brand-700">
+          <div className="text-3xl font-bold font-mono text-slate-950 num-tabular">
             {formatLKR(order.totalCents)}
           </div>
-          <div className="text-xs text-slate-500">LKR wholesale value</div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-500">LKR wholesale value</div>
         </div>
       </div>
 
