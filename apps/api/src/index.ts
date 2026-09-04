@@ -10,6 +10,7 @@ import categoryRouter from './modules/categories/routes';
 import productRouter from './modules/products/routes';
 import supplierProductRouter from './modules/supplierProducts/routes';
 import searchRouter from './modules/search/routes';
+import compareRouter from './modules/search/compare';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -30,5 +31,6 @@ app.route('/api/categories', categoryRouter);
 app.route('/api/products', productRouter);
 app.route('/api/supplier-products', supplierProductRouter);
 app.route('/api/search', searchRouter);
+app.route('/api/search', compareRouter);
 
 export default app;
