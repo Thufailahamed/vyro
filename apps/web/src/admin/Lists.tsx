@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { PageHeader } from '@/components/ui';
@@ -39,7 +40,7 @@ export function SuppliersPage() {
         }
       />
 
-      <Table rows={data?.suppliers ?? []} isLoading={isLoading} />
+      <Table rows={data?.suppliers ?? []} isLoading={isLoading} kind="suppliers" />
     </div>
   );
 }
@@ -63,12 +64,12 @@ export function BusinessesPage() {
         }
       />
 
-      <Table rows={data?.businesses ?? []} isLoading={isLoading} />
+      <Table rows={data?.businesses ?? []} isLoading={isLoading} kind="businesses" />
     </div>
   );
 }
 
-function Table({ rows, isLoading }: { rows: any[]; isLoading?: boolean }) {
+function Table({ rows, isLoading, kind }: { rows: any[]; isLoading?: boolean; kind: 'suppliers' | 'businesses' }) {
   const [query, setQuery] = useState('');
 
   if (isLoading) {
@@ -116,11 +117,16 @@ function Table({ rows, isLoading }: { rows: any[]; isLoading?: boolean }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink/5">
-                {filtered.map((r) => (
+                {filtered.map((r) => {
+                  const detailPath =
+                    kind === 'suppliers' ? `/admin/suppliers/${r.id}` : `/admin/businesses/${r.id}`;
+                  return (
                   <tr key={r.id} className="hover:bg-mist/60 transition-colors">
                     <td className="py-3.5 px-4">
-                      <div className="font-medium text-ink">{r.name}</div>
-                      <div className="text-[10px] text-ink-4 vyro-metric">ID: {r.id.slice(0, 8)}…</div>
+                      <Link to={detailPath} className="block">
+                        <div className="font-medium text-ink hover:text-copper">{r.name}</div>
+                        <div className="text-[10px] text-ink-4 vyro-metric">ID: {r.id.slice(0, 8)}…</div>
+                      </Link>
                     </td>
                     <td className="py-3.5 px-4 text-ink-3">
                       <span className="inline-flex items-center gap-1.5">
@@ -140,7 +146,8 @@ function Table({ rows, isLoading }: { rows: any[]; isLoading?: boolean }) {
                       </a>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
