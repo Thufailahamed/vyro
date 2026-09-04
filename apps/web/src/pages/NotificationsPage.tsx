@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Button, EmptyState } from '@/components/ui';
+import { Button, EmptyState, PageHeader } from '@/components/ui';
 import { BellIcon } from '@/components/icons';
 import { Surface } from '@/components/brand/Surface';
 
@@ -43,10 +43,7 @@ export function NotificationsPage() {
 
   return (
     <div className="space-y-8 max-w-3xl">
-      <header>
-        <div className="vyro-kicker">Signals</div>
-        <h1 className="mt-2 vyro-display text-4xl">Notifications</h1>
-      </header>
+      <PageHeader kicker="Signals" title="Notifications." sub="Order movement and supplier signals." />
       {isLoading ? (
         <div className="h-40 bg-mist animate-pulse" />
       ) : notes.length === 0 ? (
