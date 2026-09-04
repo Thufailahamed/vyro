@@ -8,7 +8,7 @@ import { formatLKR } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
 import { ArrowLeftIcon, ShoppingCartIcon } from '@/components/icons';
 import { FlowLine } from '@/components/brand/FlowLine';
-import { MetricNumber, ProductPlaceholder, Surface } from '@/components/brand/Surface';
+import { MetricNumber, ProductImage, ProductPlaceholder, Surface } from '@/components/brand/Surface';
 
 interface Offer {
   offer: {
@@ -28,12 +28,21 @@ export function ProductDetailPage() {
   const [qty, setQty] = useState<{ [k: string]: number }>({});
   const [err, setErr] = useState('');
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [activeImage, setActiveImage] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['product', id],
     queryFn: () =>
       api.get<{
-        product: { id: string; name: string; unit: string };
+        product: {
+          id: string;
+          name: string;
+          unit: string;
+          brand?: string | null;
+          description?: string | null;
+          imageUrl?: string | null;
+          images?: Array<{ id: string; url: string; altText?: string | null }>;
+        };
         offers: Array<{ rank: number; offer: Offer['offer']; supplier: Offer['supplier'] }>;
         priceStats: { count: number; min: number; max: number };
       }>(`/search/products/${id}/offers`),
@@ -82,10 +91,46 @@ export function ProductDetailPage() {
       </Link>
 
       <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-8 items-start">
-        <ProductPlaceholder seed={data.product.id} className="min-h-[280px]" />
+        <div className="space-y-3">
+          <ProductImage
+            src={activeImage || data.product.imageUrl || data.product.images?.[0]?.url}
+            alt={data.product.name}
+            seed={data.product.id}
+            className="h-80 sm:h-96 w-full shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08)] bg-bone"
+          />
+          {data.product.images && data.product.images.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {data.product.images.map((img) => {
+                const isSelected = (activeImage || data.product.imageUrl || data.product.images?.[0]?.url) === img.url;
+                return (
+                  <button
+                    key={img.id}
+                    type="button"
+                    onClick={() => setActiveImage(img.url)}
+                    className={`relative shrink-0 w-16 h-16 overflow-hidden border-2 transition-all ${
+                      isSelected ? 'border-ink shadow-sm scale-105' : 'border-transparent opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={img.url} alt={img.altText || data.product.name} className="w-full h-full object-cover" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
         <div>
           <div className="vyro-kicker">{data.product.unit}</div>
           <h1 className="mt-2 vyro-display text-4xl sm:text-5xl text-balance">{data.product.name}</h1>
+          {data.product.brand && (
+            <div className="mt-1 text-xs uppercase tracking-[0.14em] text-copper font-medium">
+              Brand: {data.product.brand}
+            </div>
+          )}
+          {data.product.description && (
+            <p className="mt-3 text-sm text-ink-3 leading-relaxed">
+              {data.product.description}
+            </p>
+          )}
           {data.priceStats.count > 0 && (
             <div className="mt-6">
               <div className="text-[11px] uppercase tracking-[0.14em] text-ink-4">From</div>

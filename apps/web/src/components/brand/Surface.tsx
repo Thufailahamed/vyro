@@ -1,4 +1,4 @@
-import type { HTMLAttributes, ReactNode } from 'react';
+import { useState, type HTMLAttributes, type ReactNode } from 'react';
 import { cn } from '@vyro/ui';
 
 type SurfaceKind = 'flat' | 'elevated' | 'floating' | 'split' | 'flow' | 'ink';
@@ -51,7 +51,7 @@ export function ProductPlaceholder({
   className,
 }: {
   seed: string;
-  className?: string;
+  className?: string | undefined;
 }) {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
@@ -77,6 +77,46 @@ export function ProductPlaceholder({
         <circle cx={80 + (h % 40)} cy={90} r="3" fill="#C6DC4A" />
         <circle cx={210} cy={150 - (h % 30)} r="3" fill="#FAF7F0" />
       </svg>
+    </div>
+  );
+}
+
+export function ProductImage({
+  src,
+  alt,
+  seed,
+  className,
+  priority = false,
+}: {
+  src?: string | null | undefined;
+  alt?: string | undefined;
+  seed: string;
+  className?: string | undefined;
+  priority?: boolean;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  const [errored, setErrored] = useState(false);
+
+  if (!src || errored) {
+    return <ProductPlaceholder seed={seed} className={className} />;
+  }
+
+  return (
+    <div className={cn('relative overflow-hidden bg-bone flex items-center justify-center', className)}>
+      {!loaded && <ProductPlaceholder seed={seed} className="absolute inset-0 h-full w-full" />}
+      <img
+        src={src}
+        alt={alt || 'Product image'}
+        loading={priority ? 'eager' : 'lazy'}
+        fetchPriority={priority ? 'high' : 'auto'}
+        decoding="async"
+        onLoad={() => setLoaded(true)}
+        onError={() => setErrored(true)}
+        className={cn(
+          'w-full h-full object-cover transition-opacity duration-300',
+          loaded ? 'opacity-100' : 'opacity-0',
+        )}
+      />
     </div>
   );
 }

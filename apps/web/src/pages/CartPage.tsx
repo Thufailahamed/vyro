@@ -14,7 +14,7 @@ interface CartItem {
   quantity: number;
   priceCents: number;
   lineTotalCents: number;
-  product: { name: string };
+  product: { id?: string; name: string; imageUrl?: string | null };
   supplier: { name: string };
   offer: { minOrderQty: number };
 }
@@ -124,6 +124,13 @@ export function CartPage() {
                   <ul>
                     {lines.map((it) => (
                       <li key={it.id} className="px-5 py-4 flex items-center gap-4 border-b border-ink/5 last:border-0">
+                        {it.product.imageUrl && (
+                          <img
+                            src={it.product.imageUrl}
+                            alt={it.product.name}
+                            className="w-12 h-12 object-cover shrink-0 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08)] bg-bone"
+                          />
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="font-medium truncate">{it.product.name}</div>
                           <div className="text-xs text-ink-4 mt-0.5">

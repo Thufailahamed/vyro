@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { and, eq, isNull } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
-import { products, supplierProducts, suppliers } from '@vyro/db/schema';
+import { products, supplierProducts, suppliers, productImages } from '@vyro/db/schema';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 
@@ -16,6 +16,21 @@ router.get('/products/:id/offers', async (c) => {
     .where(and(eq(products.id, productId), isNull(products.deletedAt)))
     .get();
   if (!product) throw httpError(404, 'NOT_FOUND', 'Product not found');
+
+  const rawImages = await db
+    .select()
+    .from(productImages)
+    .where(eq(productImages.productId, productId))
+    .orderBy(productImages.sortOrder)
+    .all();
+
+  const images = rawImages.map((img) => ({
+    id: img.id,
+    url: img.r2Key.startsWith('http://') || img.r2Key.startsWith('https://')
+      ? img.r2Key
+      : `/api/products/images/${img.r2Key}`,
+    altText: img.altText,
+  }));
 
   const offers = await db
     .select({
@@ -48,7 +63,15 @@ router.get('/products/:id/offers', async (c) => {
       }
     : { count: 0, min: null, max: null, median: null };
 
-  return c.json({ product, offers: ranked, priceStats });
+  return c.json({
+    product: {
+      ...product,
+      imageUrl: images[0]?.url ?? null,
+      images,
+    },
+    offers: ranked,
+    priceStats,
+  });
 });
 
 export default router;

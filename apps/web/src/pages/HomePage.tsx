@@ -5,22 +5,75 @@ import { Button } from '@/components/ui';
 import { SearchIcon } from '@/components/icons';
 import { FlowCanvas, FlowLine } from '@/components/brand/FlowLine';
 import { BrandMark } from '@/components/brand/BrandMark';
-import { MetricNumber, ProductPlaceholder, Surface } from '@/components/brand/Surface';
+import { ProductImage, Surface } from '@/components/brand/Surface';
 
 const POPULAR = ['Rice', 'Sugar', 'Cement', 'Tea', 'Packaging', 'Flour', 'Spices', 'Oil'];
+
+const HERO_PROOF = {
+  product: 'Samba rice · 25 kg',
+  origin: 'Mill-direct · Western Province',
+  image: '/hero/hero-rice.jpg',
+  offers: [
+    { tag: 'Best price', value: 'Rs. 4,200', hint: '/ bag' },
+    { tag: 'Best value', value: 'Rs. 4,450', hint: '2-day lead' },
+    { tag: 'Fastest', value: '1 day', hint: '4 offers live' },
+  ],
+} as const;
+
+const HERO_MOSAIC = [
+  { name: 'Tea', query: 'tea', src: '/hero/hero-tea.jpg', alt: 'Ceylon tea leaves ready for wholesale' },
+  { name: 'Spices', query: 'spices', src: '/hero/hero-spices.jpg', alt: 'Cinnamon, pepper and chili in wholesale crates' },
+] as const;
 
 const CATEGORIES: Array<{
   name: string;
   query: string;
   detail: string;
   volume: string;
+  imageUrl?: string;
 }> = [
-  { name: 'Rice & grains', query: 'rice', detail: 'Mill-direct staples, bagged and bulk.', volume: 'Highest volume' },
-  { name: 'Sugar & commodities', query: 'sugar', detail: 'Refined, brown, and industrial grades.', volume: 'Daily quotes' },
-  { name: 'Cement & building', query: 'cement', detail: 'Bags, bulk, and site delivery windows.', volume: 'Island-wide' },
-  { name: 'Packaging', query: 'packaging', detail: 'Cartons, film, food-safe wraps.', volume: 'Fast lead times' },
-  { name: 'Spices & agri', query: 'spices', detail: 'Estate and wholesale agri lots.', volume: 'Seasonal' },
-  { name: 'Tea & beverages', query: 'tea', detail: 'Estate lots and HORECA packs.', volume: 'Export-grade' },
+  {
+    name: 'Rice & grains',
+    query: 'rice',
+    detail: 'Mill-direct staples, bagged and bulk.',
+    volume: 'Highest volume',
+    imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    name: 'Sugar & commodities',
+    query: 'sugar',
+    detail: 'Refined, brown, and industrial grades.',
+    volume: 'Daily quotes',
+    imageUrl: 'https://images.unsplash.com/photo-1622484212850-eb596d769edc?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    name: 'Cement & building',
+    query: 'cement',
+    detail: 'Bags, bulk, and site delivery windows.',
+    volume: 'Island-wide',
+    imageUrl: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    name: 'Packaging',
+    query: 'packaging',
+    detail: 'Cartons, film, food-safe wraps.',
+    volume: 'Fast lead times',
+    imageUrl: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    name: 'Spices & agri',
+    query: 'spices',
+    detail: 'Estate and wholesale agri lots.',
+    volume: 'Seasonal',
+    imageUrl: 'https://images.unsplash.com/photo-1509358271058-acd22cc93898?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    name: 'Tea & beverages',
+    query: 'tea',
+    detail: 'Estate lots and HORECA packs.',
+    volume: 'Export-grade',
+    imageUrl: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=400&q=80',
+  },
 ];
 
 const BUSINESSES = [
@@ -112,21 +165,20 @@ export function HomePage() {
 
   return (
     <div>
-      <section className="relative overflow-hidden bg-ink text-paper grain">
-        <div className="absolute inset-0 opacity-70">
-          <FlowCanvas tone="paper" density="hero" className="h-full min-h-[640px]" />
+      <section className="relative overflow-hidden bg-void text-paper grain min-h-[calc(100dvh-4rem)] flex flex-col">
+        <div className="absolute inset-0" aria-hidden>
+          <FlowCanvas tone="paper" density="hero" className="absolute inset-0 opacity-80" />
+          <div className="absolute inset-0 bg-gradient-to-r from-void via-void/75 to-void/25" />
+          <div className="absolute -left-24 top-[18%] size-[28rem] rounded-full bg-volt/[0.09] blur-[110px] pointer-events-none" />
         </div>
-        <div className="relative max-w-stage mx-auto px-5 sm:px-8 pt-14 sm:pt-20 pb-16 lg:pb-0">
-          <div className="grid lg:grid-cols-12 gap-12 lg:gap-8 items-end">
-            <div className="lg:col-span-7 pb-4 lg:pb-20">
-              <div className="flex items-center gap-3">
-                <span className="vyro-kicker text-volt">VYRO · Sri Lanka</span>
-                <span className="text-[11px] tracking-[0.14em] uppercase text-paper/35">B2B operating layer</span>
-              </div>
-              <h1 className="mt-5 vyro-display text-5xl sm:text-6xl lg:text-[4.6rem] text-paper max-w-3xl text-balance">
-                Everything a business needs, connected.
+        <div className="relative flex-1 max-w-stage mx-auto w-full px-5 sm:px-8 py-14 sm:py-16 lg:py-0 grid lg:grid-cols-12 gap-12 lg:gap-10 items-start lg:items-center">
+            <div className="lg:col-span-7 lg:py-20">
+              <p className="vyro-kicker text-volt">VYRO · Sri Lanka B2B operating layer</p>
+              <h1 className="mt-5 vyro-display text-[2.65rem] sm:text-6xl lg:text-[4.35rem] text-paper max-w-3xl">
+                Everything a business
+                <span className="block">needs, connected.</span>
               </h1>
-              <p className="mt-6 max-w-lg text-base sm:text-lg text-paper/65 leading-relaxed">
+              <p className="mt-6 max-w-lg text-base sm:text-lg text-paper/75 leading-relaxed text-pretty">
                 VYRO is the operating layer between businesses and suppliers — procurement, orders, payments and delivery as one continuous movement.
               </p>
 
@@ -134,14 +186,20 @@ export function HomePage() {
                 <label htmlFor="home-search" className="sr-only">
                   Search the wholesale catalog
                 </label>
-                <div className="flex flex-col sm:flex-row bg-paper">
+                <p id="home-search-hint" className="mb-2.5 text-[12px] text-paper/50">
+                  Wholesale catalog is open — no account needed to search.
+                </p>
+                <div className="flex flex-col sm:flex-row bg-paper shadow-[0_16px_40px_-24px_rgba(0,0,0,0.55)] transition-shadow duration-240 focus-within:shadow-[0_0_0_2px_#C6DC4A,0_16px_40px_-24px_rgba(0,0,0,0.55)]">
                   <div className="relative flex-1">
-                    <SearchIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-4" />
+                    <SearchIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-4 pointer-events-none" />
                     <input
                       id="home-search"
+                      name="q"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="Search rice, cement, packaging, tea…"
+                      autoComplete="off"
+                      aria-describedby="home-search-hint"
                       className="w-full h-14 bg-transparent pl-12 pr-4 text-ink placeholder:text-ink-4 focus:outline-none"
                     />
                   </div>
@@ -151,59 +209,100 @@ export function HomePage() {
                 </div>
               </form>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                {POPULAR.map((term) => (
-                  <button
-                    key={term}
-                    type="button"
-                    onClick={() => goSearch(term)}
-                    className="h-11 px-3.5 text-[12px] tracking-wide text-paper/70 cursor-pointer shadow-[inset_0_0_0_1px_rgba(250,247,240,0.18)] hover:text-volt hover:shadow-[inset_0_0_0_1px_#C6DC4A] transition-colors"
+              <div className="mt-4">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-paper/40 mb-2">Popular in the catalog</p>
+                <div className="flex flex-wrap gap-2">
+                  {POPULAR.map((term) => (
+                    <button
+                      key={term}
+                      type="button"
+                      onClick={() => goSearch(term)}
+                      className="h-11 px-3.5 text-[12px] tracking-wide text-paper/70 cursor-pointer shadow-[inset_0_0_0_1px_rgba(250,247,240,0.18)] hover:text-volt hover:shadow-[inset_0_0_0_1px_#C6DC4A] hover:bg-paper/[0.04] transition-colors duration-200"
+                    >
+                      {term}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[12px] text-paper/55">
+                {['Live unit prices in LKR', 'Verified suppliers', '25 districts covered'].map((item) => (
+                  <li key={item} className="flex items-center gap-2">
+                    <span className="size-1.5 rotate-45 bg-volt shrink-0" aria-hidden />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="lg:col-span-5 lg:py-16">
+              <div className="grid grid-cols-5 grid-rows-2 gap-2 h-[22rem] sm:h-[26rem] lg:h-[28rem]">
+                <div className="relative col-span-3 row-span-2 min-h-0">
+                  <Link
+                    to="/search?q=rice"
+                    aria-label="Search wholesale rice"
+                    className="absolute inset-0 overflow-hidden focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_#C6DC4A]"
                   >
-                    {term}
-                  </button>
+                    <ProductImage
+                      src={HERO_PROOF.image}
+                      alt="Wholesale rice sacks in a mill warehouse"
+                      seed="rice"
+                      priority
+                      className="absolute inset-0 h-full w-full"
+                    />
+                  </Link>
+                  <Link
+                    to="/search?q=rice"
+                    className="group absolute inset-x-2 bottom-2 z-[1] focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_#C6DC4A]"
+                  >
+                    <Surface kind="ink" className="bg-charcoal/92 backdrop-blur-sm p-4 shadow-[inset_0_0_0_1px_rgba(198,220,74,0.28)] transition-shadow duration-240 group-hover:shadow-[inset_0_0_0_1px_rgba(198,220,74,0.55)]">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="vyro-kicker text-volt">On every product</span>
+                        <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-paper/45">
+                          <span className="size-1.5 rounded-full bg-volt motion-safe:animate-pulse-soft" aria-hidden />
+                          Live
+                        </span>
+                      </div>
+                      <div className="mt-3 flex items-end justify-between gap-3">
+                        <div>
+                          <div className="font-display text-lg leading-tight sm:text-xl">{HERO_PROOF.product}</div>
+                          <div className="mt-0.5 text-[11px] text-paper/45">{HERO_PROOF.origin}</div>
+                        </div>
+                        <span className="text-[11px] font-semibold tracking-wide text-volt shrink-0">Compare →</span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-px bg-paper/10">
+                        {HERO_PROOF.offers.map((offer, i) => (
+                          <div key={offer.tag} className={`p-2.5 ${i === 0 ? 'bg-ink' : 'bg-void/80'}`}>
+                            <div className={`text-[9px] font-semibold uppercase tracking-[0.12em] ${i === 0 ? 'text-volt' : 'text-paper/40'}`}>
+                              {offer.tag}
+                            </div>
+                            <div className="vyro-metric text-base text-paper mt-1 leading-none">{offer.value}</div>
+                            <div className="mt-1 text-[10px] text-paper/40">{offer.hint}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </Surface>
+                  </Link>
+                </div>
+                {HERO_MOSAIC.map((item) => (
+                  <Link
+                    key={item.name}
+                    to={`/search?q=${item.query}`}
+                    className="relative col-span-2 min-h-0 overflow-hidden focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_#C6DC4A]"
+                  >
+                    <ProductImage
+                      src={item.src}
+                      alt={item.alt}
+                      seed={item.query}
+                      className="absolute inset-0 h-full w-full"
+                    />
+                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-void/85 to-transparent px-3 pb-2 pt-8 text-[11px] font-semibold tracking-wide text-paper">
+                      {item.name}
+                    </span>
+                  </Link>
                 ))}
               </div>
             </div>
-
-            <div className="lg:col-span-5 lg:translate-y-8">
-              <Surface kind="ink" className="bg-charcoal p-6 sm:p-7 shadow-[inset_0_0_0_1px_rgba(198,220,74,0.18)]">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="vyro-kicker text-volt">In the network</span>
-                  <span className="text-[10px] uppercase tracking-[0.14em] text-paper/40">Island network</span>
-                </div>
-                <div className="mt-6">
-                  <div className="text-[11px] uppercase tracking-[0.14em] text-paper/40">Wholesale volume</div>
-                  <MetricNumber size="lg" className="mt-1 text-paper">
-                    Rs. 180M+
-                  </MetricNumber>
-                </div>
-                <div className="mt-8">
-                  <FlowLine
-                    tone="paper"
-                    nodes={[
-                      { label: 'Business', state: 'done' },
-                      { label: 'Supplier', state: 'active' },
-                      { label: 'Order', state: 'idle' },
-                      { label: 'Pay', state: 'idle' },
-                      { label: 'Deliver', state: 'idle' },
-                    ]}
-                  />
-                </div>
-                <dl className="mt-8 grid grid-cols-3 gap-3 border-t border-paper/10 pt-5">
-                  {[
-                    { k: 'Suppliers', v: '620' },
-                    { k: 'Districts', v: '25/25' },
-                    { k: 'Accept', v: '3.5h' },
-                  ].map((m) => (
-                    <div key={m.k}>
-                      <dt className="text-[10px] uppercase tracking-[0.12em] text-paper/40">{m.k}</dt>
-                      <dd className="vyro-metric text-xl text-paper mt-1">{m.v}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </Surface>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -300,9 +399,9 @@ export function HomePage() {
               <Link
                 key={c.name}
                 to={`/search?q=${encodeURIComponent(c.query)}`}
-                className="group grid grid-cols-[112px_1fr] bg-bone hover:bg-ink hover:text-paper transition-colors duration-240 min-h-[132px] cursor-pointer"
+                className="group grid grid-cols-[112px_1fr] bg-bone hover:bg-ink hover:text-paper transition-colors duration-240 min-h-[132px] cursor-pointer overflow-hidden"
               >
-                <ProductPlaceholder seed={c.query} className="h-full min-h-[132px]" />
+                <ProductImage src={c.imageUrl} alt={c.name} seed={c.query} className="h-full min-h-[132px] w-full" />
                 <div className="p-5 flex flex-col justify-between">
                   <div>
                     <div className="text-[10px] uppercase tracking-[0.14em] text-copper group-hover:text-volt">{c.volume}</div>

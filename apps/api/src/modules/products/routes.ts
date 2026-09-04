@@ -6,6 +6,9 @@ import { requireRole } from '../../middleware/rbac';
 import { httpError } from '../../lib/errors';
 import { newId } from '@vyro/shared';
 import type { Env } from '../../env';
+import { getDb } from '@vyro/db';
+import { productImages } from '@vyro/db/schema';
+import { sql } from 'drizzle-orm';
 import {
   addProductImage,
   createProduct,
@@ -32,18 +35,65 @@ const addImageSchema = z
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5MB
 
+export function resolveImageUrl(r2Key: string): string {
+  if (r2Key.startsWith('http://') || r2Key.startsWith('https://')) return r2Key;
+  return `/api/products/images/${r2Key}`;
+}
+
+// Serve image from R2 bucket
+router.get('/images/:key{.*}', async (c) => {
+  const key = c.req.param('key');
+  const object = await c.env.PRODUCTS.get(key);
+  if (!object) return c.text('Not found', 404);
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('etag', object.httpEtag);
+  headers.set('cache-control', 'public, max-age=31536000, immutable');
+  return new Response(object.body, { headers });
+});
+
 router.get('/', async (c) => {
   const categoryId = c.req.query('categoryId');
   const limit = Number(c.req.query('limit') ?? 50);
-  const products = await listProducts(c.env.DB, { categoryId, limit: Number.isFinite(limit) ? limit : 50 });
+  const rawProducts = await listProducts(c.env.DB, { categoryId, limit: Number.isFinite(limit) ? limit : 50 });
+  const pIds = rawProducts.map((p) => p.id);
+  const imageMap = new Map<string, string>();
+  if (pIds.length) {
+    const db = getDb(c.env.DB);
+    const imgs = await db
+      .select()
+      .from(productImages)
+      .where(sql`${productImages.productId} in (${sql.join(pIds.map((id) => sql`${id}`), sql.raw(','))})`)
+      .orderBy(productImages.sortOrder)
+      .all();
+    for (const img of imgs) {
+      if (!imageMap.has(img.productId)) {
+        imageMap.set(img.productId, resolveImageUrl(img.r2Key));
+      }
+    }
+  }
+  const products = rawProducts.map((p) => ({
+    ...p,
+    imageUrl: imageMap.get(p.id) ?? null,
+  }));
   return c.json({ products });
 });
 
 router.get('/:id', async (c) => {
   const p = await findProductById(c.env.DB, c.req.param('id'));
   if (!p) throw httpError(404, 'NOT_FOUND', 'Product not found');
-  const images = await listProductImages(c.env.DB, p.id);
-  return c.json({ product: p, images });
+  const rawImages = await listProductImages(c.env.DB, p.id);
+  const images = rawImages.map((img) => ({
+    ...img,
+    url: resolveImageUrl(img.r2Key),
+  }));
+  return c.json({
+    product: {
+      ...p,
+      imageUrl: images[0]?.url ?? null,
+    },
+    images,
+  });
 });
 
 router.post('/', session(), requireRole({ admin: true }), async (c) => {
@@ -101,7 +151,11 @@ router.post('/:id/images', session(), requireRole({ admin: true }), async (c) =>
 });
 
 router.get('/:id/images', async (c) => {
-  const images = await listProductImages(c.env.DB, c.req.param('id'));
+  const rawImages = await listProductImages(c.env.DB, c.req.param('id'));
+  const images = rawImages.map((img) => ({
+    ...img,
+    url: resolveImageUrl(img.r2Key),
+  }));
   return c.json({ images });
 });
 

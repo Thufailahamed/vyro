@@ -5,10 +5,10 @@ import { api } from '@/lib/api';
 import { Button, EmptyState, Input } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
 import { SearchIcon, PackageIcon, StoreIcon, XIcon } from '@/components/icons';
-import { ProductPlaceholder } from '@/components/brand/Surface';
+import { ProductImage, ProductPlaceholder } from '@/components/brand/Surface';
 
 interface Hit {
-  product: { id: string; name: string; unit: string; brand: string | null };
+  product: { id: string; name: string; unit: string; brand: string | null; imageUrl?: string | null };
   bestOffer: { priceCents: number; supplier: { id: string; name: string }; leadTimeDays?: number } | null;
   offerCount: number;
 }
@@ -101,9 +101,14 @@ export function SearchPage() {
             <Link
               key={h.product.id}
               to={`/products/${h.product.id}`}
-              className="group bg-paper flex flex-col shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08)] hover:-translate-y-0.5 transition-transform duration-240"
+              className="group bg-paper flex flex-col shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08)] hover:-translate-y-0.5 transition-transform duration-240 overflow-hidden"
             >
-              <ProductPlaceholder seed={h.product.id} className="h-44" />
+              <ProductImage
+                src={h.product.imageUrl}
+                alt={h.product.name}
+                seed={h.product.id}
+                className="h-48 w-full border-b border-ink/5"
+              />
               <div className="p-5 flex-1 flex flex-col">
                 <div className="text-[11px] uppercase tracking-[0.12em] text-ink-4">{h.product.unit}</div>
                 <h3 className="mt-1 font-display text-xl leading-tight group-hover:text-copper">{h.product.name}</h3>

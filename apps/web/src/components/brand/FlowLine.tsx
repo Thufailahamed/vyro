@@ -71,39 +71,78 @@ export function FlowCanvas({
   tone?: 'ink' | 'paper';
   density?: 'default' | 'dense' | 'hero';
 }) {
-  const stroke = tone === 'paper' ? 'rgba(198,220,74,0.55)' : 'rgba(12,14,11,0.28)';
-  const copper = 'rgba(184,122,78,0.45)';
+  const stroke = tone === 'paper' ? 'rgba(198,220,74,0.42)' : 'rgba(12,14,11,0.28)';
+  const copper = 'rgba(184,122,78,0.38)';
   const fill = tone === 'paper' ? '#C6DC4A' : '#0C0E0B';
-  const h = density === 'hero' ? 320 : density === 'dense' ? 88 : 140;
+  const isHero = density === 'hero';
+  const h = density === 'dense' ? 88 : 140;
 
   return (
     <svg
-      viewBox="0 0 800 320"
-      className={cn('w-full pointer-events-none', className)}
-      style={{ height: h }}
+      viewBox={isHero ? '0 0 1200 720' : '0 0 800 320'}
+      className={cn('w-full pointer-events-none', isHero && 'h-full min-h-full', className)}
+      style={isHero ? undefined : { height: h }}
       aria-hidden
-      preserveAspectRatio="none"
+      preserveAspectRatio={isHero ? 'xMidYMid slice' : 'xMidYMid meet'}
     >
-      <path
-        className="motion-safe:animate-flow-dash"
-        d="M-20 220 C 120 220, 160 60, 320 70 S 520 250, 680 160 S 820 80, 860 80"
-        fill="none"
-        stroke={stroke}
-        strokeWidth="1.2"
-        strokeDasharray="6 10"
-      />
-      <path
-        className="motion-safe:animate-flow-dash"
-        d="M-40 80 C 140 90, 180 260, 360 250 S 560 40, 760 110"
-        fill="none"
-        stroke={copper}
-        strokeWidth="1"
-        strokeDasharray="4 12"
-        style={{ animationDuration: '11s' }}
-      />
-      <circle cx="160" cy="118" r="3" fill={fill} />
-      <circle cx="360" cy="250" r="3" fill="#B87A4E" />
-      <circle cx="680" cy="160" r="3" fill="#C6DC4A" />
+      {isHero ? (
+        <>
+          <path
+            className="motion-safe:animate-flow-dash"
+            d="M-80 430 C 160 80, 380 640, 640 220 S 980 40, 1280 310"
+            fill="none"
+            stroke={stroke}
+            strokeWidth="1.15"
+            strokeDasharray="7 12"
+          />
+          <path
+            className="motion-safe:animate-flow-dash"
+            d="M-40 160 C 220 520, 520 -40, 820 280 S 1100 680, 1360 240"
+            fill="none"
+            stroke={copper}
+            strokeWidth="1"
+            strokeDasharray="4 14"
+            style={{ animationDuration: '12s' }}
+          />
+          <path
+            className="motion-safe:animate-flow-dash"
+            d="M 80 680 C 340 500, 560 720, 860 480 S 1120 180, 1320 420"
+            fill="none"
+            stroke={stroke}
+            strokeWidth="0.9"
+            strokeDasharray="3 16"
+            strokeOpacity="0.7"
+            style={{ animationDuration: '16s' }}
+          />
+          <circle cx="214" cy="214" r="3.5" fill={fill} />
+          <circle cx="640" cy="220" r="3" fill="#B87A4E" />
+          <circle cx="860" cy="480" r="3.5" fill="#C6DC4A" />
+          <circle cx="980" cy="86" r="2.5" fill={fill} />
+        </>
+      ) : (
+        <>
+          <path
+            className="motion-safe:animate-flow-dash"
+            d="M-20 220 C 120 220, 160 60, 320 70 S 520 250, 680 160 S 820 80, 860 80"
+            fill="none"
+            stroke={stroke}
+            strokeWidth="1.2"
+            strokeDasharray="6 10"
+          />
+          <path
+            className="motion-safe:animate-flow-dash"
+            d="M-40 80 C 140 90, 180 260, 360 250 S 560 40, 760 110"
+            fill="none"
+            stroke={copper}
+            strokeWidth="1"
+            strokeDasharray="4 12"
+            style={{ animationDuration: '11s' }}
+          />
+          <circle cx="160" cy="118" r="3" fill={fill} />
+          <circle cx="360" cy="250" r="3" fill="#B87A4E" />
+          <circle cx="680" cy="160" r="3" fill="#C6DC4A" />
+        </>
+      )}
     </svg>
   );
 }

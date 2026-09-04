@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { and, eq, gt, like, isNull, sql } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
-import { products, supplierProducts, suppliers } from '@vyro/db/schema';
+import { products, supplierProducts, suppliers, productImages } from '@vyro/db/schema';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 
@@ -22,7 +22,10 @@ type OfferRow = typeof supplierProducts.$inferSelect;
 type SupplierRow = typeof suppliers.$inferSelect;
 
 interface SearchHit {
-  product: ProductRow;
+  product: ProductRow & {
+    imageUrl?: string | null;
+    images?: Array<{ id: string; url: string; altText: string | null }>;
+  };
   bestOffer: (OfferRow & { supplier: SupplierRow }) | null;
   offerCount: number;
 }
@@ -57,6 +60,7 @@ router.get('/products', async (c) => {
 
   const productIds = page.map((p) => p.id);
   let offerMap = new Map<string, { offers: OfferRow[]; suppliers: Map<string, SupplierRow> }>();
+  let imageMap = new Map<string, { url: string; images: Array<{ id: string; url: string; altText: string | null }> }>();
   if (productIds.length) {
     const offers = await db
       .select()
@@ -74,15 +78,38 @@ router.get('/products', async (c) => {
     const smap = new Map(supplierRows.map((s) => [s.id, s]));
     for (const id of productIds) offerMap.set(id, { offers: [], suppliers: smap });
     for (const o of offers) offerMap.get(o.productId)?.offers.push(o);
+
+    const imgs = await db
+      .select()
+      .from(productImages)
+      .where(sql`${productImages.productId} in (${sql.join(productIds.map((id) => sql`${id}`), sql.raw(','))})`)
+      .orderBy(productImages.sortOrder)
+      .all();
+    for (const id of productIds) imageMap.set(id, { url: '', images: [] });
+    for (const img of imgs) {
+      const url = img.r2Key.startsWith('http://') || img.r2Key.startsWith('https://')
+        ? img.r2Key
+        : `/api/products/images/${img.r2Key}`;
+      const entry = imageMap.get(img.productId);
+      if (entry) {
+        if (!entry.url) entry.url = url;
+        entry.images.push({ id: img.id, url, altText: img.altText });
+      }
+    }
   }
 
   const hits: SearchHit[] = page.map((p) => {
     const entry = offerMap.get(p.id);
+    const imgEntry = imageMap.get(p.id);
     const live = entry?.offers.filter((o) => o.active) ?? [];
     const best = live.slice().sort((a, b) => a.priceCents - b.priceCents)[0] ?? null;
     const supplier = best ? entry?.suppliers.get(best.supplierId) ?? null : null;
     return {
-      product: p,
+      product: {
+        ...p,
+        imageUrl: imgEntry?.url || null,
+        images: imgEntry?.images || [],
+      },
       bestOffer: best && supplier ? { ...best, supplier } : null,
       offerCount: live.length,
     };

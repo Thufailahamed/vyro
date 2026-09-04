@@ -7,7 +7,7 @@ import { requireRole } from '../../middleware/rbac';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
-import { businessMembers, supplierProducts, products, suppliers, carts, cartItems } from '@vyro/db/schema';
+import { businessMembers, supplierProducts, products, suppliers, carts, cartItems, productImages } from '@vyro/db/schema';
 import { eq, inArray, sql } from 'drizzle-orm';
 import {
   clearCart,
@@ -58,6 +58,24 @@ router.get('/', session(), async (c) => {
       .where(inArray(supplierProducts.id, spIds))
       .all();
     const map = new Map(offers.map((o) => [o.sp.id, o]));
+    const pIds = [...new Set(offers.map((o) => o.product.id))];
+    const imageMap = new Map<string, string>();
+    if (pIds.length) {
+      const imgs = await db
+        .select()
+        .from(productImages)
+        .where(sql`${productImages.productId} in (${sql.join(pIds.map((id) => sql`${id}`), sql.raw(','))})`)
+        .orderBy(productImages.sortOrder)
+        .all();
+      for (const img of imgs) {
+        if (!imageMap.has(img.productId)) {
+          const url = img.r2Key.startsWith('http://') || img.r2Key.startsWith('https://')
+            ? img.r2Key
+            : `/api/products/images/${img.r2Key}`;
+          imageMap.set(img.productId, url);
+        }
+      }
+    }
     enriched = items.map((i) => {
       const o = map.get(i.supplierProductId);
       return o
@@ -66,7 +84,10 @@ router.get('/', session(), async (c) => {
             quantity: i.quantity,
             priceCents: o.sp.priceCents,
             lineTotalCents: o.sp.priceCents * i.quantity,
-            product: o.product,
+            product: {
+              ...o.product,
+              imageUrl: imageMap.get(o.product.id) ?? null,
+            },
             supplier: o.supplier,
             offer: { id: o.sp.id, minOrderQty: o.sp.minOrderQty, leadTimeDays: o.sp.leadTimeDays, availabilityStatus: o.sp.availabilityStatus },
           }
