@@ -9,6 +9,7 @@ import { businessMembers, supplierMembers, payments, purchaseOrders } from '@vyr
 import { and, eq } from 'drizzle-orm';
 import { newId } from '@vyro/shared';
 import { recordAudit } from '../supplierProducts/repository';
+import { listPaymentsForSupplier, requireSupplierMember } from './listRepository';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -88,6 +89,23 @@ router.post('/:id/confirm', session(), async (c) => {
     metadata: { paymentId: payment.id, reason: parsed.data.reason ?? null },
   });
   return c.json({ ok: true });
+});
+
+router.get('/', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const supplierId = c.req.query('supplierId');
+  if (!supplierId) throw httpError(400, 'VALIDATION_ERROR', 'supplierId required');
+  try {
+    await requireSupplierMember(c.env.DB, supplierId, ctx.userId);
+  } catch {
+    throw httpError(404, 'NOT_FOUND', 'Supplier not found');
+  }
+  const cursorRaw = c.req.query('cursor');
+  const cursor = cursorRaw ? Number(cursorRaw) : undefined;
+  const status = c.req.query('status');
+  const items = await listPaymentsForSupplier(c.env.DB, supplierId, cursor, status);
+  return c.json({ items });
 });
 
 router.get('/by-po/:poId', session(), async (c) => {
