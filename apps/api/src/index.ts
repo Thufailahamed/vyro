@@ -19,6 +19,7 @@ import notificationRouter from './modules/notifications/routes';
 import adminRouter from './modules/admin/routes';
 import userSettingsRouter from './modules/settings/routes';
 import supplierSettingsRouter from './modules/settings/supplier';
+import adminSettingsRouter from './modules/settings/admin';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -48,5 +49,6 @@ app.route('/api/notifications', notificationRouter);
 app.route('/api/admin', adminRouter);
 app.route('/api/settings', userSettingsRouter);
 app.route('/api/suppliers', supplierSettingsRouter);
+app.route('/api/admin/settings', adminSettingsRouter);
 
 export default app;
