@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import { Button, ErrorBanner, Select, Input } from '@/components/ui';
+import { Button, ErrorBanner, Select, Input, StatusDots } from '@/components/ui';
+import type { OrderStatus } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
 import { ArrowLeftIcon } from '@/components/icons';
 import { FlowLine } from '@/components/brand/FlowLine';
@@ -173,8 +174,8 @@ export function OrderDetailPage() {
             <ol className="space-y-4">
               {events.map((e) => (
                 <li key={e.id}>
-                  <div className="text-sm font-medium capitalize">{e.toStatus.replace(/_/g, ' ')}</div>
-                  <div className="text-[11px] text-ink-4 vyro-metric">
+                  <StatusDots status={(e.toStatus as OrderStatus) ?? 'pending'} />
+                  <div className="text-[11px] text-ink-4 vyro-metric mt-1">
                     {new Date(e.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
                   </div>
                 </li>

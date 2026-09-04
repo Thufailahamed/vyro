@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button, ErrorBanner, Input, Label } from '@/components/ui';
+import { Button, ErrorBanner, Input, Label, PageHeader } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { BrandMark, BrandWordmark } from '@/components/brand/BrandMark';
@@ -48,8 +48,7 @@ export function SignupPage() {
       </aside>
       <main className="flex items-center justify-center px-6 py-16">
         <div className="w-full max-w-md">
-          <div className="vyro-kicker">Create account</div>
-          <h1 className="mt-2 vyro-display text-4xl">Join VYRO</h1>
+          <PageHeader kicker="Create account" title="Join VYRO." sub="Free to browse. Pay only when you issue purchase orders." />
           <form onSubmit={onSubmit} className="mt-8 space-y-5">
             {err && <ErrorBanner message={err} />}
             <div>

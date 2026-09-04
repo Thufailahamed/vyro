@@ -5,6 +5,8 @@ import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { TimeSeries } from '@/components/ui';
 import { Button } from '@/components/ui';
+import { MetricStack, StatusDots } from '@/components/ui';
+import type { OrderStatus } from '@/components/ui';
 import { PackageIcon, ShoppingCartIcon, TruckIcon, AlertCircleIcon, StoreIcon } from '@/components/icons';
 import { formatCompactLKR, formatLKR, greetingForNow } from '@/lib/format';
 import { FlowLine } from '@/components/brand/FlowLine';
@@ -126,11 +128,14 @@ export function DashboardPage() {
 
         <Surface kind="floating" className="lg:col-span-5 p-7">
           <div className="vyro-kicker">Pending actions</div>
-          <div className="mt-5 space-y-4">
-            <ActionRow icon={AlertCircleIcon} label="Awaiting supplier" value={stats.pending} />
-            <ActionRow icon={TruckIcon} label="In movement" value={stats.inFlight} />
-            <ActionRow icon={AlertCircleIcon} label="Disputes" value={stats.disputed} danger />
-          </div>
+          <MetricStack
+            className="mt-5"
+            items={[
+              { label: 'Awaiting supplier', value: String(stats.pending), accent: stats.pending > 0 ? 'amber' : 'ink' },
+              { label: 'In movement', value: String(stats.inFlight), accent: 'volt' },
+              { label: 'Disputes', value: String(stats.disputed), accent: stats.disputed > 0 ? 'rose' : 'ink' },
+            ]}
+          />
           <Link to="/orders" className="mt-6 inline-block text-sm text-copper">
             Review orders →
           </Link>
@@ -177,7 +182,9 @@ export function DashboardPage() {
                 <li key={o.id} className="border-b border-ink/5 last:border-0">
                   <Link to={`/orders/${o.id}`} className="flex items-center gap-4 px-6 py-3.5 hover:bg-mist/60">
                     <span className="vyro-metric text-sm w-28 truncate">{o.poNumber}</span>
-                    <span className="text-[11px] uppercase tracking-wider text-ink-4 flex-1">{o.status.replace(/_/g, ' ')}</span>
+                    <span className="flex-1">
+                      <StatusDots status={(o.status as OrderStatus) ?? 'pending'} />
+                    </span>
                     <span className="vyro-metric text-sm">{formatCompactLKR(o.totalCents)}</span>
                   </Link>
                 </li>

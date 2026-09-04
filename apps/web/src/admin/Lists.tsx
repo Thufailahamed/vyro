@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
+import { PageHeader } from '@/components/ui';
 import { SearchIcon, MapPinIcon, MailIcon } from './icons';
 
 interface Supplier {
@@ -28,15 +29,15 @@ export function SuppliersPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-ink/10">
-        <div>
-          <div className="vyro-kicker">Registry</div>
-          <h1 className="mt-1 vyro-display text-3xl">Registered suppliers</h1>
-        </div>
-        <span className="inline-flex items-center h-7 px-3 rounded-full text-xs font-medium bg-paper border border-slate-200 text-slate-700 self-start sm:self-auto num-tabular">
-          {data?.suppliers?.length ?? 0} total
-        </span>
-      </header>
+      <PageHeader
+        kicker="Registry"
+        title="Registered suppliers"
+        actions={
+          <span className="inline-flex items-center h-7 px-3 rounded-full text-xs font-medium bg-paper border border-ink/15 text-ink-3 self-start sm:self-auto num-tabular">
+            {data?.suppliers?.length ?? 0} total
+          </span>
+        }
+      />
 
       <Table rows={data?.suppliers ?? []} isLoading={isLoading} />
     </div>
@@ -52,15 +53,15 @@ export function BusinessesPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-ink/10">
-        <div>
-          <div className="vyro-kicker">Registry</div>
-          <h1 className="mt-1 vyro-display text-3xl">Registered businesses</h1>
-        </div>
-        <span className="inline-flex items-center h-7 px-3 rounded-full text-xs font-medium bg-paper border border-slate-200 text-slate-700 self-start sm:self-auto num-tabular">
-          {data?.businesses?.length ?? 0} total
-        </span>
-      </header>
+      <PageHeader
+        kicker="Registry"
+        title="Registered businesses"
+        actions={
+          <span className="inline-flex items-center h-7 px-3 rounded-full text-xs font-medium bg-paper border border-ink/15 text-ink-3 self-start sm:self-auto num-tabular">
+            {data?.businesses?.length ?? 0} total
+          </span>
+        }
+      />
 
       <Table rows={data?.businesses ?? []} isLoading={isLoading} />
     </div>
@@ -74,7 +75,7 @@ function Table({ rows, isLoading }: { rows: any[]; isLoading?: boolean }) {
     return (
       <div className="space-y-2">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-14 bg-paper rounded-md border border-slate-200 animate-pulse" />
+          <div key={i} className="h-14 bg-paper rounded-md border border-ink/15 animate-pulse" />
         ))}
       </div>
     );
@@ -88,7 +89,7 @@ function Table({ rows, isLoading }: { rows: any[]; isLoading?: boolean }) {
   return (
     <div className="space-y-4">
       <div className="relative max-w-md">
-        <SearchIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <SearchIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4 pointer-events-none" />
         <input
           type="text"
           placeholder="Filter by name, location, email…"
@@ -123,7 +124,7 @@ function Table({ rows, isLoading }: { rows: any[]; isLoading?: boolean }) {
                     </td>
                     <td className="py-3.5 px-4 text-ink-3">
                       <span className="inline-flex items-center gap-1.5">
-                        <MapPinIcon size={12} className="text-slate-400" />
+                        <MapPinIcon size={12} className="text-ink-4" />
                         {r.city}
                       </span>
                     </td>
@@ -132,7 +133,7 @@ function Table({ rows, isLoading }: { rows: any[]; isLoading?: boolean }) {
                         {r.district}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-slate-600">
+                    <td className="py-3.5 px-4 text-ink-3">
                       <a href={`mailto:${r.email}`} className="inline-flex items-center gap-1.5 text-copper hover:text-ink">
                         <MailIcon size={12} />
                         <span className="font-mono text-xs">{r.email}</span>

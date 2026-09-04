@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { BrandMark, BrandWordmark } from '@/components/brand/BrandMark';
 import { FlowCanvas } from '@/components/brand/FlowLine';
-import { Button } from '@/components/ui';
+import { Button, PageHeader } from '@/components/ui';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -42,7 +42,7 @@ export function LoginPage() {
         </div>
       </aside>
       <section className="p-8 sm:p-12 flex flex-col justify-center">
-        <h2 className="vyro-display text-3xl">Administrator sign in</h2>
+        <PageHeader kicker="Admin" title="Administrator sign in." sub="Restricted operations. Every action writes to the audit trail." />
         {err && <p className="mt-4 text-sm text-rose">{err}</p>}
         <form onSubmit={submit} className="mt-8 space-y-4 max-w-sm">
           <div>

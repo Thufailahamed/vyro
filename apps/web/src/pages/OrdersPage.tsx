@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { StatusBadge, Button, EmptyState } from '@/components/ui';
+import { StatusBadge, Button, EmptyState, PageHeader } from '@/components/ui';
+import { StatusDots } from '@/components/ui';
+import type { OrderStatus } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
 import { PackageIcon, SearchIcon } from '@/components/icons';
@@ -67,10 +69,7 @@ export function OrdersPage() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <div className="vyro-kicker">Orders</div>
-        <h1 className="mt-2 vyro-display text-4xl">Purchase orders</h1>
-      </header>
+      <PageHeader kicker="Orders" title="Purchase orders." sub="Track each order from confirmation to delivery." />
       <div className="flex flex-wrap gap-2">
         {STATUS_FILTERS.map((tab) => {
           const count = tab.id === 'all' ? allOrders.length : allOrders.filter((o) => o.status.toLowerCase() === tab.id).length;
@@ -106,7 +105,7 @@ export function OrdersPage() {
           {filteredOrders.map((o) => (
             <Link key={o.id} to={`/orders/${o.id}`} className="flex flex-col sm:flex-row sm:items-center gap-3 py-5 hover:bg-paper/80 px-1">
               <span className="vyro-metric text-sm w-36">{o.poNumber}</span>
-              <StatusBadge status={o.status} />
+              <StatusDots status={(o.status as OrderStatus) ?? 'pending'} />
               <span className="text-xs text-ink-4 flex-1">
                 {new Date(o.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>

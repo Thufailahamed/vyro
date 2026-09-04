@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Link } from 'react-router-dom';
+import { PageHeader, StatusDots } from '@/components/ui';
+import type { OrderStatus } from '@/components/ui';
 import { ClockIcon, CheckCircleIcon } from './icons';
 
 interface Order {
@@ -31,33 +33,33 @@ export function DisputedPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-ink/10">
-        <div>
-          <div className="vyro-kicker">Arbitration</div>
-          <h1 className="mt-1 vyro-display text-3xl">Disputed orders</h1>
-        </div>
-        <span
-          className={`inline-flex items-center h-7 px-3 rounded-full text-xs font-medium border num-tabular self-start sm:self-auto ${
-            orders.length > 0
-              ? 'bg-rose/15 text-rose border-rose/30 animate-pulse'
-              : 'bg-paper text-slate-500 border-slate-200'
-          }`}
-        >
-          {orders.length} disputed
-        </span>
-      </header>
+      <PageHeader
+        kicker="Arbitration"
+        title="Disputed orders."
+        actions={
+          <span
+            className={`inline-flex items-center h-7 px-3 rounded-full text-xs font-medium border num-tabular self-start sm:self-auto ${
+              orders.length > 0
+                ? 'bg-rose/15 text-rose border-rose/30 animate-pulse'
+                : 'bg-paper text-ink-3 border-ink/15'
+            }`}
+          >
+            {orders.length} disputed
+          </span>
+        }
+      />
 
       {isLoading ? (
         <div className="space-y-2">
           {[1, 2].map((i) => (
-            <div key={i} className="h-16 bg-paper rounded-md border border-slate-200 animate-pulse" />
+            <div key={i} className="h-16 bg-paper rounded-md border border-ink/15 animate-pulse" />
           ))}
         </div>
       ) : orders.length === 0 ? (
-        <div className="p-14 text-center bg-paper rounded-lg border border-dashed border-slate-200">
+        <div className="p-14 text-center bg-paper rounded-lg border border-dashed border-ink/15">
           <CheckCircleIcon size={32} className="mx-auto text-mint" />
-          <h3 className="mt-3 font-semibold text-slate-950 text-base">No active disputes</h3>
-          <p className="mt-1 text-sm text-slate-500">All buyer and supplier purchase orders are running smoothly.</p>
+          <h3 className="mt-3 font-semibold text-ink text-base">No active disputes</h3>
+          <p className="mt-1 text-sm text-ink-3">All buyer and supplier purchase orders are running smoothly.</p>
         </div>
       ) : (
         <div className="bg-paper border border-rose/30 rounded-lg overflow-hidden shadow-soft-sm">
@@ -70,23 +72,21 @@ export function DisputedPage() {
                 <th className="py-3 px-4 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-ink/10">
               {orders.map((o) => (
                 <tr key={o.id} className="hover:bg-rose/5 transition-colors">
-                  <td className="py-3.5 px-4 font-mono font-semibold text-slate-950">{o.poNumber}</td>
-                  <td className="py-3.5 px-4 font-mono font-semibold text-slate-950 num-tabular">
+                  <td className="py-3.5 px-4 font-mono font-semibold text-ink">{o.poNumber}</td>
+                  <td className="py-3.5 px-4 font-mono font-semibold text-ink num-tabular">
                     ₨ {(o.totalCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="py-3.5 px-4 text-xs text-slate-500 num-tabular">
+                  <td className="py-3.5 px-4 text-xs text-ink-3 num-tabular">
                     {new Date(o.createdAt).toLocaleString('en-US', {
                       dateStyle: 'medium',
                       timeStyle: 'short',
                     })}
                   </td>
                   <td className="py-3.5 px-4 text-right">
-                    <span className="px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider bg-rose/15 text-rose border border-rose/30">
-                      Under review
-                    </span>
+                    <StatusDots status={'disputed' as OrderStatus} />
                   </td>
                 </tr>
               ))}
@@ -109,49 +109,49 @@ export function AuditPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-ink/10">
-        <div>
-          <div className="vyro-kicker">Ledger</div>
-          <h1 className="mt-1 vyro-display text-3xl">System audit trail</h1>
-        </div>
-        <span className="inline-flex items-center h-7 px-3 rounded-full text-xs font-medium bg-paper border border-slate-200 text-slate-700 self-start sm:self-auto num-tabular">
-          {logs.length} recent events
-        </span>
-      </header>
+      <PageHeader
+        kicker="Ledger"
+        title="System audit trail."
+        actions={
+          <span className="inline-flex items-center h-7 px-3 rounded-full text-xs font-medium bg-paper border border-ink/15 text-ink-3 self-start sm:self-auto num-tabular">
+            {logs.length} recent events
+          </span>
+        }
+      />
 
       {isLoading ? (
         <div className="space-y-2">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-12 bg-paper rounded-md border border-slate-200 animate-pulse" />
+            <div key={i} className="h-12 bg-paper rounded-md border border-ink/15 animate-pulse" />
           ))}
         </div>
       ) : logs.length === 0 ? (
-        <div className="p-14 text-center bg-paper rounded-lg border border-dashed border-slate-200">
-          <p className="text-sm font-semibold text-slate-950">No audit events recorded</p>
+        <div className="p-14 text-center bg-paper rounded-lg border border-dashed border-ink/15">
+          <p className="text-sm font-semibold text-ink">No audit events recorded</p>
         </div>
       ) : (
         <ol className="space-y-2">
           {logs.map((l) => (
             <li
               key={l.id}
-              className="bg-paper border border-slate-200 rounded-md p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 transition-colors"
+              className="bg-paper border border-ink/15 rounded-md p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-ink/25 transition-colors"
             >
               <div className="flex items-center gap-3 flex-wrap">
-                <span className="flex items-center gap-1 text-slate-500 font-mono text-[11px] shrink-0 num-tabular">
-                  <ClockIcon size={13} className="text-slate-400" />
+                <span className="flex items-center gap-1 text-ink-3 font-mono text-[11px] shrink-0 num-tabular">
+                  <ClockIcon size={13} className="text-ink-4" />
                   {new Date(l.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </span>
                 <span className="font-mono font-semibold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider bg-violet/10 text-violet border border-violet/30">
                   {l.action}
                 </span>
-                <span className="text-sm text-slate-700">
-                  {l.resourceType} <span className="font-mono text-xs text-slate-500">({l.resourceId.slice(0, 8)}…)</span>
+                <span className="text-sm text-ink-2">
+                  {l.resourceType} <span className="font-mono text-xs text-ink-3">({l.resourceId.slice(0, 8)}…)</span>
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-xs text-slate-500">
+              <div className="flex items-center gap-3 text-xs text-ink-3">
                 {l.actorUserId && (
                   <span>
-                    actor <code className="text-slate-700 font-mono">{l.actorUserId.slice(0, 6)}…</code>
+                    actor <code className="text-ink-2 font-mono">{l.actorUserId.slice(0, 6)}…</code>
                   </span>
                 )}
                 <Link to={`/audit/${l.resourceId}`} className="font-semibold text-copper hover:text-ink">
