@@ -14,9 +14,16 @@ import { OrderDetailPage } from './pages/OrderDetailPage';
 import { SupplierOrdersPage } from './pages/SupplierOrdersPage';
 import { ProfilePage } from './pages/ProfilePage';
 
+import { AdminAuthProvider, AdminShell, RequireAdmin } from './admin/Shell';
+import { AdminHomePage } from './admin/HomePage';
+import { LoginPage as AdminLoginPage } from './admin/LoginPage';
+import { SuppliersPage, BusinessesPage } from './admin/Lists';
+import { DisputedPage, AuditPage } from './admin/DisputedAndAudit';
+
 export default function App() {
   return (
     <Routes>
+      {/* Public web SPA */}
       <Route element={<Layout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -32,6 +39,24 @@ export default function App() {
         <Route path="/supplier/orders" element={<SupplierOrdersPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+
+      {/* Admin SPA — same host, /admin/* prefix */}
+      <Route
+        path="/admin/*"
+        element={
+          <AdminAuthProvider>
+            <AdminShell />
+          </AdminAuthProvider>
+        }
+      >
+        <Route index element={<Navigate to="/admin/suppliers" replace />} />
+        <Route path="login" element={<AdminLoginPage />} />
+        <Route path="suppliers" element={<RequireAdmin><SuppliersPage /></RequireAdmin>} />
+        <Route path="businesses" element={<RequireAdmin><BusinessesPage /></RequireAdmin>} />
+        <Route path="disputed" element={<RequireAdmin><DisputedPage /></RequireAdmin>} />
+        <Route path="audit" element={<RequireAdmin><AuditPage /></RequireAdmin>} />
+        <Route path="*" element={<Navigate to="/admin" replace />} />
       </Route>
     </Routes>
   );
