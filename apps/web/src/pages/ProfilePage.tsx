@@ -29,30 +29,30 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-          Account & Organizations
+    <div className="space-y-6 max-w-4xl mx-auto">
+      <header>
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-cyan/15 text-cyan-deep">Profile</span>
+        <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight text-slate-950 text-balance">
+          Account & organizations
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+        <p className="mt-1 text-sm text-slate-500">
           Manage your personal credentials, linked business entities, and supplier licenses.
         </p>
-      </div>
+      </header>
 
-      {/* User Header Card */}
-      <Card className="p-6 border-slate-200/90 shadow-soft-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <Card className="p-6 border-slate-200 shadow-soft-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-brand-700 to-sky-400 text-white flex items-center justify-center font-black text-xl shadow-soft-sm">
+          <span className="size-16 rounded-2xl bg-slate-950 text-cyan text-2xl font-bold inline-flex items-center justify-center shadow-soft-sm">
             {user.name ? user.name.slice(0, 2).toUpperCase() : 'U'}
-          </div>
+          </span>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-900">{user.name}</h2>
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                <ShieldCheckIcon size={12} /> Verified Member
+              <h2 className="text-xl font-semibold text-slate-950">{user.name}</h2>
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 uppercase tracking-wider">
+                <ShieldCheckIcon size={12} /> Verified
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">{user.email}</p>
+            <p className="text-xs text-slate-500 mt-0.5 font-mono">{user.email}</p>
           </div>
         </div>
 
@@ -67,11 +67,11 @@ export function ProfilePage() {
       </Card>
 
       {/* Linked Businesses (Buyer Side) */}
-      <Card className="p-6 border-slate-200/90 space-y-4">
+      <Card className="p-6 border-slate-200 space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <Building2Icon size={18} className="text-brand-600" />
-            <h3 className="font-bold text-base text-slate-900">Buyer Organizations</h3>
+            <span className="size-8 rounded-md bg-cyan/15 text-cyan-deep inline-flex items-center justify-center"><Building2Icon size={16} /></span>
+            <h3 className="font-semibold text-base text-slate-950">Buyer organizations</h3>
           </div>
           <Link to="/onboarding/business">
             <Button variant="outline" size="sm" className="text-xs">
@@ -105,11 +105,11 @@ export function ProfilePage() {
       </Card>
 
       {/* Linked Supplier Accounts (Seller Side) */}
-      <Card className="p-6 border-slate-200/90 space-y-4">
+      <Card className="p-6 border-slate-200 space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <StoreIcon size={18} className="text-emerald-600" />
-            <h3 className="font-bold text-base text-slate-900">Supplier & Merchant Accounts</h3>
+            <span className="size-8 rounded-md bg-mint/15 text-mint inline-flex items-center justify-center"><StoreIcon size={16} /></span>
+            <h3 className="font-semibold text-base text-slate-950">Supplier & merchant accounts</h3>
           </div>
           <Link to="/onboarding/supplier">
             <Button variant="outline" size="sm" className="text-xs">

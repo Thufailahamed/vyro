@@ -86,28 +86,28 @@ export function ProductDetailPage() {
   const businessId = user?.memberships?.[0]?.businessId;
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
+    <div className="space-y-8 max-w-6xl mx-auto">
       {/* Breadcrumb Back */}
       <div>
         <Link
           to="/search"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-soft-sm"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-950 transition-colors bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-soft-sm"
         >
-          <ArrowLeftIcon size={14} /> Back to Catalog
+          <ArrowLeftIcon size={14} /> Back to catalog
         </Link>
       </div>
 
       {/* Product Hero Header */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-soft-sm">
+      <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-soft-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200">
-              <PackageIcon size={14} /> Wholesale Standard: {data.product.unit}
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-cyan/15 text-cyan-deep">
+              <PackageIcon size={14} /> Wholesale standard · {data.product.unit}
             </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+            <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-950 text-balance">
               {data.product.name}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500">
+            <p className="text-sm text-slate-500">
               Compare verified wholesale distributors and place direct purchase orders.
             </p>
           </div>
