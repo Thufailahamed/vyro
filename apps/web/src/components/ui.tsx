@@ -269,4 +269,3 @@ export function PageHeader({
 
 // Re-export chart primitives from @vyro/ui
 export { Sparkline, BarChart, ProgressRing, StatTile, TimeSeries } from '@vyro/ui';
-export type { SparklineProps, BarChartProps, ProgressRingProps, StatTileProps, TimeSeriesProps } from '@vyro/ui';
