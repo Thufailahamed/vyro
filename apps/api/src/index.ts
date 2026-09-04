@@ -9,6 +9,7 @@ import supplierRouter from './modules/suppliers/routes';
 import categoryRouter from './modules/categories/routes';
 import productRouter from './modules/products/routes';
 import supplierProductRouter from './modules/supplierProducts/routes';
+import searchRouter from './modules/search/routes';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -28,5 +29,6 @@ app.route('/api/suppliers', supplierRouter);
 app.route('/api/categories', categoryRouter);
 app.route('/api/products', productRouter);
 app.route('/api/supplier-products', supplierProductRouter);
+app.route('/api/search', searchRouter);
 
 export default app;
