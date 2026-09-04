@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button, ErrorBanner, Input, Label } from '@/components/ui';
+import { Button, ErrorBanner, Input, Label, PageHeader } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { BrandMark, BrandWordmark } from '@/components/brand/BrandMark';
@@ -61,8 +61,7 @@ export function LoginPage() {
             <BrandMark size={28} />
             <BrandWordmark size="sm" />
           </Link>
-          <div className="vyro-kicker">Sign in</div>
-          <h1 className="mt-2 vyro-display text-4xl">Welcome back</h1>
+          <PageHeader kicker="Sign in" title="Welcome back." sub="Enter the workspace." />
           <form onSubmit={onSubmit} className="mt-8 space-y-5">
             {err && <ErrorBanner message={err} />}
             <div>
