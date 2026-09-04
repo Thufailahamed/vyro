@@ -5,3 +5,5 @@ export * from './category';
 export * from './product';
 export * from './supplierProduct';
 export * from './cart';
+export * from './delivery';
+export * from './payment';
