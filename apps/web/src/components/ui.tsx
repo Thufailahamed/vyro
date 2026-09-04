@@ -7,6 +7,7 @@ import type {
 } from 'react';
 import { AlertCircleIcon, ArrowRightIcon, CheckCircleIcon } from './icons';
 import { FlowCanvas } from './brand/FlowLine';
+import { cn } from '@vyro/ui';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success';
@@ -247,27 +248,125 @@ export function EmptyState({
   );
 }
 
-export function PageHeader({
-  title,
-  description,
-  badge,
-  action,
-}: {
+export interface PageHeaderProps {
+  kicker?: ReactNode;
   title: ReactNode;
-  description?: ReactNode;
-  badge?: ReactNode;
-  action?: ReactNode;
-}) {
+  sub?: ReactNode;
+  actions?: ReactNode;
+  className?: string;
+}
+export function PageHeader({ kicker, title, sub, actions, className }: PageHeaderProps) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-8 mb-8 border-b border-ink/10">
-      <div>
-        {badge && <div className="mb-3">{badge}</div>}
-        <h1 className="vyro-display text-3xl sm:text-4xl text-ink">{title}</h1>
-        {description && <p className="mt-2 text-sm text-ink-4 max-w-xl">{description}</p>}
+    <header className={cn('flex flex-col gap-4 md:flex-row md:items-end md:justify-between', className)}>
+      <div className="max-w-3xl">
+        {kicker && <div className="vyro-kicker">{kicker}</div>}
+        <h1 className="mt-2 vyro-display text-4xl sm:text-5xl text-balance text-ink">{title}</h1>
+        {sub && <p className="mt-3 text-body-lg text-ink-3 max-w-2xl">{sub}</p>}
       </div>
-      {action && <div className="flex items-center gap-3 shrink-0">{action}</div>}
-    </div>
+      {actions && <div className="flex items-center gap-2 md:shrink-0">{actions}</div>}
+    </header>
   );
 }
+PageHeader.displayName = 'PageHeader';
+
+export interface PageSectionProps {
+  eyebrow?: ReactNode;
+  title?: ReactNode;
+  actions?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}
+export function PageSection({ eyebrow, title, actions, className, children }: PageSectionProps) {
+  return (
+    <section className={cn('space-y-5', className)}>
+      {(eyebrow || title || actions) && (
+        <div className="flex items-end justify-between gap-4 border-b border-ink/10 pb-3">
+          <div>
+            {eyebrow && <div className="vyro-kicker">{eyebrow}</div>}
+            {title && <h2 className="mt-1 vyro-display text-2xl text-ink">{title}</h2>}
+          </div>
+          {actions && <div className="flex items-center gap-2">{actions}</div>}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+PageSection.displayName = 'PageSection';
+
+export interface MetricStackItem {
+  label: string;
+  value: string;
+  accent?: 'mint' | 'amber' | 'rose' | 'volt' | 'ink';
+}
+export interface MetricStackProps {
+  items: MetricStackItem[];
+  compact?: boolean;
+  className?: string;
+}
+const accentClass: Record<NonNullable<MetricStackItem['accent']>, string> = {
+  mint: 'text-mint',
+  amber: 'text-amber',
+  rose: 'text-rose',
+  volt: 'text-volt-deep',
+  ink: 'text-ink',
+};
+export function MetricStack({ items, compact, className }: MetricStackProps) {
+  return (
+    <dl className={cn('divide-y divide-ink/10', className)}>
+      {items.map((item) => (
+        <div
+          key={item.label}
+          className={cn('flex items-baseline justify-between gap-4', compact ? 'py-2' : 'py-3')}
+        >
+          <dt className="text-[10px] uppercase tracking-[0.14em] text-ink-3 font-semibold">{item.label}</dt>
+          <dd className={cn('font-mono text-2xl tracking-tight', accentClass[item.accent ?? 'ink'])}>{item.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+MetricStack.displayName = 'MetricStack';
+
+export type OrderStatus =
+  | 'draft'
+  | 'pending'
+  | 'preparing'
+  | 'in_transit'
+  | 'delivered'
+  | 'completed'
+  | 'cancelled'
+  | 'disputed'
+  | 'returning'
+  | 'returned'
+  | 'refunded'
+  | 'paid'
+  | 'unpaid';
+
+const statusPalette: Record<OrderStatus, { dot: string; label: string }> = {
+  draft: { dot: 'bg-ink-4', label: 'Draft' },
+  pending: { dot: 'bg-amber', label: 'Pending' },
+  preparing: { dot: 'bg-violet', label: 'Preparing' },
+  in_transit: { dot: 'bg-copper', label: 'In transit' },
+  delivered: { dot: 'bg-mint', label: 'Delivered' },
+  completed: { dot: 'bg-mint', label: 'Completed' },
+  cancelled: { dot: 'bg-ink-4', label: 'Cancelled' },
+  disputed: { dot: 'bg-rose', label: 'Disputed' },
+  returning: { dot: 'bg-amber', label: 'Returning' },
+  returned: { dot: 'bg-amber', label: 'Returned' },
+  refunded: { dot: 'bg-amber', label: 'Refunded' },
+  paid: { dot: 'bg-mint', label: 'Paid' },
+  unpaid: { dot: 'bg-ink-4', label: 'Unpaid' },
+};
+export function StatusDots({ status }: { status: OrderStatus }) {
+  const s = statusPalette[status];
+  return (
+    <span className="inline-flex items-center gap-2 text-sm text-ink-2">
+      <span className={cn('w-1.5 h-1.5 rotate-45', s.dot)} aria-hidden />
+      {s.label}
+    </span>
+  );
+}
+StatusDots.displayName = 'StatusDots';
 
 export { Sparkline, BarChart, ProgressRing, StatTile, TimeSeries } from '@vyro/ui';
