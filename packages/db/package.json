@@ -1,0 +1,28 @@
+{
+  "name": "@vyro/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "migrate": "echo 'migrate stub'",
+    "seed": "echo 'seed stub'",
+    "studio": "echo 'studio stub'",
+    "lint": "echo 'lint stub'",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240909.0",
+    "drizzle-kit": "^0.31.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0",
+    "uuid": "^10.0.0"
+  }
+}
