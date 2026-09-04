@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import { Button, ErrorBanner, Input } from '@/components/ui';
+import { Button, ErrorBanner, Input, PageSection, StatusDots } from '@/components/ui';
+import type { OrderStatus } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
 import { ArrowLeftIcon, ShoppingCartIcon } from '@/components/icons';
@@ -123,10 +124,8 @@ export function ProductDetailPage() {
         </Surface>
       )}
 
-      <div>
-        <h2 className="vyro-display text-3xl">Supplier comparison</h2>
-        <p className="mt-1 text-sm text-ink-4">Best price, best value, fastest delivery — at a glance.</p>
-        <div className="mt-6 space-y-3">
+      <PageSection eyebrow="Offers" title="Supplier comparison" actions={<span className="text-sm text-ink-4">Best price, best value, fastest delivery — at a glance.</span>}>
+        <div className="space-y-3">
           {data.offers.length === 0 ? (
             <Surface className="p-10 text-center text-ink-4">No active offers.</Surface>
           ) : (
@@ -149,10 +148,10 @@ export function ProductDetailPage() {
                         {isFastest && <Award>Fastest delivery</Award>}
                       </div>
                       <h3 className="font-display text-xl">{row.supplier.name}</h3>
-                      <div className="mt-2 flex flex-wrap gap-4 text-xs text-ink-4">
+                      <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-ink-4">
                         <span>MOQ {row.offer.minOrderQty} {data.product.unit}</span>
                         <span>{row.offer.leadTimeDays} day lead</span>
-                        <span className="capitalize">{row.offer.availabilityStatus.replace(/_/g, ' ')}</span>
+                        <StatusDots status={(row.offer.availabilityStatus as OrderStatus) ?? 'pending'} />
                       </div>
                     </div>
                     <div className="text-left lg:text-right">
@@ -183,7 +182,7 @@ export function ProductDetailPage() {
             })
           )}
         </div>
-      </div>
+      </PageSection>
     </div>
   );
 }
