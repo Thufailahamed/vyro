@@ -9,7 +9,7 @@ import { findSupplierById, listMySuppliers } from './repository';
 
 const router = new Hono<{ Bindings: Env }>();
 
-router.post('/', async (c) => {
+router.post('/', session(), async (c) => {
   const ctx = c.get('ctx') as Ctx;
   const parsed = onboardingSupplierSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success)

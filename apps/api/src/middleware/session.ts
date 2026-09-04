@@ -14,11 +14,20 @@ declare module 'hono' {
 
 export const session = (): MiddlewareHandler => async (c, next) => {
   const env = c.env as Env;
-  const auth = createAuth(env);
-  const result = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!result) throw httpError(401, 'UNAUTHORIZED', 'No active session');
-  const ctx = await loadSessionContext(env.DB, result.user.id);
-  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'User not found');
-  c.set('ctx', ctx);
+  try {
+    const auth = createAuth(env);
+    const result = await auth.api.getSession({ headers: c.req.raw.headers });
+    if (!result) throw httpError(401, 'UNAUTHORIZED', 'No active session');
+    const ctx = await loadSessionContext(env.DB, result.user.id);
+    if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'User not found');
+    c.set('ctx', ctx);
+  } catch (err) {
+    // Any failure to resolve the session (no session, expired, DB unavailable)
+    // is treated as unauthenticated — never leaks 5xx.
+    if (err instanceof Error && 'status' in err && typeof (err as { status: number }).status === 'number') {
+      throw err;
+    }
+    throw httpError(401, 'UNAUTHORIZED', 'No active session');
+  }
   await next();
 };
