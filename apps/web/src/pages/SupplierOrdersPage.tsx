@@ -70,38 +70,39 @@ export function SupplierOrdersPage() {
   const active = data?.orders.filter((o) => o.status !== 'pending') ?? [];
 
   return (
-    <div className="space-y-10 max-w-5xl mx-auto">
-      <div>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-50 text-brand-700 text-xs font-semibold border border-brand-200 mb-2">
-          <StoreIcon size={14} /> Merchant Operations Hub
+    <div className="space-y-10 max-w-6xl mx-auto">
+      <header>
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider bg-cyan/15 text-cyan-deep mb-3">
+          <StoreIcon size={12} /> Merchant operations
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-          Supplier Order Inbox
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-950 text-balance">
+          Supplier order inbox
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+        <p className="mt-1 text-sm text-slate-500">
           Review incoming purchase orders from Sri Lankan buyers, confirm acceptance, and update fulfillment milestones.
         </p>
-      </div>
+      </header>
 
       {/* Pending Incoming Orders Section */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-200">
           <div className="flex items-center gap-2.5">
-            <h2 className="text-lg font-bold text-slate-900">Incoming Orders Awaiting Acceptance</h2>
+            <span className="size-7 rounded-md bg-amber/15 text-amber inline-flex items-center justify-center"><AlertCircleIcon size={14} /></span>
+            <h2 className="text-lg font-semibold text-slate-950">Awaiting acceptance</h2>
             {pending.length > 0 && (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white animate-pulse">
-                {pending.length} New
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber text-white animate-pulse num-tabular">
+                {pending.length} NEW
               </span>
             )}
           </div>
-          <span className="text-xs text-slate-500">24h SLA target</span>
+          <span className="text-xs text-slate-500 font-mono">24h SLA target</span>
         </div>
 
         {pending.length === 0 ? (
-          <Card className="p-8 text-center text-slate-500 bg-slate-50/60 border-slate-200">
-            <CheckCircleIcon size={28} className="mx-auto text-emerald-500 mb-2" />
-            <h3 className="font-semibold text-slate-800 text-sm">All caught up!</h3>
-            <p className="text-xs text-slate-500 mt-0.5">No pending purchase orders waiting for your review.</p>
+          <Card className="p-10 text-center text-slate-500 bg-pearl border-slate-200">
+            <CheckCircleIcon size={28} className="mx-auto text-mint mb-3" />
+            <h3 className="font-semibold text-slate-950 text-base">All caught up</h3>
+            <p className="text-xs text-slate-500 mt-1">No pending purchase orders waiting for your review.</p>
           </Card>
         ) : (
           <div className="space-y-3">
@@ -109,11 +110,11 @@ export function SupplierOrdersPage() {
               <Card
                 key={o.id}
                 hoverEffect
-                className="p-5 border-amber-200/90 bg-amber-50/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-soft-sm"
+                className="p-5 border-l-4 border-l-amber bg-paper border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-soft-sm"
               >
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-3">
-                    <span className="font-mono font-bold text-sm text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-soft-sm">
+                    <span className="font-mono font-semibold text-sm text-slate-950 bg-white px-2.5 py-1 rounded-md border border-slate-200">
                       {o.poNumber}
                     </span>
                     <StatusBadge status={o.status} />
@@ -121,7 +122,7 @@ export function SupplierOrdersPage() {
 
                   <div className="flex items-center gap-2 text-xs text-slate-500">
                     <ClockIcon size={13} className="text-slate-400" />
-                    <span>Received {new Date(o.createdAt).toLocaleString('en-US', {
+                    <span className="num-tabular">Received {new Date(o.createdAt).toLocaleString('en-US', {
                       dateStyle: 'medium',
                       timeStyle: 'short',
                     })}</span>
@@ -130,10 +131,10 @@ export function SupplierOrdersPage() {
 
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 border-t sm:border-t-0 pt-3 sm:pt-0">
                   <div className="text-left sm:text-right">
-                    <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                      Order Value
+                    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                      Order value
                     </div>
-                    <div className="text-xl font-black text-brand-700">
+                    <div className="text-xl font-bold font-mono text-slate-950 num-tabular">
                       {formatLKR(o.totalCents)}
                     </div>
                   </div>
