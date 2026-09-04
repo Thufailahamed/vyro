@@ -9,6 +9,7 @@ import { businessMembers, supplierMembers, purchaseOrders } from '@vyro/db/schem
 import { and, eq } from 'drizzle-orm';
 import { ensureDelivery, findDeliveryByPo, updateDelivery } from './repository';
 import { recordAudit } from '../supplierProducts/repository';
+import { listDeliveriesForSupplier, requireSupplierMember } from './listRepository';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -23,6 +24,23 @@ async function roleFor(d1: D1Database, poId: string, userId: string, isAdmin: bo
   if (inSup) return 'supplier';
   return null;
 }
+
+router.get('/', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const supplierId = c.req.query('supplierId');
+  if (!supplierId) throw httpError(400, 'VALIDATION_ERROR', 'supplierId required');
+  try {
+    await requireSupplierMember(c.env.DB, supplierId, ctx.userId);
+  } catch {
+    throw httpError(404, 'NOT_FOUND', 'Supplier not found');
+  }
+  const cursorRaw = c.req.query('cursor');
+  const cursor = cursorRaw ? Number(cursorRaw) : undefined;
+  const status = c.req.query('status');
+  const items = await listDeliveriesForSupplier(c.env.DB, supplierId, cursor, status);
+  return c.json({ items });
+});
 
 router.get('/:poId', session(), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
