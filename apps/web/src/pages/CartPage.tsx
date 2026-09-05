@@ -10,11 +10,16 @@ import { ShoppingCartIcon, Trash2Icon, PackageIcon } from '@/components/icons';
 import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, Surface } from '@/components/brand/Surface';
 
+interface TierRef { minQty: number; discountPct: number }
+
 interface CartItem {
   id: string;
   quantity: number;
   priceCents: number;
   lineTotalCents: number;
+  discountCents: number;
+  bestTier: TierRef | null;
+  nextTier: TierRef | null;
   product: { id?: string; name: string; imageUrl?: string | null };
   supplier: { name: string };
   offer: { minOrderQty: number };
@@ -35,6 +40,8 @@ export function CartPage() {
         cart: { id: string };
         items: CartItem[];
         subtotalCents: number;
+        discountTotalCents: number;
+        totalCents: number;
         supplierCount: number;
       }>(`/cart?businessId=${businessId}`),
     enabled: !!businessId,
@@ -95,6 +102,8 @@ export function CartPage() {
 
   const items = data?.items ?? [];
   const subtotal = data?.subtotalCents ?? 0;
+  const discountTotal = data?.discountTotalCents ?? 0;
+  const total = data?.totalCents ?? subtotal;
   const supplierCount = data?.supplierCount ?? 0;
   const itemCount = data?.items?.length ?? 0;
   const belowMoq = items.filter((i) => i.quantity < i.offer.minOrderQty);
@@ -159,6 +168,16 @@ export function CartPage() {
                             <div className="text-xs text-ink-4 mt-0.5">
                               {formatLKR(it.priceCents)} × min {it.offer.minOrderQty}
                             </div>
+                            {it.bestTier && (
+                              <div className="text-[11px] uppercase tracking-wider text-volt mt-1">
+                                −{it.bestTier.discountPct}% tier
+                              </div>
+                            )}
+                            {!it.bestTier && it.nextTier && (
+                              <div className="text-[11px] text-ink-4 mt-1">
+                                Add {it.nextTier.minQty - it.quantity} for −{it.nextTier.discountPct}%
+                              </div>
+                            )}
                           </div>
                           <input
                             type="number"
@@ -195,11 +214,23 @@ export function CartPage() {
                 { label: 'Items', value: String(itemCount) },
               ]}
             />
-            <div className="pt-4 mt-4 border-t border-ink/10">
-              <div className="text-[11px] uppercase tracking-[0.14em] text-ink-4 font-semibold">Subtotal</div>
-              <MetricNumber size="md" className="mt-1">
-                {formatLKR(subtotal)}
-              </MetricNumber>
+            <div className="pt-4 mt-4 border-t border-ink/10 space-y-2">
+              <div className="flex items-baseline justify-between text-sm">
+                <span className="text-ink-4">Subtotal</span>
+                <span className="vyro-metric">{formatLKR(subtotal)}</span>
+              </div>
+              {discountTotal > 0 && (
+                <div className="flex items-baseline justify-between text-sm">
+                  <span className="text-volt uppercase text-[10px] tracking-wider">Volume discount</span>
+                  <span className="vyro-metric text-volt">−{formatLKR(discountTotal)}</span>
+                </div>
+              )}
+              <div className="pt-2 border-t border-ink/5">
+                <div className="text-[11px] uppercase tracking-[0.14em] text-ink-4 font-semibold">Total</div>
+                <MetricNumber size="md" className="mt-1">
+                  {formatLKR(total)}
+                </MetricNumber>
+              </div>
             </div>
             {belowMoq.length > 0 && (
               <p className="mt-3 text-xs text-rose">
