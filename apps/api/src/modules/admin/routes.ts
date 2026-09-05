@@ -7,33 +7,112 @@ import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
 import { suppliers, businesses, auditLogs, purchaseOrders } from '@vyro/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, like, lt, sql, type SQL } from 'drizzle-orm';
 import { findSupplierById, setSupplierStatus } from '../suppliers/repository';
 
 const router = new Hono<{ Bindings: Env }>();
 
 const idParam = z.object({ id: z.string().min(1) }).strict();
 const freezeSchema = z.object({ reason: z.string().max(500) }).strict();
+const listQuery = z.object({
+  q: z.string().max(200).optional(),
+  status: z.string().max(50).optional(),
+  cursor: z.string().max(50).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+});
+const auditQuery = z.object({
+  action: z.string().max(100).optional(),
+  resourceType: z.string().max(50).optional(),
+  actorUserId: z.string().max(64).optional(),
+  since: z.coerce.number().int().optional(),
+  until: z.coerce.number().int().optional(),
+  cursor: z.string().max(50).optional(),
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+});
+
+const DEFAULT_LIMIT = 50;
 
 router.use('*', session(), requireRole({ admin: true }));
 
 router.get('/suppliers', async (c) => {
+  const parsed = listQuery.safeParse(c.req.query());
+  if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
+  const { q, status, cursor } = parsed.data;
+  const limit = parsed.data.limit ?? DEFAULT_LIMIT;
   const db = getDb(c.env.DB);
-  const rows = await db.select().from(suppliers).all();
-  return c.json({ suppliers: rows });
+  const conds: SQL[] = [];
+  if (q) conds.push(like(suppliers.name, `%${q}%`));
+  if (status) conds.push(eq(suppliers.status, status as 'active' | 'suspended'));
+  if (cursor) conds.push(lt(suppliers.createdAt, Number(cursor)));
+  const rows = await db
+    .select()
+    .from(suppliers)
+    .where(conds.length ? and(...conds) : undefined)
+    .orderBy(sql`${suppliers.createdAt} desc`)
+    .limit(limit + 1)
+    .all();
+  const hasMore = rows.length > limit;
+  const page = rows.slice(0, limit);
+  const last = page[page.length - 1];
+  return c.json({
+    suppliers: page,
+    nextCursor: hasMore && last ? String(last.createdAt) : undefined,
+  });
 });
 
 router.get('/businesses', async (c) => {
+  const parsed = listQuery.safeParse(c.req.query());
+  if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
+  const { q, status, cursor } = parsed.data;
+  const limit = parsed.data.limit ?? DEFAULT_LIMIT;
   const db = getDb(c.env.DB);
-  const rows = await db.select().from(businesses).all();
-  return c.json({ businesses: rows });
+  const conds: SQL[] = [];
+  if (q) conds.push(like(businesses.name, `%${q}%`));
+  if (status) conds.push(eq(businesses.status, status as 'active' | 'suspended'));
+  if (cursor) conds.push(lt(businesses.createdAt, Number(cursor)));
+  const rows = await db
+    .select()
+    .from(businesses)
+    .where(conds.length ? and(...conds) : undefined)
+    .orderBy(sql`${businesses.createdAt} desc`)
+    .limit(limit + 1)
+    .all();
+  const hasMore = rows.length > limit;
+  const page = rows.slice(0, limit);
+  const last = page[page.length - 1];
+  return c.json({
+    businesses: page,
+    nextCursor: hasMore && last ? String(last.createdAt) : undefined,
+  });
 });
 
 router.get('/audit', async (c) => {
+  const parsed = auditQuery.safeParse(c.req.query());
+  if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
+  const { action, resourceType, actorUserId, since, until, cursor } = parsed.data;
+  const limit = parsed.data.limit ?? DEFAULT_LIMIT;
   const db = getDb(c.env.DB);
-  const limit = Math.min(Number(c.req.query('limit') ?? 100), 500);
-  const rows = await db.select().from(auditLogs).orderBy(sql`${auditLogs.createdAt} desc`).limit(limit).all();
-  return c.json({ logs: rows });
+  const conds: SQL[] = [];
+  if (action) conds.push(eq(auditLogs.action, action));
+  if (resourceType) conds.push(eq(auditLogs.resourceType, resourceType));
+  if (actorUserId) conds.push(eq(auditLogs.actorUserId, actorUserId));
+  if (since != null) conds.push(sql`${auditLogs.createdAt} >= ${since}`);
+  if (until != null) conds.push(sql`${auditLogs.createdAt} <= ${until}`);
+  if (cursor) conds.push(lt(auditLogs.createdAt, Number(cursor)));
+  const rows = await db
+    .select()
+    .from(auditLogs)
+    .where(conds.length ? and(...conds) : undefined)
+    .orderBy(sql`${auditLogs.createdAt} desc`)
+    .limit(limit + 1)
+    .all();
+  const hasMore = rows.length > limit;
+  const page = rows.slice(0, limit);
+  const last = page[page.length - 1];
+  return c.json({
+    logs: page,
+    nextCursor: hasMore && last ? String(last.createdAt) : undefined,
+  });
 });
 
 router.post('/suppliers/:id/freeze', async (c) => {

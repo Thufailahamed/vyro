@@ -1,9 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { PageHeader, Button, Badge, Input } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
 import { useToast } from '@vyro/ui';
-import { useState } from 'react';
+import { useAdminTable } from '@/lib/useAdminTable';
 
 type User = {
   id: string;
@@ -19,11 +19,10 @@ type User = {
 export function UsersPage() {
   const qc = useQueryClient();
   const toast = useToast();
-  const [q, setQ] = useState('');
-  const users = useQuery({
-    queryKey: ['admin-users', q],
-    queryFn: () => api.get<{ items: User[]; nextCursor?: string }>(`/admin/users${q ? `?q=${encodeURIComponent(q)}` : ''}`),
-    retry: false,
+  const table = useAdminTable<User>({
+    endpoint: '/admin/users',
+    queryKey: ['admin-users'],
+    rowKey: 'items',
   });
 
   const suspend = useMutation({
@@ -37,7 +36,7 @@ export function UsersPage() {
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Failed'),
   });
 
-  const list = users.data?.items ?? [];
+  const list = table.rows;
 
   return (
     <div className="space-y-6">
@@ -50,8 +49,8 @@ export function UsersPage() {
       <div className="max-w-sm">
         <Input
           placeholder="Search email or name…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
+          value={table.searchInput}
+          onChange={(e) => table.setSearchInput(e.target.value)}
         />
       </div>
 
@@ -112,6 +111,18 @@ export function UsersPage() {
               ))}
             </tbody>
           </table>
+        )}
+        {table.hasMore && (
+          <div className="border-t border-line p-3 text-center">
+            <button
+              type="button"
+              onClick={table.loadMore}
+              disabled={table.fetchingMore}
+              className="text-xs font-medium text-copper hover:text-ink disabled:opacity-50"
+            >
+              {table.fetchingMore ? 'Loading…' : 'Load more'}
+            </button>
+          </div>
         )}
       </Surface>
     </div>
