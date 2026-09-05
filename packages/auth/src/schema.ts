@@ -10,6 +10,7 @@ export const user = sqliteTable('user', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
   phone: text('phone'),
   isPlatformAdmin: integer('is_platform_admin', { mode: 'boolean' }).default(false),
+  twoFactorEnabled: integer('two_factor_enabled', { mode: 'boolean' }).default(false),
 });
 
 export const session = sqliteTable('session', {
