@@ -11,12 +11,7 @@ const stubStorage = {
   key: (i: number) => Array.from(memory.keys())[i] ?? null,
   get length() { return memory.size; },
 };
-// @ts-expect-error - assign global stub
-globalThis.localStorage = stubStorage;
-if (typeof globalThis.crypto === 'undefined') {
-  // @ts-expect-error - stub crypto.randomUUID
-  globalThis.crypto = { randomUUID: () => 'uuid-' + Math.random().toString(16).slice(2) };
-}
+(globalThis as { localStorage: typeof stubStorage }).localStorage = stubStorage;
 
 describe('savedViews', () => {
   beforeEach(() => {

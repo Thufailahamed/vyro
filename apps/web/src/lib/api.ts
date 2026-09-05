@@ -13,12 +13,16 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...init,
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: { code?: string; message?: string; details?: unknown };
+      code?: string;
+      message?: string;
+    };
     throw new ApiError(
       res.status,
       body?.error?.code ?? body?.code ?? 'UNKNOWN',
       body?.error?.message ?? body?.message ?? res.statusText,
-      body?.error?.details
+      body?.error?.details,
     );
   }
   return res.json() as Promise<T>;
@@ -35,6 +39,7 @@ function withBody(method: string, body: JsonBody): RequestInit {
 export const api = {
   get: <T,>(path: string) => request<T>(path),
   post: <T,>(path: string, body?: JsonBody) => request<T>(path, withBody('POST', body)),
+  put: <T,>(path: string, body?: JsonBody) => request<T>(path, withBody('PUT', body)),
   patch: <T,>(path: string, body?: JsonBody) => request<T>(path, withBody('PATCH', body)),
   del: <T,>(path: string) => request<T>(path, { method: 'DELETE' }),
 };

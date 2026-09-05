@@ -104,7 +104,10 @@ function ReportsTab() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => notes[r.id] && addNote.mutate({ id: r.id, note: notes[r.id] })}
+                  onClick={() => {
+                    const note = notes[r.id];
+                    if (note) addNote.mutate({ id: r.id, note });
+                  }}
                   disabled={!notes[r.id]}
                 >
                   Note
