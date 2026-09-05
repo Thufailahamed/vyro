@@ -12,6 +12,9 @@ export const PERMISSION_KEYS = [
   'settings:read', 'settings:write',
   'admin:read', 'admin:invite', 'admin:role_change',
   'audit:read', 'audit:export',
+  'abuse_report:read', 'abuse_report:resolve',
+  'kyc:read', 'kyc:review',
+  'takedown:write',
 ] as const;
 
 export type Permission = (typeof PERMISSION_KEYS)[number];

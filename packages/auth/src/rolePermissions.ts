@@ -20,6 +20,9 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, ReadonlySet<Permission
     'settings:read', 'settings:write',
     'admin:read', 'admin:invite', 'admin:role_change',
     'audit:read', 'audit:export',
+    'abuse_report:read', 'abuse_report:resolve',
+    'kyc:read', 'kyc:review',
+    'takedown:write',
   ),
   ops: all(
     'user:read', 'user:suspend', 'user:unsuspend',
@@ -31,6 +34,9 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, ReadonlySet<Permission
     'dispute:read', 'dispute:note',
     'admin:read', 'admin:invite',
     'audit:read',
+    'abuse_report:read', 'abuse_report:resolve',
+    'kyc:read', 'kyc:review',
+    'takedown:write',
   ),
   finance: all(
     'user:read', 'business:read', 'supplier:read', 'product:read',
@@ -44,13 +50,19 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, ReadonlySet<Permission
     'audit:read',
   ),
   support: all(
-    'user:read', 'business:read', 'supplier:read', 'product:read',
+    'user:read', 'user:suspend', 'user:unsuspend',
+    'business:read', 'business:freeze', 'business:unfreeze',
+    'supplier:read', 'supplier:freeze', 'supplier:unfreeze',
+    'product:read', 'product:moderate',
     'category:read', 'type:read',
     'dispute:read', 'dispute:note',
     'payment:read', 'payout:read', 'ledger:read', 'invoice:read',
     'settings:read',
     'admin:read',
     'audit:read',
+    'abuse_report:read', 'abuse_report:resolve',
+    'kyc:read', 'kyc:review',
+    'takedown:write',
   ),
 });
 

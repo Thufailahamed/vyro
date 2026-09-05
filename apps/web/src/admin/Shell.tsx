@@ -133,6 +133,14 @@ export function AdminShell() {
                 Money
               </NavLink>
             ) : null}
+            {user.adminRole &&
+            (hasPermission(user.adminRole, 'abuse_report:read') ||
+              hasPermission(user.adminRole, 'kyc:read') ||
+              hasPermission(user.adminRole, 'user:suspend')) ? (
+              <NavLink to="/admin/trust-safety" className={linkClass}>
+                Trust &amp; Safety
+              </NavLink>
+            ) : null}
           </nav>
         ) : (
           <p className="p-4 text-xs text-paper/40">Sign in to administer</p>

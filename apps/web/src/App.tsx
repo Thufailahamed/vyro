@@ -43,6 +43,7 @@ const InviteAcceptPage = lazy(() => import('./admin/InviteAcceptPage').then((m) 
 const CatalogPage = lazy(() => import('./admin/CatalogPage').then((m) => ({ default: m.CatalogPage })));
 const AdminProductDetailPage = lazy(() => import('./admin/AdminProductDetailPage').then((m) => ({ default: m.AdminProductDetailPage })));
 const MoneyPage = lazy(() => import('./admin/MoneyPage').then((m) => ({ default: m.MoneyPage })));
+const TrustSafetyPage = lazy(() => import('./admin/TrustSafetyPage').then((m) => ({ default: m.TrustSafetyPage })));
 
 const SupplierDashboardPage = lazy(() => import('./supplier/DashboardPage').then((m) => ({ default: m.SupplierDashboardPage })));
 const SupplierProductsPage = lazy(() => import('./supplier/ProductsPage').then((m) => ({ default: m.SupplierProductsPage })));
@@ -121,6 +122,7 @@ export default function App() {
           <Route path="catalog" element={<RequireAdmin><CatalogPage /></RequireAdmin>} />
           <Route path="catalog/products/:id" element={<RequireAdmin><AdminProductDetailPage /></RequireAdmin>} />
           <Route path="money" element={<RequireAdmin><MoneyPage /></RequireAdmin>} />
+          <Route path="trust-safety" element={<RequireAdmin><TrustSafetyPage /></RequireAdmin>} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
       </Route>

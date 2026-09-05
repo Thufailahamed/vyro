@@ -28,7 +28,9 @@ export type ErrorCode =
   | 'REFUND_NOT_PENDING'
   | 'PAYOUT_NOT_PENDING'
   | 'BATCH_ALREADY_APPROVED'
-  | 'CHARGEBACK_RESOLVED';
+  | 'CHARGEBACK_RESOLVED'
+  | 'ABUSE_REPORT_NOT_OPEN'
+  | 'KYC_NOT_PENDING';
 
 export class HttpError extends Error {
   constructor(

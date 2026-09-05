@@ -1,0 +1,57 @@
+import { Hono } from 'hono';
+import type { Env } from '../../../env';
+import { session } from '../../../middleware/session';
+import { requirePermission } from '../../../middleware/rbac';
+import { httpError } from '../../../lib/errors';
+import {
+  adminKycListQuery,
+  adminKycIdParam,
+  adminKycDecisionBody,
+  adminKycCreateBody,
+} from '@vyro/validation';
+import * as svc from './kycService';
+
+const router = new Hono<{ Bindings: Env }>();
+router.use('*', session());
+
+router.get('/', requirePermission('kyc:read'), async (c) => {
+  const parsed = adminKycListQuery.safeParse(c.req.query());
+  if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid query');
+  return c.json(
+    await svc.list(c.env.DB, {
+      ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
+      ...(parsed.data.cursor !== undefined ? { cursor: parsed.data.cursor } : {}),
+      ...(parsed.data.limit !== undefined ? { limit: parsed.data.limit } : {}),
+    }),
+  );
+});
+
+router.get('/:id', requirePermission('kyc:read'), async (c) => {
+  const parsed = adminKycIdParam.safeParse(c.req.param());
+  if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid id');
+  return c.json(await svc.get(c.env.DB, parsed.data.id));
+});
+
+router.post('/', requirePermission('kyc:read'), async (c) => {
+  const body = adminKycCreateBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid body');
+  return c.json(
+    await svc.create(c, {
+      userId: body.data.userId,
+      ...(body.data.documentsJson !== undefined ? { documentsJson: body.data.documentsJson } : {}),
+    }),
+    201,
+  );
+});
+
+router.post('/:id/decision', requirePermission('kyc:review'), async (c) => {
+  const parsed = adminKycIdParam.safeParse(c.req.param());
+  if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid id');
+  const body = adminKycDecisionBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid body');
+  return c.json(
+    await svc.decide(c, parsed.data.id, body.data.decision, body.data.notes),
+  );
+});
+
+export default router;

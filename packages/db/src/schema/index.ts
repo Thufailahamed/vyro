@@ -31,3 +31,5 @@ export * from './adminInvites';
 export * from './adminAuditLogs';
 export * from './payoutBatches';
 export * from './chargebacks';
+export * from './abuseReports';
+export * from './kycReviews';

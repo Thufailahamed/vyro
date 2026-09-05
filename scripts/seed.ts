@@ -183,6 +183,47 @@ export function ledgerEntryFixture(opts: {
   };
 }
 
+export function abuseReportFixture(opts: {
+  targetType: 'user' | 'business' | 'supplier' | 'product' | 'review';
+  targetId: string;
+  reason: 'spam' | 'fraud' | 'harassment' | 'misinformation' | 'other';
+  reporterUserId?: string;
+  status?: 'open' | 'investigating' | 'resolved' | 'dismissed';
+  details?: string;
+}) {
+  const now = Date.now();
+  return {
+    id: randomUUID(),
+    reporterUserId: opts.reporterUserId ?? null,
+    targetType: opts.targetType,
+    targetId: opts.targetId,
+    reason: opts.reason,
+    details: opts.details ?? null,
+    status: opts.status ?? 'open',
+    assignedTo: null,
+    resolutionNotes: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export function kycReviewFixture(opts: {
+  userId: string;
+  status?: 'pending' | 'approved' | 'rejected' | 'needs_more_info';
+  documentsJson?: string;
+}) {
+  return {
+    id: randomUUID(),
+    userId: opts.userId,
+    status: opts.status ?? 'pending',
+    documentsJson: opts.documentsJson ?? null,
+    notes: null,
+    reviewedBy: null,
+    reviewedAt: null,
+    createdAt: Date.now(),
+  };
+}
+
 export function featuredProductFixture(opts: {
   id?: string;
   name: string;

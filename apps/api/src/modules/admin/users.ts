@@ -26,19 +26,31 @@ router.get('/', requireRole({ admin: true }), async (c) => {
   return c.json(out);
 });
 
-router.post('/:id/suspend', requireRole({ admin: true }), async (c) => {
+router.post('/:id/suspend', requirePermission('user:suspend'), async (c) => {
   const ctx = c.get('ctx') as Ctx;
   const paramParsed = adminUserIdParam.safeParse(c.req.param());
   if (!paramParsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid id');
   await setUserStatus(c.env.DB, ctx.userId, paramParsed.data.id, 'suspended');
+  await auditAdmin({
+    ctx: c,
+    action: 'user.suspend',
+    target: { type: 'user', id: paramParsed.data.id },
+    after: { status: 'suspended' },
+  });
   return c.json({ ok: true });
 });
 
-router.post('/:id/unsuspend', requireRole({ admin: true }), async (c) => {
+router.post('/:id/unsuspend', requirePermission('user:unsuspend'), async (c) => {
   const ctx = c.get('ctx') as Ctx;
   const paramParsed = adminUserIdParam.safeParse(c.req.param());
   if (!paramParsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid id');
   await setUserStatus(c.env.DB, ctx.userId, paramParsed.data.id, 'active');
+  await auditAdmin({
+    ctx: c,
+    action: 'user.unsuspend',
+    target: { type: 'user', id: paramParsed.data.id },
+    after: { status: 'active' },
+  });
   return c.json({ ok: true });
 });
 

@@ -188,6 +188,38 @@ Sign in as finance admin. Visit `/admin/money`. The page exposes 4 tabs.
 3. POST `/api/admin/chargebacks/<id>/resolve` with `notes` → 200, status `resolved`, audit `chargeback.resolve`.
 4. Resolve again → 409 `CHARGEBACK_RESOLVED`.
 
+## 7e. Admin trust & safety (T4)
+
+Sign in as support admin. Visit `/admin/trust-safety`. Three tabs: Reports, KYC, Users.
+
+### 7e.1 Abuse report flow
+
+1. Seed `seed.abuseReportFixture({ targetType: 'product', targetId: 'p-1', reason: 'spam' })`.
+2. GET `/api/admin/abuse-reports?status=open` → 1 row.
+3. As finance role → 403 (no abuse_report:read).
+4. POST `/api/admin/abuse-reports/<id>/claim` → 200, status `investigating`. Audit `abuse_report.claim`.
+5. POST `/api/admin/abuse-reports/<id>/notes` with note → 200. Audit `abuse_report.note`.
+6. POST `/api/admin/abuse-reports/<id>/resolve` with `{resolution:'resolved'}` → 200. Audit `abuse_report.resolve`.
+7. POST resolve again → 409 `ABUSE_REPORT_NOT_OPEN`.
+
+### 7e.2 Takedown
+
+1. POST `/api/admin/abuse-reports/<id>/takedown` → 200. Audit row `takedown.create` with target = product id.
+
+### 7e.3 KYC review
+
+1. Seed `seed.kycReviewFixture({ userId: 'u-1', status: 'pending' })`.
+2. GET `/api/admin/kyc?status=pending` → 1 row.
+3. POST `/api/admin/kyc/<id>/decision` with `{decision:'approved'}` → 200. Audit `kyc.approved`.
+4. POST decision again → 409 `KYC_NOT_PENDING`.
+5. As finance → 403 (no kyc:review).
+
+### 7e.4 User suspension
+
+1. POST `/api/admin/users/<userId>/suspend` → 200. Audit `user.suspend`. Sessions revoked.
+2. POST `/api/admin/users/<userId>/unsuspend` → 200. Audit `user.unsuspend`.
+3. As finance → 403 (no user:suspend).
+
 ## 8. Notifications
 
 Sign in as a business. POST `/api/deliveries/<po>/transitions` (as supplier) with `delivered`. Hit `/api/notifications/me` as the business — expect a notification tied to the order event.

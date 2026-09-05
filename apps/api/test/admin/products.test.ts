@@ -202,7 +202,7 @@ describe('PATCH /api/admin/products/:id', () => {
     expect(res.status).toBe(409);
   });
 
-  it('support role → 403', async () => {
+  it('support role → 200 (now has product:moderate for takedown)', async () => {
     const res = await buildApp('support').fetch(
       new Request('http://localhost/api/admin/products/p-1', {
         method: 'PATCH',
@@ -211,7 +211,7 @@ describe('PATCH /api/admin/products/:id', () => {
       }),
       env,
     );
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
   });
 });
 
