@@ -132,7 +132,7 @@ export function ProductDetailPage() {
                       isSelected ? 'border-ink shadow-sm scale-105' : 'border-transparent opacity-60 hover:opacity-100'
                     }`}
                   >
-                    <img src={img.url} alt={img.altText || data.product.name} className="w-full h-full object-cover" />
+                    <img src={img.url} alt={img.altText || data.product.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   </button>
                 );
               })}

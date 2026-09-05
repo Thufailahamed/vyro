@@ -1,48 +1,65 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { HomePage } from './pages/HomePage';
-import { AboutPage, HowItWorksPage } from './pages/MarketingPages';
-import { LoginPage } from './pages/LoginPage';
-import { SignupPage } from './pages/SignupPage';
-import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
-import { ResetPasswordPage } from './pages/ResetPasswordPage';
-import { BusinessOnboardingPage } from './pages/BusinessOnboardingPage';
-import { SupplierOnboardingPage } from './pages/SupplierOnboardingPage';
-import { SearchPage } from './pages/SearchPage';
-import { ProductDetailPage } from './pages/ProductDetailPage';
-import { CartPage } from './pages/CartPage';
-import { CheckoutPage } from './pages/CheckoutPage';
-import { OrdersPage } from './pages/OrdersPage';
-import { OrderDetailPage } from './pages/OrderDetailPage';
-import { SupplierOrdersPage } from './pages/SupplierOrdersPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { DashboardPage } from './pages/DashboardPage';
-import { NotificationsPage } from './pages/NotificationsPage';
-import { LegalPage } from './pages/LegalPage';
-
 import { AdminAuthProvider, AdminShell, RequireAdmin } from './admin/Shell';
-import { AdminHomePage } from './admin/HomePage';
-import { LoginPage as AdminLoginPage } from './admin/LoginPage';
-import { SuppliersPage, BusinessesPage } from './admin/Lists';
-import { SupplierDetailPage } from './admin/SupplierDetailPage';
-import { BusinessDetailPage } from './admin/BusinessDetailPage';
-import { UsersPage } from './admin/UsersPage';
-import { DisputedPage, AuditPage } from './admin/DisputedAndAudit';
-
 import { SupplierShell } from './supplier/Shell';
-import { SupplierDashboardPage } from './supplier/DashboardPage';
-import { SupplierProductsPage } from './supplier/ProductsPage';
-import { SupplierProductFormPage } from './supplier/ProductFormPage';
-import { SupplierPricingPage } from './supplier/PricingPage';
-import { SupplierInventoryPage } from './supplier/InventoryPage';
-import { SupplierAnalyticsPage } from './supplier/AnalyticsPage';
-import { SupplierCustomersPage } from './supplier/CustomersPage';
-import { SupplierDeliveriesPage } from './supplier/DeliveriesPage';
-import { SupplierPaymentsPage } from './supplier/PaymentsPage';
-import { SupplierSettingsPage } from './supplier/SettingsPage';
+
+const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
+const MarketingPages = lazy(() => import('./pages/MarketingPages').then((m) => ({ default: m.AboutPage })));
+const AboutPage = lazy(() => import('./pages/MarketingPages').then((m) => ({ default: m.AboutPage })));
+const HowItWorksPage = lazy(() => import('./pages/MarketingPages').then((m) => ({ default: m.HowItWorksPage })));
+const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
+const SignupPage = lazy(() => import('./pages/SignupPage').then((m) => ({ default: m.SignupPage })));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })));
+const BusinessOnboardingPage = lazy(() => import('./pages/BusinessOnboardingPage').then((m) => ({ default: m.BusinessOnboardingPage })));
+const SupplierOnboardingPage = lazy(() => import('./pages/SupplierOnboardingPage').then((m) => ({ default: m.SupplierOnboardingPage })));
+const SearchPage = lazy(() => import('./pages/SearchPage').then((m) => ({ default: m.SearchPage })));
+const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage').then((m) => ({ default: m.ProductDetailPage })));
+const CartPage = lazy(() => import('./pages/CartPage').then((m) => ({ default: m.CartPage })));
+const CheckoutPage = lazy(() => import('./pages/CheckoutPage').then((m) => ({ default: m.CheckoutPage })));
+const OrdersPage = lazy(() => import('./pages/OrdersPage').then((m) => ({ default: m.OrdersPage })));
+const OrderDetailPage = lazy(() => import('./pages/OrderDetailPage').then((m) => ({ default: m.OrderDetailPage })));
+const SupplierOrdersPage = lazy(() => import('./pages/SupplierOrdersPage').then((m) => ({ default: m.SupplierOrdersPage })));
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
+const LegalPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.LegalPage })));
+
+const AdminHomePage = lazy(() => import('./admin/HomePage').then((m) => ({ default: m.AdminHomePage })));
+const AdminLoginPage = lazy(() => import('./admin/LoginPage').then((m) => ({ default: m.LoginPage })));
+const SuppliersPage = lazy(() => import('./admin/Lists').then((m) => ({ default: m.SuppliersPage })));
+const BusinessesPage = lazy(() => import('./admin/Lists').then((m) => ({ default: m.BusinessesPage })));
+const SupplierDetailPage = lazy(() => import('./admin/SupplierDetailPage').then((m) => ({ default: m.SupplierDetailPage })));
+const BusinessDetailPage = lazy(() => import('./admin/BusinessDetailPage').then((m) => ({ default: m.BusinessDetailPage })));
+const UsersPage = lazy(() => import('./admin/UsersPage').then((m) => ({ default: m.UsersPage })));
+const DisputedPage = lazy(() => import('./admin/DisputedAndAudit').then((m) => ({ default: m.DisputedPage })));
+const AuditPage = lazy(() => import('./admin/DisputedAndAudit').then((m) => ({ default: m.AuditPage })));
+
+const SupplierDashboardPage = lazy(() => import('./supplier/DashboardPage').then((m) => ({ default: m.SupplierDashboardPage })));
+const SupplierProductsPage = lazy(() => import('./supplier/ProductsPage').then((m) => ({ default: m.SupplierProductsPage })));
+const SupplierProductFormPage = lazy(() => import('./supplier/ProductFormPage').then((m) => ({ default: m.SupplierProductFormPage })));
+const SupplierPricingPage = lazy(() => import('./supplier/PricingPage').then((m) => ({ default: m.SupplierPricingPage })));
+const SupplierInventoryPage = lazy(() => import('./supplier/InventoryPage').then((m) => ({ default: m.SupplierInventoryPage })));
+const SupplierAnalyticsPage = lazy(() => import('./supplier/AnalyticsPage').then((m) => ({ default: m.SupplierAnalyticsPage })));
+const SupplierCustomersPage = lazy(() => import('./supplier/CustomersPage').then((m) => ({ default: m.SupplierCustomersPage })));
+const SupplierDeliveriesPage = lazy(() => import('./supplier/DeliveriesPage').then((m) => ({ default: m.SupplierDeliveriesPage })));
+const SupplierPaymentsPage = lazy(() => import('./supplier/PaymentsPage').then((m) => ({ default: m.SupplierPaymentsPage })));
+const SupplierSettingsPage = lazy(() => import('./supplier/SettingsPage').then((m) => ({ default: m.SupplierSettingsPage })));
+
+function PageFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-dvh bg-bone">
+      <div className="text-ink-4 text-sm">Loading…</div>
+    </div>
+  );
+}
+
+void MarketingPages;
 
 export default function App() {
   return (
+    <Suspense fallback={<PageFallback />}>
     <Routes>
       {/* Public web SPA */}
       <Route element={<Layout />}>
@@ -109,5 +126,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/supplier" replace />} />
       </Route>
     </Routes>
+    </Suspense>
   );
 }

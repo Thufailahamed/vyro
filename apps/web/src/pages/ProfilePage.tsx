@@ -206,6 +206,8 @@ export function ProfilePage() {
                 <img
                   src={settings.avatarUrl}
                   alt={displayName}
+                  loading="lazy"
+                  decoding="async"
                   className="size-20 rounded-full object-cover border-2 border-ink shadow-md"
                 />
               ) : (
