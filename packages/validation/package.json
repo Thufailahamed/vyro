@@ -21,6 +21,7 @@
     "./adminUsers": "./src/adminUsers.ts",
     "./adminInvites": "./src/adminInvites.ts",
     "./adminRoles": "./src/adminRoles.ts",
+    "./adminAudit": "./src/adminAudit.ts",
     "./businessTypes": "./src/businessTypes.ts",
     "./supplierTypes": "./src/supplierTypes.ts"
   },
