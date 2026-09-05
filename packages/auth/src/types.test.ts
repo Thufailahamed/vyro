@@ -19,10 +19,23 @@ describe('SessionContext shape', () => {
       userId: 'u1',
       email: 'a@example.com',
       isAdmin: false,
+      adminRole: null,
       businesses: [{ id: 'b1', role: 'owner' } as MembershipSummary],
       suppliers: [],
     };
     expect(ctx.businesses[0]?.role).toBe('owner');
     expect(ctx.suppliers).toEqual([]);
+  });
+  it('adminRole can be a non-null role', () => {
+    const ctx: SessionContext = {
+      userId: 'u1',
+      email: 'a@example.com',
+      isAdmin: true,
+      adminRole: 'super_admin',
+      businesses: [],
+      suppliers: [],
+    };
+    expect(ctx.adminRole).toBe('super_admin');
+    expect(ctx.isAdmin).toBe(true);
   });
 });

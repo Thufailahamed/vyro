@@ -18,7 +18,9 @@ export interface MembershipSummary {
 export interface SessionContext {
   userId: string;
   email: string;
+  /** @deprecated use adminRole for permission checks; kept for backward-compat boolean checks. */
   isAdmin: boolean;
+  adminRole: 'super_admin' | 'ops' | 'finance' | 'support' | null;
   businesses: MembershipSummary[];
   suppliers: MembershipSummary[];
 }

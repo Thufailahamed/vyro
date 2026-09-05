@@ -49,10 +49,12 @@ export async function loadSessionContext(
     )
     .all();
 
+  const adminRole = (user as { adminRole?: string | null }).adminRole ?? null;
   return {
     userId: user.id,
     email: user.email,
-    isAdmin: user.isPlatformAdmin,
+    isAdmin: adminRole !== null,
+    adminRole: adminRole as 'super_admin' | 'ops' | 'finance' | 'support' | null,
     businesses: biz,
     suppliers: sup,
   };

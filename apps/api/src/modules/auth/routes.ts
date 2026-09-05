@@ -42,7 +42,7 @@ const handleSignUp = async (c: any) => {
           name: parsed.data.name,
           phone: parsed.data.phone ?? null,
           avatarUrl: null,
-          isPlatformAdmin: false,
+          adminRole: null,
           status: 'active',
           createdAt: now,
           updatedAt: now,
@@ -142,6 +142,7 @@ router.get('/me', async (c) => {
   if (!session) throw httpError(401, 'UNAUTHORIZED', 'No active session');
   const ctx = await loadSessionContext(c.env.DB, session.user.id);
   const isAdmin = Boolean(ctx?.isAdmin || (session.user as any)?.isPlatformAdmin);
+  const adminRole = ctx?.adminRole ?? null;
   return c.json({
     user: {
       ...session.user,
@@ -150,6 +151,7 @@ router.get('/me', async (c) => {
       email: session.user.email,
       name: session.user.name,
       isAdmin,
+      adminRole,
       isPlatformAdmin: isAdmin,
       memberships: (ctx?.businesses ?? []).map((b) => ({
         businessId: b.businessId || b.id,

@@ -32,6 +32,9 @@ vi.mock('@vyro/db', () => ({
                   all: async () => queue.pop() ?? [],
                 }),
               }),
+              groupBy: (_g: any) => ({
+                all: async () => queue.pop() ?? [],
+              }),
               all: async () => queue.pop() ?? [],
             };
           },
@@ -115,7 +118,7 @@ describe('admin users endpoints', () => {
   } as any;
 
   it('GET / returns user rows', async () => {
-    state.respond = [[...state.users.values()], [], []];
+    state.respond = [[...state.users.values()], [], [], []];
     const app = buildApp();
     const res = await app.fetch(new Request('http://localhost/api/admin/users'), env);
     expect(res.status).toBe(200);
