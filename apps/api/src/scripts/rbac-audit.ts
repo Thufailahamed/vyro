@@ -61,8 +61,9 @@ export async function auditRbac(): Promise<{ gaps: Gap[] }> {
       const idx = (m.index ?? 0) + m[0].length;
       const tail = src.slice(idx, idx + 600);
       const hasRequireRole = /requireRole\(/.test(tail);
+      const hasRequirePermission = /requirePermission\(/.test(tail);
       const fileHasSession = /\bsession\(/.test(src);
-      if (!hasRequireRole && !fileHasSession) {
+      if (!hasRequireRole && !hasRequirePermission && !fileHasSession) {
         gaps.push({ file: relative(process.cwd(), file), method: method.toUpperCase(), path });
       }
     }
