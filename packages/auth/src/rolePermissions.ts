@@ -30,6 +30,8 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, ReadonlySet<Permission
     'impersonation:start', 'impersonation:end',
     'data_export:run',
     '2fa:enforce',
+    'health:read',
+    'cron:read', 'cron:trigger',
   ),
   ops: all(
     'user:read', 'user:suspend', 'user:unsuspend',
@@ -44,6 +46,8 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, ReadonlySet<Permission
     'abuse_report:read', 'abuse_report:resolve',
     'kyc:read', 'kyc:review',
     'takedown:write',
+    'health:read',
+    'cron:read',
   ),
   finance: all(
     'user:read', 'business:read', 'supplier:read', 'product:read',

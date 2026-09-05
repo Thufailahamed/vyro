@@ -22,6 +22,8 @@ export const PERMISSION_KEYS = [
   'impersonation:start', 'impersonation:end',
   'data_export:run',
   '2fa:enforce',
+  'health:read',
+  'cron:read', 'cron:trigger',
 ] as const;
 
 export type Permission = (typeof PERMISSION_KEYS)[number];

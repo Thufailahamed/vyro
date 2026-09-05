@@ -158,6 +158,13 @@ export function AdminShell() {
                 Security
               </NavLink>
             ) : null}
+            {user.adminRole &&
+            (hasPermission(user.adminRole, 'health:read') ||
+              hasPermission(user.adminRole, 'cron:read')) ? (
+              <NavLink to="/admin/observability" className={linkClass}>
+                Observability
+              </NavLink>
+            ) : null}
           </nav>
         ) : (
           <p className="p-4 text-xs text-paper/40">Sign in to administer</p>

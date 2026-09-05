@@ -275,6 +275,23 @@ Sign in as super_admin. Visit `/admin/security`. Four tabs.
 2. GET `/api/admin/data-export/<id>` → 200, status.
 3. As finance → 403.
 
+## 7h. Admin observability (T7)
+
+Sign in as super_admin. Visit `/admin/observability`. Two tabs.
+
+### 7h.1 Health dashboard
+
+1. GET `/api/admin/health/dashboard` → 200 with `{dbLatencyMs, pendingWebhookDeliveries, failedWebhookDeliveries24h, openAbuseReports, pendingKyc, pendingRefunds, recentErrors, capturedAt}`.
+2. As ops → 200 (health:read granted).
+3. As support → 403 (no health:read).
+
+### 7h.2 Cron registry + trigger
+
+1. GET `/api/admin/cron` → 200, `{jobs: [{name, schedule, description}, ...]}` (3 stub jobs).
+2. POST `/api/admin/cron/trigger` with `{name: 'daily-purge'}` → 200, `{ok: true, name: 'daily-purge'}`. Audit `cron.trigger`.
+3. POST with unknown name → 404.
+4. As ops → 403 (no cron:trigger, only read).
+
 ## 8. Notifications
 
 Sign in as a business. POST `/api/deliveries/<po>/transitions` (as supplier) with `delivered`. Hit `/api/notifications/me` as the business — expect a notification tied to the order event.

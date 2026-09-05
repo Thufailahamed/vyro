@@ -46,6 +46,7 @@ const MoneyPage = lazy(() => import('./admin/MoneyPage').then((m) => ({ default:
 const TrustSafetyPage = lazy(() => import('./admin/TrustSafetyPage').then((m) => ({ default: m.TrustSafetyPage })));
 const PlatformPage = lazy(() => import('./admin/PlatformPage').then((m) => ({ default: m.PlatformPage })));
 const SecurityPage = lazy(() => import('./admin/SecurityPage').then((m) => ({ default: m.SecurityPage })));
+const ObservabilityPage = lazy(() => import('./admin/ObservabilityPage').then((m) => ({ default: m.ObservabilityPage })));
 
 const SupplierDashboardPage = lazy(() => import('./supplier/DashboardPage').then((m) => ({ default: m.SupplierDashboardPage })));
 const SupplierProductsPage = lazy(() => import('./supplier/ProductsPage').then((m) => ({ default: m.SupplierProductsPage })));
@@ -127,6 +128,7 @@ export default function App() {
           <Route path="trust-safety" element={<RequireAdmin><TrustSafetyPage /></RequireAdmin>} />
           <Route path="platform" element={<RequireAdmin><PlatformPage /></RequireAdmin>} />
           <Route path="security" element={<RequireAdmin><SecurityPage /></RequireAdmin>} />
+          <Route path="observability" element={<RequireAdmin><ObservabilityPage /></RequireAdmin>} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
       </Route>
