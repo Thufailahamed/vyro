@@ -18,11 +18,27 @@ import { Button } from './ui';
 import { BrandMark, BrandWordmark } from './brand/BrandMark';
 import { FlowPathMini } from './brand/FlowLine';
 import { cn } from '@vyro/ui';
+import { CookieConsentBanner } from './CookieConsentBanner';
+
+function LegalLinks({ className = '' }: { className?: string }) {
+  return (
+    <nav className={`flex gap-4 ${className}`} aria-label="Legal">
+      <Link to="/legal/terms" className="hover:underline">Terms</Link>
+      <Link to="/legal/privacy" className="hover:underline">Privacy</Link>
+      <Link to="/legal/cookies" className="hover:underline">Cookies</Link>
+    </nav>
+  );
+}
 
 export function Layout() {
   const location = useLocation();
   const isAuth = location.pathname === '/login' || location.pathname === '/signup';
-  if (isAuth) return <Outlet />;
+  if (isAuth) return (
+    <>
+      <Outlet />
+      <CookieConsentBanner />
+    </>
+  );
   const isOnboarding = location.pathname.startsWith('/onboarding');
   if (isOnboarding) return <OnboardingShell />;
   const isMarketing = ['/', '/about', '/how-it-works'].includes(location.pathname);
@@ -65,9 +81,11 @@ function OnboardingShell() {
       <footer className="border-t border-ink/10 py-6 bg-bone text-[11px] text-ink-4">
         <div className="max-w-stage mx-auto px-5 sm:px-8 flex flex-col sm:flex-row justify-between items-center gap-2">
           <span>VYRO Platform · Commercial Procurement Network</span>
+          <LegalLinks />
           <span>Encrypted Audit Trail · Sri Lanka</span>
         </div>
       </footer>
+      <CookieConsentBanner />
     </div>
   );
 }
@@ -120,6 +138,7 @@ function MarketingShell() {
         <Outlet />
       </main>
       <MarketingFooter />
+      <CookieConsentBanner />
     </div>
   );
 }
@@ -177,6 +196,7 @@ function MarketingFooter() {
       </div>
       <div className="border-t border-paper/10 px-5 sm:px-8 py-5 text-[11px] text-paper/40 flex flex-col sm:flex-row justify-between gap-2 max-w-stage mx-auto">
         <span>© {new Date().getFullYear()} VYRO. Sri Lanka.</span>
+        <LegalLinks className="text-paper/40" />
         <span>Flow · Movement · Connection · Commerce</span>
       </div>
     </footer>
@@ -312,6 +332,7 @@ function WorkspaceShell() {
           </div>
         </nav>
       </div>
+      <CookieConsentBanner />
     </div>
   );
 }
