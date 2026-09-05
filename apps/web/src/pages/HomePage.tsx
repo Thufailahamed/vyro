@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { ProductHoverPreview, type ProductPreviewItem } from '@/components/products/ProductHoverPreview';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui';
@@ -339,6 +340,9 @@ export function HomePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  const [hoveredProduct, setHoveredProduct] = useState<ProductPreviewItem | null>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const productsSectionRef = useRef<HTMLDivElement | null>(null);
 
   const feed = useQuery({
     queryKey: ['home-feed'],
@@ -563,79 +567,148 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* 3. FEATURED WHOLESALE LOTS (LIVE PRODUCTS SHOWCASE) */}
-      <section className="max-w-stage mx-auto px-5 sm:px-8 py-20">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
-          <div>
-            <div className="vyro-kicker text-copper">Marketplace Benchmark</div>
-            <h2 className="mt-2 vyro-display text-3xl sm:text-5xl text-ink">Active Wholesale Lots</h2>
-            <p className="mt-2 text-sm text-ink-3 max-w-lg">
-              Live quotes from verified Sri Lankan primary mills, commercial beverage estates, and industrial packaging plants.
-            </p>
-          </div>
-          <Link to="/search" className="inline-flex items-center gap-2 text-sm font-semibold text-copper hover:text-ink">
-            Browse all 120+ wholesale items →
-          </Link>
+      {/* 3. FEATURED WHOLESALE LOTS (LIVE PRODUCTS SHOWCASE - EDITORIAL PARTICLES) */}
+      <section
+        ref={productsSectionRef}
+        onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
+        onMouseLeave={() => setHoveredProduct(null)}
+        className="relative bg-[#0C0E0B] text-paper border-y border-ink/40 py-24 sm:py-32 overflow-hidden"
+      >
+        {/* Ambient atmospheric gradients */}
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-volt/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-copper/5 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Floating cursor preview with particle assembly */}
+        <div className="hidden lg:block">
+          <ProductHoverPreview
+            activeProduct={hoveredProduct}
+            mousePos={mousePos}
+            containerRef={productsSectionRef}
+          />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {FEATURED_PRODUCTS.map((p) => (
-            <div
-              key={p.id}
-              className="bg-paper border border-ink/15 hover:border-ink hover:shadow-lg transition-all duration-240 flex flex-col justify-between group overflow-hidden"
-            >
-              <div>
-                {/* Image Container with Badge */}
-                <Link to={`/products/${p.id}`} className="relative h-48 overflow-hidden bg-bone border-b border-ink/10 block">
-                  <img
-                    src={p.image}
-                    alt={p.name}
-                    loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <span className="absolute top-3 left-3 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-ink text-paper">
-                    {p.badge}
-                  </span>
-                  <span className="absolute bottom-2 right-2 px-2 py-0.5 text-[10px] font-mono bg-paper/90 text-ink backdrop-blur-sm border border-ink/10">
-                    {p.leadTime}
-                  </span>
-                </Link>
-
-                {/* Content */}
-                <div className="p-4 space-y-2">
-                  <span className="text-[10px] uppercase tracking-wider text-copper block">{p.category}</span>
-                  <Link to={`/products/${p.id}`} className="block">
-                    <h3 className="font-display text-lg text-ink leading-snug group-hover:text-copper transition-colors line-clamp-2">
-                      {p.name}
-                    </h3>
-                  </Link>
-                  <p className="text-xs text-ink-4 flex items-center gap-1">
-                    <span>Depot:</span>
-                    <strong className="text-ink-2 font-medium truncate">{p.supplier}</strong>
-                  </p>
-                </div>
+        <div className="max-w-stage mx-auto px-5 sm:px-8 relative z-10">
+          {/* Section Header matching portfolio aesthetic */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-12 sm:pb-16 border-b border-paper/10">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-volt animate-pulse" />
+                <span className="text-[11px] font-mono tracking-widest text-volt uppercase">
+                  SELECTED COMMODITIES · MARKETPLACE BENCHMARK
+                </span>
               </div>
-
-              {/* Price & Action Footer */}
-              <div className="p-4 pt-0">
-                <div className="p-3 bg-bone border border-ink/10 flex items-baseline justify-between mb-3">
-                  <div>
-                    <span className="vyro-metric text-xl font-bold text-ink">{p.price}</span>
-                    <span className="text-[11px] text-ink-4 ml-1">{p.unit}</span>
-                  </div>
-                  <span className="text-[10px] font-mono text-ink-3 uppercase">{p.moq}</span>
-                </div>
-
-                <Link
-                  to={`/products/${p.id}`}
-                  className="w-full h-10 bg-ink text-paper text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-copper transition-colors"
-                >
-                  <span>Compare Offers</span>
-                  <span>→</span>
-                </Link>
-              </div>
+              <h2 className="mt-4 vyro-display text-4xl sm:text-6xl text-paper tracking-tight">
+                Things We Supply
+              </h2>
+              <p className="mt-3 text-sm sm:text-base text-ink-5 max-w-xl font-sans">
+                From mill-direct grains to commercial estate tea, every wholesale lot is benchmarked with live transparent pricing and verified origin.
+              </p>
             </div>
-          ))}
+            <Link
+              to="/search"
+              className="group inline-flex items-center gap-2 text-xs sm:text-sm font-mono uppercase tracking-wider text-paper/80 hover:text-volt transition-colors py-2.5 px-5 border border-paper/20 hover:border-volt rounded-full backdrop-blur-sm self-start md:self-end"
+            >
+              <span>Browse full catalog</span>
+              <span className="group-hover:translate-x-1 transition-transform">→</span>
+            </Link>
+          </div>
+
+          {/* Product Items List (Editorial Numbered Rows) */}
+          <div className="divide-y divide-paper/10">
+            {FEATURED_PRODUCTS.map((p, idx) => {
+              const numStr = String(idx + 1).padStart(2, '0');
+              const isHovered = hoveredProduct?.id === p.id;
+              const isAnyHovered = hoveredProduct !== null;
+
+              return (
+                <Link
+                  key={p.id}
+                  to={`/products/${p.id}`}
+                  onMouseEnter={() => setHoveredProduct(p)}
+                  className={`group relative block py-8 sm:py-10 transition-all duration-300 ${
+                    isAnyHovered
+                      ? isHovered
+                        ? 'opacity-100 translate-x-1 sm:translate-x-2'
+                        : 'opacity-30'
+                      : 'opacity-90 hover:opacity-100'
+                  }`}
+                >
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    {/* Left: Number, Title & Metadata */}
+                    <div className="flex items-start sm:items-center gap-5 sm:gap-8 flex-1 min-w-0">
+                      <span className="text-xs sm:text-sm font-mono text-ink-5 shrink-0 group-hover:text-volt transition-colors pt-1 sm:pt-0">
+                        {numStr}
+                      </span>
+
+                      <div className="space-y-1.5 min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                          <h3 className="vyro-display text-2xl sm:text-4xl text-paper group-hover:text-volt transition-colors truncate">
+                            {p.name}
+                          </h3>
+                          {p.badge && (
+                            <span className="px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider bg-paper/10 text-paper/90 border border-paper/20 rounded group-hover:border-volt/40 group-hover:text-volt transition-colors shrink-0">
+                              {p.badge}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Metadata Tagline */}
+                        <div className="flex flex-wrap items-center gap-x-2 text-[11px] sm:text-xs font-mono text-ink-5 uppercase tracking-wider">
+                          <span className="text-copper">{p.category}</span>
+                          <span className="text-ink-5/50">•</span>
+                          <span className="text-ink-4">{p.supplier}</span>
+                          <span className="text-ink-5/50 hidden sm:inline">•</span>
+                          <span className="text-volt/80 hidden sm:inline">{p.leadTime} dispatch</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Pricing, MOQ, and Arrow Indicator */}
+                    <div className="flex items-center justify-between lg:justify-end gap-6 sm:gap-8 shrink-0 pt-2 lg:pt-0 border-t border-paper/5 lg:border-t-0">
+                      <div className="text-left lg:text-right">
+                        <div className="vyro-metric text-xl sm:text-2xl font-bold text-paper group-hover:text-volt transition-colors">
+                          {p.price}
+                        </div>
+                        <div className="text-[11px] font-mono text-ink-5">
+                          {p.unit} · <span className="text-paper/60">{p.moq}</span>
+                        </div>
+                      </div>
+
+                      <div className="w-10 h-10 rounded-full border border-paper/20 group-hover:border-volt group-hover:bg-volt group-hover:text-ink text-paper/80 flex items-center justify-center transition-all duration-300">
+                        <span className="transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform text-base">
+                          ↗
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mobile inline preview (for touch devices) */}
+                  <div className="mt-4 lg:hidden rounded-lg overflow-hidden border border-paper/15 relative h-40 bg-ink/60">
+                    <img
+                      src={p.image}
+                      alt={p.name}
+                      loading="lazy"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-ink/90 via-transparent to-transparent flex items-end p-3">
+                      <span className="text-xs font-mono text-paper">Tap to view lot specifications →</span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Section Footer stats banner */}
+          <div className="mt-16 pt-8 border-t border-paper/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-ink-5">
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-volt" />
+              <span>Direct factory clearing prices updated every 4 hours</span>
+            </div>
+            <Link to="/search" className="text-copper hover:text-paper transition-colors underline underline-offset-4">
+              View all 120+ wholesale product specifications →
+            </Link>
+          </div>
         </div>
       </section>
 
