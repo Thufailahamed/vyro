@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import { PageHeader, Badge } from '@/components/ui';
 import { Surface, MetricNumber } from '@/components/brand/Surface';
 import { useSupplierId } from './useSupplierId';
+import { PaymentConfirmButton } from './PaymentConfirmButton';
 
 type Payment = {
   id: string;
@@ -102,6 +103,7 @@ export function SupplierPaymentsPage() {
                 <th className="text-right px-4 py-3 font-normal">Amount</th>
                 <th className="text-left px-4 py-3 font-normal">Status</th>
                 <th className="text-right px-4 py-3 font-normal">Created</th>
+                <th className="text-right px-4 py-3 font-normal">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -115,6 +117,9 @@ export function SupplierPaymentsPage() {
                   </td>
                   <td className="px-4 py-3 text-right text-ink-3">
                     {new Date(p.createdAt).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <PaymentConfirmButton paymentId={p.id} status={p.status} />
                   </td>
                 </tr>
               ))}

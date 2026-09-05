@@ -5,6 +5,7 @@ import { PageHeader, Button } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
 import { useAuth } from '@/lib/auth';
 import { useSupplierId } from './useSupplierId';
+import { SupplierSettingsForm } from './SupplierSettingsForm';
 
 type Supplier = { id: string; name: string; description: string | null; createdAt: number };
 
@@ -34,7 +35,8 @@ export function SupplierSettingsPage() {
 
       <Surface kind="elevated" className="p-6 space-y-3">
         <h2 className="vyro-display text-lg">Supplier</h2>
-        <dl className="grid sm:grid-cols-3 gap-4 text-sm">
+        {supplierId ? <SupplierSettingsForm supplierId={supplierId} /> : null}
+        <dl className="grid sm:grid-cols-3 gap-4 text-sm mt-4">
           <div>
             <dt className="text-[11px] uppercase tracking-[0.14em] text-ink-4">Name</dt>
             <dd className="mt-1 font-medium">{detail.data?.supplier.name ?? supplierName}</dd>

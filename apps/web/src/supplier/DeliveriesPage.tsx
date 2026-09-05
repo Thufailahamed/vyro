@@ -3,6 +3,7 @@ import { api } from '@/lib/api';
 import { PageHeader, Badge } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
 import { useSupplierId } from './useSupplierId';
+import { DeliveryTransitionButtons } from './DeliveryTransitionButtons';
 
 type Delivery = {
   id: string;
@@ -81,6 +82,7 @@ export function SupplierDeliveriesPage() {
                 <th className="text-left px-4 py-3 font-normal">Driver</th>
                 <th className="text-right px-4 py-3 font-normal">ETA</th>
                 <th className="text-right px-4 py-3 font-normal">Delivered</th>
+                <th className="text-right px-4 py-3 font-normal">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -99,6 +101,9 @@ export function SupplierDeliveriesPage() {
                   </td>
                   <td className="px-4 py-3 text-right text-ink-3">
                     {d.deliveredAt ? new Date(d.deliveredAt).toLocaleString() : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <DeliveryTransitionButtons poId={d.purchaseOrderId} status={d.status} />
                   </td>
                 </tr>
               ))}
