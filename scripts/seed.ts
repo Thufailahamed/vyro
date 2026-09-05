@@ -1,10 +1,77 @@
 // Seed wrangler D1 with categories + sample products for local dev.
+// Also exports T1 admin fixtures for tests and e2e seeding.
 // Usage: pnpm --filter @vyro/api exec wrangler d1 execute vyro --local --file=../../scripts/seed.sql
 // Or run via: cd apps/api && pnpm exec wrangler d1 execute vyro --local --command "$(cat ../../scripts/seed.sql)"
 
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
+import { randomBytes, createHash } from 'crypto';
+import { randomUUID } from 'crypto';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
+
+export type SeedAdminRole = 'super_admin' | 'ops' | 'finance' | 'support';
+
+export function adminFixture(opts: {
+  role: SeedAdminRole;
+  email?: string;
+  id?: string;
+}) {
+  return {
+    id: opts.id ?? `admin-${opts.role}-${Math.random().toString(36).slice(2, 8)}`,
+    email: opts.email ?? `${opts.role}@vyro.test`,
+    name: `${opts.role} admin`,
+    passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$placeholder$placeholder',
+    adminRole: opts.role,
+    status: 'active',
+    marketingOptIn: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+export function adminInviteFixture(opts: {
+  role: SeedAdminRole;
+  expiresIn?: number;
+  accepted?: boolean;
+  revoked?: boolean;
+}) {
+  const now = Date.now();
+  return {
+    id: randomUUID(),
+    email: `${opts.role}-invite@vyro.test`,
+    role: opts.role,
+    tokenHash: createHash('sha256').update(randomBytes(32)).digest('hex'),
+    invitedBy: 'admin-super_admin-seed',
+    expiresAt: now + (opts.expiresIn ?? 7 * 24 * 60 * 60 * 1000),
+    acceptedAt: opts.accepted ? now : null,
+    revokedAt: opts.revoked ? now : null,
+    createdAt: now,
+  };
+}
+
+export function adminAuditLogFixture(opts: {
+  actorId: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  before?: unknown;
+  after?: unknown;
+  createdAt?: number;
+}) {
+  return {
+    id: randomUUID(),
+    actorId: opts.actorId,
+    action: opts.action,
+    targetType: opts.targetType,
+    targetId: opts.targetId,
+    before: opts.before !== undefined ? JSON.stringify(opts.before) : null,
+    after: opts.after !== undefined ? JSON.stringify(opts.after) : null,
+    requestId: `seed-${Math.random().toString(36).slice(2, 10)}`,
+    ip: '127.0.0.1',
+    userAgent: 'seed/1.0',
+    createdAt: opts.createdAt ?? Date.now(),
+  };
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -35,7 +102,15 @@ INSERT OR IGNORE INTO products (id, name, description, category_id, brand, unit,
   ('p-milk-1l',  'Milk 1L',         'Fresh pasteurized milk',  'cat-dairy',    'Fonterra',    'carton','1L',   1, 0, 0);
 `;
 
-const out = resolve(__dirname, 'seed.sql');
-mkdirSync(dirname(out), { recursive: true });
-writeFileSync(out, SQL);
-console.log('wrote', out);
+// Only run the SQL write when invoked directly (not when imported for fixtures).
+const isMain =
+  typeof process !== 'undefined' &&
+  process.argv[1] &&
+  fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+
+if (isMain) {
+  const out = resolve(__dirname, 'seed.sql');
+  mkdirSync(dirname(out), { recursive: true });
+  writeFileSync(out, SQL);
+  console.log('wrote', out);
+}

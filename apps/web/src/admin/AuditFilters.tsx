@@ -56,10 +56,10 @@ export function toApiFilters(s: AuditFiltersState): {
   to?: number;
 } {
   return {
-    actorId: s.actorId || undefined,
-    action: s.action || undefined,
-    targetType: s.targetType || undefined,
-    from: s.from ? Number(s.from) : undefined,
-    to: s.to ? Number(s.to) : undefined,
+    ...(s.actorId ? { actorId: s.actorId } : {}),
+    ...(s.action ? { action: s.action } : {}),
+    ...(s.targetType ? { targetType: s.targetType } : {}),
+    ...(s.from ? { from: Number(s.from) } : {}),
+    ...(s.to ? { to: Number(s.to) } : {}),
   };
 }

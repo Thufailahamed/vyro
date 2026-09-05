@@ -62,11 +62,15 @@ export function RolesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Roles" subtitle="Manage platform administrators">
-        {canInvite ? (
-          <Button onClick={() => setInviteOpen(true)}>Invite admin</Button>
-        ) : null}
-      </PageHeader>
+      <PageHeader
+        title="Roles"
+        sub="Manage platform administrators"
+        actions={
+          canInvite ? (
+            <Button onClick={() => setInviteOpen(true)}>Invite admin</Button>
+          ) : null
+        }
+      />
 
       {errMsg ? <ErrorBanner message={errMsg} /> : null}
       {changeErr ? <ErrorBanner message={changeErr} /> : null}

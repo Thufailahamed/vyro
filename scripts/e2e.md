@@ -71,6 +71,58 @@ Expect: one PO created per supplier (status `pending`).
 
 Sign into admin SPA, browse Suppliers / Businesses / Audit. Verify each admin action writes an `audit_logs` row.
 
+## 7b. Admin core ops (T1)
+
+Use 4 fixed roles — `super_admin`, `ops`, `finance`, `support`. `isPlatformAdmin` boolean no longer used; gates now use enum + permission helpers.
+
+### 7b.1 Invite flow
+
+1. Sign in as super_admin. Open `/admin/roles`.
+2. Click **Invite admin**. Pick role `ops`. Submit.
+3. Copy the returned invite token + link `http://localhost:5173/admin/invite/accept?token=...`.
+4. Open the link in a private window. Accept — optional display name + optional password.
+5. New admin lands at `/admin` signed in as `ops`. Sidebar shows Activity link (granted via `audit:read`) but **not** Roles link (no `admin:role_change`).
+6. Resend invite: revoke original from `/admin/roles` → POST same role again. Old token returns `INVITE_REVOKED`.
+
+### 7b.2 Role change
+
+1. From `/admin/roles`, change the `ops` admin to `finance`.
+2. Verify `GET /api/admin/audit?action=admin.role_change` returns a row with `before.adminRole === 'ops'` and `after.adminRole === 'finance'`.
+3. Refresh the admin's session — sidebar Activity link persists; Roles link now absent (`finance` lacks `admin:role_change`).
+4. Demote self to `support` while signed in as super_admin → expect `CANNOT_DEMOTE_SELF`.
+
+### 7b.3 Last-super guard
+
+1. Add a second super_admin via invite + accept.
+2. Sign in as admin #1. Demote admin #2 from `super_admin` → `ops` → success.
+3. As admin #1, try demoting self → `LAST_SUPER_ADMIN` (only one super_admin left).
+4. Invite a fresh super_admin, accept, then repeat demotion of self → success (2 super_admins → 1).
+
+### 7b.4 Audit CSV
+
+1. Trigger a few role changes + invite revokes. Open `/admin/activity`.
+2. Apply a filter (`actorId`, `from` timestamp) → cursor pagination shows older rows.
+3. Click **Export CSV** → downloads `audit.csv`. Open — header `createdAt,actorId,action,targetType,targetId,before,after,requestId,ip,userAgent`. RFC-4180 quoting around JSON payloads.
+4. CSV caps at 1000 rows per export; use `from`/`to` cursor for larger windows.
+
+### 7b.5 Cron purge
+
+The audit-purge cron runs daily at 03:00 UTC via CF Cron Trigger (`[triggers] crons = ["0 3 * * *"]` in `wrangler.toml`). Under `wrangler dev` the trigger fires on the same schedule; to exercise it without waiting, tail logs and let one tick fire, or import the handler directly:
+
+```bash
+# Direct handler invocation against local D1
+pnpm --filter @vyro/api exec tsx -e "import {handleAuditPurge} from './src/cron/audit-purge'; (async()=>{await handleAuditPurge({DB:process.env.DB} as any); console.log('purged');})()"
+```
+
+Rows older than 365d removed from `admin_audit_logs`. Confirm via:
+
+```bash
+pnpm --filter @vyro/api exec wrangler d1 execute vyro --local \
+  --command "SELECT count(*) FROM admin_audit_logs WHERE created_at < strftime('%s','now','-1 year')*1000"
+```
+
+Expected: `0`.
+
 ## 8. Notifications
 
 Sign in as a business. POST `/api/deliveries/<po>/transitions` (as supplier) with `delivered`. Hit `/api/notifications/me` as the business — expect a notification tied to the order event.

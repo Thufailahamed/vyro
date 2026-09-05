@@ -12,13 +12,17 @@ export function AdminActivityPage() {
   const errMsg = q.error instanceof Error ? q.error.message : null;
   return (
     <div className="space-y-6">
-      <PageHeader title="Activity" subtitle="Every admin write">
-        {canExport ? (
-          <a href={auditCsvUrl(apiFilters)} download>
-            <Button variant="secondary">Export CSV</Button>
-          </a>
-        ) : null}
-      </PageHeader>
+      <PageHeader
+        title="Activity"
+        sub="Every admin write"
+        actions={
+          canExport ? (
+            <a href={auditCsvUrl(apiFilters)} download>
+              <Button variant="secondary">Export CSV</Button>
+            </a>
+          ) : null
+        }
+      />
       <AuditFilters value={filters} onChange={setFilters} />
       {errMsg ? <ErrorBanner message={errMsg} /> : null}
       <Surface>

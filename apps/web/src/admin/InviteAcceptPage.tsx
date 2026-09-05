@@ -46,7 +46,7 @@ export function InviteAcceptPage() {
   return (
     <div className="min-h-dvh flex items-center justify-center bg-bone text-ink p-6">
       <Surface className="max-w-md w-full p-6 space-y-4">
-        <PageHeader title="Accept admin invite" subtitle="Set optional credentials to finish onboarding." />
+        <PageHeader title="Accept admin invite" sub="Set optional credentials to finish onboarding." />
         {error ? <ErrorBanner message={error} /> : null}
         <label className="block">
           <span className="text-sm">Display name (optional)</span>
