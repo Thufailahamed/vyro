@@ -13,8 +13,15 @@ INSERT OR IGNORE INTO business_types (id, slug, name, active) VALUES
   ('bt-restaurant', 'restaurant', 'Restaurant', 1),
   ('bt-hotel',       'hotel',       'Hotel',       1),
   ('bt-cafe',        'cafe',        'Café',        1),
+  ('bt-retail',      'retail',      'Retail & Supermarket', 1),
+  ('bt-bakery',      'bakery',      'Bakery & Confectionery', 1),
+  ('bt-catering',    'catering',    'Catering & Events', 1),
   ('bt-supplier-grocery', 'grocery-wholesaler', 'Grocery Wholesaler', 1),
-  ('bt-supplier-beverage', 'beverage-distributor', 'Beverage Distributor', 1);
+  ('bt-supplier-beverage', 'beverage-distributor', 'Beverage Distributor', 1),
+  ('bt-supplier-dairy', 'dairy-producer', 'Dairy & Cold Chain Producer', 1),
+  ('bt-supplier-packaging', 'packaging-supplier', 'Packaging & Disposables Wholesaler', 1),
+  ('bt-supplier-spices', 'spices-commodities', 'Spices & Agricultural Processing', 1),
+  ('bt-supplier-meat', 'meat-seafood', 'Meat & Seafood Wholesale', 1);
 
 INSERT OR IGNORE INTO categories (id, slug, name, parent_id, sort_order, active) VALUES
   ('cat-staples',   'staples',   'Staples',   NULL, 1, 1),

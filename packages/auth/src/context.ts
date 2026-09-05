@@ -1,6 +1,6 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
-import { users, businessMembers, supplierMembers } from '@vyro/db/schema';
+import { users, businessMembers, supplierMembers, businesses, suppliers } from '@vyro/db/schema';
 import type { SessionContext } from './types';
 
 export async function loadSessionContext(
@@ -12,15 +12,41 @@ export async function loadSessionContext(
   if (!user || user.deletedAt) return null;
 
   const biz = await db
-    .select({ id: businessMembers.businessId, role: businessMembers.role })
+    .select({
+      id: businessMembers.businessId,
+      businessId: businessMembers.businessId,
+      role: businessMembers.role,
+      name: businesses.name,
+      businessName: businesses.name,
+    })
     .from(businessMembers)
-    .where(and(eq(businessMembers.userId, userId), eq(businessMembers.status, 'active')))
+    .innerJoin(businesses, eq(businessMembers.businessId, businesses.id))
+    .where(
+      and(
+        eq(businessMembers.userId, userId),
+        eq(businessMembers.status, 'active'),
+        isNull(businesses.deletedAt),
+      ),
+    )
     .all();
 
   const sup = await db
-    .select({ id: supplierMembers.supplierId, role: supplierMembers.role })
+    .select({
+      id: supplierMembers.supplierId,
+      supplierId: supplierMembers.supplierId,
+      role: supplierMembers.role,
+      name: suppliers.name,
+      supplierName: suppliers.name,
+    })
     .from(supplierMembers)
-    .where(and(eq(supplierMembers.userId, userId), eq(supplierMembers.status, 'active')))
+    .innerJoin(suppliers, eq(supplierMembers.supplierId, suppliers.id))
+    .where(
+      and(
+        eq(supplierMembers.userId, userId),
+        eq(supplierMembers.status, 'active'),
+        isNull(suppliers.deletedAt),
+      ),
+    )
     .all();
 
   return {

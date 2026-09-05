@@ -2,6 +2,11 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
 import { businesses, businessMembers, businessTypes } from '@vyro/db/schema';
 
+export async function listBusinessTypes(d1: D1Database) {
+  const db = getDb(d1);
+  return db.select().from(businessTypes).where(eq(businessTypes.active, true)).all();
+}
+
 export async function findBusinessTypeBySlug(d1: D1Database, slug: string) {
   const db = getDb(d1);
   return db.select().from(businessTypes).where(eq(businessTypes.slug, slug)).get();

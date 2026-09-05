@@ -8,6 +8,11 @@ export interface AuthEnv {
 export interface MembershipSummary {
   id: string;
   role: string;
+  name?: string;
+  businessId?: string;
+  businessName?: string;
+  supplierId?: string;
+  supplierName?: string;
 }
 
 export interface SessionContext {

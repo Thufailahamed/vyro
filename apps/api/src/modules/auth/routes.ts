@@ -101,8 +101,18 @@ router.get('/me', async (c) => {
       name: session.user.name,
       isAdmin,
       isPlatformAdmin: isAdmin,
-      memberships: ctx?.businesses ?? [],
-      supplierMemberships: ctx?.suppliers ?? [],
+      memberships: (ctx?.businesses ?? []).map((b) => ({
+        businessId: b.businessId || b.id,
+        id: b.id,
+        role: b.role,
+        businessName: b.businessName || b.name || 'My Business',
+      })),
+      supplierMemberships: (ctx?.suppliers ?? []).map((s) => ({
+        supplierId: s.supplierId || s.id,
+        id: s.id,
+        role: s.role,
+        supplierName: s.supplierName || s.name || 'My Supplier',
+      })),
     },
   });
 });

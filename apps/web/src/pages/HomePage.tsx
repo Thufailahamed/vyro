@@ -2,87 +2,293 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui';
-import { SearchIcon } from '@/components/icons';
+import { SearchIcon, TruckIcon, PackageIcon, CheckCircleIcon, ArrowRightIcon, ClockIcon } from '@/components/icons';
 import { FlowCanvas, FlowLine } from '@/components/brand/FlowLine';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { ProductImage, Surface } from '@/components/brand/Surface';
+import { cn } from '@vyro/ui';
 
-const POPULAR = ['Rice', 'Sugar', 'Cement', 'Tea', 'Packaging', 'Flour', 'Spices', 'Oil'];
+const POPULAR = ['Rice', 'Sugar', 'Ceylon Tea', 'Coconut Oil', 'Wheat Flour', 'Cement', 'Packaging', 'Spices'];
 
 const HERO_PROOF = {
-  product: 'Samba rice · 25 kg',
-  origin: 'Mill-direct · Western Province',
-  image: '/hero/hero-rice.jpg',
+  product: 'Samba Rice · 25 kg Bag',
+  origin: 'Mill-Direct · Western Province Milling Hub',
+  image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=1200&q=80',
   offers: [
-    { tag: 'Best price', value: 'Rs. 4,200', hint: '/ bag' },
-    { tag: 'Best value', value: 'Rs. 4,450', hint: '2-day lead' },
-    { tag: 'Fastest', value: '1 day', hint: '4 offers live' },
+    { tag: 'Best price', value: 'Rs. 4,200', hint: 'Lanka Agro Mills' },
+    { tag: 'Best value', value: 'Rs. 4,450', hint: 'Colombo Wholesalers' },
+    { tag: 'Fastest', value: '24h dispatch', hint: '3 live offers' },
   ],
 } as const;
 
 const HERO_MOSAIC = [
-  { name: 'Tea', query: 'tea', src: '/hero/hero-tea.jpg', alt: 'Ceylon tea leaves ready for wholesale' },
-  { name: 'Spices', query: 'spices', src: '/hero/hero-spices.jpg', alt: 'Cinnamon, pepper and chili in wholesale crates' },
+  {
+    name: 'Pure Ceylon BOPF Tea',
+    query: 'tea',
+    src: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=800&q=80',
+    alt: 'Ceylon tea leaves ready for wholesale distribution',
+    badge: 'Estate Direct',
+  },
+  {
+    name: 'Spices & Agri Commodities',
+    query: 'spices',
+    src: 'https://images.unsplash.com/photo-1509358271058-acd22cc93898?auto=format&fit=crop&w=800&q=80',
+    alt: 'Black peppercorns and cinnamon in bulk lots',
+    badge: 'Grade 1 Export',
+  },
+  {
+    name: 'Cold Pressed Coconut Oil',
+    query: 'oil',
+    src: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=800&q=80',
+    alt: 'Pure virgin coconut oil bottles wholesale',
+    badge: 'Mill Packed',
+  },
 ] as const;
+
+const TRUST_STATS = [
+  { metric: '25', label: 'Districts Covered', sub: 'Island-wide freight routing' },
+  { metric: 'Rs. 100M+', label: 'Wholesale Throughput', sub: 'Active commercial trading volume' },
+  { metric: '100%', label: 'Verified Suppliers', sub: 'Audited tax & depot identity' },
+  { metric: '0%', label: 'Hidden Broker Markup', sub: 'Direct factory & mill prices' },
+];
+
+const FEATURED_PRODUCTS = [
+  {
+    id: 'p-samba-rice-25kg',
+    name: 'Araliya Samba Rice 25kg',
+    category: 'Staples & Grains',
+    price: 'Rs. 4,200',
+    unit: '/ 25kg bag',
+    moq: 'Min. 5 bags',
+    leadTime: '1-2 days',
+    supplier: 'Lanka Agro Mills',
+    image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80',
+    badge: 'Top Traded',
+  },
+  {
+    id: 'p-tea-bulk-5kg',
+    name: 'Dilmah Pure Ceylon BOPF Tea 5kg',
+    category: 'Tea & Beverages',
+    price: 'Rs. 9,500',
+    unit: '/ 5kg bulk pack',
+    moq: 'Min. 2 packs',
+    leadTime: '2 days',
+    supplier: 'Island Logistics & Distribution',
+    image: 'https://images.unsplash.com/photo-1597481499750-3e6b22637e12?auto=format&fit=crop&w=600&q=80',
+    badge: 'HORECA Grade',
+  },
+  {
+    id: 'p-sugar-50kg',
+    name: 'Pelwatte Refined White Sugar 50kg',
+    category: 'Sugar & Commodities',
+    price: 'Rs. 12,800',
+    unit: '/ 50kg commercial bag',
+    moq: 'Min. 5 bags',
+    leadTime: '1 day',
+    supplier: 'Colombo Central Wholesalers',
+    image: 'https://images.unsplash.com/photo-1581441363689-1f3c3c414635?auto=format&fit=crop&w=600&q=80',
+    badge: 'Industrial Grade',
+  },
+  {
+    id: 'p-milk-1l',
+    name: 'Fonterra Fresh Whole Milk 1L',
+    category: 'Dairy Products',
+    price: 'Rs. 520',
+    unit: '/ carton (case of 12)',
+    moq: 'Min. 12 units',
+    leadTime: 'Same day',
+    supplier: 'Island Logistics & Distribution',
+    image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80',
+    badge: 'Cold Chain',
+  },
+  {
+    id: 'p-oil-coconut-1l',
+    name: 'Pure Virgin White Coconut Oil 1L',
+    category: 'Staples & Grains',
+    price: 'Rs. 860',
+    unit: '/ 1L glass bottle',
+    moq: 'Min. 12 bottles',
+    leadTime: '1-2 days',
+    supplier: 'Lanka Agro Mills',
+    image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=600&q=80',
+    badge: 'Cold Pressed',
+  },
+  {
+    id: 'p-flour-1kg',
+    name: 'Commercial Wheat Flour 1kg',
+    category: 'Staples & Grains',
+    price: 'Rs. 210',
+    unit: '/ 1kg pack',
+    moq: 'Min. 50 packs',
+    leadTime: '1 day',
+    supplier: 'Colombo Central Wholesalers',
+    image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80',
+    badge: 'Bakery Batch',
+  },
+  {
+    id: 'p-spices-pepper-500g',
+    name: 'Ceylon Black Peppercorns 500g',
+    category: 'Spices & Agri',
+    price: 'Rs. 1,780',
+    unit: '/ 500g pouch',
+    moq: 'Min. 10 pouches',
+    leadTime: '2 days',
+    supplier: 'Island Logistics & Distribution',
+    image: 'https://images.unsplash.com/photo-1509358271058-acd22cc93898?auto=format&fit=crop&w=600&q=80',
+    badge: 'Estate Direct',
+  },
+  {
+    id: 'p-packaging-50pk',
+    name: 'Corrugated Shipping Cartons 50pk',
+    category: 'Packaging Materials',
+    price: 'Rs. 4,800',
+    unit: '/ bundle of 50',
+    moq: 'Min. 2 bundles',
+    leadTime: '1-2 days',
+    supplier: 'Island Logistics & Distribution',
+    image: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&w=600&q=80',
+    badge: 'Heavy Duty',
+  },
+];
 
 const CATEGORIES: Array<{
   name: string;
   query: string;
   detail: string;
   volume: string;
-  imageUrl?: string;
+  imageUrl: string;
+  count: string;
 }> = [
   {
-    name: 'Rice & grains',
+    name: 'Rice & Grains',
     query: 'rice',
-    detail: 'Mill-direct staples, bagged and bulk.',
+    detail: 'Mill-direct white, samba, and keeri samba in 5kg to 50kg bags.',
     volume: 'Highest volume',
-    imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=400&q=80',
+    count: '24+ Wholesale lines',
+    imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80',
   },
   {
-    name: 'Sugar & commodities',
-    query: 'sugar',
-    detail: 'Refined, brown, and industrial grades.',
-    volume: 'Daily quotes',
-    imageUrl: 'https://images.unsplash.com/photo-1622484212850-eb596d769edc?auto=format&fit=crop&w=400&q=80',
-  },
-  {
-    name: 'Cement & building',
-    query: 'cement',
-    detail: 'Bags, bulk, and site delivery windows.',
-    volume: 'Island-wide',
-    imageUrl: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=400&q=80',
-  },
-  {
-    name: 'Packaging',
-    query: 'packaging',
-    detail: 'Cartons, film, food-safe wraps.',
-    volume: 'Fast lead times',
-    imageUrl: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&w=400&q=80',
-  },
-  {
-    name: 'Spices & agri',
-    query: 'spices',
-    detail: 'Estate and wholesale agri lots.',
-    volume: 'Seasonal',
-    imageUrl: 'https://images.unsplash.com/photo-1509358271058-acd22cc93898?auto=format&fit=crop&w=400&q=80',
-  },
-  {
-    name: 'Tea & beverages',
+    name: 'Ceylon Tea & Beverages',
     query: 'tea',
-    detail: 'Estate lots and HORECA packs.',
-    volume: 'Export-grade',
-    imageUrl: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=400&q=80',
+    detail: 'Single-origin BOPF, green tea, barista coffee & syrups.',
+    volume: 'Export grade',
+    count: '18+ Estate blends',
+    imageUrl: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Refined Sugar & Commodities',
+    query: 'sugar',
+    detail: 'Refined crystalline white sugar, brown sugar & molasses in commercial bags.',
+    volume: 'Daily price lock',
+    count: '12+ Bulk grades',
+    imageUrl: 'https://images.unsplash.com/photo-1622484212850-eb596d769edc?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Dairy & Cold Chain',
+    query: 'dairy',
+    detail: 'Pasteurized fresh milk, culinary cream, cheddar & butter lots.',
+    volume: 'Chilled freight',
+    count: '16+ Dairy lines',
+    imageUrl: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Cooking Oils & Fats',
+    query: 'oil',
+    detail: 'Virgin white coconut oil, pure sunflower oil & bulk palm olein.',
+    volume: 'Factory direct',
+    count: '10+ Oil packs',
+    imageUrl: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Spices & Agri Produce',
+    query: 'spices',
+    detail: 'Ceylon cinnamon quills, whole black pepper, cardamoms & cloves.',
+    volume: 'Estate verified',
+    count: '30+ Agri lots',
+    imageUrl: 'https://images.unsplash.com/photo-1509358271058-acd22cc93898?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Packaging & Disposables',
+    query: 'packaging',
+    detail: 'Corrugated cartons, food containers, greaseproof wraps & strapping.',
+    volume: 'Fast lead times',
+    count: '25+ Box sizes',
+    imageUrl: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Cement & Building Supply',
+    query: 'cement',
+    detail: 'Portland cement, masonry mortars & site delivery schedules.',
+    volume: 'Island-wide fleet',
+    count: '8+ Construction lines',
+    imageUrl: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=600&q=80',
   },
 ];
 
 const BUSINESSES = [
-  { name: 'Restaurant', note: 'Kitchen staples, oil, packaging' },
-  { name: 'Hotel', note: 'Housekeeping + F&B at scale' },
-  { name: 'Retail', note: 'Shelf restock from verified mills' },
-  { name: 'Bakery', note: 'Flour, sugar, dairy inputs' },
-  { name: 'Office', note: 'Pantry and facilities supply' },
-  { name: 'Salon', note: 'Consumables on a schedule' },
+  {
+    name: 'Restaurants & Kitchens',
+    note: 'Bulk cooking oil, rice sacks, spices, poultry & take-out packaging.',
+    image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
+    tag: 'F&B Operators',
+  },
+  {
+    name: 'Hotels & Luxury Resorts',
+    note: 'High-volume culinary inputs, premium Ceylon tea, dairy & housekeeping items.',
+    image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
+    tag: 'Hospitality',
+  },
+  {
+    name: 'Retailers & Supermarkets',
+    note: 'Direct mill rice, consumer sugar packs, FMCG restocks & wholesale lots.',
+    image: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=800&q=80',
+    tag: 'Grocery Stores',
+  },
+  {
+    name: 'Commercial Bakeries',
+    note: 'Hard wheat flour, 50kg sugar bags, yeast, margarine & pastry packaging.',
+    image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80',
+    tag: 'Confectionery',
+  },
+  {
+    name: 'Catering & Cloud Kitchens',
+    note: 'Commercial meal lots, disposable trays, cooking gas & scheduled daily drops.',
+    image: 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=800&q=80',
+    tag: 'Event Foodservice',
+  },
+  {
+    name: 'Corporate Facilities & Offices',
+    note: 'Pantry coffee & tea, sanitary supplies, paper products & water carboys.',
+    image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80',
+    tag: 'Enterprises',
+  },
+];
+
+const VERIFIED_SUPPLIERS = [
+  {
+    name: 'Colombo Central Wholesalers',
+    category: 'Direct Importer & Grocery Wholesaler',
+    location: '42 Old Moor Street, Colombo 11',
+    coverage: 'Western & Southern Province 24h dispatch',
+    productsCount: '150+ wholesale lines',
+    image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    name: 'Lanka Agro Mills & Processing',
+    category: 'Primary Rice Miller & Grain Processor',
+    location: '15 Industrial Zone, Kurunegala',
+    coverage: 'Island-wide bulk deliveries',
+    productsCount: '45+ mill-direct grain lines',
+    image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    name: 'Island Logistics & Distribution',
+    category: 'Authorized Estate & Beverage Depot',
+    location: '88 Katugastota Road, Kandy',
+    coverage: 'Central Province & Hill Country cold chain',
+    productsCount: '80+ FMCG & tea lines',
+    image: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=800&q=80',
+  },
 ];
 
 const JOURNEY = [
@@ -108,43 +314,22 @@ const JOURNEY = [
   },
 ];
 
-const LAYERS = [
-  { name: 'VYRO Procurement', status: 'Live', body: 'Source, compare, and issue purchase orders across verified Sri Lankan suppliers.' },
-  { name: 'VYRO Pay', status: 'In flow', body: 'Settlement sits next to the order — not in a separate stack of invoices and calls.' },
-  { name: 'VYRO Logistics', status: 'In flow', body: 'Delivery is a stage in the same journey, not a WhatsApp thread after the fact.' },
-  { name: 'VYRO Credit', status: 'Next', body: 'Working capital against real procurement history, when the network is ready.' },
-];
-
-const REPLACES = [
-  { from: 'WhatsApp quotes', to: 'Live unit prices in LKR, on the product.' },
-  { from: 'PDF catalogs', to: 'Offers with MOQ, lead time, and availability.' },
-  { from: 'Phone POs', to: 'A cart that splits into binding purchase orders.' },
-  { from: 'Status by chat', to: 'Order → Supplier → Preparation → Delivery → Business.' },
-];
-
-const ON_A_PRODUCT = [
-  { k: 'Unit price', v: 'LKR, live from the supplier' },
-  { k: 'MOQ', v: 'Minimum quantity on that offer' },
-  { k: 'Lead time', v: 'Days until the goods can move' },
-  { k: 'Availability', v: 'Whether the offer can be issued now' },
-];
-
 const FAQ = [
   {
-    q: 'Can I search without an account?',
-    a: 'Yes. The wholesale catalog is open. You register a business when you are ready to add to cart and issue purchase orders.',
+    q: 'Can I search and compare prices without an account?',
+    a: 'Yes. The VYRO wholesale catalog is completely open. You only register your business when you are ready to add items to cart and issue binding purchase orders.',
   },
   {
-    q: 'What happens if I buy from two suppliers?',
-    a: 'Checkout splits the cart. Each supplier receives an independent purchase order, with its own journey and status trail.',
+    q: 'What happens if I buy from multiple suppliers in one checkout?',
+    a: 'Checkout automatically splits your single cart into separate, independent purchase orders. Each supplier receives their specific order with dedicated delivery windows and invoice trails.',
   },
   {
-    q: 'What does “verified” mean?',
-    a: 'Suppliers enter with business identity. VYRO Control reviews that identity before they can sit in the live catalog.',
+    q: 'How does VYRO verify suppliers?',
+    a: 'Every supplier on the network submits registered business documents, warehouse physical address verification, and verified bank credentials before listing catalog items.',
   },
   {
-    q: 'Are payments and logistics live today?',
-    a: 'Procurement is live: search, compare, cart, purchase orders, and the delivery journey. Pay, logistics, and credit are the next movements on the same layer — not separate apps.',
+    q: 'Are delivery logistics covered?',
+    a: 'Yes. Every product listing displays real supplier lead times, dispatch locations, and available delivery options to your registered delivery address across 25 Sri Lankan districts.',
   },
 ];
 
@@ -164,251 +349,292 @@ export function HomePage() {
   }
 
   return (
-    <div>
-      <section className="relative overflow-hidden bg-void text-paper grain min-h-[calc(100dvh-4rem)] flex flex-col">
+    <div className="bg-bone">
+      {/* 1. HERO SECTION */}
+      <section className="relative overflow-hidden bg-void text-paper grain min-h-[calc(100dvh-4rem)] flex flex-col justify-center">
         <div className="absolute inset-0" aria-hidden>
           <FlowCanvas tone="paper" density="hero" className="absolute inset-0 opacity-80" />
-          <div className="absolute inset-0 bg-gradient-to-r from-void via-void/75 to-void/25" />
-          <div className="absolute -left-24 top-[18%] size-[28rem] rounded-full bg-volt/[0.09] blur-[110px] pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-r from-void via-void/80 to-void/30" />
+          <div className="absolute -left-24 top-[15%] size-[32rem] rounded-full bg-volt/[0.10] blur-[120px] pointer-events-none" />
+          <div className="absolute right-0 bottom-0 size-[28rem] rounded-full bg-copper/[0.08] blur-[120px] pointer-events-none" />
         </div>
-        <div className="relative flex-1 max-w-stage mx-auto w-full px-5 sm:px-8 py-14 sm:py-16 lg:py-0 grid lg:grid-cols-12 gap-12 lg:gap-10 items-start lg:items-center">
-            <div className="lg:col-span-7 lg:py-20">
-              <p className="vyro-kicker text-volt">VYRO · Sri Lanka B2B operating layer</p>
-              <h1 className="mt-5 vyro-display text-[2.65rem] sm:text-6xl lg:text-[4.35rem] text-paper max-w-3xl">
-                Everything a business
-                <span className="block">needs, connected.</span>
-              </h1>
-              <p className="mt-6 max-w-lg text-base sm:text-lg text-paper/75 leading-relaxed text-pretty">
-                VYRO is the operating layer between businesses and suppliers — procurement, orders, payments and delivery as one continuous movement.
-              </p>
 
-              <form onSubmit={handleSearchSubmit} className="mt-10 max-w-xl">
-                <label htmlFor="home-search" className="sr-only">
-                  Search the wholesale catalog
-                </label>
-                <p id="home-search-hint" className="mb-2.5 text-[12px] text-paper/50">
-                  Wholesale catalog is open — no account needed to search.
-                </p>
-                <div className="flex flex-col sm:flex-row bg-paper shadow-[0_16px_40px_-24px_rgba(0,0,0,0.55)] transition-shadow duration-240 focus-within:shadow-[0_0_0_2px_#C6DC4A,0_16px_40px_-24px_rgba(0,0,0,0.55)]">
-                  <div className="relative flex-1">
-                    <SearchIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-4 pointer-events-none" />
-                    <input
-                      id="home-search"
-                      name="q"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Search rice, cement, packaging, tea…"
-                      autoComplete="off"
-                      aria-describedby="home-search-hint"
-                      className="w-full h-14 bg-transparent pl-12 pr-4 text-ink placeholder:text-ink-4 focus:outline-none"
-                    />
-                  </div>
-                  <Button type="submit" size="lg" className="m-1.5 sm:min-w-44">
-                    Source now
-                  </Button>
-                </div>
-              </form>
+        <div className="relative max-w-stage mx-auto w-full px-5 sm:px-8 py-16 lg:py-20 grid lg:grid-cols-12 gap-12 lg:gap-10 items-center">
+          {/* Left Column: Heading & Search */}
+          <div className="lg:col-span-7">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-paper/10 border border-paper/15 text-xs text-volt mb-6">
+              <span className="size-2 rounded-full bg-volt animate-pulse" />
+              <span className="vyro-kicker text-volt">Sri Lanka's B2B Wholesale Operating Layer</span>
+            </div>
 
-              <div className="mt-4">
-                <p className="text-[10px] uppercase tracking-[0.14em] text-paper/40 mb-2">Popular in the catalog</p>
-                <div className="flex flex-wrap gap-2">
-                  {POPULAR.map((term) => (
-                    <button
-                      key={term}
-                      type="button"
-                      onClick={() => goSearch(term)}
-                      className="h-11 px-3.5 text-[12px] tracking-wide text-paper/70 cursor-pointer shadow-[inset_0_0_0_1px_rgba(250,247,240,0.18)] hover:text-volt hover:shadow-[inset_0_0_0_1px_#C6DC4A] hover:bg-paper/[0.04] transition-colors duration-200"
-                    >
-                      {term}
-                    </button>
-                  ))}
+            <h1 className="vyro-display text-[2.75rem] sm:text-6xl lg:text-[4.5rem] text-paper leading-[1.06] max-w-2xl text-balance">
+              Everything a business <span className="text-volt">needs, connected.</span>
+            </h1>
+
+            <p className="mt-6 max-w-xl text-base sm:text-lg text-paper/75 leading-relaxed">
+              Source direct from verified mills, importers, and licensed distributors across Sri Lanka. Real-time LKR prices, multi-supplier split carts, and end-to-end delivery tracking.
+            </p>
+
+            {/* Search Input Box */}
+            <form onSubmit={handleSearchSubmit} className="mt-8 max-w-xl">
+              <label htmlFor="home-search" className="sr-only">
+                Search the wholesale catalog
+              </label>
+              <div className="flex flex-col sm:flex-row bg-paper shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6)] focus-within:shadow-[0_0_0_2px_#C6DC4A,0_20px_50px_-20px_rgba(0,0,0,0.6)] transition-all">
+                <div className="relative flex-1">
+                  <SearchIcon size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-4 pointer-events-none" />
+                  <input
+                    id="home-search"
+                    name="q"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search rice, sugar, tea, oil, packaging, cement…"
+                    autoComplete="off"
+                    className="w-full h-14 bg-transparent pl-12 pr-4 text-ink placeholder:text-ink-4 text-sm sm:text-base focus:outline-none font-medium"
+                  />
                 </div>
+                <Button type="submit" size="lg" className="m-1.5 sm:min-w-40 bg-ink text-paper hover:bg-ink-2">
+                  Search Catalog →
+                </Button>
               </div>
+            </form>
 
-              <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[12px] text-paper/55">
-                {['Live unit prices in LKR', 'Verified suppliers', '25 districts covered'].map((item) => (
+            {/* Quick Keyword Pills */}
+            <div className="mt-4">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] uppercase tracking-wider text-paper/40 mr-1">Popular:</span>
+                {POPULAR.map((term) => (
+                  <button
+                    key={term}
+                    type="button"
+                    onClick={() => goSearch(term)}
+                    className="px-2.5 py-1 text-[11px] font-mono text-paper/70 bg-paper/5 border border-paper/15 hover:border-volt hover:text-volt hover:bg-paper/10 transition-colors cursor-pointer"
+                  >
+                    {term}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Value Props Bullet List */}
+            <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-xs text-paper/65">
+              {['Live unit prices in LKR', 'No middleman markups', '25 districts covered', 'Automated PO generation'].map(
+                (item) => (
                   <li key={item} className="flex items-center gap-2">
                     <span className="size-1.5 rotate-45 bg-volt shrink-0" aria-hidden />
                     {item}
                   </li>
-                ))}
-              </ul>
+                ),
+              )}
+            </ul>
+          </div>
+
+          {/* Right Column: Hero Visual Showcase */}
+          <div className="lg:col-span-5">
+            <div className="grid grid-cols-2 gap-3 h-[32rem]">
+              {/* Large Featured Product Tile */}
+              <div className="relative col-span-2 row-span-2 overflow-hidden border border-paper/15 group">
+                <img
+                  src={HERO_PROOF.image}
+                  alt={HERO_PROOF.product}
+                  className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-700"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-void via-void/40 to-transparent" />
+
+                {/* Floating Live Pricing Badge */}
+                <div className="absolute top-4 right-4 bg-ink/90 backdrop-blur-md px-3 py-1 border border-volt/40 flex items-center gap-2 text-xs">
+                  <span className="size-2 rounded-full bg-volt animate-ping" />
+                  <span className="font-mono text-volt font-bold">LIVE OFFERS</span>
+                </div>
+
+                {/* Overlay Details */}
+                <div className="absolute inset-x-0 bottom-0 p-5 bg-gradient-to-t from-void via-void/90 to-transparent">
+                  <div className="flex items-baseline justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-widest text-volt">Wholesale Benchmark</span>
+                      <h2 className="font-display text-2xl sm:text-3xl text-paper mt-0.5">{HERO_PROOF.product}</h2>
+                      <p className="text-xs text-paper/70 mt-1">{HERO_PROOF.origin}</p>
+                    </div>
+                    <Link
+                      to="/search?q=rice"
+                      className="px-3 py-1.5 bg-volt text-ink text-xs font-bold uppercase tracking-wider hover:bg-volt-glow transition-colors"
+                    >
+                      Compare →
+                    </Link>
+                  </div>
+
+                  {/* 3 Offers live preview */}
+                  <div className="mt-4 grid grid-cols-3 gap-2 pt-3 border-t border-paper/15">
+                    {HERO_PROOF.offers.map((o) => (
+                      <div key={o.tag} className="bg-void/80 backdrop-blur-sm p-2 border border-paper/10">
+                        <span className="text-[9px] uppercase tracking-wider text-paper/50 block">{o.tag}</span>
+                        <span className="vyro-metric text-base text-paper font-bold block mt-0.5">{o.value}</span>
+                        <span className="text-[10px] text-paper/60 truncate block">{o.hint}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="lg:col-span-5 lg:py-16">
-              <div className="grid grid-cols-5 grid-rows-2 gap-2 h-[22rem] sm:h-[26rem] lg:h-[28rem]">
-                <div className="relative col-span-3 row-span-2 min-h-0">
-                  <Link
-                    to="/search?q=rice"
-                    aria-label="Search wholesale rice"
-                    className="absolute inset-0 overflow-hidden focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_#C6DC4A]"
-                  >
-                    <ProductImage
-                      src={HERO_PROOF.image}
-                      alt="Wholesale rice sacks in a mill warehouse"
-                      seed="rice"
-                      priority
-                      className="absolute inset-0 h-full w-full"
-                    />
-                  </Link>
-                  <Link
-                    to="/search?q=rice"
-                    className="group absolute inset-x-2 bottom-2 z-[1] focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_#C6DC4A]"
-                  >
-                    <Surface kind="ink" className="bg-charcoal/92 backdrop-blur-sm p-4 shadow-[inset_0_0_0_1px_rgba(198,220,74,0.28)] transition-shadow duration-240 group-hover:shadow-[inset_0_0_0_1px_rgba(198,220,74,0.55)]">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="vyro-kicker text-volt">On every product</span>
-                        <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-paper/45">
-                          <span className="size-1.5 rounded-full bg-volt motion-safe:animate-pulse-soft" aria-hidden />
-                          Live
-                        </span>
-                      </div>
-                      <div className="mt-3 flex items-end justify-between gap-3">
-                        <div>
-                          <div className="font-display text-lg leading-tight sm:text-xl">{HERO_PROOF.product}</div>
-                          <div className="mt-0.5 text-[11px] text-paper/45">{HERO_PROOF.origin}</div>
-                        </div>
-                        <span className="text-[11px] font-semibold tracking-wide text-volt shrink-0">Compare →</span>
-                      </div>
-                      <div className="mt-3 grid grid-cols-3 gap-px bg-paper/10">
-                        {HERO_PROOF.offers.map((offer, i) => (
-                          <div key={offer.tag} className={`p-2.5 ${i === 0 ? 'bg-ink' : 'bg-void/80'}`}>
-                            <div className={`text-[9px] font-semibold uppercase tracking-[0.12em] ${i === 0 ? 'text-volt' : 'text-paper/40'}`}>
-                              {offer.tag}
-                            </div>
-                            <div className="vyro-metric text-base text-paper mt-1 leading-none">{offer.value}</div>
-                            <div className="mt-1 text-[10px] text-paper/40">{offer.hint}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </Surface>
-                  </Link>
-                </div>
-                {HERO_MOSAIC.map((item) => (
-                  <Link
-                    key={item.name}
-                    to={`/search?q=${item.query}`}
-                    className="relative col-span-2 min-h-0 overflow-hidden focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_#C6DC4A]"
-                  >
-                    <ProductImage
-                      src={item.src}
-                      alt={item.alt}
-                      seed={item.query}
-                      className="absolute inset-0 h-full w-full"
-                    />
-                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-void/85 to-transparent px-3 pb-2 pt-8 text-[11px] font-semibold tracking-wide text-paper">
+            {/* 3 Secondary Mini Image Tiles */}
+            <div className="mt-3 grid grid-cols-3 gap-3">
+              {HERO_MOSAIC.map((item) => (
+                <Link
+                  key={item.name}
+                  to={`/search?q=${item.query}`}
+                  className="relative h-28 overflow-hidden border border-paper/15 group cursor-pointer"
+                >
+                  <img
+                    src={item.src}
+                    alt={item.alt}
+                    className="absolute inset-0 h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-void/90 via-void/30 to-transparent" />
+                  <div className="absolute bottom-2 inset-x-2">
+                    <span className="text-[9px] font-mono text-volt uppercase block truncate">{item.badge}</span>
+                    <span className="text-xs font-display text-paper leading-tight block truncate group-hover:text-volt transition-colors">
                       {item.name}
                     </span>
-                  </Link>
-                ))}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 2. TRUST STATS TICKER */}
+      <section className="bg-bone border-b border-ink/10 py-8">
+        <div className="max-w-stage mx-auto px-5 sm:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-left">
+            {TRUST_STATS.map((s) => (
+              <div key={s.label} className="border-l-2 border-volt pl-4">
+                <div className="vyro-metric text-3xl sm:text-4xl text-ink font-bold">{s.metric}</div>
+                <div className="font-display text-base text-ink mt-1 font-semibold">{s.label}</div>
+                <div className="text-xs text-ink-4 mt-0.5">{s.sub}</div>
               </div>
-            </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      <section className="bg-bone border-b border-ink/10">
-        <div className="max-w-stage mx-auto px-5 sm:px-8 py-10 grid sm:grid-cols-3 gap-8">
-          {[
-            {
-              t: 'Verified, not listed',
-              b: 'Suppliers enter with business identity. Quotes are live unit prices in LKR — not brochure PDFs.',
-            },
-            {
-              t: 'Compared, not guessed',
-              b: 'Best price, best value, and fastest delivery are scored on the same product, in the same view.',
-            },
-            {
-              t: 'Issued, not messaged',
-              b: 'A cart becomes purchase orders. Status is a journey, with a record of every handoff.',
-            },
-          ].map((item) => (
-            <div key={item.t}>
-              <h2 className="font-display text-xl">{item.t}</h2>
-              <p className="mt-2 text-sm text-ink-3 leading-relaxed">{item.b}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
+      {/* 3. FEATURED WHOLESALE LOTS (LIVE PRODUCTS SHOWCASE) */}
       <section className="max-w-stage mx-auto px-5 sm:px-8 py-20">
-        <div className="grid lg:grid-cols-12 gap-12 items-end">
-          <div className="lg:col-span-5">
-            <div className="vyro-kicker">Replaces the informal stack</div>
-            <h2 className="mt-2 vyro-display text-4xl sm:text-5xl text-balance">Procurement should not live in a chat thread.</h2>
-            <p className="mt-4 text-ink-3 leading-relaxed max-w-md">
-              Most Sri Lankan wholesale still moves as screenshots, stale PDFs, and a PO typed into WhatsApp. VYRO puts that same work on one layer — searchable, comparable, issued, and tracked.
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
+          <div>
+            <div className="vyro-kicker text-copper">Marketplace Benchmark</div>
+            <h2 className="mt-2 vyro-display text-3xl sm:text-5xl text-ink">Active Wholesale Lots</h2>
+            <p className="mt-2 text-sm text-ink-3 max-w-lg">
+              Live quotes from verified Sri Lankan primary mills, commercial beverage estates, and industrial packaging plants.
             </p>
           </div>
-          <ol className="lg:col-span-7 divide-y divide-ink/10 border-y border-ink/10">
-            {REPLACES.map((row, i) => (
-              <li key={row.from} className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-4 py-5 items-start">
-                <span className="vyro-metric text-sm text-copper pt-0.5">{String(i + 1).padStart(2, '0')}</span>
-                <div>
-                  <div className="text-sm text-ink-4 line-through decoration-ink/25">{row.from}</div>
-                  <div className="mt-1 text-sm text-ink leading-snug">{row.to}</div>
-                </div>
-              </li>
-            ))}
-          </ol>
+          <Link to="/search" className="inline-flex items-center gap-2 text-sm font-semibold text-copper hover:text-ink">
+            Browse all 120+ wholesale items →
+          </Link>
         </div>
-      </section>
 
-      <section className="max-w-stage mx-auto px-5 sm:px-8 py-20">
-        <div className="grid lg:grid-cols-[0.85fr_1.15fr] gap-12 items-end mb-10">
-          <div>
-            <div className="vyro-kicker">Who it’s for</div>
-            <h2 className="mt-2 vyro-display text-4xl sm:text-5xl text-balance">Built for operators who buy every week.</h2>
-          </div>
-          <p className="text-ink-3 max-w-xl">
-            Hotels, kitchens, retailers, bakeries, offices and sites — anyone who needs wholesale inputs without a stack of calls, screenshots, and informal quotes.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-ink/10">
-          {BUSINESSES.map((b, i) => (
-            <Link
-              key={b.name}
-              to="/onboarding/business"
-              className="group bg-paper p-5 min-h-[148px] flex flex-col justify-between hover:bg-ink hover:text-paper transition-colors duration-240 cursor-pointer"
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {FEATURED_PRODUCTS.map((p) => (
+            <div
+              key={p.id}
+              className="bg-paper border border-ink/15 hover:border-ink hover:shadow-lg transition-all duration-240 flex flex-col justify-between group overflow-hidden"
             >
-              <span className="vyro-metric text-sm text-copper group-hover:text-volt">{String(i + 1).padStart(2, '0')}</span>
               <div>
-                <div className="font-display text-lg tracking-tight">{b.name}</div>
-                <div className="mt-1 text-[11px] text-ink-4 group-hover:text-paper/55 leading-snug">{b.note}</div>
+                {/* Image Container with Badge */}
+                <Link to={`/products/${p.id}`} className="relative h-48 overflow-hidden bg-bone border-b border-ink/10 block">
+                  <img
+                    src={p.image}
+                    alt={p.name}
+                    loading="lazy"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <span className="absolute top-3 left-3 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-ink text-paper">
+                    {p.badge}
+                  </span>
+                  <span className="absolute bottom-2 right-2 px-2 py-0.5 text-[10px] font-mono bg-paper/90 text-ink backdrop-blur-sm border border-ink/10">
+                    {p.leadTime}
+                  </span>
+                </Link>
+
+                {/* Content */}
+                <div className="p-4 space-y-2">
+                  <span className="text-[10px] uppercase tracking-wider text-copper block">{p.category}</span>
+                  <Link to={`/products/${p.id}`} className="block">
+                    <h3 className="font-display text-lg text-ink leading-snug group-hover:text-copper transition-colors line-clamp-2">
+                      {p.name}
+                    </h3>
+                  </Link>
+                  <p className="text-xs text-ink-4 flex items-center gap-1">
+                    <span>Depot:</span>
+                    <strong className="text-ink-2 font-medium truncate">{p.supplier}</strong>
+                  </p>
+                </div>
               </div>
-            </Link>
+
+              {/* Price & Action Footer */}
+              <div className="p-4 pt-0">
+                <div className="p-3 bg-bone border border-ink/10 flex items-baseline justify-between mb-3">
+                  <div>
+                    <span className="vyro-metric text-xl font-bold text-ink">{p.price}</span>
+                    <span className="text-[11px] text-ink-4 ml-1">{p.unit}</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-ink-3 uppercase">{p.moq}</span>
+                </div>
+
+                <Link
+                  to={`/products/${p.id}`}
+                  className="w-full h-10 bg-ink text-paper text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-copper transition-colors"
+                >
+                  <span>Compare Offers</span>
+                  <span>→</span>
+                </Link>
+              </div>
+            </div>
           ))}
         </div>
       </section>
 
-      <section className="bg-paper">
-        <div className="max-w-stage mx-auto px-5 sm:px-8 py-20">
-          <div className="flex items-end justify-between gap-6 mb-10">
+      {/* 4. WHO IT'S FOR (OPERATORS PHOTOGRAPHIC GRID) */}
+      <section className="bg-paper border-y border-ink/10 py-20">
+        <div className="max-w-stage mx-auto px-5 sm:px-8">
+          <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-10 items-end mb-12">
             <div>
-              <div className="vyro-kicker">Catalog</div>
-              <h2 className="mt-2 vyro-display text-4xl">What moves through VYRO</h2>
-              <p className="mt-3 text-sm text-ink-4 max-w-md">
-                Direct pricing from mills, manufacturers, and licensed distributors. Open a sector, compare offers, add to cart.
-              </p>
+              <div className="vyro-kicker text-copper">Network Participants</div>
+              <h2 className="mt-2 vyro-display text-3xl sm:text-5xl text-ink">Built for operators who buy weekly.</h2>
             </div>
-            <Link to="/search" className="hidden sm:inline-flex text-sm text-copper hover:text-ink shrink-0">
-              Full catalog →
-            </Link>
+            <p className="text-sm sm:text-base text-ink-3 leading-relaxed">
+              From high-table dining establishments and 5-star coastal resorts to retail chains and commercial bakeries — VYRO connects operators directly to the primary supply source.
+            </p>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {CATEGORIES.map((c) => (
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {BUSINESSES.map((b) => (
               <Link
-                key={c.name}
-                to={`/search?q=${encodeURIComponent(c.query)}`}
-                className="group grid grid-cols-[112px_1fr] bg-bone hover:bg-ink hover:text-paper transition-colors duration-240 min-h-[132px] cursor-pointer overflow-hidden"
+                key={b.name}
+                to="/onboarding/business"
+                className="group relative h-80 overflow-hidden border border-ink/15 hover:border-ink transition-all duration-300 flex flex-col justify-end p-6 cursor-pointer"
               >
-                <ProductImage src={c.imageUrl} alt={c.name} seed={c.query} className="h-full min-h-[132px] w-full" />
-                <div className="p-5 flex flex-col justify-between">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.14em] text-copper group-hover:text-volt">{c.volume}</div>
-                    <h3 className="mt-1 font-display text-xl leading-tight">{c.name}</h3>
-                    <p className="mt-1.5 text-xs text-ink-4 group-hover:text-paper/55">{c.detail}</p>
+                {/* Background Photo */}
+                <img
+                  src={b.image}
+                  alt={b.name}
+                  loading="lazy"
+                  className="absolute inset-0 h-full w-full object-cover group-hover:scale-108 transition-transform duration-700 brightness-[0.85] group-hover:brightness-95"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-void via-void/60 to-transparent" />
+
+                {/* Floating Content */}
+                <div className="relative z-10">
+                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-volt text-ink inline-block mb-3">
+                    {b.tag}
+                  </span>
+                  <h3 className="font-display text-2xl text-paper group-hover:text-volt transition-colors">{b.name}</h3>
+                  <p className="mt-2 text-xs text-paper/80 leading-relaxed line-clamp-2">{b.note}</p>
+                  <div className="mt-4 pt-3 border-t border-paper/20 flex items-center justify-between text-xs text-paper font-semibold">
+                    <span>Register business</span>
+                    <span className="group-hover:translate-x-1 transition-transform">→</span>
                   </div>
-                  <span className="text-[11px] font-semibold tracking-wide mt-3">Open sector →</span>
                 </div>
               </Link>
             ))}
@@ -416,62 +642,134 @@ export function HomePage() {
         </div>
       </section>
 
+      {/* 5. SECTORS CATALOG (WITH IMAGES) */}
       <section className="max-w-stage mx-auto px-5 sm:px-8 py-20">
-        <div className="vyro-kicker">Signature</div>
-        <h2 className="mt-2 vyro-display text-4xl sm:text-5xl max-w-3xl text-balance">The decision is visible. Immediately.</h2>
-        <p className="mt-4 text-ink-3 max-w-xl">
-          Supplier comparison is not a spreadsheet. On every product, VYRO marks the offer that should win — then lets you override with eyes open.
-        </p>
-        <dl className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-px bg-ink/10">
-          {ON_A_PRODUCT.map((row) => (
-            <div key={row.k} className="bg-bone p-5">
-              <dt className="text-[10px] uppercase tracking-[0.14em] text-copper">{row.k}</dt>
-              <dd className="mt-2 text-sm text-ink-3 leading-snug">{row.v}</dd>
-            </div>
-          ))}
-        </dl>
-        <div className="mt-12 grid lg:grid-cols-3 gap-px bg-ink/10">
-          {[
-            {
-              tag: 'Best price',
-              title: 'Lowest unit cost',
-              body: 'Ranked first by live LKR per unit. The number is the number — no hidden commission in the quote.',
-            },
-            {
-              tag: 'Best value',
-              title: 'Price against time',
-              body: 'A cheaper quote that takes two weeks is not always cheaper. Value weights price with lead time.',
-            },
-            {
-              tag: 'Fastest delivery',
-              title: 'Shortest lead',
-              body: 'When the kitchen or site cannot wait, the fastest verified offer is labelled — not buried.',
-            },
-          ].map((item, i) => (
-            <div key={item.tag} className={`p-8 ${i === 0 ? 'bg-ink text-paper' : 'bg-paper'}`}>
-              <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${i === 0 ? 'text-volt' : 'text-copper'}`}>
-                {item.tag}
-              </span>
-              <h3 className="mt-4 font-display text-2xl">{item.title}</h3>
-              <p className={`mt-3 text-sm leading-relaxed ${i === 0 ? 'text-paper/60' : 'text-ink-3'}`}>{item.body}</p>
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
+          <div>
+            <div className="vyro-kicker text-copper">Wholesale Lines</div>
+            <h2 className="mt-2 vyro-display text-3xl sm:text-5xl text-ink">What moves through VYRO</h2>
+            <p className="mt-2 text-sm text-ink-3 max-w-lg">
+              Mill-direct grains, industrial commodities, export spices, and construction inputs.
+            </p>
+          </div>
+          <Link to="/search" className="text-sm font-semibold text-copper hover:text-ink">
+            Search all categories →
+          </Link>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {CATEGORIES.map((c) => (
+            <Link
+              key={c.name}
+              to={`/search?q=${encodeURIComponent(c.query)}`}
+              className="group bg-paper border border-ink/15 hover:border-ink hover:shadow-md transition-all duration-240 overflow-hidden flex flex-col justify-between"
+            >
+              <div>
+                <div className="relative h-36 overflow-hidden bg-bone">
+                  <img
+                    src={c.imageUrl}
+                    alt={c.name}
+                    loading="lazy"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <span className="absolute top-2 right-2 px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider bg-paper/90 backdrop-blur-sm border border-ink/10 text-ink">
+                    {c.volume}
+                  </span>
+                </div>
+                <div className="p-4">
+                  <h3 className="font-display text-xl text-ink group-hover:text-copper transition-colors leading-snug">
+                    {c.name}
+                  </h3>
+                  <p className="mt-1.5 text-xs text-ink-4 leading-relaxed line-clamp-2">{c.detail}</p>
+                </div>
+              </div>
+              <div className="p-4 pt-0 flex items-center justify-between text-xs border-t border-ink/10 pt-3 mt-2 text-copper font-medium">
+                <span>{c.count}</span>
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </div>
+            </Link>
           ))}
         </div>
-        <Link to="/search" className="mt-8 inline-block">
-          <Button>Compare live offers</Button>
-        </Link>
       </section>
 
-      <section className="bg-paper border-y border-ink/10">
-        <div className="max-w-stage mx-auto px-5 sm:px-8 py-20">
-          <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-14">
-            <div>
-              <div className="vyro-kicker">How it works</div>
-              <h2 className="mt-3 vyro-display text-4xl text-balance">Four movements. One flow.</h2>
-              <p className="mt-4 text-ink-3 max-w-md leading-relaxed">
-                No phone quotes. No informal POs. Work moves from search to delivery inside a single operating layer.
+      {/* 6. VERIFIED SUPPLIER DEPOTS SPOTLIGHT */}
+      <section className="bg-paper border-t border-ink/10 py-20">
+        <div className="max-w-stage mx-auto px-5 sm:px-8">
+          <div className="max-w-2xl mb-12">
+            <div className="vyro-kicker text-copper">Verified Supply Base</div>
+            <h2 className="mt-2 vyro-display text-3xl sm:text-5xl text-ink">Direct from primary depots and mills.</h2>
+            <p className="mt-3 text-sm text-ink-3">
+              Every supplier on VYRO operates physical warehouse facilities, audited stock inventories, and dedicated delivery dispatch fleets.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {VERIFIED_SUPPLIERS.map((s) => (
+              <div
+                key={s.name}
+                className="bg-bone border border-ink/15 overflow-hidden flex flex-col justify-between hover:border-ink hover:shadow-lg transition-all duration-300"
+              >
+                <div>
+                  <div className="relative h-48 overflow-hidden">
+                    <img
+                      src={s.image}
+                      alt={s.name}
+                      loading="lazy"
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute top-3 right-3 px-2 py-1 bg-ink text-volt text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md">
+                      <CheckCircleIcon size={12} />
+                      Verified Facility
+                    </div>
+                  </div>
+
+                  <div className="p-5 space-y-3">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-copper block">{s.category}</span>
+                    <h3 className="font-display text-xl text-ink font-semibold">{s.name}</h3>
+
+                    <div className="space-y-1.5 text-xs text-ink-3 pt-2 border-t border-ink/10">
+                      <div className="flex items-center gap-2">
+                        <span className="text-ink-4">Location:</span>
+                        <span className="font-medium text-ink">{s.location}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-ink-4">Dispatch:</span>
+                        <span className="text-ink-2">{s.coverage}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-ink-4">Inventory:</span>
+                        <span className="text-volt-dark font-semibold">{s.productsCount}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-5 pt-0">
+                  <Link
+                    to={`/search?q=${encodeURIComponent(s.name.split(' ')[0] || s.name)}`}
+                    className="w-full h-10 border border-ink/20 hover:border-ink hover:bg-ink hover:text-paper transition-colors flex items-center justify-center text-xs font-semibold uppercase tracking-wider"
+                  >
+                    View Supplier Catalog →
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 7. HOW IT WORKS (FOUR MOVEMENTS WITH VISUAL PROCESS) */}
+      <section className="bg-bone border-t border-ink/10 py-20">
+        <div className="max-w-stage mx-auto px-5 sm:px-8">
+          <div className="grid lg:grid-cols-12 gap-12 items-center">
+            <div className="lg:col-span-5 space-y-6">
+              <div className="vyro-kicker text-copper">How It Operates</div>
+              <h2 className="vyro-display text-3xl sm:text-5xl text-ink text-balance">Four movements. One continuous flow.</h2>
+              <p className="text-sm sm:text-base text-ink-3 leading-relaxed">
+                Procurement in Sri Lanka shouldn't be scattered across WhatsApp screenshots, handwritten chits, and phone tag. VYRO gives your business an auditable digital trail from live quote to delivery signature.
               </p>
-              <div className="mt-8 max-w-md">
+
+              <div className="pt-2">
                 <FlowLine
                   nodes={[
                     { label: 'Discover', state: 'done' },
@@ -481,96 +779,138 @@ export function HomePage() {
                   ]}
                 />
               </div>
-              <Link to="/how-it-works" className="mt-10 inline-block">
-                <Button variant="secondary">See the full journey</Button>
-              </Link>
+
+              <div className="pt-4 flex gap-4">
+                <Link to={user ? '/search' : '/onboarding/business'}>
+                  <Button>{user ? 'Enter Marketplace' : 'Register Your Business'}</Button>
+                </Link>
+                <Link to="/how-it-works">
+                  <Button variant="secondary">Full Walkthrough →</Button>
+                </Link>
+              </div>
             </div>
-            <ol>
-              {JOURNEY.map((s) => (
-                <li key={s.n} className="grid grid-cols-[4.5rem_1fr] gap-5 py-6 border-b border-ink/10 first:pt-0">
-                  <span className="vyro-metric text-2xl text-copper">{s.n}</span>
-                  <div>
-                    <h3 className="font-display text-2xl">{s.t}</h3>
-                    <p className="mt-2 text-sm text-ink-3 leading-relaxed">{s.b}</p>
+
+            <div className="lg:col-span-7 space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                {JOURNEY.map((s) => (
+                  <div key={s.n} className="bg-paper p-6 border border-ink/15 shadow-sm space-y-3">
+                    <span className="vyro-metric text-3xl text-copper font-bold">{s.n}</span>
+                    <h3 className="font-display text-2xl text-ink">{s.t}</h3>
+                    <p className="text-xs text-ink-3 leading-relaxed">{s.b}</p>
                   </div>
-                </li>
-              ))}
-            </ol>
+                ))}
+              </div>
+
+              {/* Live Dispatch Preview Bar */}
+              <div className="bg-paper border border-ink/15 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="size-10 bg-volt/20 flex items-center justify-center text-ink shrink-0">
+                    <TruckIcon size={22} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-copper block">Dispatch Journey</span>
+                    <span className="text-xs font-semibold text-ink">PO #2026-0841 · Western Province Route Active</span>
+                  </div>
+                </div>
+                <span className="px-3 py-1 bg-ink text-paper text-[11px] font-mono uppercase tracking-wider shrink-0">
+                  Track in Real-Time
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="max-w-stage mx-auto px-5 sm:px-8 py-20">
-        <div className="vyro-kicker">The layer</div>
-        <h2 className="mt-2 vyro-display text-4xl max-w-2xl text-balance">One identity. Several movements.</h2>
-        <div className="mt-12 divide-y divide-ink/10 border-y border-ink/10">
-          {LAYERS.map((layer) => (
-            <div key={layer.name} className="grid sm:grid-cols-[minmax(0,1fr)_7rem_1.2fr] gap-4 sm:gap-8 py-7 items-baseline">
-              <h3 className="font-display text-2xl">{layer.name}</h3>
-              <span className="text-[10px] uppercase tracking-[0.16em] text-copper">{layer.status}</span>
-              <p className="text-sm text-ink-3">{layer.body}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* 8. FAQ SECTION */}
+      <section className="bg-paper border-t border-ink/10 py-20">
+        <div className="max-w-stage mx-auto px-5 sm:px-8">
+          <div className="max-w-2xl mb-12">
+            <div className="vyro-kicker text-copper">Questions & Answers</div>
+            <h2 className="mt-2 vyro-display text-3xl sm:text-5xl text-ink">Everything you need to know.</h2>
+          </div>
 
-      <section className="bg-paper border-y border-ink/10">
-        <div className="max-w-stage mx-auto px-5 sm:px-8 py-20">
-          <div className="vyro-kicker">Questions</div>
-          <h2 className="mt-2 vyro-display text-4xl max-w-2xl text-balance">Straight answers before you register.</h2>
-          <dl className="mt-12 divide-y divide-ink/10 border-y border-ink/10">
+          <div className="grid md:grid-cols-2 gap-6">
             {FAQ.map((item) => (
-              <div key={item.q} className="grid lg:grid-cols-[minmax(0,0.9fr)_1.1fr] gap-3 lg:gap-12 py-7">
-                <dt className="font-display text-xl leading-snug">{item.q}</dt>
-                <dd className="text-sm text-ink-3 leading-relaxed">{item.a}</dd>
+              <div key={item.q} className="p-6 bg-bone border border-ink/15 space-y-3">
+                <h3 className="font-display text-xl text-ink font-semibold">{item.q}</h3>
+                <p className="text-sm text-ink-3 leading-relaxed">{item.a}</p>
               </div>
             ))}
-          </dl>
+          </div>
         </div>
       </section>
 
+      {/* 9. BOTTOM DUAL-AUDIENCE CTA WITH PHOTOGRAPHY */}
       <section className="bg-ink text-paper grain relative overflow-hidden">
-        <div className="absolute inset-0 opacity-40">
+        <div className="absolute inset-0 opacity-20 pointer-events-none">
           <FlowCanvas tone="paper" density="hero" />
         </div>
-        <div className="relative max-w-stage mx-auto px-5 sm:px-8 py-20 grid lg:grid-cols-2 gap-px">
-          <div className="lg:pr-16 pb-12 lg:pb-0 lg:border-r lg:border-paper/10">
-            <div className="flex items-center gap-3">
-              <BrandMark size={28} tone="volt" />
-              <span className="vyro-kicker text-volt">Businesses</span>
+
+        <div className="relative max-w-stage mx-auto px-5 sm:px-8 py-20 grid lg:grid-cols-2 gap-8">
+          {/* Buyer CTA Box */}
+          <div className="relative overflow-hidden border border-paper/15 p-8 sm:p-10 flex flex-col justify-between group">
+            <img
+              src="https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=800&q=80"
+              alt="Commercial procurement kitchen chef"
+              className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-30 group-hover:scale-105 transition-all duration-700"
+            />
+            <div className="relative z-10 space-y-4">
+              <div className="flex items-center gap-2">
+                <BrandMark size={24} tone="volt" />
+                <span className="vyro-kicker text-volt">For Buying Businesses</span>
+              </div>
+              <h2 className="vyro-display text-3xl sm:text-4xl text-paper">Stop chasing quotes. Start procuring.</h2>
+              <p className="text-sm text-paper/75 max-w-md">
+                Register your business in under 2 minutes, browse live LKR prices, compare multiple suppliers, and issue binding POs.
+              </p>
+              <ul className="space-y-2 text-xs text-paper/70 pt-2">
+                <li className="flex items-center gap-2">✓ Live supplier unit quotes updated daily</li>
+                <li className="flex items-center gap-2">✓ Automated multi-supplier order splitting</li>
+                <li className="flex items-center gap-2">✓ 25 Sri Lankan districts receiving delivery</li>
+              </ul>
             </div>
-            <h2 className="mt-5 vyro-display text-4xl text-balance">Start procuring this week.</h2>
-            <p className="mt-4 text-paper/60 max-w-md">
-              Register the business, search the catalog, compare suppliers, and issue the first purchase order from one workspace.
-            </p>
-            <ul className="mt-6 space-y-2 text-sm text-paper/70">
-              <li>LKR unit prices, live</li>
-              <li>Multi-supplier carts, split on checkout</li>
-              <li>Order journey you can actually follow</li>
-            </ul>
-            <Link to={user ? '/search' : '/onboarding/business'} className="mt-8 inline-block">
-              <Button className="bg-volt text-ink hover:bg-volt-glow">{user ? 'Open catalog' : 'Register a business'}</Button>
-            </Link>
+            <div className="relative z-10 pt-8">
+              <Link to={user ? '/search' : '/onboarding/business'}>
+                <Button className="bg-volt text-ink hover:bg-volt-glow font-bold uppercase tracking-wider text-xs px-6 py-3">
+                  {user ? 'Browse Live Catalog →' : 'Register Your Business →'}
+                </Button>
+              </Link>
+            </div>
           </div>
-          <div className="lg:pl-16">
-            <div className="vyro-kicker text-copper">Suppliers</div>
-            <h2 className="mt-5 vyro-display text-4xl text-balance">Put your catalog in the flow.</h2>
-            <p className="mt-4 text-paper/60 max-w-md">
-              Receive purchase orders from restaurants, hotels, retailers and builders — without chasing informal quotes.
-            </p>
-            <ul className="mt-6 space-y-2 text-sm text-paper/70">
-              <li>Incoming purchase orders awaiting acceptance</li>
-              <li>One identity across pricing, inventory, and delivery</li>
-              <li>Island-wide demand, one inbox</li>
-            </ul>
-            <Link to="/onboarding/supplier" className="mt-8 inline-block">
-              <Button variant="secondary" className="text-paper shadow-[inset_0_0_0_1px_rgba(250,247,240,0.28)] hover:bg-paper hover:text-ink">
-                List as a supplier
-              </Button>
-            </Link>
+
+          {/* Supplier CTA Box */}
+          <div className="relative overflow-hidden border border-paper/15 p-8 sm:p-10 flex flex-col justify-between group">
+            <img
+              src="https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=800&q=80"
+              alt="Wholesale warehouse manager"
+              className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-30 group-hover:scale-105 transition-all duration-700"
+            />
+            <div className="relative z-10 space-y-4">
+              <div className="flex items-center gap-2">
+                <BrandMark size={24} tone="paper" />
+                <span className="vyro-kicker text-copper">For Wholesale Suppliers</span>
+              </div>
+              <h2 className="vyro-display text-3xl sm:text-4xl text-paper">Put your inventory in the flow.</h2>
+              <p className="text-sm text-paper/75 max-w-md">
+                Connect your mill, factory, or distribution depot directly to commercial buyers across Sri Lanka without middleman fees.
+              </p>
+              <ul className="space-y-2 text-xs text-paper/70 pt-2">
+                <li className="flex items-center gap-2">✓ Incoming digital POs directly into your dashboard</li>
+                <li className="flex items-center gap-2">✓ Set your own minimum order quantities & lead times</li>
+                <li className="flex items-center gap-2">✓ Direct commercial buyer relationships</li>
+              </ul>
+            </div>
+            <div className="relative z-10 pt-8">
+              <Link to="/onboarding/supplier">
+                <Button variant="secondary" className="text-paper border-paper/30 hover:bg-paper hover:text-ink font-bold uppercase tracking-wider text-xs px-6 py-3">
+                  List as Authorized Supplier →
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
     </div>
   );
 }
+

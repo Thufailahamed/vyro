@@ -23,9 +23,53 @@ export function Layout() {
   const location = useLocation();
   const isAuth = location.pathname === '/login' || location.pathname === '/signup';
   if (isAuth) return <Outlet />;
+  const isOnboarding = location.pathname.startsWith('/onboarding');
+  if (isOnboarding) return <OnboardingShell />;
   const isMarketing = ['/', '/about', '/how-it-works'].includes(location.pathname);
   if (isMarketing) return <MarketingShell />;
   return <WorkspaceShell />;
+}
+
+function OnboardingShell() {
+  const { user, signOut } = useAuth();
+  return (
+    <div className="min-h-dvh bg-bone text-ink flex flex-col">
+      <header className="sticky top-0 z-40 border-b border-ink/10 bg-bone/95 backdrop-blur-sm">
+        <div className="max-w-stage mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-4">
+          <Link to="/" className="flex items-center gap-3">
+            <BrandMark size={28} />
+            <BrandWordmark size="sm" />
+          </Link>
+          <div className="flex items-center gap-4 text-xs">
+            <Link to="/search" className="text-ink-4 hover:text-ink transition-colors">
+              Browse Catalog
+            </Link>
+            {user && (
+              <div className="hidden sm:flex items-center gap-3 pl-4 border-l border-ink/10">
+                <span className="text-ink-3">{user.email}</span>
+                <button
+                  type="button"
+                  onClick={() => signOut()}
+                  className="text-copper hover:text-ink transition-colors cursor-pointer"
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+      <main className="flex-1 max-w-stage mx-auto w-full px-5 sm:px-8 py-8 sm:py-12">
+        <Outlet />
+      </main>
+      <footer className="border-t border-ink/10 py-6 bg-bone text-[11px] text-ink-4">
+        <div className="max-w-stage mx-auto px-5 sm:px-8 flex flex-col sm:flex-row justify-between items-center gap-2">
+          <span>VYRO Platform · Commercial Procurement Network</span>
+          <span>Encrypted Audit Trail · Sri Lanka</span>
+        </div>
+      </footer>
+    </div>
+  );
 }
 
 function MarketingShell() {

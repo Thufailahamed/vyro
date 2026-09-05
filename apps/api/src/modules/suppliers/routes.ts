@@ -5,18 +5,28 @@ import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import type { Ctx } from '../../middleware/session';
 import { onboardSupplier } from './service';
+import { findBusinessTypeBySlug, listBusinessTypes } from '../businesses/repository';
 import { findSupplierById, listMySuppliers } from './repository';
 
 const router = new Hono<{ Bindings: Env }>();
 
-router.post('/', session(), async (c) => {
+// Public endpoint to retrieve active supplier categories/types
+router.get('/types', async (c) => {
+  const types = await listBusinessTypes(c.env.DB);
+  return c.json({ types });
+});
+
+const handleSupplierOnboard = async (c: any) => {
   const ctx = c.get('ctx') as Ctx;
   const parsed = onboardingSupplierSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success)
     throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
   const out = await onboardSupplier(c.env.DB, ctx.userId, parsed.data);
   return c.json(out, 201);
-});
+};
+
+router.post('/', session(), handleSupplierOnboard);
+router.post('/onboard', session(), handleSupplierOnboard);
 
 router.get('/me', session(), async (c) => {
   const ctx = c.get('ctx') as Ctx;

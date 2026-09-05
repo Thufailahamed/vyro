@@ -10,7 +10,7 @@ const router = new Hono<{ Bindings: Env }>();
 
 const querySchema = z
   .object({
-    q: z.string().min(1).max(120),
+    q: z.string().max(120).optional().default(''),
     categoryId: z.string().min(1).optional(),
     cursor: z.string().min(1).optional(),
     limit: z.coerce.number().int().min(1).max(50).optional().default(20),
@@ -32,7 +32,7 @@ interface SearchHit {
 
 router.get('/products', async (c) => {
   const parsed = querySchema.safeParse({
-    q: c.req.query('q'),
+    q: c.req.query('q') ?? '',
     categoryId: c.req.query('categoryId') ?? undefined,
     cursor: c.req.query('cursor') ?? undefined,
     limit: c.req.query('limit') ?? undefined,
@@ -40,9 +40,12 @@ router.get('/products', async (c) => {
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid query', parsed.error.flatten());
 
   const db = getDb(c.env.DB);
-  const pattern = `%${parsed.data.q.toLowerCase()}%`;
+  const qStr = parsed.data.q.trim().toLowerCase();
 
-  const conds: any[] = [isNull(products.deletedAt), sql`lower(${products.name}) like ${pattern}`];
+  const conds: any[] = [isNull(products.deletedAt)];
+  if (qStr) {
+    conds.push(sql`lower(${products.name}) like ${`%${qStr}%`}`);
+  }
   if (parsed.data.categoryId) conds.push(eq(products.categoryId, parsed.data.categoryId));
   if (parsed.data.cursor) conds.push(gt(products.id, parsed.data.cursor));
 
