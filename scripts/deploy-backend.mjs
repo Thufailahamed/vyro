@@ -12,11 +12,18 @@ const shouldSeed = args.includes('--seed');
 const isLocal = args.includes('--local');
 const envFlag = isLocal ? '--local' : '--remote';
 
+let sha = 'dev';
+try {
+  sha = execSync('git rev-parse --short HEAD').toString().trim();
+} catch {}
+const deployedAt = new Date().toISOString();
+
 console.log(`\n🚀 Deploying VYRO Database & Backend (${isLocal ? 'LOCAL' : 'CLOUDFLARE LIVE'})...\n`);
+console.log(`   sha=${sha} deployedAt=${deployedAt}\n`);
 
 function run(command) {
   console.log(`➜ ${command}`);
-  execSync(command, { stdio: 'inherit', cwd: rootDir });
+  execSync(command, { stdio: 'inherit', cwd: rootDir, env: { ...process.env, VERSION: sha, DEPLOYED_AT: deployedAt } });
 }
 
 try {

@@ -14,6 +14,7 @@ router.get('/', async (c) => {
   return c.json(
     {
       ok: dbOk,
+      ready: dbOk,
       db: dbOk ? 'ok' : 'down',
       version: c.env.VERSION ?? 'dev',
       ts: new Date().toISOString(),
@@ -21,5 +22,13 @@ router.get('/', async (c) => {
     dbOk ? 200 : 503,
   );
 });
+
+router.get('/version', (c) =>
+  c.json({
+    version: c.env.VERSION ?? 'dev',
+    env: c.env.ENVIRONMENT,
+    deployedAt: c.env.DEPLOYED_AT ?? null,
+  }),
+);
 
 export default router;
