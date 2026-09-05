@@ -37,6 +37,9 @@ const BusinessDetailPage = lazy(() => import('./admin/BusinessDetailPage').then(
 const UsersPage = lazy(() => import('./admin/UsersPage').then((m) => ({ default: m.UsersPage })));
 const DisputedPage = lazy(() => import('./admin/DisputedAndAudit').then((m) => ({ default: m.DisputedPage })));
 const AuditPage = lazy(() => import('./admin/DisputedAndAudit').then((m) => ({ default: m.AuditPage })));
+const RolesPage = lazy(() => import('./admin/RolesPage').then((m) => ({ default: m.RolesPage })));
+const AdminActivityPage = lazy(() => import('./admin/AdminActivityPage').then((m) => ({ default: m.AdminActivityPage })));
+const InviteAcceptPage = lazy(() => import('./admin/InviteAcceptPage').then((m) => ({ default: m.InviteAcceptPage })));
 
 const SupplierDashboardPage = lazy(() => import('./supplier/DashboardPage').then((m) => ({ default: m.SupplierDashboardPage })));
 const SupplierProductsPage = lazy(() => import('./supplier/ProductsPage').then((m) => ({ default: m.SupplierProductsPage })));
@@ -100,6 +103,7 @@ export default function App() {
         }
       >
         <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route path="/admin/invite/accept" element={<InviteAcceptPage />} />
         <Route path="/admin" element={<AdminShell />}>
           <Route index element={<RequireAdmin><AdminHomePage /></RequireAdmin>} />
           <Route path="suppliers" element={<RequireAdmin><SuppliersPage /></RequireAdmin>} />
@@ -109,6 +113,8 @@ export default function App() {
           <Route path="disputed" element={<RequireAdmin><DisputedPage /></RequireAdmin>} />
           <Route path="audit" element={<RequireAdmin><AuditPage /></RequireAdmin>} />
           <Route path="users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
+          <Route path="activity" element={<RequireAdmin><AdminActivityPage /></RequireAdmin>} />
+          <Route path="roles" element={<RequireAdmin><RolesPage /></RequireAdmin>} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
       </Route>

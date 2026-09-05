@@ -3,11 +3,20 @@ import { Link, NavLink, Outlet, useNavigate, Navigate } from 'react-router-dom';
 import { api, ApiError } from '@/lib/api';
 import { BrandMark, BrandWordmark } from '@/components/brand/BrandMark';
 import { cn } from '@vyro/ui';
+import { hasPermission, type AdminRole } from '@vyro/auth';
+import { RoleBadge } from './RoleBadge';
+
+export interface AdminUser {
+  isAdmin: boolean;
+  email?: string;
+  name?: string;
+  adminRole?: AdminRole | null;
+}
 
 export interface AdminAuthState {
-  user: { isAdmin: boolean; email?: string; name?: string } | null;
-  setUser: (u: { isAdmin: boolean; email?: string; name?: string } | null) => void;
-  refresh: () => Promise<{ isAdmin: boolean; email?: string; name?: string } | null>;
+  user: AdminUser | null;
+  setUser: (u: AdminUser | null) => void;
+  refresh: () => Promise<AdminUser | null>;
   loading: boolean;
 }
 
@@ -21,12 +30,12 @@ const AdminAuthContext = createContext<AdminAuthState>({
 export const useAdminAuth = () => useContext(AdminAuthContext);
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<{ isAdmin: boolean; email?: string; name?: string } | null>(null);
+  const [user, setUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = async () => {
     try {
-      const d = await api.get<{ user: { isAdmin: boolean; email?: string; name?: string } | null }>('/auth/me');
+      const d = await api.get<{ user: AdminUser | null }>('/auth/me');
       setUser(d.user);
       return d.user;
     } catch (e) {
@@ -98,10 +107,25 @@ export function AdminShell() {
             <NavLink to="/admin/users" className={linkClass}>
               Users
             </NavLink>
+            {user.adminRole && hasPermission(user.adminRole, 'audit:read') ? (
+              <NavLink to="/admin/activity" className={linkClass}>
+                Activity
+              </NavLink>
+            ) : null}
+            {user.adminRole && hasPermission(user.adminRole, 'admin:role_change') ? (
+              <NavLink to="/admin/roles" className={linkClass}>
+                Roles
+              </NavLink>
+            ) : null}
           </nav>
         ) : (
           <p className="p-4 text-xs text-paper/40">Sign in to administer</p>
         )}
+        {user?.adminRole ? (
+          <div className="px-3 py-2 border-t border-paper/10">
+            <RoleBadge role={user.adminRole} />
+          </div>
+        ) : null}
         <div className="p-3 border-t border-paper/10 flex items-center justify-between text-xs">
           <Link to="/" className="text-paper/40 hover:text-volt">
             ← Web
