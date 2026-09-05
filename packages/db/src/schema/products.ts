@@ -14,6 +14,8 @@ export const products = sqliteTable(
     unit: text('unit').notNull(),
     packSize: text('pack_size'),
     active: integer('active', { mode: 'boolean' }).notNull().default(true),
+    featured: integer('featured', { mode: 'boolean' }).notNull().default(false),
+    moderationNotes: text('moderation_notes'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
     deletedAt: integer('deleted_at'),
@@ -21,6 +23,7 @@ export const products = sqliteTable(
   (t) => ({
     categoryIdx: index('products_category_idx').on(t.categoryId),
     nameIdx: index('products_name_idx').on(t.name),
+    featuredIdx: index('products_featured_idx').on(t.featured),
   }),
 );
 

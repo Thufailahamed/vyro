@@ -13,5 +13,6 @@ export * from './adminUsers';
 export * from './adminInvites';
 export * from './adminRoles';
 export * from './adminAudit';
+export * from './adminCatalog';
 export * from './businessTypes';
 export * from './supplierTypes';
