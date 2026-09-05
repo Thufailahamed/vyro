@@ -4,9 +4,11 @@ export interface Env {
   CACHE: KVNamespace;
   AUDIT_QUEUE: Queue;
   NOTIFICATIONS_QUEUE: Queue;
+  METRICS?: AnalyticsEngineDataset;
   ENVIRONMENT: string;
   WEB_ORIGIN: string;
   ADMIN_ORIGIN: string;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
+  VERSION?: string;
 }
