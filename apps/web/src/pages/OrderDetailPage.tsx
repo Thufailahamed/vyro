@@ -8,6 +8,7 @@ import { formatLKR } from '@/lib/format';
 import { ArrowLeftIcon } from '@/components/icons';
 import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, Surface } from '@/components/brand/Surface';
+import { MessageThread } from '@/components/MessageThread';
 
 interface OrderDetail {
   order: {
@@ -192,6 +193,8 @@ export function OrderDetailPage() {
           </Surface>
         </div>
       </div>
+
+      <MessageThread purchaseOrderId={order.id} />
     </div>
   );
 }
