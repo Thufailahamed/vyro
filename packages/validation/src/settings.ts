@@ -16,6 +16,7 @@ export const userNotificationsPatchSchema = z
     notifyOrderUpdates: z.boolean().optional(),
     notifyMessages: z.boolean().optional(),
     notifyMarketing: z.boolean().optional(),
+    marketingOptIn: z.boolean().optional(),
   })
   .strict();
 

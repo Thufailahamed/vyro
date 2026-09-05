@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { eq } from 'drizzle-orm';
 import type { Env } from '../../env';
 import { session } from '../../middleware/session';
 import type { Ctx } from '../../middleware/session';
@@ -11,6 +12,10 @@ import {
 } from '@vyro/validation/settings';
 import { getOrCreateUserSettings, patchUserSettings } from './repository';
 import { newId } from '@vyro/shared';
+import { getDb } from '@vyro/db';
+import { users } from '@vyro/db/schema';
+import exportRouter from './export';
+import deleteRouter from './delete';
 
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const avatarUploadSchema = z
@@ -41,10 +46,13 @@ router.patch('/me', async (c) => {
 router.get('/me/notifications', async (c) => {
   const ctx = c.get('ctx') as Ctx;
   const s = await getOrCreateUserSettings(c.env.DB, ctx.userId);
+  const db = getDb(c.env.DB);
+  const user = await db.select({ marketingOptIn: users.marketingOptIn }).from(users).where(eq(users.id, ctx.userId)).get();
   return c.json({
     notifyOrderUpdates: s.notifyOrderUpdates === 1,
     notifyMessages: s.notifyMessages === 1,
     notifyMarketing: s.notifyMarketing === 1,
+    marketingOptIn: user?.marketingOptIn ?? true,
   });
 });
 
@@ -52,11 +60,19 @@ router.patch('/me/notifications', async (c) => {
   const ctx = c.get('ctx') as Ctx;
   const parsed = userNotificationsPatchSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
-  const updated = await patchUserSettings(c.env.DB, ctx.userId, parsed.data);
+  const { marketingOptIn, ...rest } = parsed.data;
+  const updated = await patchUserSettings(c.env.DB, ctx.userId, rest);
+  let marketingOptInValue: boolean | undefined;
+  if (marketingOptIn !== undefined) {
+    const db = getDb(c.env.DB);
+    await db.update(users).set({ marketingOptIn }).where(eq(users.id, ctx.userId)).run();
+    marketingOptInValue = marketingOptIn;
+  }
   return c.json({
     notifyOrderUpdates: updated.notifyOrderUpdates === 1,
     notifyMessages: updated.notifyMessages === 1,
     notifyMarketing: updated.notifyMarketing === 1,
+    ...(marketingOptInValue !== undefined ? { marketingOptIn: marketingOptInValue } : {}),
   });
 });
 
@@ -112,5 +128,8 @@ router.get('/avatars/:key{.*}', async (c) => {
   headers.set('cache-control', 'public, max-age=31536000, immutable');
   return new Response(object.body, { headers });
 });
+
+router.route('/', exportRouter);
+router.route('/', deleteRouter);
 
 export default router;

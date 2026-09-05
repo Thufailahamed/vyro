@@ -18,6 +18,7 @@ import { SupplierOrdersPage } from './pages/SupplierOrdersPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { NotificationsPage } from './pages/NotificationsPage';
+import { LegalPage } from './pages/LegalPage';
 
 import { AdminAuthProvider, AdminShell, RequireAdmin } from './admin/Shell';
 import { AdminHomePage } from './admin/HomePage';
@@ -63,6 +64,9 @@ export default function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/legal/terms" element={<LegalPage kind="terms" />} />
+        <Route path="/legal/privacy" element={<LegalPage kind="privacy" />} />
+        <Route path="/legal/cookies" element={<LegalPage kind="cookies" />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
 
