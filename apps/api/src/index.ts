@@ -5,7 +5,9 @@ import { cors } from './middleware/cors';
 import { securityHeaders } from './middleware/securityHeaders';
 import { rateLimit } from './middleware/rateLimit';
 import { verifyCsrf } from './middleware/verifyCsrf';
+import { accessLog } from './middleware/accessLog';
 import { errorEnvelope, HttpError } from './lib/errors';
+import { logger } from './lib/logger';
 import authRouter from './modules/auth/routes';
 import businessRouter from './modules/businesses/routes';
 import supplierRouter from './modules/suppliers/routes';
@@ -38,6 +40,7 @@ import cspReportRouter from './modules/cspReport/routes';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
+app.use('*', accessLog());
 app.use('*', securityHeaders());
 app.use('*', cors());
 app.use('*', rateLimit({ key: 'global', limit: 60, window: 60 }));
@@ -49,12 +52,23 @@ app.use('/api/*', verifyCsrf());
 
 app.onError((err, c) => {
   const env = errorEnvelope(err);
+  const ctx = c.get('ctx') as { userId?: string } | undefined;
+  const path = (() => { try { return new URL(c.req.url).pathname; } catch { return '?'; } })();
+  logger.error('http.error', {
+    method: c.req.method,
+    path,
+    status: env.status,
+    requestId: c.get('requestId'),
+    userId: ctx?.userId,
+    err: err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : String(err),
+  });
   return c.json(env.body, env.status as 400 | 401 | 403 | 404 | 409 | 429 | 500);
 });
 
 void HttpError;
 
-app.get('/api/health', (c) => c.json({ ok: true }));
+import healthRouter from './modules/health/routes';
+app.route('/api/health', healthRouter);
 app.route('/api/auth', authRouter);
 app.route('/api/businesses', businessRouter);
 app.route('/api/suppliers', supplierRouter);

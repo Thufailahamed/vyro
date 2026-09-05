@@ -3,7 +3,7 @@ import app from '../src/index';
 import type { Env } from '../src/env';
 
 const env: Env = {
-  DB: {} as D1Database,
+  DB: { prepare: () => ({ first: async () => ({ ok: 1 }) }) } as unknown as D1Database,
   PRODUCTS: {} as R2Bucket,
   CACHE: {} as KVNamespace,
   AUDIT_QUEUE: {} as Queue,
@@ -19,7 +19,9 @@ describe('health', () => {
   it('returns ok', async () => {
     const res = await app.request('/api/health', {}, env);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    const body = (await res.json()) as any;
+    expect(body.ok).toBe(true);
+    expect(typeof body.ts).toBe('string');
   });
 
   it('rejects disallowed origin with no CORS headers', async () => {
