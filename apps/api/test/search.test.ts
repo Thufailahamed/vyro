@@ -26,9 +26,9 @@ vi.mock('@vyro/db', () => ({
 import app from '../src';
 
 describe('search module validation', () => {
-  it('rejects missing q', async () => {
+  it('accepts missing q (returns empty-string search)', async () => {
     const res = await app.request('/api/search/products', { method: 'GET' }, { DB: {} as D1Database, ENVIRONMENT: 'test' } as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
   });
 
   it('rejects limit > 50', async () => {
