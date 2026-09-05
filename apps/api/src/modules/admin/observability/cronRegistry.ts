@@ -26,6 +26,12 @@ export const CRON_JOBS: CronJob[] = [
     description: 'Prune expired sessions',
     handler: async () => undefined,
   },
+  {
+    name: 'audit-export-runner',
+    schedule: '0 4 * * *',
+    description: 'Run scheduled audit exports (stub: no delivery in v1)',
+    handler: async () => undefined,
+  },
 ];
 
 export function getCronJob(name: string): CronJob | undefined {

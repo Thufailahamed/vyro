@@ -38,3 +38,4 @@ export * from './webhooks';
 export * from './webhookDeliveries';
 export * from './adminImpersonations';
 export * from './dataExportRequests';
+export * from './auditExportSchedules';

@@ -1,10 +1,12 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useNavigate, Navigate } from 'react-router-dom';
 import { api, ApiError } from '@/lib/api';
 import { BrandMark, BrandWordmark } from '@/components/brand/BrandMark';
 import { cn } from '@vyro/ui';
 import { hasPermission, type AdminRole } from '@vyro/auth';
 import { RoleBadge } from './RoleBadge';
+import { GlobalSearchBar } from './GlobalSearchBar';
+import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 
 export interface AdminUser {
   isAdmin: boolean;
@@ -80,6 +82,8 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 export function AdminShell() {
   const { user, setUser } = useAdminAuth();
   const navigate = useNavigate();
+  const searchRef = useRef<HTMLInputElement>(null);
+  const shortcuts = useKeyboardShortcuts({ focusSearch: () => searchRef.current?.focus() });
   return (
     <div className="min-h-dvh bg-bone text-ink lg:flex">
       <aside className="hidden lg:flex w-56 shrink-0 flex-col bg-void text-paper min-h-dvh sticky top-0">
@@ -87,6 +91,9 @@ export function AdminShell() {
           <BrandMark size={24} tone="volt" />
           <BrandWordmark tone="paper" size="sm" eyebrow="Control" />
         </Link>
+        <div className="px-3 py-2 border-b border-paper/10">
+          <GlobalSearchBar ref={searchRef} />
+        </div>
         {user ? (
           <nav className="flex-1 px-2 py-4 space-y-0.5">
             <NavLink to="/admin" end className={linkClass}>
@@ -205,6 +212,30 @@ export function AdminShell() {
           <Outlet />
         </main>
       </div>
+      {shortcuts.helpOpen ? (
+        <div
+          className="fixed inset-0 z-50 bg-ink/60 flex items-center justify-center p-4"
+          onClick={() => shortcuts.setHelpOpen(false)}
+        >
+          <div
+            className="bg-paper border border-ink/10 rounded-lg p-6 max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-medium mb-3">Keyboard shortcuts</h3>
+            <table className="w-full text-sm">
+              <tbody>
+                {shortcuts.SHORTCUTS.map(([key, desc]) => (
+                  <tr key={key} className="border-t border-ink/10">
+                    <td className="py-1 font-mono text-xs">{key}</td>
+                    <td className="py-1 text-ink-500">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-xs text-ink-500 mt-3">Press ? or Esc to close.</p>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

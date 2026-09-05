@@ -59,6 +59,8 @@ import adminImpersonationRouter from './modules/admin/security/impersonationRout
 import adminDataExportRouter from './modules/admin/security/dataExportRoutes';
 import adminHealthRouter from './modules/admin/observability/healthRoutes';
 import adminCronRouter from './modules/admin/observability/cronRoutes';
+import adminSearchRouter from './modules/admin/search/searchRoutes';
+import adminExportSchedulesRouter from './modules/admin/audit/exportSchedulesRoutes';
 import businessAnalyticsRouter from './modules/analytics/business/routes';
 import homeRouter from './modules/home/routes';
 import cspReportRouter from './modules/cspReport/routes';
@@ -147,6 +149,8 @@ app.route('/api/admin/impersonate', adminImpersonationRouter);
 app.route('/api/admin/data-export', adminDataExportRouter);
 app.route('/api/admin/health/dashboard', adminHealthRouter);
 app.route('/api/admin/cron', adminCronRouter);
+app.route('/api/admin/search', adminSearchRouter);
+app.route('/api/admin/audit/exports', adminExportSchedulesRouter);
 app.route('/api/analytics/business', businessAnalyticsRouter);
 app.route('/api/home', homeRouter);
 app.route('/api/csp-report', cspReportRouter);

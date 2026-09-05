@@ -287,10 +287,44 @@ Sign in as super_admin. Visit `/admin/observability`. Two tabs.
 
 ### 7h.2 Cron registry + trigger
 
-1. GET `/api/admin/cron` → 200, `{jobs: [{name, schedule, description}, ...]}` (3 stub jobs).
+1. GET `/api/admin/cron` → 200, `{jobs: [{name, schedule, description}, ...]}` (4 stub jobs incl. `audit-export-runner`).
 2. POST `/api/admin/cron/trigger` with `{name: 'daily-purge'}` → 200, `{ok: true, name: 'daily-purge'}`. Audit `cron.trigger`.
 3. POST with unknown name → 404.
 4. As ops → 403 (no cron:trigger, only read).
+
+## 7i. Admin UX polish (T8)
+
+Cross-role features: global search, audit export scheduling, saved views, keyboard shortcuts.
+
+### 7i.1 Global search
+
+1. GET `/api/admin/search?q=foo` as super_admin → 200 with `users, suppliers, businesses, products, orders, abuseReports` groups (only those with matches).
+2. As finance → 200 with only `users, suppliers, businesses, products, orders` (no `abuseReports`).
+3. GET `/api/admin/search?q=` → 400.
+4. Press `Cmd/Ctrl+K` or `/` in admin shell → search input focuses; type → dropdown shows grouped results.
+
+### 7i.2 Audit export scheduling
+
+1. POST `/api/admin/audit/exports` with `{frequency: 'daily', email: 'me@x.y', format: 'csv'}` → 201 with schedule row. Audit `audit_export.create`.
+2. GET `/api/admin/audit/exports` → list contains the schedule.
+3. DELETE `/api/admin/audit/exports/<id>` → 200, `active: false`. Audit `audit_export.cancel`.
+4. As finance → 403 (no `audit:export`).
+
+### 7i.3 Saved views
+
+1. Visit a list page (e.g. `/admin/money`). Filter by status. Click "Save current as…" → enter name → save.
+2. Saved view chip appears; click chip → filters re-apply.
+3. Click × on chip → removes saved view.
+4. Refresh page → saved view persists (localStorage).
+
+### 7i.4 Keyboard shortcuts
+
+1. Press `?` → help overlay opens listing all shortcuts.
+2. Press `Esc` → overlay closes.
+3. Press `g` then `o` (within 1.5s) → navigate to `/admin`.
+4. Press `g` then `u` → `/admin/users`. Press `g` then `a` → `/admin/audit`.
+5. Press `Cmd/Ctrl+K` or `/` → global search input focuses.
+6. Typing in any input → chord shortcuts ignored.
 
 ## 8. Notifications
 
