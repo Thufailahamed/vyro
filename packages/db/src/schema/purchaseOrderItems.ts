@@ -12,6 +12,8 @@ export const purchaseOrderItems = sqliteTable('purchase_order_items', {
     .references(() => supplierProducts.id),
   productNameSnapshot: text('product_name_snapshot').notNull(),
   unitPriceCents: integer('unit_price_cents').notNull(),
+  unitPriceCentsSnapshot: integer('unit_price_cents_snapshot').notNull().default(0),
+  discountPctSnapshot: integer('discount_pct_snapshot').notNull().default(0),
   quantity: integer('quantity').notNull(),
   lineTotalCents: integer('line_total_cents').notNull(),
 });

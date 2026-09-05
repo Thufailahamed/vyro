@@ -21,6 +21,7 @@ import {
 import type { TransitionInput } from './repository';
 import { canTransition, OrderStatus } from '@vyro/shared';
 import { recordAudit } from '../supplierProducts/repository';
+import { resolveTier, applyTier, type TierSet } from '../cart/pricing';
 
 function tsForStatus(to: string): Record<string, number> {
   const now = Date.now();
@@ -91,7 +92,13 @@ export const checkoutService = {
       for (const i of poItemsRaw) {
         const o = map.get(i.supplierProductId);
         if (!o) continue;
-        const lineTotal = o.sp.priceCents * i.quantity;
+        const tierSet: TierSet = {
+          tier1MinQty: o.sp.tier1MinQty, tier1DiscountPct: o.sp.tier1DiscountPct,
+          tier2MinQty: o.sp.tier2MinQty, tier2DiscountPct: o.sp.tier2DiscountPct,
+          tier3MinQty: o.sp.tier3MinQty, tier3DiscountPct: o.sp.tier3DiscountPct,
+        };
+        const tier = resolveTier(tierSet, i.quantity);
+        const lineTotal = applyTier(o.sp.priceCents, i.quantity, tier);
         subtotal += lineTotal;
         lineRows.push({
           id: newId(),
@@ -99,6 +106,8 @@ export const checkoutService = {
           supplierProductId: o.sp.id,
           productNameSnapshot: o.product.name,
           unitPriceCents: o.sp.priceCents,
+          unitPriceCentsSnapshot: o.sp.priceCents,
+          discountPctSnapshot: tier?.discountPct ?? 0,
           quantity: i.quantity,
           lineTotalCents: lineTotal,
         });

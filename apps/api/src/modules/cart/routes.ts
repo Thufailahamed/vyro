@@ -17,6 +17,7 @@ import {
   listCartItems,
   upsertCartItem,
 } from './repository';
+import { resolveTier, nextTier, applyTier, discountCents, type TierSet } from './pricing';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -78,26 +79,45 @@ router.get('/', session(), async (c) => {
     }
     enriched = items.map((i) => {
       const o = map.get(i.supplierProductId);
-      return o
-        ? {
-            id: i.id,
-            quantity: i.quantity,
-            priceCents: o.sp.priceCents,
-            lineTotalCents: o.sp.priceCents * i.quantity,
-            product: {
-              ...o.product,
-              imageUrl: imageMap.get(o.product.id) ?? null,
-            },
-            supplier: o.supplier,
-            offer: { id: o.sp.id, minOrderQty: o.sp.minOrderQty, leadTimeDays: o.sp.leadTimeDays, availabilityStatus: o.sp.availabilityStatus },
-          }
-        : null;
+      if (!o) return null;
+      const tierSet: TierSet = {
+        tier1MinQty: o.sp.tier1MinQty, tier1DiscountPct: o.sp.tier1DiscountPct,
+        tier2MinQty: o.sp.tier2MinQty, tier2DiscountPct: o.sp.tier2DiscountPct,
+        tier3MinQty: o.sp.tier3MinQty, tier3DiscountPct: o.sp.tier3DiscountPct,
+      };
+      const best = resolveTier(tierSet, i.quantity);
+      const lineTotal = applyTier(o.sp.priceCents, i.quantity, best);
+      const disc = discountCents(o.sp.priceCents, i.quantity, best);
+      return {
+        id: i.id,
+        quantity: i.quantity,
+        priceCents: o.sp.priceCents,
+        lineTotalCents: lineTotal,
+        discountCents: disc,
+        bestTier: best,
+        nextTier: best ? null : nextTier(tierSet, i.quantity),
+        product: {
+          ...o.product,
+          imageUrl: imageMap.get(o.product.id) ?? null,
+        },
+        supplier: o.supplier,
+        offer: { id: o.sp.id, minOrderQty: o.sp.minOrderQty, leadTimeDays: o.sp.leadTimeDays, availabilityStatus: o.sp.availabilityStatus },
+      };
     }).filter(Boolean);
   }
 
-  const subtotal = enriched.reduce((s, e) => s + e.lineTotalCents, 0);
+  const subtotalCents = enriched.reduce((s, e) => s + (e!.priceCents * e!.quantity), 0);
+  const discountTotalCents = enriched.reduce((s, e) => s + e!.discountCents, 0);
+  const totalCents = enriched.reduce((s, e) => s + e!.lineTotalCents, 0);
   const supplierIds = new Set(enriched.map((e) => e!.supplier.id));
-  return c.json({ cart: { id: cart.id, status: cart.status }, items: enriched, subtotalCents: subtotal, supplierCount: supplierIds.size });
+  return c.json({
+    cart: { id: cart.id, status: cart.status },
+    items: enriched,
+    subtotalCents,
+    discountTotalCents,
+    totalCents,
+    supplierCount: supplierIds.size,
+  });
 });
 
 router.post('/items', session(), async (c) => {

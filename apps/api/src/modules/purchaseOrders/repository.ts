@@ -37,6 +37,8 @@ export async function insertPoItem(
     supplierProductId: string;
     productNameSnapshot: string;
     unitPriceCents: number;
+    unitPriceCentsSnapshot: number;
+    discountPctSnapshot: number;
     quantity: number;
     lineTotalCents: number;
   },
