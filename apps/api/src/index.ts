@@ -6,6 +6,7 @@ import { securityHeaders } from './middleware/securityHeaders';
 import { rateLimit } from './middleware/rateLimit';
 import { verifyCsrf } from './middleware/verifyCsrf';
 import { accessLog } from './middleware/accessLog';
+import { cacheControl } from './middleware/cacheControl';
 import { errorEnvelope, HttpError } from './lib/errors';
 import { logger } from './lib/logger';
 import authRouter from './modules/auth/routes';
@@ -48,6 +49,8 @@ app.use('/api/auth/*', rateLimit({ key: 'auth', limit: 20, window: 60 }));
 app.use('/api/auth/login', rateLimit({ key: 'auth-login', limit: 5, window: 60 }));
 app.use('/api/auth/forgot-password', rateLimit({ key: 'auth-forgot', limit: 5, window: 60 }));
 app.use('/api/auth/2fa/*', rateLimit({ key: 'auth-2fa', limit: 10, window: 60 }));
+app.use('/api/categories/*', cacheControl({ public: true, maxAge: 3600 }));
+app.use('/api/products/*', cacheControl({ public: true, maxAge: 300 }));
 app.use('/api/*', verifyCsrf());
 
 app.onError((err, c) => {
