@@ -86,6 +86,26 @@ router.post('/sign-in', handleSignIn);
 router.post('/signout', handleSignOut);
 router.post('/sign-out', handleSignOut);
 
+router.post('/forget-password', async (c) => {
+  const auth = createAuth(c.env);
+  const res = await auth.api.requestPasswordReset({
+    body: await c.req.json().catch(() => ({})),
+    headers: c.req.raw.headers,
+    asResponse: true,
+  });
+  return res;
+});
+
+router.post('/reset-password', async (c) => {
+  const auth = createAuth(c.env);
+  const res = await auth.api.resetPassword({
+    body: await c.req.json().catch(() => ({})),
+    headers: c.req.raw.headers,
+    asResponse: true,
+  });
+  return res;
+});
+
 router.get('/me', async (c) => {
   const auth = createAuth(c.env);
   const session = await auth.api.getSession({ headers: c.req.raw.headers });

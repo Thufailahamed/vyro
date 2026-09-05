@@ -4,6 +4,8 @@ import { HomePage } from './pages/HomePage';
 import { AboutPage, HowItWorksPage } from './pages/MarketingPages';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { BusinessOnboardingPage } from './pages/BusinessOnboardingPage';
 import { SupplierOnboardingPage } from './pages/SupplierOnboardingPage';
 import { SearchPage } from './pages/SearchPage';
@@ -48,6 +50,8 @@ export default function App() {
         <Route path="/how-it-works" element={<HowItWorksPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/forgot" element={<ForgotPasswordPage />} />
+        <Route path="/reset" element={<ResetPasswordPage />} />
         <Route path="/onboarding/business" element={<BusinessOnboardingPage />} />
         <Route path="/onboarding/supplier" element={<SupplierOnboardingPage />} />
         <Route path="/search" element={<SearchPage />} />
