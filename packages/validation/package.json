@@ -19,6 +19,7 @@
     "./settings": "./src/settings.ts",
     "./analytics": "./src/analytics.ts",
     "./adminUsers": "./src/adminUsers.ts",
+    "./adminInvites": "./src/adminInvites.ts",
     "./businessTypes": "./src/businessTypes.ts",
     "./supplierTypes": "./src/supplierTypes.ts"
   },

@@ -9,7 +9,17 @@ export type ErrorCode =
   | 'RATE_LIMITED'
   | 'PAYLOAD_TOO_LARGE'
   | 'INVALID_REFERENCE'
-  | 'INTERNAL';
+  | 'INTERNAL'
+  | 'INVITE_EXPIRED'
+  | 'INVITE_REVOKED'
+  | 'INVITE_ACCEPTED'
+  | 'ROLE_CONFLICT'
+  | 'USER_SUSPENDED'
+  | 'LAST_SUPER_ADMIN'
+  | 'CANNOT_DEMOTE_SELF'
+  | 'ROLE_CHANGED'
+  | 'ROLE_NOT_GRANTABLE'
+  | 'EMAIL_SEND_FAILED';
 
 export class HttpError extends Error {
   constructor(

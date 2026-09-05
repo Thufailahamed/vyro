@@ -10,6 +10,7 @@ vi.mock('../src/middleware/session', () => ({
 }));
 vi.mock('../src/middleware/rbac', () => ({
   requireRole: (_opts: any) => async (_c: any, next: any) => next(),
+  requirePermission: () => async (_c: any, next: any) => next(),
 }));
 
 // Stub @vyro/db with a no-op so we only exercise validation + path mounting.

@@ -37,6 +37,9 @@ vi.mock('../src/middleware/rbac', () => ({
     if (_opts?.admin && !ctx.isAdmin) return c.json({ code: 'FORBIDDEN', message: 'Admin only' }, 403);
     await next();
   },
+  requirePermission: () => async (_c: any, next: any) => {
+    await next();
+  },
 }));
 
 import app from '../src/index';

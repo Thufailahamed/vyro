@@ -10,5 +10,6 @@ export * from './payment';
 export * from './settings';
 export * from './analytics';
 export * from './adminUsers';
+export * from './adminInvites';
 export * from './businessTypes';
 export * from './supplierTypes';
