@@ -30,6 +30,7 @@ import adminSupplierDetailRouter from './modules/admin/supplierDetail';
 import adminBusinessDetailRouter from './modules/admin/businessDetail';
 import disputeRouter from './modules/admin/disputes';
 import businessAnalyticsRouter from './modules/analytics/business/routes';
+import homeRouter from './modules/home/routes';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -70,5 +71,6 @@ app.route('/api/admin', adminSupplierDetailRouter);
 app.route('/api/admin', adminBusinessDetailRouter);
 app.route('/api/admin', disputeRouter);
 app.route('/api/analytics/business', businessAnalyticsRouter);
+app.route('/api/home', homeRouter);
 
 export default app;

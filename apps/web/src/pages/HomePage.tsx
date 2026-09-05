@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
+import { api } from '@/lib/api';
 import { Button } from '@/components/ui';
 import { SearchIcon, TruckIcon, PackageIcon, CheckCircleIcon, ArrowRightIcon, ClockIcon } from '@/components/icons';
 import { FlowCanvas, FlowLine } from '@/components/brand/FlowLine';
@@ -338,6 +340,36 @@ export function HomePage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
 
+  const feed = useQuery({
+    queryKey: ['home-feed'],
+    queryFn: () =>
+      api.get<{
+        featuredProducts: Array<{ id: string; name: string; image: string | null; categoryName?: string }>;
+        verifiedSuppliers: Array<{ id: string; name: string; description?: string | null }>;
+        trustStats: { districtsCovered: number; lifetimeGmvCents: number; activeBusinesses: number; activeSuppliers: number };
+      }>('/home/feed'),
+  });
+
+  const featuredProducts = (feed.data?.featuredProducts ?? []).slice(0, FEATURED_PRODUCTS.length);
+  const verifiedSuppliers = feed.data?.verifiedSuppliers ?? [];
+  const trustStats = feed.data?.trustStats;
+  const renderedTrustStats = trustStats
+    ? [
+        { metric: String(trustStats.districtsCovered), label: 'Districts Covered', sub: 'Island-wide freight routing' },
+        {
+          metric: `Rs. ${(trustStats.lifetimeGmvCents / 100 / 1_000_000).toFixed(0)}M+`,
+          label: 'Wholesale Throughput',
+          sub: 'Active commercial trading volume',
+        },
+        {
+          metric: `${trustStats.activeSuppliers > 0 ? '100%' : '0%'}`,
+          label: 'Verified Suppliers',
+          sub: 'Audited tax & depot identity',
+        },
+        { metric: '0%', label: 'Hidden Broker Markup', sub: 'Direct factory & mill prices' },
+      ]
+    : TRUST_STATS;
+
   function goSearch(term?: string) {
     const q = (term ?? query).trim();
     navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search');
@@ -415,6 +447,18 @@ export function HomePage() {
                 ))}
               </div>
             </div>
+
+            {/* Live marketplace counts (from /api/home/feed) */}
+            {feed.data && (
+              <div className="mt-6 flex flex-wrap gap-2">
+                <span className="px-3 py-1 text-xs font-mono text-volt bg-volt/10 border border-volt/30 rounded-full">
+                  {feed.data.featuredProducts.length} live products
+                </span>
+                <span className="px-3 py-1 text-xs font-mono text-volt bg-volt/10 border border-volt/30 rounded-full">
+                  {feed.data.verifiedSuppliers.length} verified suppliers
+                </span>
+              </div>
+            )}
 
             {/* Value Props Bullet List */}
             <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-xs text-paper/65">
@@ -508,7 +552,7 @@ export function HomePage() {
       <section className="bg-bone border-b border-ink/10 py-8">
         <div className="max-w-stage mx-auto px-5 sm:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-left">
-            {TRUST_STATS.map((s) => (
+            {renderedTrustStats.map((s) => (
               <div key={s.label} className="border-l-2 border-volt pl-4">
                 <div className="vyro-metric text-3xl sm:text-4xl text-ink font-bold">{s.metric}</div>
                 <div className="font-display text-base text-ink mt-1 font-semibold">{s.label}</div>
