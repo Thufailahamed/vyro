@@ -138,4 +138,7 @@ router.get('/:id/events', session(), async (c) => {
   return c.json({ events });
 });
 
+import messagesRouter from './messages';
+router.route('/', messagesRouter);
+
 export default router;
