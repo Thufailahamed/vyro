@@ -27,6 +27,10 @@ queue = "audit"
 binding = "NOTIFICATIONS_QUEUE"
 queue = "notifications"
 
+[[analytics_engine_datasets]]
+binding = "METRICS"
+dataset = "vyro_metrics"
+
 [vars]
 ENVIRONMENT = "local"
 WEB_ORIGIN = "http://localhost:5173"
