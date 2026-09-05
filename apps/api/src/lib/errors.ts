@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 export type ErrorCode =
   | 'VALIDATION_ERROR'
   | 'UNAUTHORIZED'
@@ -39,6 +41,8 @@ export function errorEnvelope(err: unknown): {
       body: { error: { code: err.code, message: err.message, details: err.details } },
     };
   }
-  console.error('Unhandled error', err);
+  logger.error('error.unhandled', {
+    err: err instanceof Error ? { name: err.name, message: err.message } : String(err),
+  });
   return { status: 500, body: { error: { code: 'INTERNAL', message: 'Internal server error' } } };
 }

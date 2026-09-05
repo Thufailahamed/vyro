@@ -59,7 +59,7 @@ app.onError((err, c) => {
     path,
     status: env.status,
     requestId: c.get('requestId'),
-    userId: ctx?.userId,
+    ...(ctx?.userId ? { userId: ctx.userId } : {}),
     err: err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : String(err),
   });
   return c.json(env.body, env.status as 400 | 401 | 403 | 404 | 409 | 429 | 500);

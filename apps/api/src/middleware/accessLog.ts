@@ -15,6 +15,6 @@ export const accessLog = (): MiddlewareHandler => async (c, next) => {
     status: c.res.status,
     latencyMs,
     requestId: c.get('requestId'),
-    userId: ctx?.userId,
+    ...(ctx?.userId ? { userId: ctx.userId } : {}),
   });
 };

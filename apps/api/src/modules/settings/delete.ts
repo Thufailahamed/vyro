@@ -7,6 +7,7 @@ import { users, auditLogs } from '@vyro/db/schema';
 import { eq } from 'drizzle-orm';
 import { httpError } from '../../lib/errors';
 import { newId } from '@vyro/shared';
+import { logger } from '../../lib/logger';
 
 const body = z.object({ confirm: z.literal('DELETE') });
 
@@ -41,7 +42,7 @@ router.post('/me/delete', async (c) => {
     })
     .run();
   // eslint-disable-next-line no-console
-  console.log(`[auth] account delete scheduled for ${ctx.userId}, runAt=${new Date(runAt).toISOString()}`);
+  logger.info('account.delete.scheduled', { userId: ctx.userId, scheduledAt: new Date(runAt).toISOString() });
   return c.json({ ok: true, scheduledAt: runAt }, 202);
 });
 
