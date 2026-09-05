@@ -24,7 +24,8 @@ check() {
 
 echo "smoke: ${API}"
 
-check "/api/version"        "200" "version endpoint"
+check "/api/version"        "404" "version endpoint NOT mounted at top (expected path)"
+check "/api/health/version" "200" "version endpoint"
 check "/api/health"         "200" "health endpoint (DB ok or degraded ok)"
 check "/api/categories"     "200" "public categories"
 check "/api/search/products?q=rice"  "200" "search"
