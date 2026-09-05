@@ -23,6 +23,8 @@ export const supplierSettings = sqliteTable(
     bankName: text('bank_name'),
     bankAccountNo: text('bank_account_no'),
     bankBranch: text('bank_branch'),
+    bankAccountHolder: text('bank_account_holder'),
+    bankVerified: integer('bank_verified', { mode: 'boolean' }).notNull().default(false),
     notifyNewOrders: integer('notify_new_orders').notNull().default(1),
     notifyLowStock: integer('notify_low_stock').notNull().default(1),
     notifyPaymentReceived: integer('notify_payment_received').notNull().default(1),

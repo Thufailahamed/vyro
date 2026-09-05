@@ -15,6 +15,13 @@
       "when": 1788547670372,
       "tag": "0001_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789114800000,
+      "tag": "0007_payments_accounts",
+      "breakpoints": true
     }
   ]
 }

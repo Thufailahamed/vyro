@@ -9,6 +9,7 @@ import { ArrowLeftIcon } from '@/components/icons';
 import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, Surface } from '@/components/brand/Surface';
 import { MessageThread } from '@/components/MessageThread';
+import { PaymentPanel } from '@/components/payments/PaymentPanel';
 
 interface OrderDetail {
   order: {
@@ -162,6 +163,11 @@ export function OrderDetailPage() {
         </Surface>
 
         <div className="lg:col-span-4 space-y-4">
+          <PaymentPanel
+            purchaseOrderId={order.id}
+            poStatus={order.status}
+            totalCents={order.totalCents}
+          />
           {allowed.length > 0 && (
             <Surface kind="elevated" className="p-5 space-y-3">
               <h3 className="font-display text-lg">Update status</h3>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import { Button, Input, Label } from '@/components/ui';
+import { Button, Input, Label, Select } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
 import { useToast } from '@vyro/ui';
 
@@ -20,6 +20,8 @@ type Settings = {
   bankName: string | null;
   bankAccountNo: string | null;
   bankBranch: string | null;
+  bankAccountHolder: string | null;
+  bankVerified: boolean;
 };
 
 export function SupplierSettingsForm({ supplierId }: { supplierId: string }) {
@@ -45,6 +47,8 @@ export function SupplierSettingsForm({ supplierId }: { supplierId: string }) {
     bankName: null,
     bankAccountNo: null,
     bankBranch: null,
+    bankAccountHolder: null,
+    bankVerified: false,
   };
   const [draft, setDraft] = useState<Settings>(initial);
   useEffect(() => {
@@ -55,7 +59,12 @@ export function SupplierSettingsForm({ supplierId }: { supplierId: string }) {
     draft.companyName !== initial.companyName ||
     draft.contactPhone !== initial.contactPhone ||
     draft.warehouseAddress !== initial.warehouseAddress ||
-    draft.defaultLeadTimeDays !== initial.defaultLeadTimeDays;
+    draft.defaultLeadTimeDays !== initial.defaultLeadTimeDays ||
+    draft.payoutMethod !== initial.payoutMethod ||
+    draft.bankName !== initial.bankName ||
+    draft.bankAccountNo !== initial.bankAccountNo ||
+    draft.bankBranch !== initial.bankBranch ||
+    draft.bankAccountHolder !== initial.bankAccountHolder;
 
   const save = useMutation({
     mutationFn: () =>
@@ -64,6 +73,11 @@ export function SupplierSettingsForm({ supplierId }: { supplierId: string }) {
         contactPhone: draft.contactPhone ?? undefined,
         warehouseAddress: draft.warehouseAddress ?? undefined,
         defaultLeadTimeDays: draft.defaultLeadTimeDays ?? undefined,
+        payoutMethod: draft.payoutMethod ?? undefined,
+        bankName: draft.bankName ?? undefined,
+        bankAccountNo: draft.bankAccountNo ?? undefined,
+        bankBranch: draft.bankBranch ?? undefined,
+        bankAccountHolder: draft.bankAccountHolder ?? undefined,
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['supplier-settings', supplierId] });
@@ -75,51 +89,116 @@ export function SupplierSettingsForm({ supplierId }: { supplierId: string }) {
   if (q.isLoading) return <p className="text-sm text-ink-4">Loading…</p>;
 
   return (
-    <Surface kind="elevated" className="p-6 space-y-4">
-      <header className="flex items-end justify-between gap-4">
-        <h2 className="vyro-display text-lg">Supplier profile</h2>
-        <Button variant="primary" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
-          {save.isPending ? 'Saving…' : 'Save'}
-        </Button>
-      </header>
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="s-company">Company name</Label>
-          <Input
-            id="s-company"
-            value={draft.companyName ?? ''}
-            onChange={(e) => setDraft({ ...draft, companyName: e.target.value })}
-          />
+    <div className="space-y-6">
+      <Surface kind="elevated" className="p-6 space-y-4">
+        <header className="flex items-end justify-between gap-4">
+          <h2 className="vyro-display text-lg">Supplier profile</h2>
+          <Button variant="primary" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
+            {save.isPending ? 'Saving…' : 'Save'}
+          </Button>
+        </header>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="s-company">Company name</Label>
+            <Input
+              id="s-company"
+              value={draft.companyName ?? ''}
+              onChange={(e) => setDraft({ ...draft, companyName: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="s-phone">Contact phone</Label>
+            <Input
+              id="s-phone"
+              value={draft.contactPhone ?? ''}
+              onChange={(e) => setDraft({ ...draft, contactPhone: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="s-addr">Warehouse address</Label>
+            <Input
+              id="s-addr"
+              value={draft.warehouseAddress ?? ''}
+              onChange={(e) => setDraft({ ...draft, warehouseAddress: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="s-lead">Default lead time (days)</Label>
+            <Input
+              id="s-lead"
+              type="number"
+              min={1}
+              value={draft.defaultLeadTimeDays ?? ''}
+              onChange={(e) =>
+                setDraft({ ...draft, defaultLeadTimeDays: e.target.value ? Number(e.target.value) : null })
+              }
+            />
+          </div>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="s-phone">Contact phone</Label>
-          <Input
-            id="s-phone"
-            value={draft.contactPhone ?? ''}
-            onChange={(e) => setDraft({ ...draft, contactPhone: e.target.value })}
-          />
+      </Surface>
+
+      <Surface kind="elevated" className="p-6 space-y-4">
+        <header className="flex items-end justify-between gap-4">
+          <h2 className="vyro-display text-lg">Payout details</h2>
+          {draft.bankVerified && (
+            <span className="text-[11px] uppercase tracking-[0.12em] text-volt">Bank verified</span>
+          )}
+        </header>
+        <p className="text-xs text-ink-4">
+          Where to send your settlements. Bank details are stored encrypted at rest.
+        </p>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="s-payout-method">Payout method</Label>
+            <Select
+              id="s-payout-method"
+              value={draft.payoutMethod ?? ''}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  payoutMethod: (e.target.value === '' ? null : (e.target.value as 'bank' | 'cash')),
+                })
+              }
+            >
+              <option value="">Not set</option>
+              <option value="bank">Bank transfer</option>
+              <option value="cash">Cash pickup</option>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="s-bank-holder">Account holder name</Label>
+            <Input
+              id="s-bank-holder"
+              value={draft.bankAccountHolder ?? ''}
+              onChange={(e) => setDraft({ ...draft, bankAccountHolder: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="s-bank-name">Bank name</Label>
+            <Input
+              id="s-bank-name"
+              value={draft.bankName ?? ''}
+              onChange={(e) => setDraft({ ...draft, bankName: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="s-bank-branch">Branch</Label>
+            <Input
+              id="s-bank-branch"
+              value={draft.bankBranch ?? ''}
+              onChange={(e) => setDraft({ ...draft, bankBranch: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="s-bank-account">Account number</Label>
+            <Input
+              id="s-bank-account"
+              value={draft.bankAccountNo ?? ''}
+              onChange={(e) => setDraft({ ...draft, bankAccountNo: e.target.value })}
+            />
+          </div>
         </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="s-addr">Warehouse address</Label>
-          <Input
-            id="s-addr"
-            value={draft.warehouseAddress ?? ''}
-            onChange={(e) => setDraft({ ...draft, warehouseAddress: e.target.value })}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="s-lead">Default lead time (days)</Label>
-          <Input
-            id="s-lead"
-            type="number"
-            min={1}
-            value={draft.defaultLeadTimeDays ?? ''}
-            onChange={(e) =>
-              setDraft({ ...draft, defaultLeadTimeDays: e.target.value ? Number(e.target.value) : null })
-            }
-          />
-        </div>
-      </div>
-    </Surface>
+      </Surface>
+    </div>
   );
 }

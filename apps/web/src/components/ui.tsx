@@ -157,7 +157,15 @@ export function Badge({
   );
 }
 
-export function StatusBadge({ status }: { status: string }) {
+export function Surface({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={'rounded-2xl border border-ink-2 bg-white shadow-sm ' + (className ?? '')}>
+      {children}
+    </div>
+  );
+}
+
+export function StatusBadge({ status, children }: { status: string; children?: React.ReactNode }) {
   const normalized = status.toLowerCase().replace(/_/g, ' ');
   let variant: 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'purple' = 'neutral';
   let dotColor = 'bg-ink-4';

@@ -32,6 +32,8 @@ export type SupplierSettingsShape = {
   bankName: string | null;
   bankAccountNo: string | null;
   bankBranch: string | null;
+  bankAccountHolder: string | null;
+  bankVerified: boolean;
   notifyNewOrders: 0 | 1;
   notifyLowStock: 0 | 1;
   notifyPaymentReceived: 0 | 1;
@@ -89,6 +91,8 @@ export function defaultSupplierSettings(supplierId: string): SupplierSettingsSha
     bankName: null,
     bankAccountNo: null,
     bankBranch: null,
+    bankAccountHolder: null,
+    bankVerified: false,
     notifyNewOrders: 1,
     notifyLowStock: 1,
     notifyPaymentReceived: 1,

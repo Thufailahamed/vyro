@@ -7,6 +7,14 @@ import { httpError } from '../../lib/errors';
 import { getDb } from '@vyro/db';
 import { auditLogs, notifications } from '@vyro/db/schema';
 import { findDisputedPo, listDisputed, setPoStatus } from './disputeRepository';
+import { eq } from 'drizzle-orm';
+import { resolveGateway } from '@vyro/payments';
+import { writeLedgerEntry } from '../ledger';
+import {
+  createRefund,
+  updateRefundStatus,
+} from '../refunds/repository';
+import { recordAudit } from '../supplierProducts/repository';
 
 type Ctx = { userId: string };
 
@@ -37,10 +45,105 @@ router.post('/disputes/:poId/resolve', async (c) => {
   if (!po) throw httpError(404, 'NOT_FOUND', 'PO not found');
   if (po.status !== 'disputed') throw httpError(409, 'CONFLICT', 'PO not disputed');
 
-  const next = parsed.data.outcome === 'refund_business' ? 'cancelled' : 'delivered';
-  await setPoStatus(c.env.DB, poId, next);
-
   const db = getDb(c.env.DB);
+
+  if (parsed.data.outcome === 'refund_business') {
+    // Find confirmed payments for this PO and refund each
+    const schemaModule = await import('@vyro/db/schema');
+    const paymentsTbl = schemaModule.payments;
+    const paymentsToRefund = ((await db
+      .select()
+      .from(paymentsTbl)
+      .where(eq(paymentsTbl.purchaseOrderId, poId))
+      .all()) as any)
+      .filter((p: any) => p.status === 'confirmed');
+
+    for (const payment of paymentsToRefund) {
+      const refund = await createRefund(c.env.DB, {
+        paymentId: payment.id,
+        amountCents: payment.amountCents,
+        reason: parsed.data.note ?? 'Dispute resolved in favor of business',
+        requestedByUserId: ctx.userId,
+      });
+
+      const useGateway = payment.method === 'online' && !!payment.gatewayRef;
+      if (useGateway) {
+        await updateRefundStatus(c.env.DB, refund.id, 'processing', { processedAt: null });
+        const { adapter } = resolveGateway(c.env as Env);
+        try {
+          const result = await adapter.refund({
+            paymentGatewayRef: payment.gatewayRef!,
+            refundId: refund.id,
+            amountCents: payment.amountCents,
+            reason: parsed.data.note ?? '',
+          });
+          if (result.status === 'completed') {
+            await updateRefundStatus(c.env.DB, refund.id, 'completed', {
+              gatewayRefundId: result.gatewayRefundId,
+              processedAt: Date.now(),
+            });
+          } else {
+            await updateRefundStatus(c.env.DB, refund.id, 'failed', {
+              failureReason: 'gateway refused',
+              processedAt: Date.now(),
+            });
+          }
+        } catch (e) {
+          await updateRefundStatus(c.env.DB, refund.id, 'failed', {
+            failureReason: String(e),
+            processedAt: Date.now(),
+          });
+        }
+      } else {
+        // Offline refund: write ledger entries inline
+        await updateRefundStatus(c.env.DB, refund.id, 'completed', { processedAt: Date.now() });
+        const feeRefundCents = payment.feeCents > 0 ? Math.round((payment.amountCents * payment.feeCents) / payment.amountCents) : 0;
+        await db.transaction(async (tx) => {
+          writeLedgerEntry(tx as any, {
+            accountType: 'business',
+            accountId: po.businessId,
+            direction: 'debit',
+            amountCents: payment.amountCents,
+            refType: 'refund',
+            refId: refund.id,
+            description: `Dispute refund for payment ${payment.id}`,
+            createdByUserId: ctx.userId,
+          });
+          if (feeRefundCents > 0) {
+            writeLedgerEntry(tx as any, {
+              accountType: 'platform',
+              accountId: 'platform',
+              direction: 'debit',
+              amountCents: feeRefundCents,
+              refType: 'refund',
+              refId: refund.id,
+              description: `Platform fee refund for dispute ${refund.id}`,
+              createdByUserId: ctx.userId,
+            });
+          }
+        });
+      }
+
+      // Mark payment as refunded
+      db.update((await import('@vyro/db/schema')).payments)
+        .set({ status: 'refunded', statusReason: parsed.data.note ?? null, updatedAt: Date.now() })
+        .where(eq((await import('@vyro/db/schema')).payments.id, payment.id))
+        .run();
+
+      await recordAudit(c.env.DB, {
+        actorUserId: ctx.userId,
+        action: 'dispute.refund',
+        resourceType: 'purchase_order',
+        resourceId: poId,
+        metadata: { refundId: refund.id, paymentId: payment.id, amountCents: payment.amountCents },
+      });
+    }
+
+    await setPoStatus(c.env.DB, poId, 'cancelled');
+  } else {
+    await setPoStatus(c.env.DB, poId, 'delivered');
+  }
+
   const now = Date.now();
   const counterpartyId = parsed.data.outcome === 'refund_business' ? po.supplierId : po.businessId;
   await db.insert(notifications).values({
@@ -63,7 +166,7 @@ router.post('/disputes/:poId/resolve', async (c) => {
     createdAt: now,
   });
 
-  return c.json({ ok: true, status: next });
+  return c.json({ ok: true, status: parsed.data.outcome === 'refund_business' ? 'cancelled' : 'delivered' });
 });
 
 export default router;

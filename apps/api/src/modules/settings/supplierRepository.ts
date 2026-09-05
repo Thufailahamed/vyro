@@ -24,6 +24,8 @@ function toShape(row: SupplierSetting): SupplierSettingsShape {
     bankName: row.bankName,
     bankAccountNo: row.bankAccountNo,
     bankBranch: row.bankBranch,
+    bankAccountHolder: row.bankAccountHolder,
+    bankVerified: row.bankVerified === true,
     notifyNewOrders: row.notifyNewOrders === 1 ? 1 : 0,
     notifyLowStock: row.notifyLowStock === 1 ? 1 : 0,
     notifyPaymentReceived: row.notifyPaymentReceived === 1 ? 1 : 0,
@@ -48,6 +50,7 @@ export type SupplierSettingsPatch = {
   bankName?: string | undefined;
   bankAccountNo?: string | undefined;
   bankBranch?: string | undefined;
+  bankAccountHolder?: string | undefined;
   notifyNewOrders?: boolean | undefined;
   notifyLowStock?: boolean | undefined;
   notifyPaymentReceived?: boolean | undefined;
@@ -103,6 +106,8 @@ export async function patchSupplierSettings(
     bankName: patch.bankName ?? current.bankName,
     bankAccountNo: patch.bankAccountNo ?? current.bankAccountNo,
     bankBranch: patch.bankBranch ?? current.bankBranch,
+    bankAccountHolder: patch.bankAccountHolder ?? current.bankAccountHolder,
+    bankVerified: current.bankVerified,
     notifyNewOrders:
       patch.notifyNewOrders !== undefined ? (patch.notifyNewOrders ? 1 : 0) : current.notifyNewOrders,
     notifyLowStock:

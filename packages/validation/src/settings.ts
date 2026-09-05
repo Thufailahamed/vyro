@@ -62,6 +62,7 @@ export const supplierPayoutsSchema = z
     bankName: z.string().max(120).optional(),
     bankAccountNo: z.string().max(60).optional(),
     bankBranch: z.string().max(120).optional(),
+    bankAccountHolder: z.string().max(120).optional(),
   })
   .strict();
 
@@ -90,6 +91,7 @@ export const supplierSettingsPatchSchema = z
     bankName: supplierPayoutsSchema.shape.bankName,
     bankAccountNo: supplierPayoutsSchema.shape.bankAccountNo,
     bankBranch: supplierPayoutsSchema.shape.bankBranch,
+    bankAccountHolder: supplierPayoutsSchema.shape.bankAccountHolder,
     notifyNewOrders: supplierNotificationsSchema.shape.notifyNewOrders,
     notifyLowStock: supplierNotificationsSchema.shape.notifyLowStock,
     notifyPaymentReceived: supplierNotificationsSchema.shape.notifyPaymentReceived,
