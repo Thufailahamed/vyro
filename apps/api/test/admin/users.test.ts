@@ -77,6 +77,9 @@ vi.mock('../../src/middleware/rbac', () => ({
   requireRole: () => async (_c: any, next: any) => {
     await next();
   },
+  requirePermission: () => async (_c: any, next: any) => {
+    await next();
+  },
 }));
 
 import adminUsersRouter from '../../src/modules/admin/users';

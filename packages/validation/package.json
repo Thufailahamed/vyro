@@ -20,6 +20,7 @@
     "./analytics": "./src/analytics.ts",
     "./adminUsers": "./src/adminUsers.ts",
     "./adminInvites": "./src/adminInvites.ts",
+    "./adminRoles": "./src/adminRoles.ts",
     "./businessTypes": "./src/businessTypes.ts",
     "./supplierTypes": "./src/supplierTypes.ts"
   },
