@@ -36,3 +36,5 @@ export * from './kycReviews';
 export * from './configSections';
 export * from './webhooks';
 export * from './webhookDeliveries';
+export * from './adminImpersonations';
+export * from './dataExportRequests';

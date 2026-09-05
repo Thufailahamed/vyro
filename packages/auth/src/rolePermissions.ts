@@ -26,6 +26,10 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, ReadonlySet<Permission
     'feature_flag:read', 'feature_flag:write',
     'email_template:read', 'email_template:write',
     'webhook:read', 'webhook:write', 'webhook:retry',
+    'session:revoke',
+    'impersonation:start', 'impersonation:end',
+    'data_export:run',
+    '2fa:enforce',
   ),
   ops: all(
     'user:read', 'user:suspend', 'user:unsuspend',

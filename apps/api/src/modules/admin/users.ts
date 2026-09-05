@@ -6,7 +6,7 @@ import type { Ctx } from '../../middleware/session';
 import { httpError } from '../../lib/errors';
 import { adminUsersListQuery, adminUserIdParam } from '@vyro/validation/adminUsers';
 import { adminRoleChange } from './roles/schema';
-import { listAdminUsers, setUserStatus } from './usersRepository';
+import { listAdminUsers, setUserStatus, setRequire2fa } from './usersRepository';
 import { changeRole, demote } from './roles/service';
 import { getAdminUser } from './roles/repository';
 import { auditAdmin } from './lib/audit';
@@ -91,6 +91,38 @@ router.delete('/:id/role', requirePermission('admin:role_change'), async (c) => 
     after: { role: null },
   });
   return c.body(null, 204);
+});
+
+router.post('/:id/2fa/enforce', requirePermission('2fa:enforce'), async (c) => {
+  const ctx = c.get('ctx') as Ctx;
+  const paramParsed = adminUserIdParam.safeParse(c.req.param());
+  if (!paramParsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid id');
+  const out = await setRequire2fa(c.env.DB, paramParsed.data.id, true);
+  if (!out) throw httpError(404, 'NOT_FOUND', 'User not found');
+  await auditAdmin({
+    ctx: c,
+    action: 'user.2fa.enforce',
+    target: { type: 'user', id: paramParsed.data.id },
+    before: { require2fa: out.before },
+    after: { require2fa: out.after },
+  });
+  return c.json(out);
+});
+
+router.post('/:id/2fa/unenforce', requirePermission('2fa:enforce'), async (c) => {
+  const ctx = c.get('ctx') as Ctx;
+  const paramParsed = adminUserIdParam.safeParse(c.req.param());
+  if (!paramParsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid id');
+  const out = await setRequire2fa(c.env.DB, paramParsed.data.id, false);
+  if (!out) throw httpError(404, 'NOT_FOUND', 'User not found');
+  await auditAdmin({
+    ctx: c,
+    action: 'user.2fa.unenforce',
+    target: { type: 'user', id: paramParsed.data.id },
+    before: { require2fa: out.before },
+    after: { require2fa: out.after },
+  });
+  return c.json(out);
 });
 
 export default router;

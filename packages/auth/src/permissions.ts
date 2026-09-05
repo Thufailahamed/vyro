@@ -18,6 +18,10 @@ export const PERMISSION_KEYS = [
   'feature_flag:read', 'feature_flag:write',
   'email_template:read', 'email_template:write',
   'webhook:read', 'webhook:write', 'webhook:retry',
+  'session:revoke',
+  'impersonation:start', 'impersonation:end',
+  'data_export:run',
+  '2fa:enforce',
 ] as const;
 
 export type Permission = (typeof PERMISSION_KEYS)[number];

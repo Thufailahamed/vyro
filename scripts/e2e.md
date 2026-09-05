@@ -246,6 +246,35 @@ Sign in as super_admin. Visit `/admin/platform`. Three tabs.
 6. DELETE `/api/admin/webhooks/<id>` → 200, `active=0`. Audit `webhook.delete`.
 7. As ops → 403 (no webhook:read).
 
+## 7g. Admin security (T6)
+
+Sign in as super_admin. Visit `/admin/security`. Four tabs.
+
+### 7g.1 Sessions
+
+1. Seed `seed.adminSessionFixture({ userId: 'admin-x', userEmail: 'x@y.z', userRole: 'super_admin' })`.
+2. GET `/api/admin/sessions` → 1 row, status active.
+3. POST `/api/admin/sessions/<id>/revoke` → 200, `revokedAt` set. Audit `session.revoke`.
+4. As finance → 403 (no session:revoke).
+
+### 7g.2 Impersonation
+
+1. POST `/api/admin/impersonate` with `{targetUserId: 'u-buyer', reason: 'support escalation needed'}` → 201. Audit `impersonation.start`.
+2. POST again with different target → 409 conflict.
+3. POST `/api/admin/impersonate/end` → 200. Audit `impersonation.end`.
+4. As finance → 403.
+
+### 7g.3 2FA enforcement
+
+1. POST `/api/admin/users/<userId>/2fa/enforce` → 200, `{before: false, after: true}`. Audit `user.2fa.enforce`.
+2. POST `/api/admin/users/<userId>/2fa/unenforce` → 200. Audit `user.2fa.unenforce`.
+
+### 7g.4 Data export
+
+1. POST `/api/admin/data-export` with `{userId: 'u-1'}` → 201, status `pending`. Audit `data_export.create`.
+2. GET `/api/admin/data-export/<id>` → 200, status.
+3. As finance → 403.
+
 ## 8. Notifications
 
 Sign in as a business. POST `/api/deliveries/<po>/transitions` (as supplier) with `delivered`. Hit `/api/notifications/me` as the business — expect a notification tied to the order event.

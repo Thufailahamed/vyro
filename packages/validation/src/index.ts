@@ -17,5 +17,6 @@ export * from './adminCatalog';
 export * from './adminMoney';
 export * from './adminTrustSafety';
 export * from './adminPlatformConfig';
+export * from './adminSecurity';
 export * from './businessTypes';
 export * from './supplierTypes';

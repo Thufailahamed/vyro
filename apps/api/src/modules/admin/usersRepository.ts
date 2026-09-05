@@ -119,3 +119,15 @@ export async function setUserStatus(
     createdAt: updatedAt,
   }).run();
 }
+
+export async function setRequire2fa(
+  d1: D1Database,
+  targetUserId: string,
+  require: boolean,
+): Promise<{ before: boolean; after: boolean } | null> {
+  const db = getDb(d1);
+  const row = (await db.select({ require2fa: users.require2fa }).from(users).where(eq(users.id, targetUserId)).get()) as { require2fa: boolean } | undefined;
+  if (!row) return null;
+  await db.update(users).set({ require2fa: require, updatedAt: nowMs() }).where(eq(users.id, targetUserId)).run();
+  return { before: row.require2fa, after: require };
+}

@@ -16,6 +16,7 @@ export const users = sqliteTable(
     status: text('status', { enum: ['active', 'suspended', 'pending_deletion'] }).notNull().default('active'),
     marketingOptIn: integer('marketing_opt_in', { mode: 'boolean' }).notNull().default(true),
     deletionScheduledFor: integer('deletion_scheduled_for'),
+    require2fa: integer('require_2fa', { mode: 'boolean' }).notNull().default(false),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
     deletedAt: integer('deleted_at'),

@@ -149,6 +149,15 @@ export function AdminShell() {
                 Platform
               </NavLink>
             ) : null}
+            {user.adminRole &&
+            (hasPermission(user.adminRole, 'session:revoke') ||
+              hasPermission(user.adminRole, 'impersonation:start') ||
+              hasPermission(user.adminRole, 'data_export:run') ||
+              hasPermission(user.adminRole, '2fa:enforce')) ? (
+              <NavLink to="/admin/security" className={linkClass}>
+                Security
+              </NavLink>
+            ) : null}
           </nav>
         ) : (
           <p className="p-4 text-xs text-paper/40">Sign in to administer</p>

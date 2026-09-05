@@ -264,6 +264,58 @@ export function webhookDeliveryFixture(opts: {
   };
 }
 
+export function adminSessionFixture(opts: {
+  userId: string;
+  userEmail: string;
+  userRole: 'super_admin' | 'ops' | 'finance' | 'support';
+  expiresIn?: number;
+}) {
+  return {
+    id: randomUUID(),
+    userId: opts.userId,
+    expiresAt: Date.now() + (opts.expiresIn ?? 7 * 24 * 60 * 60 * 1000),
+    token: randomBytes(32).toString('hex'),
+    ip: '127.0.0.1',
+    userAgent: 'seed/1.0',
+    createdAt: Date.now(),
+  };
+}
+
+export function adminImpersonationFixture(opts: {
+  adminUserId: string;
+  targetUserId: string;
+  reason?: string;
+  ended?: boolean;
+}) {
+  const now = Date.now();
+  return {
+    id: randomUUID(),
+    adminUserId: opts.adminUserId,
+    targetUserId: opts.targetUserId,
+    reason: opts.reason ?? 'support escalation',
+    startedAt: now,
+    endedAt: opts.ended ? now : null,
+    ip: '127.0.0.1',
+    userAgent: 'seed/1.0',
+  };
+}
+
+export function dataExportRequestFixture(opts: {
+  userId: string;
+  requestedBy: string;
+  status?: 'pending' | 'ready' | 'failed' | 'expired';
+}) {
+  return {
+    id: randomUUID(),
+    userId: opts.userId,
+    requestedBy: opts.requestedBy,
+    status: opts.status ?? 'pending',
+    downloadUrl: null,
+    expiresAt: null,
+    createdAt: Date.now(),
+  };
+}
+
 export function featuredProductFixture(opts: {
   id?: string;
   name: string;
