@@ -27,3 +27,5 @@ export * from './invoices';
 export * from './ledgerEntries';
 export * from './paymentIdempotencyKeys';
 export * from './supplierSettings';
+export * from './adminInvites';
+export * from './adminAuditLogs';
