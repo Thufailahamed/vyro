@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { StatusBadge, Button, EmptyState, PageHeader } from '@/components/ui';
+import { Button, EmptyState, PageHeader } from '@/components/ui';
 import { StatusDots } from '@/components/ui';
 import type { OrderStatus } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
 import { PackageIcon, SearchIcon } from '@/components/icons';
-import { MetricNumber, Surface } from '@/components/brand/Surface';
+import { MetricNumber } from '@/components/brand/Surface';
 
 interface Order {
   id: string;
@@ -106,6 +106,9 @@ export function OrdersPage() {
             <Link key={o.id} to={`/orders/${o.id}`} className="flex flex-col sm:flex-row sm:items-center gap-3 py-5 hover:bg-paper/80 px-1">
               <span className="vyro-metric text-sm w-36">{o.poNumber}</span>
               <StatusDots status={(o.status as OrderStatus) ?? 'pending'} />
+              <span className="text-xs text-ink-4 w-40 truncate" title={o.supplierId}>
+                {o.supplierId.slice(0, 8)}…
+              </span>
               <span className="text-xs text-ink-4 flex-1">
                 {new Date(o.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
@@ -117,5 +120,3 @@ export function OrdersPage() {
     </div>
   );
 }
-
-void Surface;

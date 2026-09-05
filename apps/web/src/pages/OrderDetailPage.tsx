@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
@@ -38,9 +38,11 @@ interface OrderDetail {
   }>;
 }
 
+// Business-side allowed transitions. Mirrors @vyro/shared ORDER_TRANSITIONS.
 const NEXT_OPTIONS_BY_ROLE: Record<string, string[]> = {
   pending: ['cancelled'],
   accepted: ['cancelled'],
+  preparing: ['cancelled'],
   delivered: ['completed', 'disputed'],
   completed: ['disputed'],
 };
@@ -98,6 +100,12 @@ export function OrderDetailPage() {
 
   const { order, items, events } = data;
   const allowed = NEXT_OPTIONS_BY_ROLE[order.status] ?? [];
+
+  // Default the dropdown to the first valid option for the current status.
+  useEffect(() => {
+    const next = allowed[0];
+    if (next) setTo(next);
+  }, [order.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-8">
