@@ -17,6 +17,7 @@ export * from './orderEvents';
 export * from './deliveries';
 export * from './payments';
 export * from './notifications';
+export * from './poMessages';
 export * from './auditLogs';
 export * from './userSettings';
 export * from './platformSettings';
