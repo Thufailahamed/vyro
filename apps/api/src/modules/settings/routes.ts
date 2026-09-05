@@ -11,6 +11,7 @@ import {
 } from '@vyro/validation/settings';
 import { getOrCreateUserSettings, patchUserSettings } from './repository';
 import { newId } from '@vyro/shared';
+import exportRouter from './export';
 
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const avatarUploadSchema = z
@@ -112,5 +113,7 @@ router.get('/avatars/:key{.*}', async (c) => {
   headers.set('cache-control', 'public, max-age=31536000, immutable');
   return new Response(object.body, { headers });
 });
+
+router.route('/', exportRouter);
 
 export default router;
