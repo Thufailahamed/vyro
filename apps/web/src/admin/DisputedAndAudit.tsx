@@ -20,6 +20,7 @@ interface Audit {
   resourceType: string;
   resourceId: string;
   actorUserId: string | null;
+  actorEmail?: string | null;
   createdAt: number;
   metadata: string | null;
   ip?: string | null;
@@ -174,9 +175,9 @@ export function AuditPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-ink-3">
-                  {l.actorUserId && (
-                    <span>
-                      actor <code className="text-ink-2 font-mono">{l.actorUserId.slice(0, 6)}…</code>
+                  {(l.actorEmail || l.actorUserId) && (
+                    <span className="truncate max-w-[180px]" title={l.actorEmail ?? l.actorUserId ?? ''}>
+                      actor <code className="text-ink-2 font-mono">{l.actorEmail ?? l.actorUserId?.slice(0, 6) + '…'}</code>
                     </span>
                   )}
                   <button

@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api, ApiError } from '@/lib/api';
 import { Button, EmptyState, PageHeader, MetricStack } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
+import { useToast } from '@vyro/ui';
 import { ShoppingCartIcon, Trash2Icon, PackageIcon } from '@/components/icons';
 import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, Surface } from '@/components/brand/Surface';
@@ -22,7 +23,10 @@ interface CartItem {
 export function CartPage() {
   const { user } = useAuth();
   const businessId = user?.memberships?.[0]?.businessId;
+  const qc = useQueryClient();
+  const toast = useToast();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingQty, setPendingQty] = useState<Record<string, string>>({});
 
   const { data, refetch, isLoading } = useQuery({
     queryKey: ['cart', businessId],
@@ -75,10 +79,25 @@ export function CartPage() {
     }
   }
 
+  async function updateQty(id: string, raw: string) {
+    const qty = Number(raw);
+    if (!Number.isFinite(qty) || qty < 1) {
+      toast.error('Quantity must be at least 1');
+      return;
+    }
+    try {
+      await api.patch(`/cart/items/${id}`, { quantity: qty });
+      void qc.invalidateQueries({ queryKey: ['cart', businessId] });
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : 'Failed to update quantity');
+    }
+  }
+
   const items = data?.items ?? [];
   const subtotal = data?.subtotalCents ?? 0;
   const supplierCount = data?.supplierCount ?? 0;
   const itemCount = data?.items?.length ?? 0;
+  const belowMoq = items.filter((i) => i.quantity < i.offer.minOrderQty);
 
   return (
     <div className="space-y-8">
@@ -123,27 +142,44 @@ export function CartPage() {
                     <span className="vyro-metric">{formatLKR(sub)}</span>
                   </div>
                   <ul>
-                    {lines.map((it) => (
-                      <li key={it.id} className="px-5 py-4 flex items-center gap-4 border-b border-ink/5 last:border-0">
-                        {it.product.imageUrl && (
-                          <img
-                            src={it.product.imageUrl}
-                            alt={it.product.name}
-                            className="w-12 h-12 object-cover shrink-0 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08)] bg-bone"
-                          />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{it.product.name}</div>
-                          <div className="text-xs text-ink-4 mt-0.5">
-                            {formatLKR(it.priceCents)} × {it.quantity}
+                    {lines.map((it) => {
+                      const draft = pendingQty[it.id] ?? String(it.quantity);
+                      const belowMin = Number(draft) < it.offer.minOrderQty;
+                      return (
+                        <li key={it.id} className="px-5 py-4 flex items-center gap-4 border-b border-ink/5 last:border-0">
+                          {it.product.imageUrl && (
+                            <img
+                              src={it.product.imageUrl}
+                              alt={it.product.name}
+                              className="w-12 h-12 object-cover shrink-0 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08)] bg-bone"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{it.product.name}</div>
+                            <div className="text-xs text-ink-4 mt-0.5">
+                              {formatLKR(it.priceCents)} × min {it.offer.minOrderQty}
+                            </div>
                           </div>
-                        </div>
-                        <div className="vyro-metric text-sm">{formatLKR(it.lineTotalCents)}</div>
-                        <Button variant="ghost" size="sm" onClick={() => remove(it.id)} loading={deletingId === it.id} aria-label="Remove">
-                          <Trash2Icon size={16} />
-                        </Button>
-                      </li>
-                    ))}
+                          <input
+                            type="number"
+                            min={it.offer.minOrderQty}
+                            value={draft}
+                            onChange={(e) => setPendingQty((p) => ({ ...p, [it.id]: e.target.value }))}
+                            onBlur={(e) => {
+                              if (e.target.value !== String(it.quantity)) updateQty(it.id, e.target.value);
+                            }}
+                            className="w-16 h-9 text-center text-sm bg-paper border border-line"
+                          />
+                          <div className="vyro-metric text-sm">{formatLKR(it.lineTotalCents)}</div>
+                          <Button variant="ghost" size="sm" onClick={() => remove(it.id)} loading={deletingId === it.id} aria-label="Remove">
+                            <Trash2Icon size={16} />
+                          </Button>
+                          {belowMin && (
+                            <span className="text-[10px] uppercase tracking-wider text-rose">below MOQ</span>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </Surface>
               );
@@ -165,8 +201,13 @@ export function CartPage() {
                 {formatLKR(subtotal)}
               </MetricNumber>
             </div>
-            <Link to="/checkout" className="block mt-6">
-              <Button size="lg" className="w-full">
+            {belowMoq.length > 0 && (
+              <p className="mt-3 text-xs text-rose">
+                {belowMoq.length} line{belowMoq.length === 1 ? '' : 's'} below supplier minimum order quantity.
+              </p>
+            )}
+            <Link to={belowMoq.length === 0 ? '/checkout' : '#'} className="block mt-6">
+              <Button size="lg" className="w-full" disabled={belowMoq.length > 0}>
                 Checkout
               </Button>
             </Link>

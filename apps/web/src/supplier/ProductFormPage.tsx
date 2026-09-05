@@ -128,6 +128,13 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
           kicker={isEdit ? 'Edit product' : 'New product'}
           title={isEdit ? `Edit ${nameMap.get(existing?.productId ?? '')?.name ?? 'offer'}` : 'Add a product'}
           sub="Catalog details, pricing, and inventory."
+          actions={
+            isEdit ? (
+              <span className="inline-flex items-center h-7 px-3 rounded-full text-[11px] font-semibold uppercase tracking-[0.14em] bg-amber/10 text-amber border border-amber/30">
+                Read-only: product
+              </span>
+            ) : undefined
+          }
         />
         <Link to="/supplier/products">
           <Button variant="ghost">← Back</Button>
@@ -151,6 +158,16 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                   </option>
                 ))}
               </select>
+            </FormField>
+          )}
+          {isEdit && (
+            <FormField label="Product">
+              <div className="flex h-9 w-full rounded-xs border border-line bg-mist px-3 text-body items-center text-ink-2">
+                {nameMap.get(productId)?.name ?? '—'}
+              </div>
+              <p className="text-[11px] text-ink-4 mt-1">
+                Catalog product identity is fixed. Contact admin to remap.
+              </p>
             </FormField>
           )}
 

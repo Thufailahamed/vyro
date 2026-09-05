@@ -60,7 +60,6 @@ export default function App() {
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/orders/:id" element={<OrderDetailPage />} />
-        <Route path="/supplier/orders" element={<SupplierOrdersPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
@@ -92,6 +91,7 @@ export default function App() {
       {/* Supplier SPA — nested under shared AuthProvider in Layout */}
       <Route path="/supplier" element={<SupplierShell />}>
         <Route index element={<SupplierDashboardPage />} />
+        <Route path="orders" element={<SupplierOrdersPage />} />
         <Route path="products" element={<SupplierProductsPage />} />
         <Route path="products/new" element={<SupplierProductFormPage mode="create" />} />
         <Route path="products/:id/edit" element={<SupplierProductFormPage mode="edit" />} />

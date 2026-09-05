@@ -16,7 +16,7 @@ const TOGGLES: Array<{
   hint: string;
 }> = [
   { key: 'notifyOrderUpdates', label: 'Order updates', hint: 'Status changes for orders you placed.' },
-  { key: 'notifyMessages', label: 'Messages', hint: 'New chat messages from suppliers and admins.' },
+  { key: 'notifyMessages', label: 'Messages', hint: 'New chat messages.' },
   { key: 'notifyMarketing', label: 'Marketing', hint: 'Occasional product news and platform updates.' },
 ];
 

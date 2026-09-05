@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { FlowLine } from '@/components/brand/FlowLine';
 import { Surface } from '@/components/brand/Surface';
 import { cn } from '@vyro/ui';
-import { SRI_LANKAN_DISTRICTS } from './BusinessOnboardingPage';
+import { SRI_LANKAN_DISTRICTS } from '@/lib/sriLanka';
 
 interface BusinessType {
   id: string;

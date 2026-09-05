@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { PageHeader, Button, Badge } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
+import { useToast } from '@vyro/ui';
 import { useSupplierId } from './useSupplierId';
 
 type Offer = {
@@ -33,6 +35,8 @@ const AVAIL_LABEL: Record<Offer['availabilityStatus'], string> = {
 export function SupplierProductsPage() {
   const { supplierId } = useSupplierId();
   const qc = useQueryClient();
+  const toast = useToast();
+  const [pendingDelete, setPendingDelete] = useState<Offer | null>(null);
 
   const offers = useQuery({
     queryKey: ['supplier', supplierId, 'offers'],
@@ -45,7 +49,12 @@ export function SupplierProductsPage() {
 
   const del = useMutation({
     mutationFn: (id: string) => api.del(`/supplier-products/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'offers'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'offers'] });
+      toast.success('Offer deleted');
+      setPendingDelete(null);
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Failed to delete offer'),
   });
 
   const nameMap = new Map((catalog.data?.products ?? []).map((p) => [p.id, p]));
@@ -112,9 +121,7 @@ export function SupplierProductsPage() {
                         </Link>
                         <button
                           type="button"
-                          onClick={() => {
-                            if (confirm('Delete this offer?')) del.mutate(o.id);
-                          }}
+                          onClick={() => setPendingDelete(o)}
                           className="text-xs text-rose hover:underline"
                         >
                           Delete
@@ -128,6 +135,39 @@ export function SupplierProductsPage() {
           </table>
         )}
       </Surface>
+
+      {pendingDelete && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="del-offer-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm"
+          onClick={() => !del.isPending && setPendingDelete(null)}
+        >
+          <div
+            className="bg-paper border border-ink/15 rounded-md shadow-soft-lg max-w-md w-full p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <h2 id="del-offer-title" className="font-display text-xl">Delete this offer?</h2>
+              <p className="mt-2 text-sm text-ink-3">
+                <span className="font-medium text-ink">
+                  {nameMap.get(pendingDelete.productId)?.name ?? 'Unlisted product'}
+                </span>{' '}
+                at {pendingDelete.priceCents.toLocaleString()}¢ per unit will be removed from your catalog.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="ghost" onClick={() => setPendingDelete(null)} disabled={del.isPending}>
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={() => del.mutate(pendingDelete.id)} loading={del.isPending}>
+                Delete offer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

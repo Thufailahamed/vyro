@@ -5,6 +5,7 @@ import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { FlowLine } from '@/components/brand/FlowLine';
 import { Surface } from '@/components/brand/Surface';
+import { SRI_LANKAN_DISTRICTS } from '@/lib/sriLanka';
 import { cn } from '@vyro/ui';
 
 interface BusinessType {
@@ -12,34 +13,6 @@ interface BusinessType {
   name: string;
   slug: string;
 }
-
-export const SRI_LANKAN_DISTRICTS = [
-  'Colombo',
-  'Gampaha',
-  'Kalutara',
-  'Kandy',
-  'Matale',
-  'Nuwara Eliya',
-  'Galle',
-  'Matara',
-  'Hambantota',
-  'Jaffna',
-  'Kilinochchi',
-  'Mannar',
-  'Vavuniya',
-  'Mullaitivu',
-  'Batticaloa',
-  'Ampara',
-  'Trincomalee',
-  'Kurunegala',
-  'Puttalam',
-  'Anuradhapura',
-  'Polonnaruwa',
-  'Badulla',
-  'Monaragala',
-  'Ratnapura',
-  'Kegalle',
-];
 
 const BUYER_CATEGORY_META: Record<string, { subtitle: string; icon: string }> = {
   restaurant: {

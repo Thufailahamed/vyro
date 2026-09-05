@@ -1,4 +1,4 @@
-import { eq, and, isNull, ne } from 'drizzle-orm';
+import { eq, and, isNull, notInArray } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
 import { suppliers, supplierMembers, users, supplierProducts, purchaseOrders } from '@vyro/db/schema';
 
@@ -40,7 +40,7 @@ export async function getSupplierDetailForAdmin(
   const poRow = await db
     .select({ c: purchaseOrders.id })
     .from(purchaseOrders)
-    .where(and(eq(purchaseOrders.supplierId, id), ne(purchaseOrders.status, 'cancelled')))
+    .where(and(eq(purchaseOrders.supplierId, id), notInArray(purchaseOrders.status, ['cancelled', 'rejected'])))
     .all();
 
   return {

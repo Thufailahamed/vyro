@@ -43,6 +43,8 @@ function buildChain(rows: () => any[]): any {
       const filtered = rows().filter((r) => matches(r, cond));
       return buildChain(() => filtered);
     },
+    leftJoin: () => chain,
+    innerJoin: () => chain,
     orderBy: () => chain,
     limit: () => chain,
     all: async () => rows(),

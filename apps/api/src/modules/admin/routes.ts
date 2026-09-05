@@ -6,7 +6,7 @@ import { requireRole } from '../../middleware/rbac';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
-import { suppliers, businesses, auditLogs, purchaseOrders } from '@vyro/db/schema';
+import { suppliers, businesses, auditLogs, purchaseOrders, users } from '@vyro/db/schema';
 import { and, eq, like, lt, sql, type SQL } from 'drizzle-orm';
 import { findSupplierById, setSupplierStatus } from '../suppliers/repository';
 
@@ -100,8 +100,20 @@ router.get('/audit', async (c) => {
   if (until != null) conds.push(sql`${auditLogs.createdAt} <= ${until}`);
   if (cursor) conds.push(lt(auditLogs.createdAt, Number(cursor)));
   const rows = await db
-    .select()
+    .select({
+      id: auditLogs.id,
+      actorUserId: auditLogs.actorUserId,
+      actorEmail: users.email,
+      action: auditLogs.action,
+      resourceType: auditLogs.resourceType,
+      resourceId: auditLogs.resourceId,
+      metadata: auditLogs.metadata,
+      ip: auditLogs.ip,
+      userAgent: auditLogs.userAgent,
+      createdAt: auditLogs.createdAt,
+    })
     .from(auditLogs)
+    .leftJoin(users, eq(users.id, auditLogs.actorUserId))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(sql`${auditLogs.createdAt} desc`)
     .limit(limit + 1)

@@ -18,32 +18,50 @@ const QUICK_FILTERS = ['All', 'Rice', 'Sugar', 'Tea', 'Milk', 'Oil', 'Flour', 'C
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQ = searchParams.get('q') || '';
-  const [q, setQ] = useState(initialQ);
+  const [q, setQ] = useState(initialQ); // committed query string sent to API
+  const [searchInput, setSearchInput] = useState(initialQ); // debounced input field
 
+  // Debounce the input into the URL + query string.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const next = searchInput.trim();
+      if (next !== q) {
+        setQ(next);
+        setSearchParams(next ? { q: next } : {});
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pick up URL changes (e.g. browser back/forward, quick filter click).
   useEffect(() => {
     const urlQ = searchParams.get('q') || '';
-    if (urlQ !== q) setQ(urlQ);
-  }, [searchParams]);
+    if (urlQ !== q) {
+      setQ(urlQ);
+      setSearchInput(urlQ);
+    }
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data, isLoading } = useQuery({
     queryKey: ['search', q],
-    queryFn: () => api.get<{ hits: Hit[] }>(`/search/products?q=${encodeURIComponent(q.trim())}`),
+    queryFn: () => api.get<{ hits: Hit[] }>(`/search/products?q=${encodeURIComponent(q)}`),
     enabled: true,
   });
 
   function handleFilterClick(term: string) {
     if (term === 'All') {
+      setSearchInput('');
       setQ('');
       setSearchParams({});
     } else {
+      setSearchInput(term);
       setQ(term);
       setSearchParams({ q: term });
     }
   }
 
   function handleInputChange(val: string) {
-    setQ(val);
-    setSearchParams(val.trim() ? { q: val.trim() } : {});
+    setSearchInput(val);
   }
 
   return (
@@ -58,12 +76,12 @@ export function SearchPage() {
           <SearchIcon size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-4" />
           <Input
             placeholder="Search rice, sugar, tea, milk, cement, packaging…"
-            value={q}
+            value={searchInput}
             onChange={(e) => handleInputChange(e.target.value)}
             className="pl-11 h-12"
             autoFocus
           />
-          {q && (
+          {searchInput && (
             <button
               onClick={() => handleInputChange('')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-4 hover:text-ink p-1 cursor-pointer"
@@ -74,7 +92,7 @@ export function SearchPage() {
         </div>
         <div className="flex flex-wrap gap-2 mt-4">
           {QUICK_FILTERS.map((term) => {
-            const active = term === 'All' ? !q : q.toLowerCase() === term.toLowerCase();
+            const active = term === 'All' ? !searchInput : searchInput.toLowerCase() === term.toLowerCase();
             return (
               <button
                 key={term}
@@ -190,7 +208,7 @@ export function SearchPage() {
         <EmptyState
           icon={<SearchIcon size={24} />}
           title="No wholesale lots match this term."
-          description={`We couldn't find any products matching "${q}". Try browsing popular categories.`}
+          description={`We couldn't find any products matching "${searchInput}". Try browsing popular categories.`}
           action={
             <Button variant="secondary" onClick={() => handleFilterClick('All')}>
               Show all products

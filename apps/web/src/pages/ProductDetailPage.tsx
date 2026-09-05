@@ -2,13 +2,34 @@ import { useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import { Button, ErrorBanner, Input, PageSection, StatusDots } from '@/components/ui';
-import type { OrderStatus } from '@/components/ui';
+import { Button, ErrorBanner, Input, PageSection } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
 import { ArrowLeftIcon, ShoppingCartIcon } from '@/components/icons';
 import { FlowLine } from '@/components/brand/FlowLine';
-import { MetricNumber, ProductImage, ProductPlaceholder, Surface } from '@/components/brand/Surface';
+import { MetricNumber, ProductImage, Surface } from '@/components/brand/Surface';
+
+function availabilityLabel(status: string | undefined): { label: string; tone: 'good' | 'warn' | 'bad' | 'neutral' } {
+  switch (status) {
+    case 'in_stock':
+      return { label: 'In stock', tone: 'good' };
+    case 'low_stock':
+      return { label: 'Low stock', tone: 'warn' };
+    case 'out_of_stock':
+      return { label: 'Out of stock', tone: 'bad' };
+    case 'pre_order':
+      return { label: 'Pre-order', tone: 'neutral' };
+    default:
+      return { label: status ?? 'Unknown', tone: 'neutral' };
+  }
+}
+
+const toneClass: Record<'good' | 'warn' | 'bad' | 'neutral', string> = {
+  good: 'text-mint border-mint/40 bg-mint/5',
+  warn: 'text-amber border-amber/40 bg-amber/5',
+  bad: 'text-rose border-rose/40 bg-rose/5',
+  neutral: 'text-ink-3 border-line bg-paper',
+};
 
 interface Offer {
   offer: {
@@ -196,7 +217,14 @@ export function ProductDetailPage() {
                       <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-ink-4">
                         <span>MOQ {row.offer.minOrderQty} {data.product.unit}</span>
                         <span>{row.offer.leadTimeDays} day lead</span>
-                        <StatusDots status={(row.offer.availabilityStatus as OrderStatus) ?? 'pending'} />
+                        {(() => {
+                          const a = availabilityLabel(row.offer.availabilityStatus);
+                          return (
+                            <span className={`inline-flex items-center px-2 py-0.5 border text-[10px] uppercase tracking-wider font-medium ${toneClass[a.tone]}`}>
+                              {a.label}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="text-left lg:text-right">
