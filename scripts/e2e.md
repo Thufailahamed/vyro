@@ -123,6 +123,38 @@ pnpm --filter @vyro/api exec wrangler d1 execute vyro --local \
 
 Expected: `0`.
 
+## 7c. Admin catalog moderation (T2)
+
+Ops admin: products, categories, business types. All writes audit-logged.
+
+### 7c.1 Edit product
+
+1. Sign in as ops. Open `/admin/catalog?tab=products`.
+2. Click any product → `/admin/catalog/products/<id>`.
+3. Edit name, click Save. Verify `GET /api/admin/audit?targetId=<id>&action=product.update` returns a row.
+4. Click **Feature** button. Verify `product.feature` audit row.
+5. Open same product in a second ops session → click Save with stale `expectedUpdatedAt` (won't happen via UI normally — verify via API curl: `PATCH /api/admin/products/:id { name, expectedUpdatedAt: 1 }` → expect 409 STALE_WRITE).
+
+### 7c.2 Category tree
+
+1. As ops, open `/admin/catalog?tab=categories`.
+2. Create new category `Spices`. Reparent under `Staples` (existing).
+3. Attempt to delete `Staples` while `Spices` is active → expect inline error "Has children — cannot delete".
+4. Reparent `Spices` into itself via curl → expect 400 CATEGORY_CYCLE.
+5. Soft-delete `Spices` → row shows strikethrough. Audit row `category.delete`.
+
+### 7c.3 Type in-use
+
+1. As ops, open `/admin/catalog?tab=types`.
+2. Try to delete `bt-restaurant` → expect 409 TYPE_IN_USE (a business exists with that type).
+3. Create new `bt-supplier-crafts` → succeeds, audit row `business_type.create`.
+4. Toggle it inactive → audit row `business_type.update`.
+
+### 7c.4 Featured products
+
+1. SQL-check: `SELECT id, name FROM products WHERE featured = 1`.
+2. Verify ops can feature/unfeature. Other roles (finance/support) see the catalog list but no Feature button.
+
 ## 8. Notifications
 
 Sign in as a business. POST `/api/deliveries/<po>/transitions` (as supplier) with `delivered`. Hit `/api/notifications/me` as the business — expect a notification tied to the order event.

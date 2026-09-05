@@ -73,6 +73,54 @@ export function adminAuditLogFixture(opts: {
   };
 }
 
+export function categoryFixture(opts: {
+  slug: string;
+  name: string;
+  parentId?: string | null;
+  sortOrder?: number;
+}) {
+  return {
+    id: `cat-${opts.slug}`,
+    slug: opts.slug,
+    name: opts.name,
+    parentId: opts.parentId ?? null,
+    active: 1,
+    sortOrder: opts.sortOrder ?? 0,
+  };
+}
+
+export function businessTypeFixture(opts: { slug: string; name: string }) {
+  return {
+    id: `bt-${opts.slug}`,
+    slug: opts.slug,
+    name: opts.name,
+    active: 1,
+  };
+}
+
+export function featuredProductFixture(opts: {
+  id?: string;
+  name: string;
+  categoryId: string;
+  unit?: string;
+}) {
+  return {
+    id: opts.id ?? `p-${Math.random().toString(36).slice(2, 8)}`,
+    name: opts.name,
+    description: null,
+    categoryId: opts.categoryId,
+    brand: null,
+    unit: opts.unit ?? 'pack',
+    packSize: null,
+    active: 1,
+    featured: 1,
+    moderationNotes: null,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    deletedAt: null,
+  };
+}
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const SQL = `-- VYRO seed (idempotent inserts)

@@ -117,6 +117,14 @@ export function AdminShell() {
                 Roles
               </NavLink>
             ) : null}
+            {user.adminRole &&
+            (hasPermission(user.adminRole, 'product:read') ||
+              hasPermission(user.adminRole, 'category:read') ||
+              hasPermission(user.adminRole, 'type:read')) ? (
+              <NavLink to="/admin/catalog" className={linkClass}>
+                Catalog
+              </NavLink>
+            ) : null}
           </nav>
         ) : (
           <p className="p-4 text-xs text-paper/40">Sign in to administer</p>

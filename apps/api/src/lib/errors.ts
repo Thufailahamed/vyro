@@ -19,7 +19,12 @@ export type ErrorCode =
   | 'CANNOT_DEMOTE_SELF'
   | 'ROLE_CHANGED'
   | 'ROLE_NOT_GRANTABLE'
-  | 'EMAIL_SEND_FAILED';
+  | 'EMAIL_SEND_FAILED'
+  | 'CATEGORY_HAS_CHILDREN'
+  | 'CATEGORY_CYCLE'
+  | 'TYPE_IN_USE'
+  | 'PRODUCT_LOCKED'
+  | 'STALE_WRITE';
 
 export class HttpError extends Error {
   constructor(

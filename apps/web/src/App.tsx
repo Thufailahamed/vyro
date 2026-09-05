@@ -40,6 +40,8 @@ const AuditPage = lazy(() => import('./admin/DisputedAndAudit').then((m) => ({ d
 const RolesPage = lazy(() => import('./admin/RolesPage').then((m) => ({ default: m.RolesPage })));
 const AdminActivityPage = lazy(() => import('./admin/AdminActivityPage').then((m) => ({ default: m.AdminActivityPage })));
 const InviteAcceptPage = lazy(() => import('./admin/InviteAcceptPage').then((m) => ({ default: m.InviteAcceptPage })));
+const CatalogPage = lazy(() => import('./admin/CatalogPage').then((m) => ({ default: m.CatalogPage })));
+const AdminProductDetailPage = lazy(() => import('./admin/AdminProductDetailPage').then((m) => ({ default: m.AdminProductDetailPage })));
 
 const SupplierDashboardPage = lazy(() => import('./supplier/DashboardPage').then((m) => ({ default: m.SupplierDashboardPage })));
 const SupplierProductsPage = lazy(() => import('./supplier/ProductsPage').then((m) => ({ default: m.SupplierProductsPage })));
@@ -115,6 +117,8 @@ export default function App() {
           <Route path="users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
           <Route path="activity" element={<RequireAdmin><AdminActivityPage /></RequireAdmin>} />
           <Route path="roles" element={<RequireAdmin><RolesPage /></RequireAdmin>} />
+          <Route path="catalog" element={<RequireAdmin><CatalogPage /></RequireAdmin>} />
+          <Route path="catalog/products/:id" element={<RequireAdmin><AdminProductDetailPage /></RequireAdmin>} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
       </Route>
