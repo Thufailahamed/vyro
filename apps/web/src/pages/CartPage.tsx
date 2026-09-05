@@ -78,6 +78,7 @@ export function CartPage() {
   const items = data?.items ?? [];
   const subtotal = data?.subtotalCents ?? 0;
   const supplierCount = data?.supplierCount ?? 0;
+  const itemCount = data?.items?.length ?? 0;
 
   return (
     <div className="space-y-8">
@@ -155,7 +156,7 @@ export function CartPage() {
               className="mt-5"
               items={[
                 { label: 'Suppliers', value: String(supplierCount) },
-                { label: 'Purchase orders', value: String(supplierCount) },
+                { label: 'Items', value: String(itemCount) },
               ]}
             />
             <div className="pt-4 mt-4 border-t border-ink/10">

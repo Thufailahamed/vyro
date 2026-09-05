@@ -19,28 +19,10 @@ interface OrderRow {
   totalCents: number;
   createdAt: number;
   supplierName?: string;
+  supplierId?: string;
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function mulberry32(seed: number) {
-  return function () {
-    let t = (seed += 0x6d2b79f5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function buildMockSpend(businessId?: string) {
-  const seed = (businessId ?? 'demo').split('').reduce((a, c) => a + c.charCodeAt(0), 1);
-  const rand = mulberry32(seed);
-  const out: number[] = [];
-  for (let i = 0; i < 12; i++) {
-    out.push(Math.max(120_000, Math.round(380_000 + rand() * 720_000 + Math.sin(i / 2) * 80_000)));
-  }
-  return out;
-}
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export function DashboardPage() {
   const { user } = useAuth();
@@ -53,17 +35,33 @@ export function DashboardPage() {
     enabled: !!businessId,
   });
 
+  const { data: spendData } = useQuery({
+    queryKey: ['business-monthly-spend', businessId],
+    queryFn: () =>
+      api.get<{ buckets: { month: string; totalCents: number }[] }>(
+        `/analytics/business/monthly-spend?months=12`
+      ),
+    enabled: !!businessId,
+  });
+
   const orders = ordersData?.orders ?? [];
   const stats = useMemo(() => {
-    const inFlight = orders.filter((o) => ['pending', 'accepted', 'in_transit'].includes(o.status)).length;
-    const completed = orders.filter((o) => ['completed', 'delivered'].includes(o.status)).length;
+    const inFlight = orders.filter((o) => ['pending', 'accepted', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(o.status)).length;
+    const completed = orders.filter((o) => o.status === 'completed').length;
     const disputed = orders.filter((o) => o.status === 'disputed').length;
     const pending = orders.filter((o) => o.status === 'pending').length;
-    const lifetimeCents = orders.reduce((a, b) => a + b.totalCents, 0);
+    const lifetimeCents = orders
+      .filter((o) => o.status !== 'cancelled')
+      .reduce((a, b) => a + b.totalCents, 0);
     return { total: orders.length, inFlight, completed, disputed, pending, lifetimeCents };
   }, [orders]);
 
-  const monthly = useMemo(() => buildMockSpend(businessId), [businessId]);
+  const monthlyBuckets = spendData?.buckets ?? [];
+  const monthlyValues = monthlyBuckets.map((b) => b.totalCents);
+  const monthlyLabels = monthlyBuckets.map((b) => {
+    const [, mm] = b.month.split('-');
+    return MONTH_LABELS[Number(mm) - 1] ?? b.month;
+  });
   const recent = orders.slice(0, 6);
 
   if (!user) {
@@ -147,15 +145,25 @@ export function DashboardPage() {
               <h2 className="font-display text-2xl">Procurement activity</h2>
               <p className="text-xs text-ink-4 mt-1">Monthly wholesale movement</p>
             </div>
-            <span className="vyro-metric text-lg text-copper">{formatCompactLKR(monthly.reduce((a, b) => a + b, 0))}</span>
+            <span className="vyro-metric text-lg text-copper">{formatCompactLKR(monthlyValues.reduce((a, b) => a + b, 0))}</span>
           </div>
-          <TimeSeries values={monthly} labels={MONTHS.slice(0, 6)} tone="cyan" height={168} formatValue={(v: number) => formatLKR(v)} />
+          <TimeSeries values={monthlyValues} labels={monthlyLabels} tone="cyan" height={168} formatValue={(v: number) => formatLKR(v)} />
         </Surface>
 
         <Surface kind="split" className="lg:col-span-4 grid grid-rows-3">
           <SplitStat label="Active orders" value={String(stats.inFlight)} />
           <SplitStat label="Completed" value={String(stats.completed)} />
-          <SplitStat label="Suppliers engaged" value={String(new Set(orders.map((o) => o.supplierName ?? o.id)).size)} />
+          <SplitStat
+            label="Suppliers engaged"
+            value={String(new Set(orders.map((o) => o.supplierId ?? o.supplierName ?? '').filter(Boolean)).size)}
+          />
+        </Surface>
+
+        <Surface kind="flat" className="lg:col-span-4 p-6 space-y-3">
+          <h2 className="font-display text-lg">Action queue</h2>
+          <ActionRow icon={TruckIcon} label="In transit" value={stats.inFlight} />
+          <ActionRow icon={PackageIcon} label="Awaiting your action" value={stats.pending} />
+          <ActionRow icon={AlertCircleIcon} label="Disputed" value={stats.disputed} danger />
         </Surface>
 
         <Surface kind="flat" className="lg:col-span-7 p-0 overflow-hidden">
