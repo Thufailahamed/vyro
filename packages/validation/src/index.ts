@@ -14,5 +14,6 @@ export * from './adminInvites';
 export * from './adminRoles';
 export * from './adminAudit';
 export * from './adminCatalog';
+export * from './adminMoney';
 export * from './businessTypes';
 export * from './supplierTypes';

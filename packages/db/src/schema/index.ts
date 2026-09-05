@@ -29,3 +29,5 @@ export * from './paymentIdempotencyKeys';
 export * from './supplierSettings';
 export * from './adminInvites';
 export * from './adminAuditLogs';
+export * from './payoutBatches';
+export * from './chargebacks';

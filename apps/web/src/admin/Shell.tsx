@@ -125,6 +125,14 @@ export function AdminShell() {
                 Catalog
               </NavLink>
             ) : null}
+            {user.adminRole &&
+            (hasPermission(user.adminRole, 'payment:read') ||
+              hasPermission(user.adminRole, 'payout:read') ||
+              hasPermission(user.adminRole, 'ledger:read')) ? (
+              <NavLink to="/admin/money" className={linkClass}>
+                Money
+              </NavLink>
+            ) : null}
           </nav>
         ) : (
           <p className="p-4 text-xs text-paper/40">Sign in to administer</p>

@@ -20,6 +20,7 @@ export const payouts = sqliteTable(
     periodEnd: integer('period_end').notNull(),
     method: text('method', { enum: ['bank', 'cash'] }).notNull(),
     reference: text('reference'),
+    batchId: text('batch_id'),
     paidAt: integer('paid_at'),
     paidByUserId: text('paid_by_user_id').references(() => users.id),
     failureReason: text('failure_reason'),

@@ -98,6 +98,91 @@ export function businessTypeFixture(opts: { slug: string; name: string }) {
   };
 }
 
+export function refundFixture(opts: {
+  paymentId: string;
+  amountCents: number;
+  requestedByUserId: string;
+  status?: 'pending' | 'processing' | 'completed' | 'failed';
+  reason?: string;
+}) {
+  return {
+    id: randomUUID(),
+    paymentId: opts.paymentId,
+    amountCents: opts.amountCents,
+    reason: opts.reason ?? null,
+    status: opts.status ?? 'pending',
+    requestedByUserId: opts.requestedByUserId,
+    requestedAt: Date.now(),
+    processedAt: null,
+    gatewayRefundId: null,
+    failureReason: null,
+  };
+}
+
+export function payoutBatchFixture(opts: {
+  periodStart: number;
+  periodEnd: number;
+  payoutCount?: number;
+  totalCents?: number;
+  status?: 'pending' | 'approved' | 'rejected';
+  createdByUserId: string;
+}) {
+  return {
+    id: randomUUID(),
+    periodStart: opts.periodStart,
+    periodEnd: opts.periodEnd,
+    payoutCount: opts.payoutCount ?? 0,
+    totalCents: opts.totalCents ?? 0,
+    status: opts.status ?? 'pending',
+    createdByUserId: opts.createdByUserId,
+    createdAt: Date.now(),
+    approvedByUserId: null,
+    approvedAt: null,
+    notes: null,
+  };
+}
+
+export function chargebackFixture(opts: {
+  paymentId: string;
+  reason: string;
+  status?: 'open' | 'resolved' | 'cancelled';
+}) {
+  return {
+    id: randomUUID(),
+    paymentId: opts.paymentId,
+    reason: opts.reason,
+    status: opts.status ?? 'open',
+    resolvedBy: null,
+    resolvedAt: null,
+    refundId: null,
+    notes: null,
+    createdAt: Date.now(),
+  };
+}
+
+export function ledgerEntryFixture(opts: {
+  accountType: 'business' | 'supplier' | 'platform';
+  accountId: string;
+  direction: 'credit' | 'debit';
+  amountCents: number;
+  refType: string;
+  refId?: string;
+  createdByUserId: string;
+}) {
+  return {
+    id: randomUUID(),
+    accountType: opts.accountType,
+    accountId: opts.accountId,
+    direction: opts.direction,
+    amountCents: opts.amountCents,
+    refType: opts.refType,
+    refId: opts.refId ?? null,
+    description: `${opts.direction} ${opts.refType}`,
+    createdByUserId: opts.createdByUserId,
+    createdAt: Date.now(),
+  };
+}
+
 export function featuredProductFixture(opts: {
   id?: string;
   name: string;

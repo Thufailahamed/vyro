@@ -155,6 +155,39 @@ Ops admin: products, categories, business types. All writes audit-logged.
 1. SQL-check: `SELECT id, name FROM products WHERE featured = 1`.
 2. Verify ops can feature/unfeature. Other roles (finance/support) see the catalog list but no Feature button.
 
+## 7d. Admin money & orders (T3)
+
+Sign in as finance admin. Visit `/admin/money`. The page exposes 4 tabs.
+
+### 7d.1 Refund queue
+
+1. Seed a refund via `seed.refundFixture({ paymentId: 'pay-1', amountCents: 5000, requestedByUserId: 'admin-finance-seed', status: 'pending' })`.
+2. GET `/api/admin/refunds/queue` → 1 row, status `pending`.
+3. POST `/api/admin/refunds/<id>/approve` → 200, status `completed`.
+4. Audit row: `refund.approve` with before/after snapshots.
+5. As ops role, GET queue → 200 (ops has payment:read). POST approve → 403 (no payment:refund).
+
+### 7d.2 Payout batches
+
+1. POST `/api/admin/payout-batches/batch` with a period → 201 + `pending` row.
+2. GET `/api/admin/payout-batches/queue` → 1 row.
+3. POST `/api/admin/payout-batches/<id>/approve` → 200, status `approved`.
+4. Audit row: `payout_batch.approve` with after.
+5. Approve twice → second call returns 409 `BATCH_ALREADY_APPROVED`.
+
+### 7d.3 Ledger summary
+
+1. Seed 3 ledger entries via `seed.ledgerEntryFixture(...)` — supplier credit, supplier debit, platform credit.
+2. GET `/api/admin/ledger/summary` → totalCreditCents=1050, totalDebitCents=200, netCents=850, byAccountType length=2.
+3. As ops role → 403.
+
+### 7d.4 Chargebacks
+
+1. Seed `seed.chargebackFixture({ paymentId: 'pay-1', reason: 'fraud' })`.
+2. GET `/api/admin/chargebacks` → 1 row.
+3. POST `/api/admin/chargebacks/<id>/resolve` with `notes` → 200, status `resolved`, audit `chargeback.resolve`.
+4. Resolve again → 409 `CHARGEBACK_RESOLVED`.
+
 ## 8. Notifications
 
 Sign in as a business. POST `/api/deliveries/<po>/transitions` (as supplier) with `delivered`. Hit `/api/notifications/me` as the business — expect a notification tied to the order event.

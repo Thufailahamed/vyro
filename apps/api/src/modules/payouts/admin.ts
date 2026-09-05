@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { session } from '../../middleware/session';
 import type { Ctx } from '../../middleware/session';
 import { httpError } from '../../lib/errors';
+import { requirePermission } from '../../middleware/rbac';
 import {
   payoutGenerateSchema,
   payoutMarkPaidSchema,
@@ -28,7 +29,7 @@ function requireAdmin(ctx: Ctx | undefined): asserts ctx is Ctx {
   if (!ctx.isAdmin) throw httpError(403, 'FORBIDDEN', 'Admin only');
 }
 
-adminRouter.post('/generate', async (c) => {
+adminRouter.post('/generate', requirePermission('payout:approve'), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
   requireAdmin(ctx);
   const parsed = payoutGenerateSchema.safeParse(await c.req.json().catch(() => null));
@@ -85,7 +86,7 @@ adminRouter.post('/generate', async (c) => {
   return c.json({ payout }, 201);
 });
 
-adminRouter.post('/:id/mark-paid', async (c) => {
+adminRouter.post('/:id/mark-paid', requirePermission('payout:approve'), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
   requireAdmin(ctx);
   const parsed = payoutMarkPaidSchema.safeParse(await c.req.json().catch(() => null));
@@ -145,7 +146,7 @@ adminRouter.post('/:id/mark-paid', async (c) => {
   return c.json({ ok: true });
 });
 
-adminRouter.post('/:id/mark-failed', async (c) => {
+adminRouter.post('/:id/mark-failed', requirePermission('payout:approve'), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
   requireAdmin(ctx);
   const parsed = payoutMarkFailedSchema.safeParse(await c.req.json().catch(() => null));

@@ -24,7 +24,11 @@ export type ErrorCode =
   | 'CATEGORY_CYCLE'
   | 'TYPE_IN_USE'
   | 'PRODUCT_LOCKED'
-  | 'STALE_WRITE';
+  | 'STALE_WRITE'
+  | 'REFUND_NOT_PENDING'
+  | 'PAYOUT_NOT_PENDING'
+  | 'BATCH_ALREADY_APPROVED'
+  | 'CHARGEBACK_RESOLVED';
 
 export class HttpError extends Error {
   constructor(
