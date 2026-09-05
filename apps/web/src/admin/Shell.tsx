@@ -58,7 +58,7 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
     );
   }
   if (!user) return <Navigate to="/admin/login" replace />;
-  if (!user.isAdmin) return <div className="p-8 text-sm text-rose font-medium">Forbidden: Platform administrator privileges required.</div>;
+  if (!user.isAdmin) return <Navigate to="/admin/login" replace />;
   return <>{children}</>;
 }
 
