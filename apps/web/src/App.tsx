@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { AdminAuthProvider, AdminShell, RequireAdmin } from './admin/Shell';
 import { SupplierShell } from './supplier/Shell';
+import { InstallBanner } from './components/InstallBanner';
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
 const MarketingPages = lazy(() => import('./pages/MarketingPages').then((m) => ({ default: m.AboutPage })));
@@ -59,6 +60,7 @@ void MarketingPages;
 
 export default function App() {
   return (
+    <>
     <Suspense fallback={<PageFallback />}>
     <Routes>
       {/* Public web SPA */}
@@ -127,5 +129,7 @@ export default function App() {
       </Route>
     </Routes>
     </Suspense>
+    <InstallBanner />
+    </>
   );
 }
