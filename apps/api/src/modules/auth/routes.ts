@@ -16,26 +16,16 @@ const handleSignUp = async (c: any) => {
     throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
   await ensureEmailAvailable(c.env.DB, parsed.data.email);
   const auth = createAuth(c.env);
-  let res: Response;
-  try {
-    res = await auth.api.signUpEmail({
-      body: {
-        email: parsed.data.email.toLowerCase(),
-        password: parsed.data.password,
-        name: parsed.data.name,
-        ...(parsed.data.phone ? { phone: parsed.data.phone } : {}),
-      },
-      headers: c.req.raw.headers,
-      asResponse: true,
-    });
-  } catch (e) {
-    console.error('[auth.signup] better-auth threw:', e instanceof Error ? `${e.name}: ${e.message}\n${e.stack}` : String(e));
-    throw e;
-  }
-  if (!res.ok) {
-    const body = await res.clone().text().catch(() => '<no body>');
-    console.error(`[auth.signup] better-auth returned ${res.status}: ${body}`);
-  }
+  const res = await auth.api.signUpEmail({
+    body: {
+      email: parsed.data.email.toLowerCase(),
+      password: parsed.data.password,
+      name: parsed.data.name,
+      ...(parsed.data.phone ? { phone: parsed.data.phone } : {}),
+    },
+    headers: c.req.raw.headers,
+    asResponse: true,
+  });
 
   if (res.ok) {
     const cloned = res.clone();
