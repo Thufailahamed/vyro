@@ -1,9 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Link } from 'react-router-dom';
-import { PageHeader, StatusDots } from '@/components/ui';
-import type { OrderStatus } from '@/components/ui';
+import { PageHeader } from '@/components/ui';
 import { ClockIcon, CheckCircleIcon } from './icons';
+import { DisputeResolutionPanel } from './DisputeResolutionPanel';
 
 interface Order {
   id: string;
@@ -23,13 +23,14 @@ interface Audit {
 }
 
 export function DisputedPage() {
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ['admin-disputed'],
-    queryFn: () => api.get<{ orders: Order[] }>('/admin/disputed'),
+    queryFn: () => api.get<{ disputes: Order[] }>('/admin/disputes'),
     retry: false,
   });
 
-  const orders = data?.orders ?? [];
+  const orders = data?.disputes ?? [];
 
   return (
     <div className="space-y-6">
@@ -86,7 +87,7 @@ export function DisputedPage() {
                     })}
                   </td>
                   <td className="py-3.5 px-4 text-right">
-                    <StatusDots status={'disputed' as OrderStatus} />
+                    <DisputeResolutionPanel poId={o.id} onResolved={() => qc.invalidateQueries({ queryKey: ['admin-disputed'] })} />
                   </td>
                 </tr>
               ))}

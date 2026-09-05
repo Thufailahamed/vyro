@@ -28,6 +28,7 @@ import adminAnalyticsRouter from './modules/analytics/admin/routes';
 import adminUsersRouter from './modules/admin/users';
 import adminSupplierDetailRouter from './modules/admin/supplierDetail';
 import adminBusinessDetailRouter from './modules/admin/businessDetail';
+import disputeRouter from './modules/admin/disputes';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -66,5 +67,6 @@ app.route('/api/analytics/admin', adminAnalyticsRouter);
 app.route('/api/admin/users', adminUsersRouter);
 app.route('/api/admin', adminSupplierDetailRouter);
 app.route('/api/admin', adminBusinessDetailRouter);
+app.route('/api/admin', disputeRouter);
 
 export default app;

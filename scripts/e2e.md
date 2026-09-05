@@ -75,6 +75,13 @@ Sign into admin SPA, browse Suppliers / Businesses / Audit. Verify each admin ac
 
 Sign in as a business. POST `/api/deliveries/<po>/transitions` (as supplier) with `delivered`. Hit `/api/notifications/me` as the business — expect a notification tied to the order event.
 
+## 9. Dispute resolution
+
+- As the business, mark a delivered PO: `POST /api/deliveries/<po>/transitions` `{ to: 'disputed' }`.
+- Sign in as admin. Open `/admin/disputed`. The PO row renders a resolution panel.
+- Add a note, click "Refund buyer". Expect 200, PO `cancelled`, notification row for the supplier, audit row `dispute.resolved`.
+- Repeat with "Release supplier" on a fresh dispute. Expect PO back to `delivered`, notification row for the buyer.
+
 ## Notes / known limits
 
 - vitest-pool-workers not configured; D1-touching integration tests run via `wrangler dev --local` + manual curl walks above.
