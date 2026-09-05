@@ -1,5 +1,5 @@
 name = "vyro-api"
-main = "src/index.ts"
+main = "src/worker.ts"
 compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 
@@ -37,6 +37,9 @@ WEB_ORIGIN = "http://localhost:5173"
 ADMIN_ORIGIN = "http://localhost:5174"
 BETTER_AUTH_SECRET = "vyro-local-dev-secret-must-be-32-chars-long"
 BETTER_AUTH_URL = "https://vyro-api.thufailahamed627.workers.dev"
+
+[triggers]
+crons = ["0 3 * * *"]
 
 [env.production]
 name = "vyro-api"

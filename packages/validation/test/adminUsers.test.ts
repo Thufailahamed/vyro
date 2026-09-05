@@ -5,7 +5,8 @@ describe('admin users schemas', () => {
   it('list accepts empty query', () => {
     expect(adminUsersListQuery.parse({})).toEqual({});
   });
-  it('id param rejects non-uuid', () => {
-    expect(adminUserIdParam.safeParse({ id: 'x' }).success).toBe(false);
+  it('id param accepts any non-empty string', () => {
+    expect(adminUserIdParam.safeParse({ id: 'u-1' }).success).toBe(true);
+    expect(adminUserIdParam.safeParse({ id: '' }).success).toBe(false);
   });
 });
