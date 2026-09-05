@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHeader, Badge, Button } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
+import { BusinessSuspendButton } from './BusinessSuspendButton';
 
 type Detail = {
   id: string;
@@ -45,9 +46,7 @@ export function BusinessDetailPage() {
           <h1 className="vyro-display text-2xl">{b.name}</h1>
           <p className="text-sm text-ink-4">Status: {b.status}</p>
         </div>
-        <Button variant="ghost" disabled>
-          Suspend business (coming soon)
-        </Button>
+        <BusinessSuspendButton businessId={b.id} status={b.status} />
       </header>
 
       <div className="grid sm:grid-cols-3 gap-px bg-ink/10">
