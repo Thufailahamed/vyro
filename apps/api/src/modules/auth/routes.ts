@@ -106,6 +106,36 @@ router.post('/reset-password', async (c) => {
   return res;
 });
 
+router.post('/2fa/enable', async (c) => {
+  const auth = createAuth(c.env);
+  const res = await auth.api.enableTwoFactor({
+    body: await c.req.json().catch(() => ({})),
+    headers: c.req.raw.headers,
+    asResponse: true,
+  });
+  return res;
+});
+
+router.post('/2fa/verify', async (c) => {
+  const auth = createAuth(c.env);
+  const res = await auth.api.verifyTOTP({
+    body: await c.req.json().catch(() => ({})),
+    headers: c.req.raw.headers,
+    asResponse: true,
+  });
+  return res;
+});
+
+router.post('/2fa/disable', async (c) => {
+  const auth = createAuth(c.env);
+  const res = await auth.api.disableTwoFactor({
+    body: await c.req.json().catch(() => ({})),
+    headers: c.req.raw.headers,
+    asResponse: true,
+  });
+  return res;
+});
+
 router.get('/me', async (c) => {
   const auth = createAuth(c.env);
   const session = await auth.api.getSession({ headers: c.req.raw.headers });

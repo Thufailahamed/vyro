@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
+import { twoFactor } from 'better-auth/plugins';
 import { getDb } from '@vyro/db';
 import type { AuthEnv } from './types';
 import { authSchema } from './schema';
@@ -30,6 +31,7 @@ export function createAuth(env: AuthEnv) {
         isPlatformAdmin: { type: 'boolean', defaultValue: false },
       },
     },
+    plugins: [twoFactor({ issuer: 'VYRO' })],
   });
 }
 
