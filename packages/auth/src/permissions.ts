@@ -15,6 +15,9 @@ export const PERMISSION_KEYS = [
   'abuse_report:read', 'abuse_report:resolve',
   'kyc:read', 'kyc:review',
   'takedown:write',
+  'feature_flag:read', 'feature_flag:write',
+  'email_template:read', 'email_template:write',
+  'webhook:read', 'webhook:write', 'webhook:retry',
 ] as const;
 
 export type Permission = (typeof PERMISSION_KEYS)[number];

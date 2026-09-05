@@ -33,3 +33,6 @@ export * from './payoutBatches';
 export * from './chargebacks';
 export * from './abuseReports';
 export * from './kycReviews';
+export * from './configSections';
+export * from './webhooks';
+export * from './webhookDeliveries';

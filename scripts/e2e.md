@@ -220,6 +220,32 @@ Sign in as support admin. Visit `/admin/trust-safety`. Three tabs: Reports, KYC,
 2. POST `/api/admin/users/<userId>/unsuspend` → 200. Audit `user.unsuspend`.
 3. As finance → 403 (no user:suspend).
 
+## 7f. Admin platform config (T5)
+
+Sign in as super_admin. Visit `/admin/platform`. Three tabs.
+
+### 7f.1 Feature flags
+
+1. GET `/api/admin/feature-flags` → `{section, value: {}, version: 0}`.
+2. PUT with `{value: {new_checkout: {enabled: true}}, expectedVersion: 0}` → 200, version bumps to 1. Audit `feature_flag.update`.
+3. As ops → 403 (no feature_flag:read).
+4. PUT with stale `expectedVersion` → 409 `STALE_WRITE`.
+
+### 7f.2 Email templates
+
+1. GET `/api/admin/email-templates` → defaults.
+2. PUT `{value: {order_confirmed: {subject: 'Your order', body: '...'}}, expectedVersion: 0}` → 200. Audit `email_template.update`.
+
+### 7f.3 Webhooks
+
+1. POST `/api/admin/webhooks` with name/url/eventTypes/secret → 201. Audit `webhook.create`.
+2. GET `/api/admin/webhooks` → 1 row.
+3. Seed a delivery via `seed.webhookDeliveryFixture({webhookId, eventType, status: 'failed', responseStatus: 500})`.
+4. GET `/api/admin/webhooks/<id>/deliveries` → 1 row.
+5. POST `/api/admin/webhooks/<id>/retry/<deliveryId>` → 200, status flips to pending. Audit `webhook.retry`.
+6. DELETE `/api/admin/webhooks/<id>` → 200, `active=0`. Audit `webhook.delete`.
+7. As ops → 403 (no webhook:read).
+
 ## 8. Notifications
 
 Sign in as a business. POST `/api/deliveries/<po>/transitions` (as supplier) with `delivered`. Hit `/api/notifications/me` as the business — expect a notification tied to the order event.

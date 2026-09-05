@@ -141,6 +141,14 @@ export function AdminShell() {
                 Trust &amp; Safety
               </NavLink>
             ) : null}
+            {user.adminRole &&
+            (hasPermission(user.adminRole, 'feature_flag:read') ||
+              hasPermission(user.adminRole, 'email_template:read') ||
+              hasPermission(user.adminRole, 'webhook:read')) ? (
+              <NavLink to="/admin/platform" className={linkClass}>
+                Platform
+              </NavLink>
+            ) : null}
           </nav>
         ) : (
           <p className="p-4 text-xs text-paper/40">Sign in to administer</p>

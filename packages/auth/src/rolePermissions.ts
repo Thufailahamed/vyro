@@ -23,6 +23,9 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, ReadonlySet<Permission
     'abuse_report:read', 'abuse_report:resolve',
     'kyc:read', 'kyc:review',
     'takedown:write',
+    'feature_flag:read', 'feature_flag:write',
+    'email_template:read', 'email_template:write',
+    'webhook:read', 'webhook:write', 'webhook:retry',
   ),
   ops: all(
     'user:read', 'user:suspend', 'user:unsuspend',

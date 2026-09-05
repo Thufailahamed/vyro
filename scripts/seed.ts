@@ -224,6 +224,46 @@ export function kycReviewFixture(opts: {
   };
 }
 
+export function webhookFixture(opts: {
+  name: string;
+  url: string;
+  eventTypes: string[];
+  secret?: string;
+  active?: boolean;
+  createdBy?: string;
+}) {
+  return {
+    id: randomUUID(),
+    name: opts.name,
+    url: opts.url,
+    eventTypesJson: JSON.stringify(opts.eventTypes),
+    secret: opts.secret ?? 'testsecret',
+    active: opts.active === false ? 0 : 1,
+    createdBy: opts.createdBy ?? 'admin-super_admin-seed',
+    createdAt: Date.now(),
+  };
+}
+
+export function webhookDeliveryFixture(opts: {
+  webhookId: string;
+  eventType: string;
+  status?: 'pending' | 'success' | 'failed';
+  responseStatus?: number;
+}) {
+  return {
+    id: randomUUID(),
+    webhookId: opts.webhookId,
+    eventType: opts.eventType,
+    payloadJson: '{"event":"' + opts.eventType + '"}',
+    status: opts.status ?? 'success',
+    responseStatus: opts.responseStatus ?? null,
+    responseBody: null,
+    attemptCount: 1,
+    nextRetryAt: null,
+    createdAt: Date.now(),
+  };
+}
+
 export function featuredProductFixture(opts: {
   id?: string;
   name: string;
