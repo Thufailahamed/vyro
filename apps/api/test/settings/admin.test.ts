@@ -105,8 +105,10 @@ describe('settings admin routes', () => {
     const res = await app.fetch(new Request('http://localhost/api/admin/settings', init), env);
     expect(res.status).toBe(200);
     expect((await res.json()).settings.platformFeeBps).toBe(300);
-    expect(mockState.auditRows).toHaveLength(1);
-    expect(mockState.auditRows[0].action).toBe('platform_settings.update');
+    expect(mockState.auditRows.length).toBeGreaterThanOrEqual(1);
+    expect(mockState.auditRows.some((r: any) => r.action === 'platform_settings.update')).toBe(true);
+    // T1: also writes admin audit log
+    expect(mockState.auditRows.some((r: any) => r.action === 'settings.update')).toBe(true);
   });
 
   it('PATCH rejects out-of-range fee', async () => {

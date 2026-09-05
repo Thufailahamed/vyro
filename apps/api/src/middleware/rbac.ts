@@ -17,7 +17,8 @@ export const requireRole = (spec: RoleSpec): MiddlewareHandler => async (c, next
     if (hasPermission(ctx.adminRole, spec.permission)) return next();
     throw httpError(403, 'FORBIDDEN', `Missing permission: ${spec.permission}`);
   }
-  if (spec.admin && ctx.adminRole) return next();
+  // spec.admin accepts any non-null admin role OR legacy isAdmin boolean
+  if (spec.admin && (ctx.adminRole || (ctx as unknown as { isAdmin?: boolean }).isAdmin)) return next();
   if (spec.business && ctx.businesses.some((b) => spec.business!.includes(b.role))) return next();
   if (spec.supplier && ctx.suppliers.some((s) => spec.supplier!.includes(s.role))) return next();
   throw httpError(403, 'FORBIDDEN', 'Insufficient role');

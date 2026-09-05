@@ -6,6 +6,7 @@ import type { Ctx } from '../../middleware/session';
 import { httpError } from '../../lib/errors';
 import { platformSettingsPatchSchema } from '@vyro/validation/settings';
 import { getPlatformSettings, patchPlatformSettings } from './adminRepository';
+import { auditAdmin } from '../admin/lib/audit';
 
 const router = new Hono<{ Bindings: Env }>();
 router.use('*', session());
@@ -20,7 +21,15 @@ router.patch('/', session(), requireRole({ admin: true }), async (c) => {
   const parsed = platformSettingsPatchSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success)
     throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
+  const before = await getPlatformSettings(c.env.DB);
   const updated = await patchPlatformSettings(c.env.DB, ctx.userId, parsed.data);
+  await auditAdmin({
+    ctx: c,
+    action: 'settings.update',
+    target: { type: 'platform_settings', id: 'singleton' },
+    before,
+    after: parsed.data,
+  });
   return c.json({ settings: updated });
 });
 

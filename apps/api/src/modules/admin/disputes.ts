@@ -15,6 +15,7 @@ import {
   updateRefundStatus,
 } from '../refunds/repository';
 import { recordAudit } from '../supplierProducts/repository';
+import { auditAdmin } from './lib/audit';
 
 type Ctx = { userId: string };
 
@@ -164,6 +165,13 @@ router.post('/disputes/:poId/resolve', async (c) => {
     ip: c.req.header('cf-connecting-ip') ?? null,
     userAgent: c.req.header('user-agent') ?? null,
     createdAt: now,
+  });
+  await auditAdmin({
+    ctx: c,
+    action: 'dispute.resolve',
+    target: { type: 'purchase_order', id: poId },
+    before: { status: 'disputed' },
+    after: { status: parsed.data.outcome === 'refund_business' ? 'cancelled' : 'delivered', outcome: parsed.data.outcome },
   });
 
   return c.json({ ok: true, status: parsed.data.outcome === 'refund_business' ? 'cancelled' : 'delivered' });

@@ -9,6 +9,7 @@ import {
 } from '@vyro/validation/payment';
 import { getDb } from '@vyro/db';
 import { recordAudit } from '../supplierProducts/repository';
+import { auditAdmin } from '../admin/lib/audit';
 import { writeLedgerEntry } from '../ledger';
 import { getOrCreateSupplierSettings } from '../settings/supplierRepository';
 import {
@@ -74,6 +75,12 @@ adminRouter.post('/generate', async (c) => {
       amountCents: aggregate.amountCents,
     },
   });
+  await auditAdmin({
+    ctx: c,
+    action: 'payout.generate',
+    target: { type: 'payout', id: payout.id },
+    after: { supplierId: parsed.data.supplierId, amountCents: aggregate.amountCents, paymentCount: aggregate.paymentCount },
+  });
 
   return c.json({ payout }, 201);
 });
@@ -127,6 +134,13 @@ adminRouter.post('/:id/mark-paid', async (c) => {
     resourceId: payout.supplierId,
     metadata: { payoutId: payout.id, reference: parsed.data.reference ?? null },
   });
+  await auditAdmin({
+    ctx: c,
+    action: 'payout.approve',
+    target: { type: 'payout', id: payout.id },
+    before: { status: payout.status },
+    after: { status: 'paid', reference: parsed.data.reference ?? null },
+  });
 
   return c.json({ ok: true });
 });
@@ -154,6 +168,13 @@ adminRouter.post('/:id/mark-failed', async (c) => {
     resourceType: 'supplier',
     resourceId: payout.supplierId,
     metadata: { payoutId: payout.id, reason: parsed.data.reason },
+  });
+  await auditAdmin({
+    ctx: c,
+    action: 'payout.fail',
+    target: { type: 'payout', id: payout.id },
+    before: { status: payout.status },
+    after: { status: 'failed', reason: parsed.data.reason },
   });
 
   return c.json({ ok: true });
