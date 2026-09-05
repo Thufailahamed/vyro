@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, ErrorBanner, Input, Label, PageHeader } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -7,6 +7,8 @@ import { BrandMark, BrandWordmark } from '@/components/brand/BrandMark';
 import { FlowCanvas } from '@/components/brand/FlowLine';
 
 export function SignupPage() {
+  const [search] = useSearchParams();
+  const intent = search.get('intent') === 'supplier' ? 'supplier' : 'buyer';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -28,13 +30,15 @@ export function SignupPage() {
         ...(phone.trim() ? { phone: phone.trim() } : {}),
       });
       await refresh();
-      navigate('/onboarding/business');
+      navigate(intent === 'supplier' ? '/onboarding/supplier' : '/onboarding/business');
     } catch (e) {
       setErr(e instanceof ApiError ? `${e.message}` : 'Sign up failed. Please check your information.');
     } finally {
       setLoading(false);
     }
   }
+
+  const isSupplier = intent === 'supplier';
 
   return (
     <div className="min-h-dvh grid lg:grid-cols-[1.05fr_1fr] bg-bone">
@@ -54,7 +58,19 @@ export function SignupPage() {
       </aside>
       <main className="flex items-center justify-center px-6 py-16">
         <div className="w-full max-w-md">
-          <PageHeader kicker="Create account" title="Join VYRO." sub="Free to browse. Pay only when you issue purchase orders." />
+          <PageHeader
+            kicker={isSupplier ? 'Wholesale Supplier Account' : 'Create account'}
+            title={isSupplier ? 'Become a VYRO supplier.' : 'Join VYRO.'}
+            sub={isSupplier ? 'Receive direct POs from hotels, restaurants, and grocers.' : 'Free to browse. Pay only when you issue purchase orders.'}
+          />
+          {isSupplier && (
+            <p className="mt-4 text-xs text-ink-3 bg-copper/10 border border-copper/30 px-3 py-2">
+              You're creating a supplier account. After signup you'll complete a 4-step wholesale onboarding.
+              <Link to="/signup" className="ml-2 text-copper underline underline-offset-2">
+                Buyer? Switch
+              </Link>
+            </p>
+          )}
           <form onSubmit={onSubmit} className="mt-8 space-y-5">
             {err && <ErrorBanner message={err} />}
             <div>
@@ -89,6 +105,12 @@ export function SignupPage() {
             Already have an account?{' '}
             <Link to="/login" className="text-copper hover:text-ink">
               Sign in
+            </Link>
+          </p>
+          <p className="mt-3 text-xs text-ink-4 border-t border-ink/10 pt-4">
+            Wholesale supplier?{' '}
+            <Link to="/signup?intent=supplier" className="text-copper hover:text-ink underline underline-offset-2">
+              Sign up as a supplier
             </Link>
           </p>
         </div>

@@ -115,12 +115,26 @@ export function BusinessOnboardingPage() {
       <div className="max-w-md mx-auto py-16 text-center space-y-4">
         <h2 className="vyro-display text-3xl">Sign in required</h2>
         <p className="text-sm text-ink-3">Please sign in to register your business on the VYRO network.</p>
-        <Link to="/login" className="inline-block mt-4">
-          <Button>Sign in to continue</Button>
-        </Link>
+        <div className="flex flex-col items-center gap-3 pt-2">
+          <Link to="/login">
+            <Button>Sign in to continue</Button>
+          </Link>
+          <Link to="/signup" className="text-xs text-copper hover:text-ink underline underline-offset-2">
+            New here? Sign up first
+          </Link>
+          <Link
+            to="/onboarding/supplier"
+            className="text-xs text-ink-3 hover:text-copper pt-3 border-t border-ink/10 mt-3"
+          >
+            Not a buyer? Register as a supplier instead →
+          </Link>
+        </div>
       </div>
     );
   }
+
+  // Logged-in buyers may already be suppliers — surface the option to add supplier membership.
+  const alreadySupplier = (user.supplierMemberships?.length ?? 0) > 0;
 
   const selectedType = types.find((t) => t.slug === form.businessTypeSlug);
 
@@ -158,9 +172,26 @@ export function BusinessOnboardingPage() {
             <span className="size-2 rounded-full bg-volt animate-pulse" />
             <span className="vyro-kicker text-volt-deep">Commercial Buyer Onboarding</span>
           </div>
-          <span className="font-mono text-ink-3 text-[11px] uppercase tracking-wider bg-mist px-2.5 py-1 border border-line">
-            Step {step + 1} of {STEPS.length}: {STEPS[step]}
-          </span>
+          <div className="flex items-center gap-3">
+            {alreadySupplier ? (
+              <Link
+                to="/supplier"
+                className="font-mono text-[11px] uppercase tracking-wider bg-copper/10 text-copper border border-copper/30 px-2.5 py-1 hover:bg-copper hover:text-paper"
+              >
+                Open supplier portal →
+              </Link>
+            ) : (
+              <Link
+                to="/onboarding/supplier"
+                className="font-mono text-[11px] uppercase tracking-wider bg-mist text-ink-3 border border-line px-2.5 py-1 hover:text-copper hover:border-copper/40"
+              >
+                Register as supplier instead
+              </Link>
+            )}
+            <span className="font-mono text-ink-3 text-[11px] uppercase tracking-wider bg-mist px-2.5 py-1 border border-line">
+              Step {step + 1} of {STEPS.length}: {STEPS[step]}
+            </span>
+          </div>
         </div>
         <FlowLine
           nodes={STEPS.map((label, i) => ({

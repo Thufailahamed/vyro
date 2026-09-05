@@ -18,15 +18,14 @@ function run(cmd) {
   execSync(cmd, { stdio: 'inherit', cwd: rootDir, env });
 }
 
-console.log(`\n🚀 Building VYRO Web + Admin (sha=${sha})...\n`);
+console.log(`\n🚀 Building VYRO Web (incl. admin routes) (sha=${sha})...\n`);
 
 try {
   run('pnpm --filter @vyro/web build');
-  run('pnpm --filter @vyro/admin build');
   console.log(`\n✅ Build complete. Deploy with:`);
   console.log(`   wrangler pages deploy apps/web/dist --project-name vyro-web`);
-  console.log(`   wrangler pages deploy apps/admin/dist --project-name vyro-admin`);
-  console.log(`\nBundle SHA: ${sha}`);
+  console.log(`\nAdmin portal is served from /admin/* on the same Pages project (vyro-web).`);
+  console.log(`Bundle SHA: ${sha}`);
 } catch (e) {
   console.error(`\n❌ Build failed:`, e.message);
   process.exit(1);
