@@ -14,6 +14,8 @@ interface Ctx {
 
 export const rateLimit = (opts: RateLimitOpts): MiddlewareHandler => async (c, next) => {
   const env = c.env as Env;
+  // Defensive: skip in environments where CACHE is not bound (e.g. tests)
+  if (!env.CACHE || typeof env.CACHE.get !== 'function') return next();
   const ctx = c.get('ctx') as Ctx | undefined;
   const identifier = ctx?.userId ?? c.req.header('cf-connecting-ip') ?? 'unknown';
   const now = Math.floor(Date.now() / 1000);

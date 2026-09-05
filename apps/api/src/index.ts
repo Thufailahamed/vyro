@@ -2,6 +2,9 @@ import { Hono } from 'hono';
 import type { Env } from './env';
 import { requestId } from './middleware/requestId';
 import { cors } from './middleware/cors';
+import { securityHeaders } from './middleware/securityHeaders';
+import { rateLimit } from './middleware/rateLimit';
+import { verifyCsrf } from './middleware/verifyCsrf';
 import { errorEnvelope, HttpError } from './lib/errors';
 import authRouter from './modules/auth/routes';
 import businessRouter from './modules/businesses/routes';
@@ -31,10 +34,18 @@ import adminBusinessDetailRouter from './modules/admin/businessDetail';
 import disputeRouter from './modules/admin/disputes';
 import businessAnalyticsRouter from './modules/analytics/business/routes';
 import homeRouter from './modules/home/routes';
+import cspReportRouter from './modules/cspReport/routes';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
+app.use('*', securityHeaders());
 app.use('*', cors());
+app.use('*', rateLimit({ key: 'global', limit: 60, window: 60 }));
+app.use('/api/auth/*', rateLimit({ key: 'auth', limit: 20, window: 60 }));
+app.use('/api/auth/login', rateLimit({ key: 'auth-login', limit: 5, window: 60 }));
+app.use('/api/auth/forgot-password', rateLimit({ key: 'auth-forgot', limit: 5, window: 60 }));
+app.use('/api/auth/2fa/*', rateLimit({ key: 'auth-2fa', limit: 10, window: 60 }));
+app.use('/api/*', verifyCsrf());
 
 app.onError((err, c) => {
   const env = errorEnvelope(err);
@@ -72,5 +83,6 @@ app.route('/api/admin', adminBusinessDetailRouter);
 app.route('/api/admin', disputeRouter);
 app.route('/api/analytics/business', businessAnalyticsRouter);
 app.route('/api/home', homeRouter);
+app.route('/api/csp-report', cspReportRouter);
 
 export default app;
