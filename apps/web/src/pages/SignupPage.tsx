@@ -10,6 +10,7 @@ export function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const { refresh } = useAuth();
@@ -20,7 +21,12 @@ export function SignupPage() {
     setErr('');
     setLoading(true);
     try {
-      await api.post('/auth/sign-up', { email, password, name });
+      await api.post('/auth/sign-up', {
+        email,
+        password,
+        name,
+        ...(phone.trim() ? { phone: phone.trim() } : {}),
+      });
       await refresh();
       navigate('/onboarding/business');
     } catch (e) {
@@ -62,6 +68,18 @@ export function SignupPage() {
             <div>
               <Label htmlFor="password">Password</Label>
               <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            </div>
+            <div>
+              <Label htmlFor="phone">Phone <span className="text-ink-4 font-normal">(optional)</span></Label>
+              <Input
+                id="phone"
+                type="tel"
+                inputMode="tel"
+                placeholder="+94 …"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                pattern="^[+0-9 ()\-]{7,20}$"
+              />
             </div>
             <Button type="submit" loading={loading} className="w-full">
               Continue
