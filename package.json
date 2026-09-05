@@ -14,6 +14,7 @@
     "db:studio": "pnpm --filter @vyro/db studio",
     "deploy:backend": "node scripts/deploy-backend.mjs",
     "deploy:backend:seed": "node scripts/deploy-backend.mjs --seed",
+    "deploy:web": "node scripts/deploy-web.mjs",
     "audit:deps": "pnpm --filter @vyro/api audit:deps",
     "audit:rbac": "pnpm --filter @vyro/api audit:rbac",
     "audit:secrets": "pnpm --filter @vyro/api audit:secrets"

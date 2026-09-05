@@ -10,6 +10,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react(), tsconfigPaths()],
+  define: {
+    __VYRO_VERSION__: JSON.stringify(process.env.VITE_VERSION ?? 'dev'),
+  },
   css: {
     postcss: {
       plugins: [
