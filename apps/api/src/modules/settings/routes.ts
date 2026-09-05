@@ -12,6 +12,7 @@ import {
 import { getOrCreateUserSettings, patchUserSettings } from './repository';
 import { newId } from '@vyro/shared';
 import exportRouter from './export';
+import deleteRouter from './delete';
 
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const avatarUploadSchema = z
@@ -115,5 +116,6 @@ router.get('/avatars/:key{.*}', async (c) => {
 });
 
 router.route('/', exportRouter);
+router.route('/', deleteRouter);
 
 export default router;
