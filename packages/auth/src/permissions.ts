@@ -1,0 +1,23 @@
+export const PERMISSION_KEYS = [
+  'user:read', 'user:suspend', 'user:unsuspend',
+  'business:read', 'business:freeze', 'business:unfreeze',
+  'supplier:read', 'supplier:freeze', 'supplier:unfreeze',
+  'product:read', 'product:moderate',
+  'category:read', 'category:write',
+  'type:read', 'type:write',
+  'dispute:read', 'dispute:resolve', 'dispute:note',
+  'payment:read', 'payment:refund',
+  'payout:read', 'payout:approve',
+  'ledger:read', 'invoice:read',
+  'settings:read', 'settings:write',
+  'admin:read', 'admin:invite', 'admin:role_change',
+  'audit:read', 'audit:export',
+] as const;
+
+export type Permission = (typeof PERMISSION_KEYS)[number];
+
+export const ALL_PERMISSIONS: ReadonlySet<Permission> = new Set(PERMISSION_KEYS);
+
+export function isPermission(s: string): s is Permission {
+  return (ALL_PERMISSIONS as ReadonlySet<string>).has(s);
+}

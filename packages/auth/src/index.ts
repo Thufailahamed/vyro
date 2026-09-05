@@ -39,4 +39,6 @@ export type Auth = ReturnType<typeof createAuth>;
 export * from './types';
 export * from './context';
 export * from './schema';
+export * from './permissions';
+export * from './rolePermissions';
 
