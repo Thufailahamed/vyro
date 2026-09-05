@@ -4,6 +4,7 @@ import { api, ApiError } from '@/lib/api';
 import { Button, Input, Label } from '@/components/ui';
 import { useToast } from '@vyro/ui';
 import { ProfileSettingsSection } from './ProfileSettingsSection';
+import { UserIcon, PhoneIcon, ShieldCheckIcon } from '@/components/icons';
 
 type Settings = {
   displayName: string | null;
@@ -56,7 +57,7 @@ export function ProfileForm() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['profile-settings'] });
-      toast.success('Profile updated');
+      toast.success('Profile credentials updated');
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Failed to save'),
   });
@@ -74,7 +75,7 @@ export function ProfileForm() {
     onSuccess: (avatarUrl) => {
       setDraft((d) => ({ ...d, avatarUrl }));
       void qc.invalidateQueries({ queryKey: ['profile-settings'] });
-      toast.success('Avatar uploaded');
+      toast.success('Avatar uploaded successfully');
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Upload failed'),
   });
@@ -97,72 +98,123 @@ export function ProfileForm() {
     save.mutate();
   };
 
+  const initials = (draft.displayName || 'OP').slice(0, 2).toUpperCase();
+
   return (
     <ProfileSettingsSection
-      title="Profile"
-      sub="How you appear across the marketplace."
+      title="Operator Profile Credentials"
+      sub="Manage your public identity, contact details, and organization representation across the VYRO marketplace."
       saving={save.isPending}
       dirty={dirty}
       onSave={() => save.mutate()}
     >
-      <form onSubmit={submit} className="space-y-4">
-        <div className="flex items-center gap-4">
-          {draft.avatarUrl ? (
-            <img
-              src={draft.avatarUrl}
-              alt="Avatar"
-              className="h-14 w-14 rounded-full object-cover border border-line"
-            />
-          ) : (
-            <div className="h-14 w-14 rounded-full bg-mist border border-line" />
-          )}
-          <div className="flex flex-col gap-1">
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              className="hidden"
-              onChange={(e) => onPick(e.target.files?.[0])}
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              loading={upload.isPending}
-              onClick={() => fileRef.current?.click()}
-            >
-              Upload avatar
-            </Button>
-            <p className="text-xs text-ink-4">PNG/JPEG/WEBP/GIF, ≤ 2MB.</p>
+      <form onSubmit={submit} className="space-y-6">
+        {/* Avatar Section */}
+        <div className="p-5 bg-paper/60 border border-ink/10 flex flex-col sm:flex-row items-start sm:items-center gap-5">
+          <div className="relative">
+            {draft.avatarUrl ? (
+              <img
+                src={draft.avatarUrl}
+                alt="Avatar"
+                className="size-20 rounded-full object-cover border-2 border-ink shadow-sm"
+              />
+            ) : (
+              <div className="size-20 rounded-full bg-ink text-volt text-2xl font-display font-bold flex items-center justify-center border-2 border-volt/40 shadow-sm">
+                {initials}
+              </div>
+            )}
+            <span className="absolute bottom-0 right-0 size-4 rounded-full bg-mint border-2 border-paper" title="Active Account" />
+          </div>
+
+          <div className="space-y-2 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => onPick(e.target.files?.[0])}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                loading={upload.isPending}
+                onClick={() => fileRef.current?.click()}
+                className="text-xs uppercase tracking-wider font-semibold"
+              >
+                Upload Photo
+              </Button>
+              {draft.avatarUrl && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setDraft({ ...draft, avatarUrl: '' })}
+                  className="text-xs text-rose hover:bg-rose/10"
+                >
+                  Remove Photo
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-ink-4">
+              Supported formats: PNG, JPEG, WEBP or GIF (Maximum file size 2MB).
+            </p>
           </div>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="displayName">Display name</Label>
-          <Input
-            id="displayName"
-            value={draft.displayName ?? ''}
-            onChange={(e) => setDraft({ ...draft, displayName: e.target.value })}
-            placeholder="Your name"
-          />
+
+        {/* Inputs Grid */}
+        <div className="grid sm:grid-cols-2 gap-5">
+          <div className="space-y-1.5">
+            <Label htmlFor="displayName" className="flex items-center gap-1.5">
+              <UserIcon size={13} className="text-copper" />
+              <span>Full Operator Name</span>
+            </Label>
+            <Input
+              id="displayName"
+              value={draft.displayName ?? ''}
+              onChange={(e) => setDraft({ ...draft, displayName: e.target.value })}
+              placeholder="e.g. Thufail Ahamed"
+              className="bg-paper"
+            />
+            <p className="text-[11px] text-ink-4">
+              Appears on generated Purchase Orders and supplier correspondence.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="phone" className="flex items-center gap-1.5">
+              <PhoneIcon size={13} className="text-copper" />
+              <span>Direct Phone Number</span>
+            </Label>
+            <Input
+              id="phone"
+              value={draft.phone ?? ''}
+              onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
+              placeholder="+94 77 123 4567"
+              className="bg-paper font-mono"
+            />
+            <p className="text-[11px] text-ink-4">
+              Sri Lanka contact number for delivery dock verification & driver manifests.
+            </p>
+          </div>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="avatarUrl">Avatar URL</Label>
+
+        {/* Avatar URL Direct Override */}
+        <div className="space-y-1.5 pt-2 border-t border-ink/10">
+          <Label htmlFor="avatarUrl" className="text-ink-4">External Avatar URL (Optional)</Label>
           <Input
             id="avatarUrl"
             value={draft.avatarUrl ?? ''}
             onChange={(e) => setDraft({ ...draft, avatarUrl: e.target.value })}
-            placeholder="https://…"
+            placeholder="https://images.unsplash.com/..."
+            className="bg-paper font-mono text-xs"
           />
+          <p className="text-[11px] text-ink-4">
+            If you host your company logo or profile image on a remote CDN, you can specify its HTTPS URL directly.
+          </p>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="phone">Phone</Label>
-          <Input
-            id="phone"
-            value={draft.phone ?? ''}
-            onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
-            placeholder="+94…"
-          />
-        </div>
+
         <button type="submit" hidden />
       </form>
     </ProfileSettingsSection>

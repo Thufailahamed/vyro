@@ -168,17 +168,21 @@ router.post('/delete', session(), zValidator('json', body), async (c) => {
 });
 ```
 
+Note: `users.status` enum currently is `active | suspended`. Adding `'pending_deletion'` requires updating the schema enum in `packages/db/src/schema/users.ts` (add to the enum literal). SQLite does not enforce the enum at the DB level, so the migration only adds the column.
+
 ### 5.8 `apps/api/src/modules/settings/notifications.ts`
 
 Existing route extended. Add `marketingOptIn: z.boolean()` to PATCH schema. Notifications dispatcher checks flag before queuing `category='marketing'` notifications.
 
-### 5.9 `packages/db/migrations/NNNN-add-marketing-optin.ts`
+### 5.9 `packages/db/migrations/NNNN-compliance-fields.ts`
 
 ```sql
 ALTER TABLE users ADD COLUMN marketing_opt_in INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN deletion_scheduled_for INTEGER;  -- unix ms
+-- 'pending_deletion' added to status check via app-layer enum (SQLite ignores enum constraints)
 ```
 
-Numbered and committed same task as the code that uses it.
+Two columns in one migration file. Numbered and committed same task as the code that uses it.
 
 ## 6. Data flow
 
