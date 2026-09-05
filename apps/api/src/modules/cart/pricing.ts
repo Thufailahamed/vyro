@@ -32,7 +32,7 @@ export function nextTier(t: TierSet, qty: number): ResolvedTier | null {
     candidates.push({ minQty: t.tier3MinQty, discountPct: t.tier3DiscountPct });
   if (!candidates.length) return null;
   candidates.sort((a, b) => a.minQty - b.minQty);
-  return candidates[0];
+  return candidates[0] ?? null;
 }
 
 export function applyTier(unitCents: number, qty: number, tier: ResolvedTier | null): number {
