@@ -87,3 +87,41 @@ Sign in as a business. POST `/api/deliveries/<po>/transitions` (as supplier) wit
 - vitest-pool-workers not configured; D1-touching integration tests run via `wrangler dev --local` + manual curl walks above.
 - No payment gateway; payments record intent only.
 - Webhooks/email out of scope; queue stubs only emit local writes.
+
+## Rate limit verification (B1 security)
+
+Run a curl loop that POSTs to login 6 times within 60 seconds. The first 5 attempts respond normally; the 6th returns 429 with `Retry-After: 60` header.
+
+```bash
+for i in $(seq 1 6); do
+  curl -sS -w "\n%{http_code} retry-after=%header{retry-after}\n" \
+    -X POST http://localhost:8787/api/auth/login \
+    -H 'content-type: application/json' \
+    -d '{"email":"nobody@example.com","password":"wrong"}' \
+    | tail -1
+done
+```
+
+Expected:
+- Attempts 1-5: `401`
+- Attempt 6: `429 retry-after=60`
+
+## CSP header verification (B1 security)
+
+```bash
+curl -sI http://localhost:8787/api/health | grep -i content-security-policy
+```
+
+Expected: header contains `default-src 'self'`, `frame-ancestors 'none'`, and a per-request nonce in `script-src`.
+
+## Security headers verification (B1 security)
+
+```bash
+curl -sI http://localhost:8787/api/health
+```
+
+Expected headers present:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()`
