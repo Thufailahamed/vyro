@@ -9,7 +9,10 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'lint stub'",
-    "test": "vitest run"
+    "test": "vitest run",
+    "audit:rbac": "node --experimental-strip-types src/scripts/rbac-audit.ts",
+    "audit:secrets": "node --experimental-strip-types src/scripts/secret-scan.ts",
+    "audit:deps": "node --experimental-strip-types src/scripts/dep-audit.ts"
   },
   "dependencies": {
     "@vyro/auth": "workspace:*",
