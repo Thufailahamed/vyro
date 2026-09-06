@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Hono } from 'hono';
 
-vi.mock('/Users/thufailahamed/Downloads/project-5/apps/api/src/env', () => ({ env: {} }));
+vi.mock('../../src/env', () => ({ env: {} }));
 
 const state = vi.hoisted(() => ({
   balance: 0,
@@ -26,7 +26,7 @@ vi.mock('@vyro/db', () => ({
   }),
 }));
 
-vi.mock('/Users/thufailahamed/Downloads/project-5/apps/api/src/middleware/session', () => ({
+vi.mock('../../src/middleware/session', () => ({
   session: () => async (c: any, n: any) => {
     c.set('ctx', { userId: 'u-1', isAdmin: true });
     await n();

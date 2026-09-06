@@ -18,7 +18,22 @@ import {
 import { BrandMark } from '@/components/brand/BrandMark';
 import { cn } from '@vyro/ui';
 
-const HERO_STAGES = [
+/**
+ * Demo content flag — when set to "1" via VITE_DEMO_CONTENT, renders the
+ * seeded mock statistics, supplier names, PO numbers, and stock imagery
+ * that ship in the public marketing surface. Production builds leave this
+ * unset, so marketing pages show empty placeholders instead of fabricated
+ * metrics. See docs/superpowers/specs/2026-09-06-vyro-production-readiness-design.md.
+ */
+const DEMO_CONTENT = import.meta.env.VITE_DEMO_CONTENT === '1';
+
+const PLACEHOLDER = '—';
+const PLACEHOLDER_VAL = { label: PLACEHOLDER, val: PLACEHOLDER };
+const PLACEHOLDER_STAT = { val: PLACEHOLDER, lbl: PLACEHOLDER };
+const PLACEHOLDER_STATS = [PLACEHOLDER_STAT, PLACEHOLDER_STAT, PLACEHOLDER_STAT, PLACEHOLDER_STAT];
+
+const HERO_STAGES = DEMO_CONTENT
+  ? [
   {
     num: '01',
     label: 'Discover',
@@ -71,7 +86,70 @@ const HERO_STAGES = [
     actionLabel: 'Track Delivery →',
     actionRoute: '/search',
   },
-];
+]
+  : [
+      {
+        num: '01',
+        label: 'Discover',
+        tag: 'Catalog',
+        title: 'Search verified suppliers',
+        desc: 'Browse wholesale offers across categories.',
+        badge: 'Live catalog',
+        image: '',
+        stat1: PLACEHOLDER_VAL,
+        stat2: PLACEHOLDER_VAL,
+        actionLabel: 'Search →',
+        actionRoute: '/search',
+      },
+      {
+        num: '02',
+        label: 'Decide',
+        tag: 'Compare',
+        title: 'Compare offers',
+        desc: 'Rank by price, lead time, and supplier rating.',
+        badge: 'Live comparison',
+        image: '',
+        stat1: PLACEHOLDER_VAL,
+        stat2: PLACEHOLDER_VAL,
+        actionLabel: 'Compare →',
+        actionRoute: '/search',
+      },
+      {
+        num: '03',
+        label: 'Issue',
+        tag: 'Orders',
+        title: 'Issue purchase orders',
+        desc: 'Cart splits into per-supplier POs at checkout.',
+        badge: 'Multi-supplier',
+        image: '',
+        stat1: PLACEHOLDER_VAL,
+        stat2: PLACEHOLDER_VAL,
+        actionLabel: 'Start procurement →',
+        actionRoute: '/onboarding/business',
+      },
+      {
+        num: '04',
+        label: 'Move',
+        tag: 'Delivery',
+        title: 'Track deliveries',
+        desc: 'Driver assignment and receiving status.',
+        badge: 'Freight audit',
+        image: '',
+        stat1: PLACEHOLDER_VAL,
+        stat2: PLACEHOLDER_VAL,
+        actionLabel: 'Track →',
+        actionRoute: '/orders',
+      },
+    ];
+
+const HERO_TOP_STATS = DEMO_CONTENT
+  ? [
+      { val: '25', lbl: 'Districts Connected' },
+      { val: '100%', lbl: 'Verified Tax & Depot IDs' },
+      { val: 'Rs. 100M+', lbl: 'Monthly B2B Volume' },
+      { val: '0%', lbl: 'Hidden Broker Markups' },
+    ]
+  : PLACEHOLDER_STATS;
 
 export function AboutPage() {
   return (
@@ -103,12 +181,7 @@ export function AboutPage() {
 
               {/* Vital Network Statistics */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                {[
-                  { val: '25', lbl: 'Districts Connected' },
-                  { val: '100%', lbl: 'Verified Tax & Depot IDs' },
-                  { val: 'Rs. 100M+', lbl: 'Monthly B2B Volume' },
-                  { val: '0%', lbl: 'Hidden Broker Markups' },
-                ].map((s) => (
+                {HERO_TOP_STATS.map((s) => (
                   <div key={s.lbl} className="bg-paper/5 border border-paper/10 p-3">
                     <span className="vyro-metric text-xl sm:text-2xl text-paper font-bold block">{s.val}</span>
                     <span className="text-[10px] text-paper/50 block mt-0.5 leading-tight">{s.lbl}</span>
@@ -346,7 +419,8 @@ export function AboutPage() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {[
+          {(DEMO_CONTENT
+            ? [
             {
               name: 'Colombo Central Wholesalers',
               role: 'Import Commodities & Staple Provisions',
@@ -368,7 +442,9 @@ export function AboutPage() {
               coverage: 'Central Province & Hill Country cold chain',
               img: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=800&q=80',
             },
-          ].map((hub) => (
+          ]
+            : []
+          ).map((hub) => (
             <div key={hub.name} className="bg-paper border border-ink/15 overflow-hidden group hover:border-ink hover:shadow-lg transition-all duration-300">
               <div className="relative h-48 overflow-hidden bg-bone">
                 <img
@@ -392,6 +468,11 @@ export function AboutPage() {
               </div>
             </div>
           ))}
+          {!DEMO_CONTENT && (
+            <div className="col-span-3 text-center text-ink-3 py-12 text-sm">
+              Partner depots are listed after admin verification — check back soon.
+            </div>
+          )}
         </div>
       </section>
 
@@ -461,7 +542,8 @@ export function HowItWorksPage() {
   const [activeStage, setActiveStage] = useState(0);
   const currentStage = HERO_STAGES[activeStage]!;
 
-  const steps = [
+  const steps = DEMO_CONTENT
+    ? [
     {
       num: '01',
       title: 'Discover',
@@ -566,7 +648,32 @@ export function HowItWorksPage() {
         'Built-in dispute mitigation and dockside verification before final settlement',
       ],
     },
-  ];
+  ]
+    : HERO_STAGES.map((s) => ({
+        num: s.num,
+        title: s.label,
+        kicker: s.tag,
+        subtitle: s.title,
+        description: s.desc,
+        image: '',
+        caption: '',
+        mock: {
+          badge: PLACEHOLDER,
+          query: PLACEHOLDER,
+          hits: PLACEHOLDER,
+          pills: [PLACEHOLDER, PLACEHOLDER, PLACEHOLDER],
+          stats: [
+            { label: PLACEHOLDER, value: PLACEHOLDER },
+            { label: PLACEHOLDER, value: PLACEHOLDER },
+            { label: PLACEHOLDER, value: PLACEHOLDER },
+          ],
+        },
+        points: [
+          PLACEHOLDER,
+          PLACEHOLDER,
+          PLACEHOLDER,
+        ],
+      }));
 
   return (
     <div className="bg-bone">

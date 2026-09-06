@@ -41,4 +41,5 @@ export * from './context';
 export * from './schema';
 export * from './permissions';
 export * from './rolePermissions';
+export * from './scope';
 

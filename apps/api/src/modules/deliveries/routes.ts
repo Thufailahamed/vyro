@@ -1,5 +1,9 @@
 import { Hono } from 'hono';
-import { deliveryTransitionSchema } from '@vyro/validation/delivery';
+import {
+  canTransitionDelivery,
+  deliveryTransitionSchema,
+  type DeliveryActor,
+} from '@vyro/validation/delivery';
 import { session } from '../../middleware/session';
 import type { Ctx } from '../../middleware/session';
 import { httpError } from '../../lib/errors';
@@ -66,6 +70,18 @@ router.post('/:poId/transitions', session(), async (c) => {
   }
 
   await ensureDelivery(c.env.DB, c.req.param('poId'));
+  const existing = await findDeliveryByPo(c.env.DB, c.req.param('poId'));
+  if (!existing) throw httpError(404, 'NOT_FOUND', 'Delivery not found');
+
+  // State machine guard: block illegal transitions.
+  if (!canTransitionDelivery(existing.status, parsed.data.status, role as DeliveryActor)) {
+    throw httpError(
+      409,
+      'CONFLICT',
+      `Illegal delivery transition ${existing.status} -> ${parsed.data.status} for ${role}`,
+    );
+  }
+
   const now = Date.now();
   const patch: any = { status: parsed.data.status };
   if (parsed.data.driverName != null) patch.driverName = parsed.data.driverName;
@@ -74,14 +90,19 @@ router.post('/:poId/transitions', session(), async (c) => {
   if (parsed.data.status === 'picked_up' || parsed.data.status === 'in_transit') patch.pickedUpAt = now;
   if (parsed.data.status === 'delivered') patch.deliveredAt = now;
   if (parsed.data.status === 'assigned') patch.assignedByUserId = ctx.userId;
-  await updateDelivery(c.env.DB, c.req.param('poId'), patch);
+
+  // Optimistic concurrency: update is guarded on the current status.
+  const updated = await updateDelivery(c.env.DB, c.req.param('poId'), patch, existing.status);
+  if (!updated) {
+    throw httpError(409, 'CONFLICT', 'Delivery state changed concurrently — retry');
+  }
 
   await recordAudit(c.env.DB, {
     actorUserId: ctx.userId,
     action: `delivery.${parsed.data.status}`,
     resourceType: 'purchase_order',
     resourceId: c.req.param('poId'),
-    metadata: { reason: parsed.data.reason ?? null },
+    metadata: { from: existing.status, to: parsed.data.status, reason: parsed.data.reason ?? null },
   });
 
   return c.json({ ok: true });
