@@ -63,7 +63,7 @@ export function errorEnvelope(err: unknown): {
     };
   }
   logger.error('error.unhandled', {
-    err: err instanceof Error ? { name: err.name, message: err.message } : String(err),
+    err: err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : String(err),
   });
   return { status: 500, body: { error: { code: 'INTERNAL', message: 'Internal server error' } } };
 }

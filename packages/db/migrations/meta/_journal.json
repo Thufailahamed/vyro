@@ -29,6 +29,48 @@
       "when": 1757702400000,
       "tag": "0008_admin_core_ops",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1789200000000,
+      "tag": "0009_admin_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1789210000000,
+      "tag": "0010_admin_money",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789220000000,
+      "tag": "0011_admin_trust_safety",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1789230000000,
+      "tag": "0012_admin_platform_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1789240000000,
+      "tag": "0013_admin_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1789250000000,
+      "tag": "0014_audit_export_schedules",
+      "breakpoints": true
     }
   ]
 }

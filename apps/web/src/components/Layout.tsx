@@ -215,6 +215,7 @@ function WorkspaceShell() {
     queryKey: ['cart', businessId],
     queryFn: () => api.get<{ items: Array<{ id: string }> }>(`/cart?businessId=${businessId}`),
     enabled: !!businessId,
+    staleTime: 0,
   });
   const { data: notifData } = useQuery({
     queryKey: ['notifications-me'],

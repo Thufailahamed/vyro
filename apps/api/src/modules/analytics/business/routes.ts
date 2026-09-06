@@ -8,11 +8,16 @@ import { purchaseOrders } from '@vyro/db/schema';
 import type { Env } from '../../../env';
 
 const router = new Hono<{ Bindings: Env }>();
-router.use('*', session(), requireRole({ business: ['owner', 'manager', 'staff'] }));
+router.use('*', session(), requireRole({ business: ['owner', 'manager', 'purchasing', 'accountant'] }));
 
 router.get('/monthly-spend', async (c) => {
-  const ctx = c.get('ctx') as { userId: string; businessId?: string } | undefined;
-  if (!ctx?.businessId) throw httpError(403, 'FORBIDDEN', 'No business');
+  const ctx = c.get('ctx') as { userId: string; businesses: Array<{ businessId?: string }> } | undefined;
+  if (!ctx?.businesses?.length) throw httpError(403, 'FORBIDDEN', 'No business membership');
+  const requested = c.req.query('businessId');
+  const businessId =
+    (requested && ctx.businesses.find((b) => b.businessId === requested)?.businessId) ??
+    ctx.businesses[0]!.businessId;
+  if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business');
   const months = Math.min(Math.max(Number(c.req.query('months') ?? 12), 1), 24);
   const since = Date.now() - months * 30 * 24 * 60 * 60 * 1000;
   const db = getDb(c.env.DB);
@@ -24,7 +29,7 @@ router.get('/monthly-spend', async (c) => {
     .from(purchaseOrders)
     .where(
       and(
-        eq(purchaseOrders.businessId, ctx.businessId),
+        eq(purchaseOrders.businessId, businessId),
         ne(purchaseOrders.status, 'cancelled'),
         sql`${purchaseOrders.createdAt} >= ${since}`
       )
