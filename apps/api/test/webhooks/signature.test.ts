@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { md5 } from '@vyro/payments';
-import { MockGateway } from '@vyro/payments';
 
 describe('PayHere hash format (PayHere doc reference)', () => {
   it('matches documented formula for checkout hash', () => {
@@ -12,10 +11,5 @@ describe('PayHere hash format (PayHere doc reference)', () => {
     const secret = 'abcSecret';
     const expected = md5(`${merchantId}${orderId}${amount}${currency}${secret.toUpperCase()}`);
     expect(expected).toMatch(/^[a-f0-9]{32}$/);
-  });
-
-  it('mock gateway verifySignature returns true for valid body', () => {
-    const gw = new MockGateway({ secret: 'sandbox' });
-    expect(gw.verifySignature('any=body', null)).toBe(true);
   });
 });

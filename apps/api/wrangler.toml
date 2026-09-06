@@ -27,6 +27,16 @@ queue = "audit"
 binding = "NOTIFICATIONS_QUEUE"
 queue = "notifications"
 
+[[queues.consumers]]
+queue = "audit"
+max_batch_size = 25
+max_batch_timeout = 5
+
+[[queues.consumers]]
+queue = "notifications"
+max_batch_size = 25
+max_batch_timeout = 5
+
 [[analytics_engine_datasets]]
 binding = "METRICS"
 dataset = "vyro_metrics"
@@ -64,6 +74,16 @@ queue = "audit"
 [[env.production.queues.producers]]
 binding = "NOTIFICATIONS_QUEUE"
 queue = "notifications"
+
+[[env.production.queues.consumers]]
+queue = "audit"
+max_batch_size = 25
+max_batch_timeout = 5
+
+[[env.production.queues.consumers]]
+queue = "notifications"
+max_batch_size = 25
+max_batch_timeout = 5
 
 [[env.production.analytics_engine_datasets]]
 binding = "METRICS"

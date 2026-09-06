@@ -36,37 +36,37 @@ const SUPPLIER_CATEGORY_META: Record<
     tag: 'Mill Gate & Dry Provisions',
     badge: 'Staples',
     subtitle: 'Primary rice millers, refined white sugar importers, commercial wheat flour & wholesale cooking oil.',
-    imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80',
+    imageUrl: '/images/placeholder.svg',
   },
   'beverage-distributor': {
     tag: 'Estate Tea & Beverage Lines',
     badge: 'Beverages',
     subtitle: 'Pure Ceylon BOPF tea estates, single-origin coffees, bottled mineral waters & commercial syrups.',
-    imageUrl: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=600&q=80',
+    imageUrl: '/images/placeholder.svg',
   },
   'dairy-producer': {
     tag: 'Cold Chain Dairy Supply',
     badge: 'Refrigerated',
     subtitle: 'Fresh pasteurized cow milk, commercial cheddar cheese blocks, cooking butter & culinary yogurts.',
-    imageUrl: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?auto=format&fit=crop&w=600&q=80',
+    imageUrl: '/images/placeholder.svg',
   },
   'packaging-supplier': {
     tag: 'Export & Corrugated Shipping',
     badge: 'Packaging',
     subtitle: 'Heavy-duty 5-ply cartons, food takeout containers, cling film, strapping tape & bulk sacks.',
-    imageUrl: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&w=600&q=80',
+    imageUrl: '/images/placeholder.svg',
   },
   'spices-commodities': {
     tag: 'Export Grade Commodities',
     badge: 'Spices',
     subtitle: 'Ceylon Alba cinnamon, black peppercorns, green cardamoms, cloves & agricultural lots.',
-    imageUrl: 'https://images.unsplash.com/photo-1509358271058-acd22cc93898?auto=format&fit=crop&w=600&q=80',
+    imageUrl: '/images/placeholder.svg',
   },
   'meat-seafood': {
     tag: 'Fresh Coastal & Cold Storage',
     badge: 'Cold Storage',
     subtitle: 'Commercial poultry, beef portions, coastal fresh fish, prawns & frozen culinary proteins.',
-    imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80',
+    imageUrl: '/images/placeholder.svg',
   },
 };
 
@@ -193,7 +193,7 @@ export function SupplierOnboardingPage() {
                     subtitle: 'Wholesale producer and regional distributor',
                     tag: 'Primary Distribution',
                     badge: 'Direct Mill',
-                    imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80',
+                    imageUrl: '/images/placeholder.svg',
                   };
                   return (
                     <div

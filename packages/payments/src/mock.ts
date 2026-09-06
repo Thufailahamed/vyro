@@ -80,8 +80,24 @@ export class MockGateway implements GatewayAdapter {
     });
   }
 
-  verifySignature(_rawBody: string, _signature: string | null): boolean {
-    // mock always passes signature check (no body tampering in dev)
-    return true;
+  verifySignature(rawBody: string, signature: string | null): boolean {
+    // When a secret is configured, mock MUST enforce HMAC just like the
+    // real gateway. Without a secret, dev callers can sign nothing — but
+    // they also can't generate a valid signature, so spoof attempts fail.
+    if (!this.cfg.secret) {
+      // Dev convenience: only accept when caller explicitly skipped sig.
+      return signature === null;
+    }
+    if (!signature) return false;
+    const params = new URLSearchParams(rawBody);
+    const merchantId = params.get('merchant_id') ?? 'mock';
+    const orderId = params.get('order_id') ?? '';
+    const amount = params.get('payhere_amount') ?? '';
+    const currency = params.get('payhere_currency') ?? '';
+    const status = params.get('type') ?? 'payment.success';
+    const expected = md5(
+      `${merchantId}${orderId}${amount}${currency}${status}${this.cfg.secret.toUpperCase()}`,
+    );
+    return signature.toUpperCase() === expected.toUpperCase();
   }
 }

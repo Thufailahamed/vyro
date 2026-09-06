@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="600" height="400">
+  <rect width="600" height="400" fill="#F2EFE8"/>
+  <g fill="none" stroke="#C7C2B6" stroke-width="2">
+    <rect x="40" y="40" width="520" height="320" rx="6"/>
+    <path d="M40 280 L180 160 L320 240 L460 120 L560 200" />
+    <circle cx="180" cy="160" r="6"/>
+    <circle cx="320" cy="240" r="6"/>
+    <circle cx="460" cy="120" r="6"/>
+  </g>
+  <text x="300" y="360" text-anchor="middle" font-family="ui-sans-serif, system-ui" font-size="14" fill="#8A8478" letter-spacing="1.5">IMAGE</text>
+</svg>

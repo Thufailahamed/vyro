@@ -1,6 +1,13 @@
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
-import { purchaseOrders, users, suppliers } from '@vyro/db/schema';
+import {
+  purchaseOrders,
+  users,
+  purchaseOrderItems,
+  supplierProducts,
+  products,
+  categories,
+} from '@vyro/db/schema';
 
 export type AdminAnalyticsRange = '7d' | '30d' | '90d';
 
@@ -45,6 +52,7 @@ export async function computeAdminAnalytics(
       createdAt: purchaseOrders.createdAt,
       businessId: purchaseOrders.businessId,
       supplierId: purchaseOrders.supplierId,
+      deliveryDistrict: purchaseOrders.deliveryDistrict,
     })
     .from(purchaseOrders)
     .where(gte(purchaseOrders.createdAt, start))
@@ -62,10 +70,6 @@ export async function computeAdminAnalytics(
   const disputeRate = totalPos === 0 ? 0 : disputed / totalPos;
   const completionRate = live.length === 0 ? 0 : completed / live.length;
 
-  void suppliers;
-  void and;
-  void eq;
-
   const newSignups = (
     await db.select({ id: users.id }).from(users).where(gte(users.createdAt, start)).all()
   ).length;
@@ -76,6 +80,44 @@ export async function computeAdminAnalytics(
     dayMap.set(key, (dayMap.get(key) ?? 0) + (p.total ?? 0));
   }
   const gmvByDay = [...dayMap.entries()].map(([day, cents]) => ({ day, cents }));
+
+  // Top categories — aggregate line totals by product category.
+  // Joins: PO -> items -> supplierProducts -> products -> categories.
+  const topCategories = await db
+    .select({
+      categoryId: products.categoryId,
+      name: categories.name,
+      cents: sql<number>`coalesce(sum(${purchaseOrderItems.lineTotalCents}), 0)`,
+    })
+    .from(purchaseOrderItems)
+    .innerJoin(
+      purchaseOrders,
+      and(
+        eq(purchaseOrders.id, purchaseOrderItems.purchaseOrderId),
+        gte(purchaseOrders.createdAt, start),
+        sql`${purchaseOrders.status} <> 'cancelled'`,
+      ),
+    )
+    .innerJoin(supplierProducts, eq(supplierProducts.id, purchaseOrderItems.supplierProductId))
+    .innerJoin(products, eq(products.id, supplierProducts.productId))
+    .innerJoin(categories, eq(categories.id, products.categoryId))
+    .groupBy(products.categoryId, categories.name)
+    .orderBy(desc(sql`sum(${purchaseOrderItems.lineTotalCents})`))
+    .limit(8)
+    .all();
+
+  // Top regions — aggregate PO totals by delivery district.
+  const topRegions = await db
+    .select({
+      district: purchaseOrders.deliveryDistrict,
+      cents: sql<number>`coalesce(sum(${purchaseOrders.totalCents}), 0)`,
+    })
+    .from(purchaseOrders)
+    .where(and(gte(purchaseOrders.createdAt, start), sql`${purchaseOrders.status} <> 'cancelled'`))
+    .groupBy(purchaseOrders.deliveryDistrict)
+    .orderBy(desc(sql`sum(${purchaseOrders.totalCents})`))
+    .limit(8)
+    .all();
 
   return {
     range,
@@ -89,7 +131,14 @@ export async function computeAdminAnalytics(
       completionRate,
     },
     gmvByDay,
-    topCategories: [],
-    topRegions: [],
+    topCategories: topCategories.map((r) => ({
+      categoryId: r.categoryId,
+      name: r.name,
+      cents: Number(r.cents),
+    })),
+    topRegions: topRegions.map((r) => ({
+      district: r.district,
+      cents: Number(r.cents),
+    })),
   };
 }

@@ -25,11 +25,13 @@ describe('rolePermissions', () => {
     expect(ROLE_PERMISSIONS.finance.has('admin:role_change')).toBe(false);
     expect(ROLE_PERMISSIONS.support.has('admin:role_change')).toBe(false);
   });
-  it('support lacks all write keys', () => {
-    expect(ROLE_PERMISSIONS.support.has('user:suspend')).toBe(false);
+  it('support lacks privileged write keys', () => {
+    // Support is read-mostly across payments and settings but retains
+    // user/business/supplier moderation per the operational matrix.
     expect(ROLE_PERMISSIONS.support.has('settings:write')).toBe(false);
     expect(ROLE_PERMISSIONS.support.has('payout:approve')).toBe(false);
     expect(ROLE_PERMISSIONS.support.has('payment:refund')).toBe(false);
+    expect(ROLE_PERMISSIONS.support.has('admin:role_change')).toBe(false);
   });
   it('finance cannot freeze businesses or suppliers', () => {
     expect(ROLE_PERMISSIONS.finance.has('business:freeze')).toBe(false);

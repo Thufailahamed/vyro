@@ -37,7 +37,18 @@ export async function updateDelivery(
     deliveredAt?: number;
     assignedByUserId?: string;
   },
-) {
+  /** When provided, the update is guarded on the current status to prevent
+   *  concurrent transitions from racing. Returns false if 0 rows matched. */
+  expectStatus?: DeliveryStatus,
+): Promise<boolean> {
   const db = getDb(d1);
-  await db.update(deliveries).set({ ...patch, updatedAt: Date.now() }).where(eq(deliveries.purchaseOrderId, poId));
+  const conds = expectStatus
+    ? and(eq(deliveries.purchaseOrderId, poId), eq(deliveries.status, expectStatus))
+    : eq(deliveries.purchaseOrderId, poId);
+  const result = await db
+    .update(deliveries)
+    .set({ ...patch, updatedAt: Date.now() })
+    .where(conds);
+  // D1 driver returns { success, meta: { changes } }; 0 rows means concurrent move.
+  return (result as unknown as { meta?: { changes?: number } }).meta?.changes !== 0;
 }

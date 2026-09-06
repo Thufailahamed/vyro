@@ -7,8 +7,9 @@ import { requireRole } from '../../middleware/rbac';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
-import { businessMembers, supplierProducts, products, suppliers, carts, cartItems, productImages } from '@vyro/db/schema';
+import { supplierProducts, products, suppliers, carts, cartItems, productImages } from '@vyro/db/schema';
 import { eq, inArray, sql } from 'drizzle-orm';
+import { requireBusinessRole } from '@vyro/auth';
 import {
   clearCart,
   deleteCartItem,
@@ -21,24 +22,14 @@ import { resolveTier, nextTier, applyTier, discountCents, type TierSet } from '.
 
 const router = new Hono<{ Bindings: Env }>();
 
-async function requireBusinessMember(d1: D1Database, businessId: string, userId: string, allow: Array<'owner' | 'manager' | 'staff'>) {
-  const db = getDb(d1);
-  const row = await db
-    .select()
-    .from(businessMembers)
-    .where(sql`${businessMembers.businessId} = ${businessId} and ${businessMembers.userId} = ${userId}`)
-    .get();
-  if (!row || !allow.includes(row.role as any)) {
-    throw httpError(403, 'FORBIDDEN', 'Insufficient role for business');
-  }
-}
+const CART_ROLES = ['owner', 'manager', 'staff'] as const;
 
 router.get('/', session(), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = c.req.query('businessId');
   if (!businessId) throw httpError(400, 'VALIDATION_ERROR', 'businessId required');
-  await requireBusinessMember(c.env.DB, businessId, ctx.userId, ['owner', 'manager', 'staff']);
+  requireBusinessRole(ctx, businessId, CART_ROLES);
 
   const cart = await ensureOpenCart(c.env.DB, businessId);
   const items = await listCartItems(c.env.DB, cart.id);
@@ -126,7 +117,7 @@ router.post('/items', session(), async (c) => {
   const parsed = addCartItemSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
 
-  await requireBusinessMember(c.env.DB, parsed.data.businessId, ctx.userId, ['owner', 'manager', 'staff']);
+  await requireBusinessRole(ctx, parsed.data.businessId, CART_ROLES);
 
   const db = getDb(c.env.DB);
   const offer = await db.select().from(supplierProducts).where(eq(supplierProducts.id, parsed.data.supplierProductId)).get();
@@ -150,7 +141,7 @@ router.patch('/items/:itemId', session(), async (c) => {
   if (!item) throw httpError(404, 'NOT_FOUND', 'Cart item not found');
   const cart = await db.select().from(carts).where(eq(carts.id, item.cartId)).get();
   if (!cart) throw httpError(404, 'NOT_FOUND', 'Cart not found');
-  await requireBusinessMember(c.env.DB, cart.businessId, ctx.userId, ['owner', 'manager', 'staff']);
+  requireBusinessRole(ctx, cart.businessId, CART_ROLES);
 
   await upsertCartItem(c.env.DB, cart.id, item.supplierProductId, parsed.data.quantity);
   return c.json({ ok: true });
@@ -165,7 +156,7 @@ router.delete('/items/:itemId', session(), async (c) => {
   if (!item) throw httpError(404, 'NOT_FOUND', 'Cart item not found');
   const cart = await db.select().from(carts).where(eq(carts.id, item.cartId)).get();
   if (!cart) throw httpError(404, 'NOT_FOUND', 'Cart not found');
-  await requireBusinessMember(c.env.DB, cart.businessId, ctx.userId, ['owner', 'manager', 'staff']);
+  requireBusinessRole(ctx, cart.businessId, CART_ROLES);
 
   await deleteCartItem(c.env.DB, item.id);
   return c.json({ ok: true });

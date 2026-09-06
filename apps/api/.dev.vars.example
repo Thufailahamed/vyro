@@ -1,0 +1,32 @@
+# Local Cloudflare Workers secrets for `wrangler dev`.
+# Copy to `.dev.vars` (gitignored) and fill values for local development.
+# NEVER commit `.dev.vars` to git.
+
+# Required: 32+ chars used by better-auth to sign sessions.
+BETTER_AUTH_SECRET="vyro-local-dev-secret-must-be-32-chars-long"
+
+# Required: where this API is reachable locally.
+BETTER_AUTH_URL="http://localhost:8787"
+
+# Optional: defaults to "local". Set to "production" only for prod deploys.
+ENVIRONMENT="local"
+
+# Optional: CORS origins (already have defaults in wrangler.toml [vars]).
+# WEB_ORIGIN="http://localhost:5173"
+# ADMIN_ORIGIN="http://localhost:5174"
+
+# Optional: PayHere payment gateway. Leave blank to use the mock gateway
+# (which always succeeds for local dev).
+# PAYHERE_MERCHANT_ID=""
+# PAYHERE_MERCHANT_SECRET=""
+# PAYHERE_SANDBOX="1"
+# PAYHERE_NOTIFY_URL="http://localhost:8787/api/payments/payhere/notify"
+
+# Optional: enables the PayHere mock even when merchant creds are set.
+# "1" forces the mock; "force_failure" makes it always error (negative tests).
+# PAYHERE_MOCK=""
+# PAYHERE_MOCK_FORCE_FAILURE=""
+
+# Optional: encryption key for ledger entries at rest (32-byte hex string).
+# Without this, ledger rows are stored unencrypted (fine for dev).
+# LEDGER_ENCRYPTION_KEY=""
