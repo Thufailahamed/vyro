@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, type FormEvent } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { PageHeader, Button, Input, Label, Badge } from '@/components/ui';
@@ -62,6 +62,7 @@ function FormField({
 export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const { supplierId } = useSupplierId();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const isEdit = mode === 'edit';
@@ -78,7 +79,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
   const existing = isEdit ? offers.data?.offers.find((o) => o.id === id) ?? null : null;
 
-  const [productId, setProductId] = useState('');
+  const [productId, setProductId] = useState(() => searchParams.get('productId') || '');
   const [supplierSku, setSupplierSku] = useState('');
   const [priceLkr, setPriceLkr] = useState('0');
   const [minQty, setMinQty] = useState('1');
@@ -99,6 +100,13 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isEdit) {
+      const pId = searchParams.get('productId');
+      if (pId && !productId) {
+        setProductId(pId);
+      }
+      return;
+    }
     if (!existing) return;
     setProductId(existing.productId);
     setSupplierSku(existing.supplierSku ?? '');
