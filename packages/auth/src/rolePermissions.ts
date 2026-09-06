@@ -61,9 +61,8 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, ReadonlySet<Permission
     'audit:read',
   ),
   support: all(
-    'user:read', 'user:suspend', 'user:unsuspend',
-    'business:read', 'business:freeze', 'business:unfreeze',
-    'supplier:read', 'supplier:freeze', 'supplier:unfreeze',
+    'user:read',
+    'business:read',
     'product:read', 'product:moderate',
     'category:read', 'type:read',
     'dispute:read', 'dispute:note',
