@@ -12,6 +12,8 @@ import {
   hasBusinessAccess,
   hasSupplierAccess,
   isAdmin,
+  requireBusinessRole,
+  requireSupplierRole,
 } from './scope';
 
 const businessMember = (businessId: string, role = 'manager') => ({
@@ -136,5 +138,32 @@ describe('scope', () => {
     const err = new TenantAccessError('test');
     expect(err.status).toBe(403);
     expect(err.name).toBe('TenantAccessError');
+  });
+});
+
+describe('scope: role-gated helpers', () => {
+  it('requireBusinessRole passes for matching role', () => {
+    const c = ctx({ businesses: [businessMember('b1', 'owner')] });
+    expect(requireBusinessRole(c, 'b1', ['owner', 'manager'])).toBe('owner');
+  });
+  it('requireBusinessRole throws on non-matching role', () => {
+    const c = ctx({ businesses: [businessMember('b1', 'purchasing')] });
+    expect(() => requireBusinessRole(c, 'b1', ['owner', 'manager'])).toThrow(TenantAccessError);
+  });
+  it('requireBusinessRole admin bypass returns "admin"', () => {
+    const c = ctx({ adminRole: 'ops', businesses: [] });
+    expect(requireBusinessRole(c, 'bX', ['owner'])).toBe('admin');
+  });
+  it('requireSupplierRole passes for matching role', () => {
+    const c = ctx({ suppliers: [supplierMember('s1', 'sales')] });
+    expect(requireSupplierRole(c, 's1', ['sales', 'owner'])).toBe('sales');
+  });
+  it('requireSupplierRole throws for cross-supplier', () => {
+    const c = ctx({ suppliers: [supplierMember('s1')] });
+    expect(() => requireSupplierRole(c, 's2', ['owner'])).toThrow(TenantAccessError);
+  });
+  it('requireSupplierRole admin bypass returns "admin"', () => {
+    const c = ctx({ adminRole: 'super_admin', suppliers: [] });
+    expect(requireSupplierRole(c, 'sX', ['owner'])).toBe('admin');
   });
 });

@@ -103,6 +103,44 @@ export function assertAdmin(ctx: SessionContext): void {
 }
 
 /**
+ * Throws TenantAccessError if the session is not an admin OR holds one of
+ * the allowed business roles within the given business.
+ */
+export function requireBusinessRole(
+  ctx: SessionContext,
+  businessId: string,
+  allowedRoles: readonly string[],
+): string {
+  if (isAdmin(ctx)) return 'admin';
+  const role = getBusinessRole(ctx, businessId);
+  if (!role || !allowedRoles.includes(role)) {
+    throw new TenantAccessError(
+      `Forbidden: requires one of [${allowedRoles.join(',')}] in business ${businessId}`,
+    );
+  }
+  return role;
+}
+
+/**
+ * Throws TenantAccessError if the session is not an admin OR holds one of
+ * the allowed supplier roles within the given supplier.
+ */
+export function requireSupplierRole(
+  ctx: SessionContext,
+  supplierId: string,
+  allowedRoles: readonly string[],
+): string {
+  if (isAdmin(ctx)) return 'admin';
+  const role = getSupplierRole(ctx, supplierId);
+  if (!role || !allowedRoles.includes(role)) {
+    throw new TenantAccessError(
+      `Forbidden: requires one of [${allowedRoles.join(',')}] in supplier ${supplierId}`,
+    );
+  }
+  return role;
+}
+
+/**
  * Returns the list of businessIds the session can access. Empty for non-members
  * (admins should resolve to all businesses via separate query — this helper
  * returns their own empty list so admin code must explicitly handle the bypass).
