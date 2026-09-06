@@ -39,8 +39,8 @@ try {
 
   // 3. Deploy Cloudflare Worker API
   if (!isLocal) {
-    console.log(`\n☁️ Deploying API Cloudflare Worker...`);
-    run(`npx wrangler deploy --config ./apps/api/wrangler.toml`);
+    console.log(`\n☁️ Deploying API Cloudflare Worker (env=production)...`);
+    run(`npx wrangler deploy --env production --config ./apps/api/wrangler.toml`);
   }
 
   console.log(`\n✅ Deployment completed successfully!\n`);

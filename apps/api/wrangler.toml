@@ -72,5 +72,5 @@ dataset = "vyro_metrics"
 [env.production.vars]
 ENVIRONMENT = "production"
 WEB_ORIGIN = "https://vyro-web.pages.dev"
-ADMIN_ORIGIN = "https://vyro-admin.pages.dev"
+ADMIN_ORIGIN = "https://vyro-web.pages.dev"
 BETTER_AUTH_URL = "https://vyro-api.thufailahamed627.workers.dev"
