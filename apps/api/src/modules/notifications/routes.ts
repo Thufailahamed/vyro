@@ -57,8 +57,17 @@ router.post('/:id/read', session(), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const db = getDb(c.env.DB);
-  await db.update(notifications).set({ readAt: Date.now() })
+  const result = await db
+    .update(notifications)
+    .set({ readAt: Date.now() })
     .where(and(eq(notifications.id, c.req.param('id')), eq(notifications.userId, ctx.userId)));
+  // 0 changes means the notification does not belong to the caller
+  // (or does not exist). Surface as 404 instead of a silent no-op.
+  const changes =
+    (result as unknown as { meta?: { changes?: number } }).meta?.changes ?? 0;
+  if (changes === 0) {
+    throw httpError(404, 'NOT_FOUND', 'Notification not found');
+  }
   return c.json({ ok: true });
 });
 

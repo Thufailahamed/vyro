@@ -36,7 +36,12 @@ router.get('/me', session(), async (c) => {
 router.get('/:id', async (c) => {
   const row = await findSupplierById(c.env.DB, c.req.param('id'));
   if (!row) throw httpError(404, 'NOT_FOUND', 'Supplier not found');
-  return c.json({ supplier: row });
+  // Strip sensitive contact info from anonymous reads. Authenticated buyers
+  // see full contact details through the search/compare endpoints, which
+  // enforce membership.
+  const { contactPerson: _c, phone: _p, email: _e, address: _a, ...publicView } = row;
+  void _c; void _p; void _e; void _a;
+  return c.json({ supplier: publicView });
 });
 
 export default router;
