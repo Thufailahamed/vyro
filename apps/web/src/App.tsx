@@ -98,7 +98,6 @@ export default function App() {
         <Route path="/legal/terms" element={<LegalPage kind="terms" />} />
         <Route path="/legal/privacy" element={<LegalPage kind="privacy" />} />
         <Route path="/legal/cookies" element={<LegalPage kind="cookies" />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
 
       {/* Admin SPA — shared AdminAuthProvider */}
@@ -149,6 +148,9 @@ export default function App() {
         <Route path="settings" element={<SupplierSettingsPage />} />
         <Route path="*" element={<Navigate to="/supplier" replace />} />
       </Route>
+
+      {/* Global fallback route */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </Suspense>
     <InstallBanner />

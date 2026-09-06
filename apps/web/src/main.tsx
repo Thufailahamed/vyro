@@ -6,6 +6,7 @@ import App from './App';
 import { AuthProvider } from './lib/auth';
 import { ToastProvider } from '@vyro/ui';
 import { PageTransition } from './components/PageTransition';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -14,17 +15,19 @@ const queryClient = new QueryClient({
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <ToastProvider>
-            <PageTransition>
-              <App />
-            </PageTransition>
-          </ToastProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
+            <ToastProvider>
+              <PageTransition>
+                <App />
+              </PageTransition>
+            </ToastProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 );
 
