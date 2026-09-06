@@ -31,14 +31,14 @@ vi.mock('@vyro/db', () => ({
   }),
 }));
 
-vi.mock(setup.SRC + '/middleware/requireRole', () => ({
+vi.mock(setup.SRC + '/middleware/rbac', () => ({
   requireRole: () => async (_c: any, n: any) => {
     await n();
   },
 }));
 vi.mock(setup.SRC + '/middleware/session', () => ({
   session: () => async (c: any, n: any) => {
-    c.set('ctx', { userId: 'u-1', businessId: 'b-1', businesses: [{ id: 'b-1', role: 'owner' }], suppliers: [] });
+    c.set('ctx', { userId: 'u-1', businessId: 'b-1', businesses: [{ id: 'b-1', businessId: 'b-1', role: 'owner' }], suppliers: [] });
     await n();
   },
 }));

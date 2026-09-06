@@ -1,4 +1,7 @@
 import { Hono } from 'hono';
+import { and, eq, isNull, sql } from 'drizzle-orm';
+import { getDb } from '@vyro/db';
+import { suppliers, supplierProducts } from '@vyro/db/schema';
 import { onboardingSupplierSchema } from '@vyro/validation/supplier';
 import { session } from '../../middleware/session';
 import { httpError } from '../../lib/errors';
@@ -14,6 +17,48 @@ const router = new Hono<{ Bindings: Env }>();
 router.get('/types', async (c) => {
   const types = await listBusinessTypes(c.env.DB);
   return c.json({ types });
+});
+
+// List all active verified suppliers with catalog metrics
+router.get('/', async (c) => {
+  const db = getDb(c.env.DB);
+  const rows = await db
+    .select({
+      id: suppliers.id,
+      name: suppliers.name,
+      businessTypeId: suppliers.businessTypeId,
+      contactPerson: suppliers.contactPerson,
+      phone: suppliers.phone,
+      email: suppliers.email,
+      address: suppliers.address,
+      city: suppliers.city,
+      district: suppliers.district,
+      description: suppliers.description,
+      verificationStatus: suppliers.verificationStatus,
+      status: suppliers.status,
+    })
+    .from(suppliers)
+    .where(and(eq(suppliers.status, 'active'), isNull(suppliers.deletedAt)))
+    .all();
+
+  const counts = await db
+    .select({
+      supplierId: supplierProducts.supplierId,
+      count: sql<number>`count(*)`,
+    })
+    .from(supplierProducts)
+    .where(and(eq(supplierProducts.active, 1), isNull(supplierProducts.deletedAt)))
+    .groupBy(supplierProducts.supplierId)
+    .all();
+
+  const countMap = new Map(counts.map((x) => [x.supplierId, Number(x.count)]));
+
+  const enriched = rows.map((s) => ({
+    ...s,
+    activeListingsCount: countMap.get(s.id) ?? 0,
+  }));
+
+  return c.json({ suppliers: enriched });
 });
 
 const handleSupplierOnboard = async (c: any) => {

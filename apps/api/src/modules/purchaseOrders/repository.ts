@@ -1,6 +1,6 @@
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
-import { purchaseOrders, purchaseOrderItems, orderEvents } from '@vyro/db/schema';
+import { purchaseOrders, purchaseOrderItems, orderEvents, suppliers } from '@vyro/db/schema';
 import { newId } from '@vyro/shared';
 import type { OrderStatus, ActorRole } from '@vyro/shared';
 
@@ -66,7 +66,41 @@ export async function insertOrderEvent(
 
 export async function listPosForBusiness(d1: D1Database, businessId: string) {
   const db = getDb(d1);
-  return db.select().from(purchaseOrders).where(eq(purchaseOrders.businessId, businessId)).all();
+  return db
+    .select({
+      id: purchaseOrders.id,
+      poNumber: purchaseOrders.poNumber,
+      businessId: purchaseOrders.businessId,
+      supplierId: purchaseOrders.supplierId,
+      status: purchaseOrders.status,
+      subtotalCents: purchaseOrders.subtotalCents,
+      deliveryFeeCents: purchaseOrders.deliveryFeeCents,
+      totalCents: purchaseOrders.totalCents,
+      currency: purchaseOrders.currency,
+      deliveryAddress: purchaseOrders.deliveryAddress,
+      deliveryCity: purchaseOrders.deliveryCity,
+      deliveryDistrict: purchaseOrders.deliveryDistrict,
+      notes: purchaseOrders.notes,
+      rejectionReason: purchaseOrders.rejectionReason,
+      cancelledReason: purchaseOrders.cancelledReason,
+      createdByUserId: purchaseOrders.createdByUserId,
+      acceptedAt: purchaseOrders.acceptedAt,
+      rejectedAt: purchaseOrders.rejectedAt,
+      preparedAt: purchaseOrders.preparedAt,
+      readyAt: purchaseOrders.readyAt,
+      dispatchedAt: purchaseOrders.dispatchedAt,
+      deliveredAt: purchaseOrders.deliveredAt,
+      completedAt: purchaseOrders.completedAt,
+      cancelledAt: purchaseOrders.cancelledAt,
+      createdAt: purchaseOrders.createdAt,
+      updatedAt: purchaseOrders.updatedAt,
+      supplierName: suppliers.name,
+    })
+    .from(purchaseOrders)
+    .leftJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
+    .where(eq(purchaseOrders.businessId, businessId))
+    .orderBy(desc(purchaseOrders.createdAt))
+    .all();
 }
 
 export async function listPosForSupplier(d1: D1Database, supplierId: string) {
