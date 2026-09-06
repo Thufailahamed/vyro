@@ -138,11 +138,24 @@ export function SupplierOnboardingPage() {
         contactPerson: form.contactPerson.trim(),
         phone: form.phone.trim(),
         email: (form.email || user?.email || '').trim().toLowerCase(),
+        categories: [form.businessTypeSlug || 'wholesale'],
       };
       await api.post('/suppliers/onboard', payload);
       await refresh();
       navigate('/supplier/orders');
     } catch (e) {
+      if (e instanceof ApiError && e.details && typeof e.details === 'object') {
+        const details = e.details as { fieldErrors?: Record<string, string[]> };
+        if (details.fieldErrors) {
+          const messages = Object.entries(details.fieldErrors)
+            .map(([field, msgs]) => `${field}: ${msgs.join(', ')}`)
+            .join('; ');
+          if (messages) {
+            setErr(`Validation error: ${messages}`);
+            return;
+          }
+        }
+      }
       setErr(e instanceof ApiError ? `${e.message}` : 'Failed to register supplier listing. Please verify all details.');
     } finally {
       setLoading(false);

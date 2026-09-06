@@ -11,7 +11,7 @@ export const onboardingSupplierSchema = z
     city: z.string().min(1).max(80),
     district: z.string().min(1).max(80),
     description: z.string().max(1000).optional(),
-    categories: z.array(z.string().min(1)).min(1),
+    categories: z.array(z.string().min(1)).min(1).default(['wholesale']),
   })
   .strict();
 
