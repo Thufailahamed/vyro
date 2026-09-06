@@ -36,37 +36,37 @@ const BUYER_CATEGORY_META: Record<
     tag: 'Kitchen Staples & Bulk Oils',
     badge: 'High Frequency',
     subtitle: 'Commercial kitchen staples, bulk cooking oils, Keeri Samba rice, dairy & daily produce.',
-    imageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80',
+    imageUrl: '/images/placeholder.svg',
   },
   hotel: {
     tag: 'Full-Property Hospitality F&B',
     badge: 'Institutional',
     subtitle: 'Bulk F&B dining lots, guest amenities, estate tea selections & housekeeping cleaning supplies.',
-    imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80',
+    imageUrl: '/images/placeholder.svg',
   },
   cafe: {
     tag: 'Barista & Bakery Line',
     badge: 'Weekly Cycles',
     subtitle: 'Specialty coffee beans, pure Ceylon BOPF tea, barista syrups, dairy & artisan pastry inputs.',
-    imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=600&q=80',
+    imageUrl: '/images/placeholder.svg',
   },
   retail: {
     tag: 'Packaged Grocery Restock',
     badge: 'Bulk Pallets',
     subtitle: 'Packaged dry groceries, branded commodities, FMCG retail restock & wholesale cartons.',
-    imageUrl: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
+    imageUrl: '/images/placeholder.svg',
   },
   bakery: {
     tag: 'Baking Raw Commodities',
     badge: 'Raw Bulk',
     subtitle: 'Wheat flour 50kg bags, refined white sugar, baking fats, yeast, fresh eggs & bakery packaging.',
-    imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80',
+    imageUrl: '/images/placeholder.svg',
   },
   catering: {
     tag: 'Large-Batch Event Lots',
     badge: 'Scheduled Lots',
     subtitle: 'High-capacity commercial food lots, bulk seasonings, aluminum trays, disposables & event freight.',
-    imageUrl: 'https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=600&q=80',
+    imageUrl: '/images/placeholder.svg',
   },
 };
 
@@ -224,7 +224,7 @@ export function BusinessOnboardingPage() {
                     subtitle: 'Commercial wholesale purchasing entity',
                     tag: 'Wholesale Trade',
                     badge: 'Commercial',
-                    imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80',
+                    imageUrl: '/images/placeholder.svg',
                   };
                   return (
                     <div
