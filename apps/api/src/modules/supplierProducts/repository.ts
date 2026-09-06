@@ -24,6 +24,15 @@ export async function findOffer(d1: D1Database, id: string) {
     .get() ?? null;
 }
 
+type TierFields = {
+  tier1MinQty?: number | undefined;
+  tier1DiscountPct?: number | undefined;
+  tier2MinQty?: number | undefined;
+  tier2DiscountPct?: number | undefined;
+  tier3MinQty?: number | undefined;
+  tier3DiscountPct?: number | undefined;
+};
+
 export async function createOffer(
   d1: D1Database,
   input: {
@@ -36,7 +45,7 @@ export async function createOffer(
     deliveryAvailable?: boolean | undefined;
     deliveryRadiusKm?: number | null | undefined;
     availabilityStatus?: 'in_stock' | 'low' | 'out_of_stock' | undefined;
-  },
+  } & TierFields,
 ) {
   const db = getDb(d1);
   const id = newId();
@@ -53,6 +62,12 @@ export async function createOffer(
     deliveryRadiusKm: input.deliveryRadiusKm ?? null,
     availabilityStatus: input.availabilityStatus ?? 'in_stock',
     active: true,
+    ...(input.tier1MinQty !== undefined ? { tier1MinQty: input.tier1MinQty } : {}),
+    ...(input.tier1DiscountPct !== undefined ? { tier1DiscountPct: input.tier1DiscountPct } : {}),
+    ...(input.tier2MinQty !== undefined ? { tier2MinQty: input.tier2MinQty } : {}),
+    ...(input.tier2DiscountPct !== undefined ? { tier2DiscountPct: input.tier2DiscountPct } : {}),
+    ...(input.tier3MinQty !== undefined ? { tier3MinQty: input.tier3MinQty } : {}),
+    ...(input.tier3DiscountPct !== undefined ? { tier3DiscountPct: input.tier3DiscountPct } : {}),
     createdAt: now,
     updatedAt: now,
   });
@@ -71,7 +86,7 @@ export async function updateOffer(
     deliveryRadiusKm?: number | null | undefined;
     availabilityStatus?: 'in_stock' | 'low' | 'out_of_stock' | undefined;
     active?: boolean | undefined;
-  },
+  } & TierFields,
 ) {
   const db = getDb(d1);
   await db.update(supplierProducts).set({ ...input, updatedAt: Date.now() }).where(eq(supplierProducts.id, id));

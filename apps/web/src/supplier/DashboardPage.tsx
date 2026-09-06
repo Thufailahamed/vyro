@@ -92,6 +92,27 @@ export function SupplierDashboardPage() {
   const custList = customers.data?.items ?? [];
   const offerList = offers.data?.offers ?? [];
 
+  const bootstrapping =
+    profileQuery.isLoading ||
+    orders.isLoading ||
+    payments.isLoading ||
+    offers.isLoading;
+
+  if (bootstrapping) {
+    return (
+      <div className="space-y-6 animate-pulse" aria-busy="true">
+        <div className="h-40 bg-ink/90" />
+        <div className="h-32 bg-mist" />
+        <div className="grid sm:grid-cols-4 gap-4">
+          <div className="h-28 bg-mist/70" />
+          <div className="h-28 bg-mist/70" />
+          <div className="h-28 bg-mist/70" />
+          <div className="h-28 bg-mist/70" />
+        </div>
+      </div>
+    );
+  }
+
   const pending = orderList.filter((o) =>
     ['pending', 'confirmed', 'accepted', 'preparing', 'ready_for_pickup'].includes(o.status)
   ).length;
@@ -152,18 +173,18 @@ export function SupplierDashboardPage() {
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <Link to="/supplier/orders">
-              <Button variant="secondary" size="sm" className="text-xs font-semibold">
+              <Button variant="secondary" size="sm" className="text-xs font-semibold border-paper/20 hover:border-volt/50 transition-colors">
                 Incoming Orders
                 {pending > 0 && (
-                  <span className="ml-1.5 px-1.5 py-0.2 bg-volt text-ink font-mono font-bold text-[10px] rounded-full">
+                  <span className="ml-1.5 px-1.5 py-0.2 bg-volt text-ink font-mono font-bold text-[10px]">
                     {pending}
                   </span>
                 )}
               </Button>
             </Link>
             <Link to="/supplier/products/new">
-              <Button className="bg-volt text-ink hover:bg-volt-glow font-bold uppercase tracking-wider text-xs py-2 px-4">
-                + Add Wholesale Product
+              <Button className="bg-volt text-ink hover:bg-volt-glow font-bold uppercase tracking-wider text-xs py-2.5 px-5 shadow-[0_0_24px_-4px_rgba(198,220,74,0.55)] transition-shadow hover:shadow-[0_0_32px_-2px_rgba(198,220,74,0.7)]">
+                + Add Wholesale Product →
               </Button>
             </Link>
           </div>
@@ -228,7 +249,7 @@ export function SupplierDashboardPage() {
               <span className="text-[10px] font-mono text-volt-deep uppercase tracking-wider font-bold">Step 4</span>
               <h3 className="font-display text-sm font-semibold text-ink">Settlement Bank</h3>
               <p className="text-[11px] text-ink-4">Link commercial bank account for automated payouts.</p>
-              <Link to="/supplier/payments" className="text-xs text-copper font-semibold block pt-1 hover:underline">
+              <Link to="/supplier/settings" className="text-xs text-copper font-semibold block pt-1 hover:underline">
                 Link Payout Account →
               </Link>
             </div>
