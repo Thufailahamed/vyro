@@ -54,6 +54,7 @@ const STAGES: Record<string, [string, string]> = {
   clarify: ['Understanding your request', 'Preparing options'],
   procurement_plan: ['Reading your purchase history', 'Pricing your weekly plan'],
   budget_optimize: ['Reading your purchase history', 'Fitting your budget'],
+  simulate_supplier_switch: ['Reading your purchase history', 'Pricing the alternative'],
 };
 
 export async function* orchestrate(

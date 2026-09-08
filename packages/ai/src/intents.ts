@@ -20,6 +20,8 @@ const PERIOD_RX = /\b(this|last|past)\s+(week|month|quarter|year)\b/i;
 const PLANNER_RX = /\b(plan my procurement|weekly plan|plan.*this week|usual.*plan)\b/i;
 const BUDGET_RX = /\b(under rs|budget.*order|keep.*under|budget mode)\b/i;
 const BUDGET_AMOUNT_RX = /rs\.?\s?([\d,]+)/i;
+const SIMULATE_RX = /\b(what if (?:i|we) (?:switch|changed?)|simulate(?:d)?\s+(?:switch|supplier)|switching\s+supplier|switch\s+from\s+\w+\s+to\s+\w+|alternative supplier for)\b/i;
+const WHY_RX = /\b(why|why did|why is|reason|explain|what caused)\b/i;
 
 const WORD_NUMS: Record<string, number> = {
   one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8,
@@ -215,6 +217,26 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
   if (intent === 'procurement_plan') {
     slots.weeksBack = 8;
     slots.topNProducts = 10;
+  }
+  // Switch-simulation phrasing overrides broad intents (find_cheapest, savings,
+  // compare_suppliers). Beats them when SIMULATE_RX matches.
+  if (
+    SIMULATE_RX.test(text) &&
+    intent !== 'clarify' &&
+    (productName || slots.supplierName)
+  ) {
+    intent = 'simulate_supplier_switch';
+    confidence = 0.7;
+    slots.productName = productName ?? (text.match(/for\s+([a-z][a-z\s]{2,80}?)(?:\s+(?:to|from|instead|switch))/i)?.[1]?.trim() ?? text);
+    if (supplierName) slots.fromSupplierName = supplierName;
+  }
+  // WHY phrase marks the analytics branch to append a why_card after handler runs.
+  const ANALYTICS_INTENTS = new Set([
+    'spend_summary','product_spend','supplier_spend','price_changes','price_watch',
+    'price_anomaly','spend_forecast','supplier_intel','procurement_health','category_intel',
+  ]);
+  if (WHY_RX.test(text) && ANALYTICS_INTENTS.has(intent)) {
+    slots.whyRequested = true;
   }
 
   let result: ClassifyResult = { intent, slots: slots as ClassifyResult['slots'], confidence };
