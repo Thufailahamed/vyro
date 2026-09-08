@@ -89,7 +89,7 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
   if (productName) slots.productName = productName;
   if (supplierName) slots.supplierName = supplierName;
   const periodMatch = text.match(PERIOD_RX);
-  if (periodMatch) {
+  if (periodMatch && periodMatch[2]) {
     const word = periodMatch[2].toLowerCase();
     const period = word === 'week' ? 'week' : word === 'quarter' ? 'quarter' : word === 'year' ? 'year' : 'month';
     slots.period = period;
