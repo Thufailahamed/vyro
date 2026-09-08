@@ -1,6 +1,7 @@
-import { and, asc, desc, eq, gte, isNull, like, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNull, like, lte, ne, sql } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
 import {
+  categories,
   products,
   supplierProducts,
   suppliers,
@@ -443,6 +444,149 @@ export function drizzleRepos(env: Env): AiRepos {
         }))
         .slice(0, limit);
       return out;
+    },
+
+    async priceWindows({ businessId, productId, recentSince, priorSince, priorUntil }) {
+      const avg = (xs: number[]) => (xs.length ? xs.reduce((s, v) => s + v, 0) / xs.length : 0);
+      const fetchAvg = async (from: number, to?: number) => {
+        const conds: any[] = [
+          eq(purchaseOrders.businessId, businessId),
+          ne(purchaseOrders.status, 'cancelled'),
+          eq(supplierProducts.productId, productId),
+          gte(purchaseOrders.createdAt, from),
+        ];
+        if (to !== undefined) conds.push(lte(purchaseOrders.createdAt, to));
+        const rows = await db
+          .select({ price: purchaseOrderItems.unitPriceCents })
+          .from(purchaseOrderItems)
+          .innerJoin(purchaseOrders, eq(purchaseOrders.id, purchaseOrderItems.purchaseOrderId))
+          .innerJoin(supplierProducts, eq(supplierProducts.id, purchaseOrderItems.supplierProductId))
+          .where(and(...conds))
+          .all();
+        const prices = rows.map((r) => r.price);
+        return { avg: avg(prices), n: prices.length };
+      };
+      const [recent, prior] = await Promise.all([
+        fetchAvg(recentSince),
+        fetchAvg(priorSince, priorUntil),
+      ]);
+      return { recentAvg: recent.avg, recentN: recent.n, priorAvg: prior.avg, priorN: prior.n };
+    },
+
+    async lastBuyPrices({ businessId, productId, limit }) {
+      const rows = await db
+        .select({ price: purchaseOrderItems.unitPriceCents })
+        .from(purchaseOrderItems)
+        .innerJoin(purchaseOrders, eq(purchaseOrders.id, purchaseOrderItems.purchaseOrderId))
+        .innerJoin(supplierProducts, eq(supplierProducts.id, purchaseOrderItems.supplierProductId))
+        .where(and(
+          eq(purchaseOrders.businessId, businessId),
+          ne(purchaseOrders.status, 'cancelled'),
+          eq(supplierProducts.productId, productId),
+        ))
+        .orderBy(desc(purchaseOrders.createdAt))
+        .limit(Math.min(Math.max(limit, 1), 50))
+        .all();
+      return rows.map((r) => r.price);
+    },
+
+    async supplierLifecycle({ businessId, sinceMs }) {
+      const rows = await db
+        .select({
+          supplierId: purchaseOrders.supplierId,
+          supplierName: suppliers.name,
+          total: sql<number>`count(*)`,
+          accepted: sql<number>`sum(case when ${purchaseOrders.acceptedAt} is not null then 1 else 0 end)`,
+          rejected: sql<number>`sum(case when ${purchaseOrders.rejectedAt} is not null then 1 else 0 end)`,
+          cancelled: sql<number>`sum(case when ${purchaseOrders.cancelledAt} is not null or ${purchaseOrders.status} = 'cancelled' then 1 else 0 end)`,
+          delivered: sql<number>`sum(case when ${purchaseOrders.deliveredAt} is not null or ${purchaseOrders.status} = 'delivered' then 1 else 0 end)`,
+        })
+        .from(purchaseOrders)
+        .innerJoin(suppliers, eq(suppliers.id, purchaseOrders.supplierId))
+        .where(and(eq(purchaseOrders.businessId, businessId), gte(purchaseOrders.createdAt, sinceMs)))
+        .groupBy(purchaseOrders.supplierId)
+        .all();
+      return rows.map((r) => ({
+        supplierId: r.supplierId,
+        supplierName: r.supplierName,
+        total: Number(r.total ?? 0),
+        accepted: Number(r.accepted ?? 0),
+        rejected: Number(r.rejected ?? 0),
+        cancelled: Number(r.cancelled ?? 0),
+        delivered: Number(r.delivered ?? 0),
+      }));
+    },
+
+    async categorySpend({ businessId, sinceMs }) {
+      const rows = await db
+        .select({
+          category: categories.name,
+          total: sql<number>`sum(${purchaseOrderItems.quantity} * ${purchaseOrderItems.unitPriceCents})`,
+        })
+        .from(purchaseOrderItems)
+        .innerJoin(purchaseOrders, eq(purchaseOrders.id, purchaseOrderItems.purchaseOrderId))
+        .innerJoin(supplierProducts, eq(supplierProducts.id, purchaseOrderItems.supplierProductId))
+        .innerJoin(products, eq(products.id, supplierProducts.productId))
+        .innerJoin(categories, eq(categories.id, products.categoryId))
+        .where(and(
+          eq(purchaseOrders.businessId, businessId),
+          ne(purchaseOrders.status, 'cancelled'),
+          gte(purchaseOrders.createdAt, sinceMs),
+        ))
+        .groupBy(categories.id)
+        .orderBy(sql`sum(${purchaseOrderItems.quantity} * ${purchaseOrderItems.unitPriceCents}) desc`)
+        .all();
+      return rows.map((r) => ({ category: r.category, totalCents: Number(r.total ?? 0) }));
+    },
+
+    async monthlySpend({ businessId, months }) {
+      const n = Math.min(Math.max(months, 1), 12);
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth() - n + 1, 1).getTime();
+      const rows = await db
+        .select({ total: purchaseOrders.totalCents, createdAt: purchaseOrders.createdAt })
+        .from(purchaseOrders)
+        .where(and(
+          eq(purchaseOrders.businessId, businessId),
+          ne(purchaseOrders.status, 'cancelled'),
+          gte(purchaseOrders.createdAt, start),
+        ))
+        .all();
+      const out = new Array(n).fill(0) as number[];
+      for (const r of rows) {
+        const d = new Date(r.createdAt);
+        const idx = (d.getFullYear() - start) >= 0
+          ? (d.getFullYear() * 12 + d.getMonth()) - (new Date(start).getFullYear() * 12 + new Date(start).getMonth())
+          : 0;
+        if (idx >= 0 && idx < n) out[idx]! += r.total ?? 0;
+      }
+      return out;
+    },
+
+    async concentration({ businessId, sinceMs }) {
+      const rows = await db
+        .select({
+          supplierId: purchaseOrders.supplierId,
+          supplierName: suppliers.name,
+          total: sql<number>`sum(${purchaseOrders.totalCents})`,
+        })
+        .from(purchaseOrders)
+        .innerJoin(suppliers, eq(suppliers.id, purchaseOrders.supplierId))
+        .where(and(
+          eq(purchaseOrders.businessId, businessId),
+          ne(purchaseOrders.status, 'cancelled'),
+          gte(purchaseOrders.createdAt, sinceMs),
+        ))
+        .groupBy(purchaseOrders.supplierId)
+        .all();
+      const grand = rows.reduce((s, r) => s + Number(r.total ?? 0), 0);
+      return rows
+        .map((r) => ({
+          supplierId: r.supplierId,
+          supplierName: r.supplierName,
+          share: grand ? Number(r.total ?? 0) / grand : 0,
+        }))
+        .sort((a, b) => b.share - a.share);
     },
 
     async createDraftFromRecommendation({ businessId, userId, items, idempotencyKey }) {

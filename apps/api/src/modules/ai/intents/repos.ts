@@ -116,4 +116,10 @@ export interface AiRepos {
     items: Array<{ product: string; quantity: number; unit: string; priceCents: number; supplier: string }>;
     idempotencyKey: string;
   }): Promise<{ poRef: string; estimatedDelivery: string }>;
+  priceWindows(opts: { businessId: string; productId: string; recentSince: number; priorSince: number; priorUntil: number }): Promise<{ recentAvg: number; recentN: number; priorAvg: number; priorN: number }>;
+  lastBuyPrices(opts: { businessId: string; productId: string; limit: number }): Promise<number[]>;
+  supplierLifecycle(opts: { businessId: string; sinceMs: number }): Promise<Array<{ supplierId: string; supplierName: string; total: number; accepted: number; rejected: number; cancelled: number; delivered: number }>>;
+  categorySpend(opts: { businessId: string; sinceMs: number }): Promise<Array<{ category: string; totalCents: number }>>;
+  monthlySpend(opts: { businessId: string; months: number }): Promise<number[]>;
+  concentration(opts: { businessId: string; sinceMs: number }): Promise<Array<{ supplierId: string; supplierName: string; share: number }>>;
 }

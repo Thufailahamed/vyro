@@ -215,6 +215,24 @@ export function mockRepos(input: {
         maxIntervalDays: Math.max(...gaps),
       };
     },
+    async priceWindows() {
+      return { recentAvg: 10800, recentN: 3, priorAvg: 10000, priorN: 3 };
+    },
+    async lastBuyPrices() {
+      return [18000, 19000, 20000];
+    },
+    async supplierLifecycle() {
+      return [{ supplierId: 's1', supplierName: 'Supplier A', total: 10, accepted: 9, rejected: 1, cancelled: 0, delivered: 8 }];
+    },
+    async categorySpend() {
+      return [{ category: 'Food', totalCents: 640000 }];
+    },
+    async monthlySpend() {
+      return [100000, 110000, 120000];
+    },
+    async concentration() {
+      return [{ supplierId: 's1', supplierName: 'Supplier A', share: 0.42 }];
+    },
   };
 }
 
