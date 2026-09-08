@@ -73,6 +73,32 @@ export function drizzleRepos(env: Env): AiRepos {
       });
     },
 
+    async searchProductsFiltered(opts: {
+      query?: string;
+      priceMaxCents?: number;
+      availableWithinDays?: number;
+      categorySlug?: string;
+      brand?: string;
+      supplierName?: string;
+      sort?: 'price_asc' | 'lead_asc' | 'recommended';
+      limit?: number;
+    }) {
+      const rows = await this.searchProducts(opts.query ?? '', opts.limit ?? 20);
+      const filtered = rows.filter((row: any) => {
+        if (!row.bestOffer) return false;
+        if (typeof opts.priceMaxCents === 'number' && row.bestOffer.priceCents > opts.priceMaxCents) return false;
+        if (typeof opts.availableWithinDays === 'number' && row.bestOffer.leadTimeDays > opts.availableWithinDays) return false;
+        if (opts.supplierName && row.bestOffer.supplier.name.toLowerCase() !== opts.supplierName.toLowerCase()) return false;
+        return true;
+      });
+      if (opts.sort === 'price_asc') {
+        filtered.sort((a: any, b: any) => a.bestOffer.priceCents - b.bestOffer.priceCents);
+      } else if (opts.sort === 'lead_asc') {
+        filtered.sort((a: any, b: any) => a.bestOffer.leadTimeDays - b.bestOffer.leadTimeDays);
+      }
+      return filtered;
+    }
+
     async findProductByName(name) {
       const row = await db
         .select()

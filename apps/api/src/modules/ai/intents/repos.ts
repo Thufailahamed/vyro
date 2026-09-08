@@ -52,6 +52,22 @@ export interface PoItemRow {
 
 export interface AiRepos {
   searchProducts(q: string, limit?: number): Promise<Array<ProductRow & { bestOffer: (OfferRow & { supplier: SupplierRow }) | null; offerCount: number }>>;
+  /**
+   * NL-aware search. Wraps searchProducts() with post-fetch filters + sort.
+   * `priceMaxCents` and `availableWithinDays` are enforced on live offers.
+   * `supplierName`, `categorySlug`, `brand` are accepted for handler-level
+   * filtering and reporting; DB-level pre-filtering is a phase-5+ concern.
+   */
+  searchProductsFiltered(opts: {
+    query?: string;
+    priceMaxCents?: number;
+    availableWithinDays?: number;
+    categorySlug?: string;
+    brand?: string;
+    supplierName?: string;
+    sort?: 'price_asc' | 'lead_asc' | 'recommended';
+    limit?: number;
+  }): Promise<Array<ProductRow & { bestOffer: (OfferRow & { supplier: SupplierRow }) | null; offerCount: number; matchedOffers?: Array<OfferRow & { supplier: SupplierRow }> }>>;
   findProductByName(name: string): Promise<ProductRow | null>;
   listOffersByProduct(productId: string): Promise<Array<OfferRow & { supplier: SupplierRow }>>;
   listSupplierProducts(opts: { productName?: string; supplierName?: string; active?: boolean }): Promise<Array<{ supplierName: string; supplierId: string; leadTimeDays: number; deliveryAvailable: boolean; deliveryRadiusKm: number | null; priceCents: number; availabilityStatus: string }>>;

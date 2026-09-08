@@ -163,6 +163,7 @@ export async function* orchestrate(
       businessId: ctx.businessId,
       userId: ctx.userId,
       classify: classifyResult,
+      prompt,
     };
 
     let components: any[] = [];

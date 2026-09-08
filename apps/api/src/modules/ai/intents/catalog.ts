@@ -30,6 +30,8 @@ export interface IntentContext {
   businessId: string;
   userId: string;
   classify: ClassifyResult;
+  /** Raw user prompt (post prompt-guard). Available to handlers for NL parsing. */
+  prompt?: string;
 }
 
 export interface HandlerResult {
