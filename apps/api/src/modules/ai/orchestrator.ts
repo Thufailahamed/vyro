@@ -120,7 +120,13 @@ export async function* orchestrate(
     }
     const [stage1, stage2] = STAGES[intentName] ?? STAGES.clarify!;
     yield encodeEvent('status', { stage: stage1 });
-    yield encodeEvent('tool_call', { name: classifyResult.intent, slots: classifyResult.slots });
+    const toolStartedAt = Date.now();
+    yield encodeEvent('tool_call', {
+      name: classifyResult.intent,
+      slots: classifyResult.slots,
+      label: stage1,
+      startedAt: toolStartedAt,
+    });
 
     const handlerCtx: IntentContext = {
       env,
@@ -142,6 +148,8 @@ export async function* orchestrate(
         name: classifyResult.intent,
         ok: true,
         summary: JSON.stringify(rawSummary).slice(0, 200),
+        label: stage1,
+        durationMs: Date.now() - toolStartedAt,
       });
     } catch (err) {
       ok = false;
@@ -150,6 +158,8 @@ export async function* orchestrate(
         name: classifyResult.intent,
         ok: false,
         summary: err instanceof Error ? err.message : 'handler failed',
+        label: stage1,
+        durationMs: Date.now() - toolStartedAt,
       });
     }
 
