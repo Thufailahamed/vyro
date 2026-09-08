@@ -1,4 +1,5 @@
 import type { ChatMessage } from '@vyro/ai';
+import { isIntentAllowed } from '@vyro/ai';
 import { isComplexIntent, providerForTask } from './provider';
 import { classify, type ClassifyContext } from './classify';
 import { narrate, summarizeResult } from './narrate';
@@ -16,6 +17,8 @@ import { newId } from '@vyro/shared';
 export interface OrchestrateContext extends ClassifyContext {
   userId: string;
   businessId: string;
+  /** AI role for intent allowlist. Defaults to 'admin' for legacy call sites; the HTTP route must always pass the real role. */
+  role?: 'admin' | 'member' | 'viewer';
   conversation?: ChatMessage[];
 }
 
@@ -95,6 +98,18 @@ export async function* orchestrate(
     const classifyResult = await classify(classifyProvider, ctx, prompt, ctx.conversation);
     intentName = classifyResult.intent;
     slots = classifyResult.slots as unknown as Record<string, unknown>;
+
+    // Role-based intent allowlist gate. Viewers cannot trigger write actions.
+    const role = ctx.role ?? 'admin';
+    if (!isIntentAllowed(intentName as any, role)) {
+      ok = false;
+      errorCode = 'INTENT_FORBIDDEN';
+      yield encodeEvent('error', {
+        code: 'INTENT_FORBIDDEN',
+        message: `Role ${role} cannot invoke ${intentName}`,
+      });
+      return;
+    }
     const [stage1, stage2] = STAGES[intentName] ?? STAGES.clarify!;
     yield encodeEvent('status', { stage: stage1 });
     yield encodeEvent('tool_call', { name: classifyResult.intent, slots: classifyResult.slots });

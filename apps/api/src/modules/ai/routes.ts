@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { session } from '../../middleware/session';
 import { requireBusinessRole } from '@vyro/auth';
+import { getBusinessRole } from '@vyro/auth';
+import type { Role } from '@vyro/ai';
 import { httpError } from '../../lib/errors';
 import { rateLimit } from '../../middleware/rateLimit';
 import { sseHeaders } from './stream';
@@ -48,6 +50,16 @@ router.post('/ask', session(), async (c) => {
   const businessName =
     ctx.businesses.find((b) => b.businessId === businessId)?.businessName ?? 'Your business';
 
+  // Map business role to AI intent-allowlist role. owner/manager = admin,
+  // staff/purchasing = member, everything else (including missing) = viewer.
+  const businessRole = getBusinessRole(ctx, businessId);
+  const aiRole: Role =
+    businessRole === 'owner' || businessRole === 'manager'
+      ? 'admin'
+      : businessRole === 'staff' || businessRole === 'purchasing'
+        ? 'member'
+        : 'viewer';
+
   const dict = await loadDictionary(c.env);
 
   const stream = new ReadableStream({
@@ -60,6 +72,7 @@ router.post('/ask', session(), async (c) => {
             userId: ctx.userId,
             businessId,
             businessName,
+            role: aiRole,
             dict,
             ...(parsed.data.conversation ? { conversation: parsed.data.conversation } : {}),
           },
