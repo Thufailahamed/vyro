@@ -6,6 +6,8 @@ import { drizzleRepos } from './intents/drizzleRepos';
 import type { Env } from '../../env';
 
 export interface CartHintLine {
+  /** Cart row id — used by per-line hint UI to attach chips to a specific row. */
+  cartItemId: string;
   productId: string;
   productName: string;
   quantity: number;
@@ -122,6 +124,7 @@ export async function loadCartHintInputs(env: Env, businessId: string): Promise<
     const r = map.get(it.supplierProductId);
     if (!r) continue;
     out.push({
+      cartItemId: it.id,
       productId: r.product.id,
       productName: r.product.name,
       quantity: it.quantity,
@@ -146,3 +149,42 @@ export async function loadAvgWeeklySpendCents(env: Env, businessId: string): Pro
 
 /** Resolve cart lines for the audit trail. Bypassed by route validation. */
 export const _internal = { findOpenCartByBusiness, listCartItems, and, eq };
+
+export interface CartLineHint {
+  cartItemId: string;
+  productName: string;
+  cheaperSupplierName: string;
+  currentPriceCents: number;
+  altPriceCents: number;
+  savingCents: number;
+}
+
+/**
+ * Per-line cheaper-alt suggestion. One chip per cart row where a live alt
+ * offer undercuts the current line. Deterministic, no LLM. Pure given a
+ * cart snapshot + an offer fetcher.
+ */
+export async function buildCartLineHints(
+  repos: { listOffersByProduct(productId: string): Promise<Array<{ priceCents: number; leadTimeDays: number; availabilityStatus: string; supplier: { id: string; name: string } }>> },
+  cart: CartHintLine[],
+): Promise<CartLineHint[]> {
+  if (!cart.length) return [];
+  const out: CartLineHint[] = [];
+  for (const line of cart) {
+    const offers = await repos.listOffersByProduct(line.productId).catch(() => []);
+    const live = offers.filter((o) => o.availabilityStatus !== 'out_of_stock');
+    const alt = live
+      .filter((o) => o.supplier.name.toLowerCase() !== line.supplierName.toLowerCase())
+      .sort((a, b) => a.priceCents - b.priceCents)[0];
+    if (!alt || alt.priceCents >= line.priceCents) continue;
+    out.push({
+      cartItemId: line.cartItemId,
+      productName: line.productName,
+      cheaperSupplierName: alt.supplier.name,
+      currentPriceCents: line.priceCents,
+      altPriceCents: alt.priceCents,
+      savingCents: (line.priceCents - alt.priceCents) * line.quantity,
+    });
+  }
+  return out;
+}

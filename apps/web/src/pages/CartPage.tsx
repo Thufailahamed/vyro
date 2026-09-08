@@ -26,6 +26,16 @@ import {
 import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, Surface } from '@/components/brand/Surface';
 import { CartHintsBanner } from '@/ai/CartHintsBanner';
+import { useQuery as useRQ } from '@tanstack/react-query';
+
+interface LineHint {
+  cartItemId: string;
+  productName: string;
+  cheaperSupplierName: string;
+  currentPriceCents: number;
+  altPriceCents: number;
+  savingCents: number;
+}
 
 interface TierRef {
   minQty: number;
@@ -111,6 +121,20 @@ export function CartPage() {
     }
     return map;
   }, [data?.items]);
+
+  // Per-line cheaper-alt hints. Failures are non-fatal — UI just omits chips.
+  const lineHintsQ = useRQ({
+    queryKey: ['cart-line-hints', businessId],
+    queryFn: () => api.get<{ hints: LineHint[] }>(`/ai/cart-line-hints?businessId=${businessId}`),
+    enabled: !!businessId,
+    staleTime: 60_000,
+    retry: 0,
+  });
+  const lineHintsByItem = useMemo(() => {
+    const map = new Map<string, LineHint>();
+    for (const h of lineHintsQ.data?.hints ?? []) map.set(h.cartItemId, h);
+    return map;
+  }, [lineHintsQ.data]);
 
   if (!user || !businessId) {
     return (
@@ -384,6 +408,24 @@ export function CartPage() {
                                   >
                                     Set to MOQ ({it.offer.minOrderQty})
                                   </button>
+                                </div>
+                              )}
+
+                              {/* Per-line cheaper-alt hint */}
+                              {lineHintsByItem.get(it.id) && (
+                                <div className="flex items-center gap-2 text-xs text-mint bg-mint/5 border border-mint/30 px-2.5 py-1 mt-1.5">
+                                  <SparklesIcon size={13} />
+                                  <span>
+                                    Cheaper at {lineHintsByItem.get(it.id)!.cheaperSupplierName} — save{' '}
+                                    <span className="font-mono font-semibold">{formatLKR(lineHintsByItem.get(it.id)!.savingCents)}</span>{' '}
+                                    on this line.
+                                  </span>
+                                  <Link
+                                    to={`/search?q=${encodeURIComponent(it.product.name)}`}
+                                    className="font-semibold underline ml-1 hover:text-ink"
+                                  >
+                                    Compare
+                                  </Link>
                                 </div>
                               )}
 
