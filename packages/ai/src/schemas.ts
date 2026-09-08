@@ -23,6 +23,7 @@ export const INTENT_NAMES = [
   'clarify',
   'procurement_plan',
   'budget_optimize',
+  'simulate_supplier_switch',
 ] as const;
 
 export type IntentName = (typeof INTENT_NAMES)[number];
@@ -55,6 +56,11 @@ const Slots = z.object({
   options: z.array(z.string().min(1).max(80)).max(4).optional(),
   // budget_optimize
   budgetCents: z.number().int().min(1).max(100000000).optional(),
+  // simulate_supplier_switch + whyRequested
+  monthlyQuantity: z.number().int().min(1).max(100000).optional(),
+  fromSupplierName: z.string().min(1).max(120).optional(),
+  toSupplierName: z.string().min(1).max(120).optional(),
+  whyRequested: z.boolean().optional(),
 }).strict();
 
 export type SlotsByIntent = z.infer<typeof Slots>;
@@ -100,6 +106,8 @@ export const ComponentTypes = [
   'spend_summary_card',
   'clarification_card',
   'confirmation_card',
+  'why_card',
+  'simulation_card',
 ] as const;
 
 export const ConfirmationItemSchema = z
@@ -166,6 +174,37 @@ export const MetaEventSchema = z
     intent: z.string().min(1).max(80),
   })
   .strict();
+
+// WHY-mode + simulator card data shapes (validated at handler level; envelope stays open).
+export const WhyEvidenceSchema = z
+  .object({ label: z.string().min(1).max(80), value: z.string().min(1).max(200) })
+  .strict();
+export const WhyCardDataSchema = z
+  .object({
+    question: z.string().min(1).max(280),
+    answer: z.string().min(1).max(600),
+    evidence: z.array(WhyEvidenceSchema).max(10),
+    recommendation: z.string().max(280).nullable(),
+  })
+  .strict();
+
+export const SimulationCardDataSchema = z
+  .object({
+    productName: z.string().min(1).max(120),
+    currentSupplier: z.string().min(1).max(120),
+    alternativeSupplier: z.string().min(1).max(120),
+    monthlyQuantity: z.number().int().min(1),
+    monthlyDeltaCents: z.number().int(),
+    annualDeltaCents: z.number().int(),
+    leadDeltaDays: z.number().int(),
+    savingsPct: z.number(),
+    confidence: z.enum(['high', 'medium', 'low']),
+  })
+  .strict();
+
+export type WhyEvidence = z.infer<typeof WhyEvidenceSchema>;
+export type WhyCardData = z.infer<typeof WhyCardDataSchema>;
+export type SimulationCardData = z.infer<typeof SimulationCardDataSchema>;
 
 export type MetaEvent = z.infer<typeof MetaEventSchema>;
 

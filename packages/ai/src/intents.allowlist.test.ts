@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { INTENT_ALLOWLIST_BY_ROLE, isIntentAllowed, INTENT_NAMES, type IntentName } from './index';
 
 describe('intent allowlist', () => {
-  it('exports 22 intents in INTENT_NAMES (13 base + 7 intel + 2 planner)', () => {
-    expect(INTENT_NAMES.length).toBe(22);
+  it('exports 23 intents in INTENT_NAMES (13 base + 7 intel + 2 planner + 1 simulate)', () => {
+    expect(INTENT_NAMES.length).toBe(23);
   });
 
   it('admin can run any intent', () => {
@@ -32,7 +32,7 @@ describe('intent allowlist', () => {
   });
 
   it('viewer cannot run write intents', () => {
-    const forbidden: IntentName[] = ['supplier_recommend', 'usual_order', 'reorder', 'procurement_plan', 'budget_optimize'];
+    const forbidden: IntentName[] = ['supplier_recommend', 'usual_order', 'reorder', 'procurement_plan', 'budget_optimize', 'simulate_supplier_switch'];
     for (const intent of forbidden) {
       expect(isIntentAllowed(intent, 'viewer')).toBe(false);
     }

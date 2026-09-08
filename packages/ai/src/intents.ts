@@ -248,7 +248,7 @@ export const INTENT_ALLOWLIST_BY_ROLE = {
     'usual_order', 'reorder', 'price_changes', 'delivery_estimate',
     'price_watch', 'price_anomaly', 'supplier_intel', 'procurement_health',
     'spend_forecast', 'category_intel', 'insights_feed', 'clarify',
-    'procurement_plan', 'budget_optimize',
+    'procurement_plan', 'budget_optimize', 'simulate_supplier_switch',
   ],
   member: [
     'search_products', 'find_cheapest', 'compare_suppliers', 'supplier_recommend',
@@ -256,7 +256,7 @@ export const INTENT_ALLOWLIST_BY_ROLE = {
     'usual_order', 'reorder', 'price_changes', 'delivery_estimate',
     'price_watch', 'price_anomaly', 'supplier_intel', 'procurement_health',
     'spend_forecast', 'category_intel', 'insights_feed', 'clarify',
-    'procurement_plan', 'budget_optimize',
+    'procurement_plan', 'budget_optimize', 'simulate_supplier_switch',
   ],
   viewer: [
     'search_products', 'find_cheapest', 'compare_suppliers',
