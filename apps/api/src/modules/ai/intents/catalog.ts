@@ -13,6 +13,7 @@ import { usualOrderHandler } from './usualOrder';
 import { reorderHandler } from './reorder';
 import { priceChangesHandler } from './priceChanges';
 import { deliveryEstimateHandler } from './deliveryEstimate';
+import { clarifyHandler } from './clarify';
 
 export interface IntentContext {
   env: Env;
@@ -44,5 +45,5 @@ export const HANDLERS: Record<ClassifyResult['intent'], Handler> = {
   reorder: reorderHandler,
   price_changes: priceChangesHandler,
   delivery_estimate: deliveryEstimateHandler,
-  clarify: stub,
+  clarify: clarifyHandler,
 };
