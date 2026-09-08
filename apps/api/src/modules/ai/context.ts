@@ -1,4 +1,5 @@
 import type { PageContext } from '@vyro/ai';
+import { assertNoAdversarialUnicode } from './guard';
 
 const PRONOUN_RX = /\b(something|this|it|that|cheaper|that one|this one)\b/i;
 
@@ -48,4 +49,21 @@ export function applyPageContext(
   }
 
   return { slots: out, filledFromContext: filled };
+}
+
+/**
+ * sanitizeProductName: strip control characters and HTML-ish tags from a
+ * product name before it is persisted or surfaced in a prompt. Neutralises
+ * the trivial XSS / log-injection vectors without altering real text.
+ * Adversarial Unicode is rejected, mirroring `assertPromptSafe`.
+ */
+export function sanitizeProductName(input: string, opts: { allowAdversarial?: boolean } = {}): string {
+  if (typeof input !== 'string') return '';
+  const stripped = input
+    .replace(/[--]/g, '')
+    .replace(/<\/?[a-zA-Z!][^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!opts.allowAdversarial) assertNoAdversarialUnicode(stripped);
+  return stripped;
 }
