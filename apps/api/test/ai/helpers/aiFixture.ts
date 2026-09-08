@@ -162,6 +162,31 @@ export function mockRepos(input: {
         { intent: 'spend_summary', count: 1 },
       ].slice(0, limit);
     },
+    async topCheapestOffers({ limit }) {
+      // One row per product: pick the cheapest live offer, ordered by price asc.
+      const live = offers.filter((o) => o.active && o.availabilityStatus !== 'out_of_stock');
+      const cheapestByProduct = new Map<string, typeof live[number]>();
+      for (const o of live.slice().sort((a, b) => a.priceCents - b.priceCents)) {
+        if (!cheapestByProduct.has(o.productId)) cheapestByProduct.set(o.productId, o);
+      }
+      const offerCount = new Map<string, number>();
+      for (const o of live) offerCount.set(o.productId, (offerCount.get(o.productId) ?? 0) + 1);
+      return [...cheapestByProduct.values()].slice(0, limit).map((o) => {
+        const p = products.find((pp) => pp.id === o.productId);
+        return {
+          productId: o.productId,
+          productName: p?.name ?? o.productId,
+          supplierId: o.supplier.id,
+          supplierName: o.supplier.name,
+          priceCents: o.priceCents,
+          leadTimeDays: o.leadTimeDays,
+          deliveryAvailable: o.deliveryAvailable,
+          minOrderQty: o.minOrderQty,
+          availabilityStatus: o.availabilityStatus,
+          offerCount: offerCount.get(o.productId) ?? 0,
+        };
+      });
+    },
     async createDraftFromRecommendation({ businessId, items, idempotencyKey }: { businessId: string; userId: string; items: Array<{ product: string; quantity: number; unit: string; priceCents: number; supplier: string }>; idempotencyKey: string }) {
       // Validate items reference known catalog rows (same as production).
       for (const it of items) {

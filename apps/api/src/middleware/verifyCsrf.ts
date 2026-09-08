@@ -38,7 +38,15 @@ export const verifyCsrf = (): MiddlewareHandler => async (c, next) => {
       return undefined;
     }
   })();
-  const allowed = [env.WEB_ORIGIN, env.ADMIN_ORIGIN, self].filter(Boolean) as string[];
+  const allowed = [
+    env.WEB_ORIGIN,
+    env.ADMIN_ORIGIN,
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174',
+    self,
+  ].filter(Boolean) as string[];
 
   const origin = c.req.header('origin');
   if (origin) {

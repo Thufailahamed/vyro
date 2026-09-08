@@ -39,6 +39,15 @@ export function summarizeResult(intent: string, result: HandlerResult): string {
   switch (intent) {
     case 'find_cheapest': {
       if (comp?.type === 'clarification_card') return String(data.question ?? 'Which product did you mean?');
+      if (s.mode === 'cross_catalog') {
+        const topN = Number(s.topN ?? 0);
+        const others = Math.max(0, topN - 1);
+        return (
+          `Cheapest live deals right now: ${s.topProductName ?? 'top product'} via ${s.topSupplierName ?? 'a supplier'} ` +
+          `at ${formatLKR(s.topPriceCents)}${others ? `, with ${others} other comparison deal${others === 1 ? '' : 's'}` : ''}. ` +
+          `Across ${s.offerCount ?? 0}+ live offers in your catalog. Pick a product to drill into a single-source recommendation.`
+        ).slice(0, MAX);
+      }
       const saving = typeof s.savingVsHighestCents === 'number' && s.savingVsHighestCents > 0
         ? ` ${formatLKR(s.savingVsHighestCents)} cheaper than the priciest option.`
         : '';

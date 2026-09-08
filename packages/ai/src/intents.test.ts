@@ -34,4 +34,24 @@ describe('heuristicClassify', () => {
     expect(r.intent).toBe('find_cheapest');
     expect(['chicken']).toContain(r.slots.productName);
   });
+
+  it('generic "find cheapest suppliers" routes to find_cheapest without a product', () => {
+    const r = heuristicClassify('find cheapest suppliers', dict);
+    expect(r.intent).toBe('find_cheapest');
+    expect(r.slots.productName).toBeUndefined();
+    expect(r.slots.topN).toBeGreaterThan(0);
+    expect(r.confidence).toBeLessThanOrEqual(0.6);
+  });
+
+  it('generic "show me cheapest" routes to find_cheapest without a product', () => {
+    const r = heuristicClassify('show me the cheapest options', dict);
+    expect(r.intent).toBe('find_cheapest');
+    expect(r.slots.productName).toBeUndefined();
+  });
+
+  it('"lowest prices" routes to find_cheapest without a product', () => {
+    const r = heuristicClassify('who has the lowest prices right now', dict);
+    expect(r.intent).toBe('find_cheapest');
+    expect(r.slots.productName).toBeUndefined();
+  });
 });

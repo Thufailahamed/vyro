@@ -144,6 +144,19 @@ export const ErrorEventSchema = z
   .object({ code: z.string().min(1).max(40), message: z.string().min(1).max(200) })
   .strict();
 
+export const MetaEventSchema = z
+  .object({
+    provider: z.string().min(1).max(80),
+    model: z.string().min(1).max(120),
+    latencyMs: z.number().int().nonnegative(),
+    tokensIn: z.number().int().nonnegative(),
+    tokensOut: z.number().int().nonnegative(),
+    intent: z.string().min(1).max(80),
+  })
+  .strict();
+
+export type MetaEvent = z.infer<typeof MetaEventSchema>;
+
 export type ComponentEnvelope = z.infer<typeof ComponentEnvelopeSchema>;
 export type FinalEvent = z.infer<typeof FinalEventSchema>;
 export type Action = z.infer<typeof ActionSchema>;

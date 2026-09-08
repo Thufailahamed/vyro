@@ -4,10 +4,14 @@ import { searchProductsHandler } from '../../../src/modules/ai/intents/searchPro
 import { mockRepos } from '../helpers/aiFixture';
 
 const repos = mockRepos({
-  products: [{ id: 'p1', name: 'Samba Rice', categoryId: 'c1', unit: 'kg', packSize: '25kg' }],
+  products: [
+    { id: 'p1', name: 'Samba Rice', categoryId: 'c1', unit: 'kg', packSize: '25kg' },
+    { id: 'p2', name: 'Sugar', categoryId: 'c2', unit: 'kg', packSize: '50kg' },
+  ],
   offers: [
     { id: 'o1', supplierId: 's1', productId: 'p1', priceCents: 450000, minOrderQty: 1, leadTimeDays: 1, deliveryAvailable: true, availabilityStatus: 'in_stock', active: true, supplier: { id: 's1', name: 'Alpha' } },
     { id: 'o2', supplierId: 's2', productId: 'p1', priceCents: 430000, minOrderQty: 1, leadTimeDays: 3, deliveryAvailable: true, availabilityStatus: 'in_stock', active: true, supplier: { id: 's2', name: 'Beta' } },
+    { id: 'o3', supplierId: 's3', productId: 'p2', priceCents: 230000, minOrderQty: 1, leadTimeDays: 2, deliveryAvailable: true, availabilityStatus: 'in_stock', active: true, supplier: { id: 's3', name: 'Gamma' } },
   ],
 });
 
@@ -42,7 +46,7 @@ describe('findCheapestHandler', () => {
     expect(r.components[0].type).toBe('clarification_card');
   });
 
-  it('returns clarification_card when productName missing', async () => {
+  it('returns supplier_list_card of cross-catalog top-N when productName missing', async () => {
     const r = await findCheapestHandler(
       {
         env: {} as any,
@@ -52,7 +56,28 @@ describe('findCheapestHandler', () => {
       },
       repos,
     );
-    expect(r.components[0].type).toBe('clarification_card');
+    expect(r.components[0].type).toBe('supplier_list_card');
+    const data = r.components[0].data as any;
+    const list = data.suppliers;
+    expect(list.length).toBeGreaterThan(0);
+    expect(list[0].supplierName).toBe('Gamma'); // cheapest offer across catalog wins
+    expect(list[0].priceCents).toBe(230000);
+    expect(list[0].savingVsHighestCents).toBe(200000); // 430000 (Beta) - 230000 (Gamma)
+    expect(r.rawSummary.mode).toBe('cross_catalog');
+  });
+
+  it('honors slots.topN when productName missing', async () => {
+    const r = await findCheapestHandler(
+      {
+        env: {} as any,
+        businessId: 'b1',
+        userId: 'u1',
+        classify: { intent: 'find_cheapest', slots: { topN: 2 }, confidence: 0.5 },
+      },
+      repos,
+    );
+    const data = r.components[0].data as any;
+    expect(data.suppliers.length).toBeLessThanOrEqual(2);
   });
 });
 

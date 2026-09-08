@@ -87,6 +87,25 @@ export interface AiRepos {
   /** Top intents invoked by the business in the last 30 days, ranked by frequency. */
   topIntentsLast30d(opts: { businessId: string; limit: number }): Promise<Array<{ intent: string; count: number }>>;
   /**
+   * One row per product representing the cheapest live offer across the
+   * whole catalog. Used for "find cheapest suppliers" with no productName —
+   * returns the products whose best live offer is cheapest in absolute terms.
+   * Out-of-stock offers are skipped; ties broken by offerCount desc, then
+   * productName asc for stable ordering.
+   */
+  topCheapestOffers(opts: { limit: number }): Promise<Array<{
+    productId: string;
+    productName: string;
+    supplierId: string;
+    supplierName: string;
+    priceCents: number;
+    leadTimeDays: number;
+    deliveryAvailable: boolean;
+    minOrderQty: number;
+    availabilityStatus: 'in_stock' | 'low' | 'out_of_stock';
+    offerCount: number;
+  }>>;
+  /**
    * Create a draft purchase order from AI-recommended items. Idempotent on
    * `idempotencyKey`: replays return the same poRef and estimatedDelivery.
    * Caller must validate role + tenant scope.

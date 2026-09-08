@@ -5,8 +5,10 @@ import {
   ComponentEnvelopeSchema,
   FinalEventSchema,
   ErrorEventSchema,
+  MetaEventSchema,
   type ComponentEnvelope,
   type FinalEvent,
+  type MetaEvent,
 } from '@vyro/ai';
 
 export type StreamEvent =
@@ -15,6 +17,7 @@ export type StreamEvent =
   | { type: 'tool_result'; payload: { name: string; ok: boolean; summary: string } }
   | { type: 'component'; payload: ComponentEnvelope }
   | { type: 'final'; payload: FinalEvent }
+  | { type: 'meta'; payload: MetaEvent }
   | { type: 'error'; payload: { code: string; message: string } };
 
 const SCHEMAS = {
@@ -23,6 +26,7 @@ const SCHEMAS = {
   tool_result: ToolResultEventSchema,
   component: ComponentEnvelopeSchema,
   final: FinalEventSchema,
+  meta: MetaEventSchema,
   error: ErrorEventSchema,
 } as const;
 

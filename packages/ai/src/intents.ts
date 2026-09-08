@@ -15,7 +15,7 @@ const DELIVERY_RX = /\b(deliver|delivery|how fast|when can i get|lead time)\b/i;
 const PRICE_RX = /\b(price increase|price change|why.*increase|why.*more expensive|price (?:went|going) up)\b/i;
 const SEARCH_RX = /\b(find|search|show me|list|look for|do you have)\b/i;
 const PROCURE_RX = /\b(need|needs|want|buy|order|get me|require|supply me)\b/i;
-const CHEAPEST_RX = /\b(cheapest|lowest price|best price|best deal|lowest cost)\b/i;
+const CHEAPEST_RX = /\b(cheapest|lowest prices?|best prices?|best deals?|lowest costs?)\b/i;
 const PERIOD_RX = /\b(this|last|past)\s+(week|month|quarter|year)\b/i;
 
 const WORD_NUMS: Record<string, number> = {
@@ -122,9 +122,12 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
   } else if (COMPARE_RX.test(text) && productName) {
     intent = 'compare_suppliers';
     confidence = 0.75;
-  } else if (CHEAPEST_RX.test(text) && productName) {
+  } else if (CHEAPEST_RX.test(text)) {
+    // Generic "find cheapest suppliers" / "show me cheapest" without a named
+    // product is still a find_cheapest — the handler turns it into a cross-
+    // catalog top-N list. Confidence stays low until the user picks a product.
     intent = 'find_cheapest';
-    confidence = 0.85;
+    confidence = productName ? 0.85 : 0.55;
   } else if (DELIVERY_RX.test(text)) {
     intent = 'delivery_estimate';
     confidence = 0.6;
@@ -159,6 +162,11 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
   if (productName) slots.productName = productName;
   if (supplierName) slots.supplierName = supplierName;
   if (optimizeFor && intent === 'supplier_recommend') slots.optimizeFor = optimizeFor;
+  // Generic "find cheapest suppliers" — tell the handler to return top-N
+  // across the whole catalog rather than asking for a product.
+  if (intent === 'find_cheapest' && !productName) {
+    slots.topN = Number(slots.topN ?? 8);
+  }
   const periodMatch = text.match(PERIOD_RX);
   if (periodMatch && periodMatch[2]) {
     const word = periodMatch[2].toLowerCase();

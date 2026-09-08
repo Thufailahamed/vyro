@@ -2,8 +2,8 @@ import type { AIProvider, ChatMessage, ChatOptions, ChatResult } from './types';
 import { AIUnavailableError } from './types';
 import type { Env } from '../../../env';
 
-const DEFAULT_CLASSIFY = '@cf/meta/llama-3.1-8b-instruct-fast';
-const DEFAULT_NARRATE = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+const DEFAULT_CLASSIFY = '@cf/zai-org/glm-5.3-flash';
+const DEFAULT_NARRATE = '@cf/zai-org/glm-5.3-flash';
 
 export class WorkersAIProvider implements AIProvider {
   readonly name = 'workersAI';

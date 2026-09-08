@@ -1,4 +1,4 @@
-import { and, eq, gte, isNull, like, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNull, like, ne, sql } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
 import {
   products,
@@ -387,6 +387,62 @@ export function drizzleRepos(env: Env): AiRepos {
       return rows
         .filter((r) => r.intent)
         .map((r) => ({ intent: String(r.intent), count: Number(r.count) }));
+    },
+
+    async topCheapestOffers({ limit }) {
+      // Take all live offers, rank by price asc, then pick the cheapest
+      // offer per product in app code (sqlite window-function limits in D1
+      // make DISTINCT ON unreliable). Cheap because index hits + small N.
+      const rows = await db
+        .select({
+          productId: supplierProducts.productId,
+          productName: products.name,
+          supplierId: suppliers.id,
+          supplierName: suppliers.name,
+          priceCents: supplierProducts.priceCents,
+          leadTimeDays: supplierProducts.leadTimeDays,
+          deliveryAvailable: supplierProducts.deliveryAvailable,
+          minOrderQty: supplierProducts.minOrderQty,
+          availabilityStatus: supplierProducts.availabilityStatus,
+        })
+        .from(supplierProducts)
+        .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+        .innerJoin(products, eq(products.id, supplierProducts.productId))
+        .where(and(
+          offerNotDeleted,
+          offerActive,
+          ne(supplierProducts.availabilityStatus, 'out_of_stock'),
+          isNull(suppliers.deletedAt),
+          isNull(products.deletedAt),
+        ))
+        .orderBy(asc(supplierProducts.priceCents), desc(sql`${supplierProducts.leadTimeDays}`))
+        .all();
+
+      const cheapestByProduct = new Map<string, typeof rows[number]>();
+      for (const r of rows) {
+        if (!cheapestByProduct.has(r.productId)) cheapestByProduct.set(r.productId, r);
+        if (cheapestByProduct.size >= limit * 4) break; // safety cap
+      }
+
+      // Count offers per product for the offerCount badge.
+      const offerCounts = new Map<string, number>();
+      for (const r of rows) offerCounts.set(r.productId, (offerCounts.get(r.productId) ?? 0) + 1);
+
+      const out = [...cheapestByProduct.values()]
+        .map((r) => ({
+          productId: r.productId,
+          productName: r.productName,
+          supplierId: r.supplierId,
+          supplierName: r.supplierName,
+          priceCents: r.priceCents,
+          leadTimeDays: r.leadTimeDays,
+          deliveryAvailable: !!r.deliveryAvailable,
+          minOrderQty: r.minOrderQty,
+          availabilityStatus: r.availabilityStatus as 'in_stock' | 'low' | 'out_of_stock',
+          offerCount: offerCounts.get(r.productId) ?? 0,
+        }))
+        .slice(0, limit);
+      return out;
     },
 
     async createDraftFromRecommendation({ businessId, userId, items, idempotencyKey }) {

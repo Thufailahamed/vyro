@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import type { ComponentEnvelope } from '@vyro/ai';
+import { formatLKR } from '@/lib/format';
+import { ShoppingCartIcon, CheckCircleIcon, ArrowRightIcon } from '@/components/icons';
 
 interface ConfirmationItem {
   product: string;
@@ -46,66 +48,77 @@ export function ConfirmationPanel({ card }: ConfirmationCardProps) {
       if (result.poRef) card.data.poRef = result.poRef;
       setState('confirmed');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to confirm');
+      setError(err instanceof Error ? err.message : 'Failed to issue purchase order');
       setState('error');
     }
   };
 
   return (
-    <div className="rounded-xl border border-stone-200 bg-white p-4">
-      <div className="flex items-center gap-2">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-copper">Ready to order</div>
+    <div className="bg-paper border border-ink/20 shadow-sm p-5 space-y-4">
+      <div className="flex items-center justify-between pb-2 border-b border-ink/10">
+        <div className="flex items-center gap-2">
+          <ShoppingCartIcon size={16} className="text-copper" />
+          <div className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-copper">
+            Draft Purchase Order Batch
+          </div>
+        </div>
         {state === 'confirmed' && (
-          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
-            Confirmed · {card.data.poRef ?? 'draft'}
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-mint/15 text-mint border border-mint/30">
+            <CheckCircleIcon size={11} />
+            Issued · {card.data.poRef ?? 'Committed'}
           </span>
         )}
       </div>
-      <ul className="mt-3 space-y-1.5">
+
+      <div className="divide-y divide-ink/10">
         {card.data.items.map((item, i) => (
-          <li key={i} className="flex items-baseline justify-between text-sm text-stone-700">
-            <span>
-              <span className="font-medium">{item.product}</span>{' '}
-              <span className="text-stone-500">— {item.quantity}{item.unit} from {item.supplier}</span>
-            </span>
-            <span className="font-mono tabular-nums text-stone-700">
-              Rs. {((item.priceCents * item.quantity) / 100).toLocaleString('en-LK', { minimumFractionDigits: 2 })}
-            </span>
-          </li>
+          <div key={i} className="py-2.5 flex items-baseline justify-between gap-3 text-sm">
+            <div className="min-w-0">
+              <div className="font-semibold text-ink text-xs sm:text-sm truncate">
+                {item.product}
+              </div>
+              <div className="text-[11px] font-mono text-ink-4">
+                Qty: {item.quantity} {item.unit} · Mill: {item.supplier}
+              </div>
+            </div>
+            <div className="shrink-0 font-mono text-xs sm:text-sm font-semibold text-ink num-tabular">
+              {formatLKR(item.priceCents * item.quantity)}
+            </div>
+          </div>
         ))}
-      </ul>
-      <div className="mt-3 flex items-baseline justify-between border-t border-stone-200 pt-2">
-        <span className="text-xs uppercase tracking-wider text-stone-500">Estimated total</span>
-        <span className="font-mono text-lg font-semibold tabular-nums text-stone-900">
-          Rs. {(card.data.totalCents / 100).toLocaleString('en-LK', { minimumFractionDigits: 2 })}
-        </span>
       </div>
-      <div className="mt-1 text-xs text-stone-500">
-        Estimated delivery: <span className="text-stone-700">{card.data.estimatedDelivery}</span>
+
+      <div className="pt-3 border-t border-ink/15 space-y-1.5 bg-bone/40 p-3">
+        <div className="flex items-baseline justify-between">
+          <span className="text-xs font-mono uppercase tracking-wider text-ink-3 font-semibold">
+            Gross Estimated Total
+          </span>
+          <span className="font-mono text-lg font-bold text-ink num-tabular">
+            {formatLKR(card.data.totalCents)}
+          </span>
+        </div>
+        <div className="text-[11px] font-mono text-ink-4">
+          Estimated dispatch delivery: <span className="text-ink font-medium">{card.data.estimatedDelivery}</span>
+        </div>
       </div>
-      {error && <div className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>}
+
+      {error && (
+        <div className="p-3 bg-rose/10 border border-rose/30 text-rose text-xs font-mono">
+          {error}
+        </div>
+      )}
+
       {state !== 'confirmed' && (
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="pt-2 flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={submit}
             disabled={state === 'submitting'}
             data-testid="confirm-button"
-            className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800 disabled:opacity-50"
+            className="inline-flex items-center gap-2 h-9 px-4 text-xs font-mono font-bold uppercase tracking-wider bg-ink text-paper hover:bg-charcoal disabled:opacity-50 transition-colors shadow-sm"
           >
-            {state === 'submitting' ? 'Confirming…' : 'Confirm order'}
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:border-stone-900"
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            className="rounded-lg px-4 py-2 text-sm font-medium text-stone-500 hover:text-stone-900"
-          >
-            Cancel
+            <span>{state === 'submitting' ? 'Transmitting PO…' : 'Issue Purchase Order'}</span>
+            <ArrowRightIcon size={12} className="text-volt" />
           </button>
         </div>
       )}

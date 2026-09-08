@@ -166,7 +166,7 @@ export function useVyroAI() {
   // Compact server-stateless history: last N user/assistant texts.
   const history = useRef<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
 
-  const send = useCallback(async (prompt: string, opts?: { businessId?: string }) => {
+  const send = useCallback(async (prompt: string, opts?: { businessId?: string | undefined }) => {
     const text = prompt.trim();
     if (!text) return;
     dispatch({ type: 'user', turn: { id: ++turnId, role: 'user', text, components: [], actions: [], tools: [] } });
@@ -183,7 +183,30 @@ export function useVyroAI() {
         }),
       });
       if (!res.ok || !res.body) {
-        dispatch({ type: 'turn_error', code: 'HTTP_ERROR', message: `HTTP ${res.status}` });
+        let code = 'HTTP_ERROR';
+        let message = `Server returned HTTP ${res.status}`;
+        try {
+          const errData = (await res.json()) as { error?: { code?: string; message?: string } } | null;
+          if (errData?.error?.message) {
+            message = errData.error.message;
+            code = errData.error.code || code;
+          }
+        } catch {
+          if (res.status === 404) {
+            code = 'ENGINE_UNAVAILABLE';
+            message = 'AI intelligence engine could not be reached (404). Please ensure the backend is deployed and active.';
+          } else if (res.status === 401) {
+            code = 'UNAUTHORIZED';
+            message = 'Your session has expired. Please sign in again to consult Ask VYRO.';
+          } else if (res.status === 403) {
+            code = 'FORBIDDEN';
+            message = 'You do not have authorization to query procurement intelligence for this business.';
+          } else if (res.status === 503) {
+            code = 'AI_DISABLED';
+            message = 'VYRO AI is temporarily offline or undergoing maintenance. Please try again shortly.';
+          }
+        }
+        dispatch({ type: 'turn_error', code, message });
         return;
       }
       let sawFinal = false;
