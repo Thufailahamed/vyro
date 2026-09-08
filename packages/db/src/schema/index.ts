@@ -40,3 +40,6 @@ export * from './webhookDeliveries';
 export * from './adminImpersonations';
 export * from './dataExportRequests';
 export * from './auditExportSchedules';
+export * from './invoiceUploads';
+export * from './invoiceLineItems';
+export * from './categoryMappings';
