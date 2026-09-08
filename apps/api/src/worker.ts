@@ -49,6 +49,9 @@ export default {
       await handleAuditBatch(batch, env);
     } else if (batch.queue === 'notifications') {
       await handleNotificationsBatch(batch, env);
+    } else if (batch.queue === 'invoices') {
+      const { handleInvoicesBatch } = await import('./queue/invoiceOcr');
+      await handleInvoicesBatch(batch, env);
     } else {
       // Unknown queue — drain silently.
       for (const msg of batch.messages) msg.ack();
