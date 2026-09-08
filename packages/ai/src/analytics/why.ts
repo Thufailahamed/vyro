@@ -1,13 +1,10 @@
-export interface WhyEvidence {
-  label: string;
-  value: string;
-}
+import type { WhyEvidence } from '../schemas';
 
 export interface WhyInput {
   question: string;
   intent: string;
   evidence: WhyEvidence[];
-  recommendation?: string;
+  recommendation?: string | undefined;
 }
 
 export interface WhyOutput {

@@ -90,5 +90,8 @@ export async function applyWhyMode(
     recommendation: recommendation ?? undefined,
   });
 
-  return { ...result, components: [...result.components, { type: 'why_card', data: why }] };
+  return {
+    ...result,
+    components: [...result.components, { type: 'why_card', data: why as unknown as Record<string, unknown> }],
+  };
 }

@@ -41,6 +41,7 @@ export const verifyCsrf = (): MiddlewareHandler => async (c, next) => {
   const allowed = [
     env.WEB_ORIGIN,
     env.ADMIN_ORIGIN,
+    'https://vyro-web.pages.dev',
     'http://localhost:5173',
     'http://localhost:5174',
     'http://127.0.0.1:5173',
