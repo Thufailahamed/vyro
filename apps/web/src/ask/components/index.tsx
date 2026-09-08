@@ -378,6 +378,84 @@ export { ToolTimeline } from './ToolTimeline';
 export { ConfirmationPanel } from './ConfirmationPanel';
 export { ActionRow };
 
+export function WhyCard({ data }: { data: any }) {
+  const evidence: Array<{ label: string; value: string }> = data.evidence ?? [];
+  return (
+    <div className="bg-paper border border-copper/30 p-5 shadow-sm space-y-3">
+      <div className="flex items-center justify-between">
+        <Eyebrow>VYRO · Why</Eyebrow>
+        <span className="text-[10px] font-mono text-ink-4 uppercase">Evidence-backed</span>
+      </div>
+      <div className="font-display text-lg font-bold tracking-tight text-ink">{data.question ?? 'Why?'}</div>
+      <p className="text-sm leading-relaxed text-ink-2">{data.answer ?? ''}</p>
+      {evidence.length > 0 && (
+        <ul className="border-t border-ink/10 pt-3 space-y-1.5">
+          {evidence.map((e, i) => (
+            <li key={i} className="flex items-baseline justify-between gap-3 text-xs">
+              <span className="font-mono uppercase tracking-wider text-ink-4">{e.label}</span>
+              <span className="font-mono font-bold text-ink num-tabular">{e.value}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {data.recommendation && (
+        <div className="text-xs font-mono text-mint border-t border-ink/10 pt-3">
+          → {data.recommendation}
+        </div>
+      )}
+      <Source>Sourced from your live procurement history and current wholesale offers.</Source>
+    </div>
+  );
+}
+
+export function SimulationCard({ data }: { data: any }) {
+  const saving = (data.monthlyDeltaCents ?? 0) < 0;
+  const monthly = Math.abs(Number(data.monthlyDeltaCents ?? 0) / 100);
+  const annual = Math.abs(Number(data.annualDeltaCents ?? 0) / 100);
+  const pct = Number(data.savingsPct ?? 0);
+  const leadDelta = Number(data.leadDeltaDays ?? 0);
+  const confidence = String(data.confidence ?? 'medium');
+  return (
+    <div className="bg-paper border border-ink/20 p-5 shadow-sm space-y-4">
+      <div className="flex items-center justify-between">
+        <Eyebrow>VYRO · Supplier Switch Simulation</Eyebrow>
+        <span className="text-[10px] font-mono text-ink-4 uppercase">confidence: {confidence}</span>
+      </div>
+      <div className="font-display text-lg font-bold tracking-tight text-ink">
+        Switch {data.productName ?? 'product'} suppliers
+      </div>
+      <div className="grid grid-cols-2 gap-3 border-y border-ink/10 py-3">
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4">Current</div>
+          <div className="text-sm font-display font-semibold text-ink">{data.currentSupplier ?? '—'}</div>
+        </div>
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4">Alternative</div>
+          <div className="text-sm font-display font-semibold text-ink">{data.alternativeSupplier ?? '—'}</div>
+        </div>
+      </div>
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4">
+            {saving ? 'Estimated saving' : 'Estimated cost'}
+          </div>
+          <div className={`font-display text-3xl font-bold tracking-tight num-tabular ${saving ? 'text-mint' : 'text-rose'}`}>
+            {`${pct.toFixed(1)}%`}
+          </div>
+        </div>
+        <div className="text-right space-y-0.5 text-xs font-mono text-ink-2">
+          <div>Monthly: <span className="num-tabular font-bold">Rs. {monthly.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+          <div>Annual: <span className="num-tabular font-bold">Rs. {annual.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+        </div>
+      </div>
+      <div className="text-[11px] font-mono text-ink-4">
+        Lead time {leadDelta >= 0 ? '+' : ''}{leadDelta}d · {data.monthlyQuantity ?? 0} units/mo
+      </div>
+      <Source>Pricing uses your live cadence and current wholesale offers — review before converting.</Source>
+    </div>
+  );
+}
+
 export function renderComponent(env: ComponentEnvelope, idx: number, onPick?: (opt: string) => void) {
   const data = env.data as any;
   switch (env.type) {
@@ -395,6 +473,10 @@ export function renderComponent(env: ComponentEnvelope, idx: number, onPick?: (o
       return <ClarificationCard key={idx} data={data} onPick={onPick} />;
     case 'confirmation_card':
       return <ConfirmationPanel key={idx} card={{ id: String(idx), ...(env as object), data } as any} />;
+    case 'why_card':
+      return <WhyCard key={idx} data={data} />;
+    case 'simulation_card':
+      return <SimulationCard key={idx} data={data} />;
   }
   return null;
 }

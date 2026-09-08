@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
-import { greetingForHour, savingsHeadline, moveHeadline, type HomePayload } from './home';
+import { greetingForHour, savingsHeadline, moveHeadline, healthHeadline, concentrationLabel, type HomePayload } from './home';
 
 /**
  * VYRO AI home: proactive procurement intelligence, pulled on demand.
@@ -71,17 +71,37 @@ export function AiHomePage() {
           </div>
           <div className="p-4 bg-paper border border-ink/15 shadow-xs space-y-2">
             <div className="text-[10px] font-mono uppercase tracking-wider font-bold text-ink-3">Supplier concentration</div>
-            <div className="text-sm text-ink">
+            <div className="font-display text-lg font-semibold text-ink">
+              {concentrationLabel(data.concentrationRisk.topSupplierShare)}
+            </div>
+            <div className="text-xs text-ink-3">
               {data.concentration.length
-                ? `${data.concentration[0]!.supplierName}: ${Math.round(data.concentration[0]!.share * 100)}% of spend`
+                ? `${data.concentration[0]!.supplierName}: ${Math.round(data.concentration[0]!.share * 100)}% of spend · ${data.concentrationRisk.alternativeCount} alternatives`
                 : 'No concentration signal.'}
             </div>
             <Link to="/ask" className="text-xs font-mono font-bold text-copper hover:underline">Review suppliers →</Link>
           </div>
           <div className="p-4 bg-paper border border-ink/15 shadow-xs space-y-2">
-            <div className="text-[10px] font-mono uppercase tracking-wider font-bold text-ink-3">Procurement</div>
-            <div className="text-sm text-ink">Your usual weekly order is ready to review.</div>
-            <Link to="/ask" className="text-xs font-mono font-bold text-copper hover:underline">Review order →</Link>
+            <div className="text-[10px] font-mono uppercase tracking-wider font-bold text-ink-3">Procurement health</div>
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-3xl font-bold tracking-tight text-ink num-tabular">
+                {data.healthScore.score}
+              </span>
+              <span className="font-mono text-xs text-ink-4">/ 100 · {healthHeadline(data.healthScore.score)}</span>
+            </div>
+            <ul className="grid grid-cols-5 gap-1 pt-1">
+              {Object.entries(data.healthScore.breakdown).map(([k, v]) => (
+                <li key={k} className="space-y-0.5">
+                  <div className="text-[9px] font-mono uppercase tracking-wider text-ink-4 truncate" title={k}>
+                    {k.replace(/([A-Z])/g, ' $1').trim().slice(0, 10)}
+                  </div>
+                  <div className="h-1 bg-bone rounded-sm overflow-hidden">
+                    <div className="h-full bg-volt" style={{ width: `${Math.min(100, ((v as number) / 20) * 100)}%` }} />
+                  </div>
+                  <div className="font-mono text-[10px] num-tabular text-ink-2">{v as number}</div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       )}
