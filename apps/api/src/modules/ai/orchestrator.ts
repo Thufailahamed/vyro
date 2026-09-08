@@ -6,6 +6,7 @@ import { narrate, summarizeResult } from './narrate';
 import { HANDLERS, type IntentContext } from './intents/catalog';
 import { drizzleRepos } from './intents/drizzleRepos';
 import { applyPageContext } from './context';
+import { applyWhyMode } from './intents/whyMode';
 import { loadDictionary } from './dictionary';
 import type { PageContext } from '@vyro/ai';
 import { encodeEvent } from './stream';
@@ -169,7 +170,10 @@ export async function* orchestrate(
     let rawSummary: Record<string, unknown> = {};
     try {
       yield encodeEvent('status', { stage: stage2 });
-      const handlerResult = await HANDLERS[classifyResult.intent](handlerCtx, repos);
+      let handlerResult = await HANDLERS[classifyResult.intent](handlerCtx, repos);
+      // WHY mode appends a why_card when whyRequested && analytics intent.
+      // Additive only — never replaces primary component.
+      handlerResult = await applyWhyMode(handlerCtx, handlerResult, repos);
       components = handlerResult.components;
       actions = handlerResult.actions;
       rawSummary = handlerResult.rawSummary;
