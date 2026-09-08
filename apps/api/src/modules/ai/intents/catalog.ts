@@ -30,8 +30,6 @@ export interface HandlerResult {
 
 export type Handler = (ctx: IntentContext, repos: AiRepos) => Promise<HandlerResult>;
 
-const stub: Handler = async () => ({ components: [], actions: [], rawSummary: {} });
-
 export const HANDLERS: Record<ClassifyResult['intent'], Handler> = {
   search_products: searchProductsHandler,
   find_cheapest: findCheapestHandler,

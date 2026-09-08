@@ -1,29 +1,34 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useVyroAI } from './hooks/useVyroAI';
-import { renderComponent } from './components';
-
-const SUGGESTIONS_KEY = 'vyro-ai-suggestions';
+import { renderComponent, ToolTimeline } from './components';
+import { PageHeader } from '@/components/ui';
 
 export function AskPage() {
-  const { state, send } = useVyroAI();
+  const { state, send, clear, regenerate } = useVyroAI();
   const [prompt, setPrompt] = useState('');
-  const [suggestions, setSuggestions] = useState<string[]>([
-    'Find my cheapest suppliers',
-    'Build my usual order',
-    'What should I reorder?',
-    'Where can I save?',
-    'How much did I spend this month?',
+  const [suggestions, setSuggestions] = useState<Array<{ kind: 'product' | 'intent'; label: string; payload: string }>>([
+    { kind: 'intent', label: 'Find my cheapest suppliers', payload: 'find cheapest suppliers' },
+    { kind: 'intent', label: 'Build my usual order', payload: 'build my usual order' },
+    { kind: 'intent', label: 'What should I reorder?', payload: 'what should I reorder' },
+    { kind: 'intent', label: 'Where can I save?', payload: 'where can I save' },
+    { kind: 'intent', label: 'How much did I spend this month?', payload: 'how much did I spend this month' },
   ]);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch('/api/ai/suggestions', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        const list = (d as { suggestions?: string[] } | null)?.suggestions;
+        const list = (d as { prompts?: Array<{ kind: 'product' | 'intent'; label: string; payload: string }> } | null)?.prompts;
         if (list?.length) setSuggestions(list);
       })
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [state.turns.length, state.status]);
 
   const submit = async (text: string) => {
     if (!text.trim() || state.loading) return;
@@ -31,81 +36,166 @@ export function AskPage() {
     await send(text);
   };
 
+  const lastUserPrompt = (() => {
+    for (let i = state.turns.length - 1; i >= 0; i--) {
+      if (state.turns[i]!.role === 'user') return state.turns[i]!.text;
+    }
+    return '';
+  })();
+
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-900">Ask VYRO</h1>
-        <p className="text-sm text-slate-600 mt-1">
-          Procurement intelligence — search, compare, and optimize using your real purchase data.
-        </p>
-      </header>
+    <div className="mx-auto max-w-3xl px-4 pb-16 pt-8">
+      <PageHeader
+        kicker="VYRO Intelligence"
+        title="Ask VYRO"
+        sub="Your procurement expert — grounded in your real purchase history, current supplier prices, and delivery options. It never guesses; every figure cites its source."
+        actions={
+          state.turns.length > 0 ? (
+            <button
+              type="button"
+              onClick={clear}
+              className="shrink-0 rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-600 hover:border-stone-900 hover:text-stone-900"
+            >
+              New chat
+            </button>
+          ) : null
+        }
+      />
 
-      <div className="rounded-lg border border-slate-200 bg-white p-3 flex gap-2">
-        <input
-          aria-label="Ask VYRO"
-          className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="e.g. cheapest samba rice, how much did I spend last month"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') submit(prompt); }}
-          disabled={state.loading}
-        />
-        <button
-          type="button"
-          className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-          onClick={() => submit(prompt)}
-          disabled={state.loading || !prompt.trim()}
-        >
-          {state.loading ? 'Thinking…' : 'Ask'}
-        </button>
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        {suggestions.map((s) => (
-          <button
-            key={s}
-            type="button"
-            className="text-xs px-3 py-1 rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200"
-            onClick={() => submit(s)}
-            disabled={state.loading}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-
-      {state.status && (
-        <div className="mt-4 text-xs text-slate-500">{state.status}…</div>
-      )}
-
-      {state.error && (
-        <div className="mt-4 rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
-          <strong>{state.error.code}</strong> — {state.error.message}
+      {state.turns.length === 0 && (
+        <div className="mt-6 grid gap-2 sm:grid-cols-2">
+          {suggestions.map((s, i) => (
+            <button
+              key={`${s.kind}-${i}`}
+              type="button"
+              onClick={() => submit(s.payload)}
+              disabled={state.loading}
+              className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-left text-sm font-medium text-stone-800 transition hover:border-stone-900 hover:shadow-sm disabled:opacity-50"
+            >
+              {s.label}
+              <span aria-hidden className="ml-2 text-stone-400">→</span>
+            </button>
+          ))}
         </div>
       )}
 
-      <div className="mt-6 space-y-4">
-        {state.components.map((c, i) => renderComponent(c, i))}
-      </div>
-
-      {state.summary && (
-        <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <div className="text-sm text-slate-700 whitespace-pre-wrap">{state.summary}</div>
-          {state.actions.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {state.actions.map((a, i) => (
-                <a
-                  key={i}
-                  href={a.href}
-                  className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-white"
-                >
-                  {a.label}
-                </a>
-              ))}
+      <div className="mt-6 space-y-5" aria-live="polite">
+        {state.turns.map((turn, index) =>
+          turn.role === 'user' ? (
+            <div key={turn.id} className="flex justify-end">
+              <div className="max-w-[85%] rounded-2xl rounded-br-md bg-stone-900 px-4 py-2.5 text-sm text-white">
+                {turn.text}
+              </div>
             </div>
-          )}
+          ) : (
+            <div key={turn.id} className="space-y-3">
+              {turn.error && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+                  <strong>{turn.error.code}</strong> — {turn.error.message}
+                </div>
+              )}
+              {turn.tools.length > 0 && <ToolTimeline tools={turn.tools} />}
+              {turn.components.map((c, i) => renderComponent(c, i, (opt) => submit(opt)))}
+              {turn.meta && (
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-wider text-stone-400">
+                  <div className="flex items-center gap-2">
+                    <span>{turn.meta.intent}</span>
+                    <span aria-hidden>·</span>
+                    <span>{turn.meta.provider}</span>
+                    <span aria-hidden>·</span>
+                    <span>{turn.meta.model.replace(/^@cf\/meta\//, '')}</span>
+                    <span aria-hidden>·</span>
+                    <span>{turn.meta.latencyMs}ms</span>
+                    <span aria-hidden>·</span>
+                    <span>{turn.meta.tokensIn + turn.meta.tokensOut} tok</span>
+                  </div>
+                  {index === state.turns.length - 1 && lastUserPrompt && (
+                    <button
+                      type="button"
+                      onClick={() => regenerate()}
+                      disabled={state.loading}
+                      className="rounded-full border border-stone-300 px-2.5 py-0.5 text-[10px] font-semibold normal-case tracking-wider text-stone-600 transition hover:border-stone-900 hover:text-stone-900 disabled:opacity-50"
+                    >
+                      Try again
+                    </button>
+                  )}
+                </div>
+              )}
+              {turn.text && (
+                <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed text-stone-800">{turn.text}</div>
+                  {turn.actions.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {turn.actions.map((a, i) => (
+                        <Link
+                          key={i}
+                          to={a.href}
+                          className="rounded-full bg-stone-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-stone-700"
+                        >
+                          {a.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ),
+        )}
+
+        {state.loading && (
+          <div className="flex items-center gap-2.5 rounded-xl border border-stone-200 bg-white px-4 py-3">
+            <span aria-hidden className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-600" />
+            </span>
+            <span className="text-sm text-stone-600">
+              {state.status ? `${state.status}…` : 'Working…'}
+            </span>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {state.turns.length > 0 && !state.loading && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {suggestions.slice(0, 4).map((s, i) => (
+            <button
+              key={`followup-${i}`}
+              type="button"
+              onClick={() => submit(s.payload)}
+              className="rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-700 hover:bg-stone-200"
+            >
+              {s.label}
+            </button>
+          ))}
         </div>
       )}
+
+      <div className="sticky bottom-4 mt-6">
+        <div className="flex gap-2 rounded-2xl border border-stone-900/10 bg-white/95 p-2 shadow-lg backdrop-blur">
+          <input
+            aria-label="Ask VYRO"
+            className="flex-1 rounded-xl px-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none"
+            placeholder="e.g. cheapest 25kg samba rice, how much did I spend on chicken last month"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit(prompt); }}
+            disabled={state.loading}
+          />
+          <button
+            type="button"
+            className="shrink-0 rounded-xl bg-stone-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-stone-700 disabled:opacity-50"
+            onClick={() => submit(prompt)}
+            disabled={state.loading || !prompt.trim()}
+          >
+            {state.loading ? 'Thinking…' : 'Ask'}
+          </button>
+        </div>
+        <p className="mt-2 text-center text-[11px] text-stone-400">
+          VYRO AI answers from your business data. Confirm quantities before ordering.
+        </p>
+      </div>
     </div>
   );
 }

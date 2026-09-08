@@ -12,8 +12,7 @@ const CADENCE_THRESHOLD_DAYS = 14;
 export async function reorderHandler(ctx: IntentContext, repos: AiRepos): Promise<HandlerResult> {
   const since = Date.now() - LOOKBACK_DAYS * DAY;
   const items = await repos.recentPoItemsForReorder({ businessId: ctx.businessId, sinceMs: since });
-  const productNames = new Map<string, string>();
-  for (const name of await repos.listProductNames(5000)) productNames.set(name.toLowerCase(), name);
+  const nameById = await repos.productNamesByIds(items.map((i) => i.productId));
 
   const latest = new Map<string, { productId: string; productName: string; lastQty: number; lastCreatedAt: number }>();
   for (const it of items) {
@@ -21,7 +20,7 @@ export async function reorderHandler(ctx: IntentContext, repos: AiRepos): Promis
     if (!cur || it.createdAt > cur.lastCreatedAt) {
       latest.set(it.productId, {
         productId: it.productId,
-        productName: productNames.get(it.productId.toLowerCase()) ?? '—',
+        productName: nameById.get(it.productId) ?? 'Unknown product',
         lastQty: it.quantity,
         lastCreatedAt: it.createdAt,
       });

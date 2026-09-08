@@ -60,10 +60,24 @@ export type ClassifyResult = z.infer<typeof ClassifyResultSchema>;
 // Streaming event envelopes (server-emitted, client-consumed).
 export const StatusEventSchema = z.object({ stage: z.string() }).strict();
 export const ToolCallEventSchema = z
-  .object({ name: z.string(), slots: Slots })
+  .object({
+    name: z.string(),
+    slots: Slots,
+    /** Human-readable label for the timeline UI. Optional for back-compat. */
+    label: z.string().max(80).optional(),
+    /** Epoch ms when the tool started. Optional. */
+    startedAt: z.number().int().nonnegative().optional(),
+  })
   .strict();
 export const ToolResultEventSchema = z
-  .object({ name: z.string(), ok: z.boolean(), summary: z.string().max(200) })
+  .object({
+    name: z.string(),
+    ok: z.boolean(),
+    summary: z.string().max(200),
+    label: z.string().max(80).optional(),
+    /** How long the handler ran. Optional. */
+    durationMs: z.number().int().nonnegative().optional(),
+  })
   .strict();
 
 export const ComponentTypes = [
@@ -73,7 +87,29 @@ export const ComponentTypes = [
   'supplier_list_card',
   'spend_summary_card',
   'clarification_card',
+  'confirmation_card',
 ] as const;
+
+export const ConfirmationItemSchema = z
+  .object({
+    product: z.string().min(1).max(120),
+    quantity: z.number().int().min(1).max(100000),
+    unit: z.string().min(1).max(20),
+    priceCents: z.number().int().min(0),
+    supplier: z.string().min(1).max(120),
+  })
+  .strict();
+
+export const ConfirmationCardDataSchema = z
+  .object({
+    items: z.array(ConfirmationItemSchema).min(1).max(50),
+    totalCents: z.number().int().min(0),
+    estimatedDelivery: z.string().min(1).max(120),
+    idempotencyKey: z.string().min(1).max(120),
+    poRef: z.string().min(1).max(80).optional(),
+    confirmed: z.boolean().optional(),
+  })
+  .strict();
 
 export const ComponentEnvelopeSchema = z
   .object({

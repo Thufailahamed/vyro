@@ -1,20 +1,35 @@
-import { ClassifyResultSchema, INTENT_NAMES, type ClassifyResult } from './schemas';
+import { ClassifyResultSchema, INTENT_NAMES, type ClassifyResult, type IntentName } from './schemas';
 
 export interface AiDictionary {
   products: string[];
   suppliers: string[];
 }
 
-const REORDER_RX = /\b(reorder|restock|due for|what should i (buy|order))\b/i;
-const SAVINGS_RX = /\b(save|saving|cheaper|where can i save)\b/i;
-const USUAL_RX = /\b(usual|like last time|same as before|my normal)\b/i;
+const REORDER_RX = /\b(reorder|restock|due for|running low|what should i (buy|order))\b/i;
+const SAVINGS_RX = /\b(save|saving|cheaper|overspend|where can i save)\b/i;
+const USUAL_RX = /\b(usual|like last time|same as before|my normal|regular order)\b/i;
 const SPEND_RX = /\b(spend|spent|cost|paid|monthly spend|how much did i)\b/i;
-const COMPARE_RX = /\b(compare|vs|versus|which supplier)\b/i;
-const DELIVERY_RX = /\b(deliver|delivery|how fast|when can i get)\b/i;
-const PRICE_RX = /\b(price increase|price change|why.*increase|why.*more expensive)\b/i;
-const SEARCH_RX = /\b(find|search|show me|list)\b/i;
-const CHEAPEST_RX = /\b(cheapest|lowest price|best price|best deal)\b/i;
+const COMPARE_RX = /\b(compare|comparison|vs|versus|which supplier)\b/i;
+const RECOMMEND_RX = /\b(recommend|best supplier|best who|who(?:'s| is) (?:the )?best|best .{0,20}supplier|supplier .{0,20}best)\b/i;
+const DELIVERY_RX = /\b(deliver|delivery|how fast|when can i get|lead time)\b/i;
+const PRICE_RX = /\b(price increase|price change|why.*increase|why.*more expensive|price (?:went|going) up)\b/i;
+const SEARCH_RX = /\b(find|search|show me|list|look for|do you have)\b/i;
+const PROCURE_RX = /\b(need|needs|want|buy|order|get me|require|supply me)\b/i;
+const CHEAPEST_RX = /\b(cheapest|lowest price|best price|best deal|lowest cost)\b/i;
 const PERIOD_RX = /\b(this|last|past)\s+(week|month|quarter|year)\b/i;
+
+const WORD_NUMS: Record<string, number> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8,
+  nine: 9, ten: 10, eleven: 11, twelve: 12, dozen: 12, thirteen: 13,
+  fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18,
+  nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50, hundred: 100,
+};
+
+const WORD_NUM_RX = Object.keys(WORD_NUMS).join('|');
+
+// Natural-language pack units buyers actually say.
+const UNIT_RX =
+  'kgs?|kilos?|kg|grams?|g|litres?|liters?|l|ml|bottles?|bags?|cartons?|boxes?|box|packs?|packets?|tins?|sachets?|pcs?|pieces?|pieces|units?';
 
 function pickProduct(text: string, products: string[]): string | undefined {
   const lower = text.toLowerCase();
@@ -28,23 +43,44 @@ function pickProduct(text: string, products: string[]): string | undefined {
   return best?.name;
 }
 
+function countProductHits(text: string, products: string[]): number {
+  const lower = text.toLowerCase();
+  return products.filter((p) => lower.includes(p.toLowerCase())).length;
+}
+
 function pickSupplier(text: string, suppliers: string[]): string | undefined {
   const lower = text.toLowerCase();
   return suppliers.find((s) => lower.includes(s.toLowerCase()));
 }
 
+function normalizeUnit(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const u = raw.toLowerCase();
+  if (/^kilos?$|^kgs?$/.test(u)) return 'kg';
+  if (/^grams?$/.test(u)) return 'g';
+  if (/^litres?$|^liters?$/.test(u)) return 'l';
+  if (u === 'bottles') return 'bottle';
+  if (u === 'bags') return 'bag';
+  if (u === 'cartons') return 'carton';
+  if (u === 'boxes') return 'box';
+  if (u === 'packs') return 'pack';
+  if (u === 'packets') return 'packet';
+  if (u === 'tins') return 'tin';
+  if (u === 'sachets') return 'sachet';
+  if (u === 'pcs' || u === 'pieces' || u === 'piece') return 'pc';
+  if (u === 'units' || u === 'unit') return 'unit';
+  return u;
+}
+
 function inferQuantity(text: string): { quantity?: number; unit?: string } {
-  const m = text.match(/(\d+)\s*(kg|g|l|ml|bottle|bottles|pack|packs|pcs?|pieces?)?/i);
+  const m = text.match(new RegExp(`(\\d+|${WORD_NUM_RX})\\s*(${UNIT_RX})?`, 'i'));
   if (!m) return {};
-  const quantity = Number(m[1]);
-  const unit = m[2]?.toLowerCase();
-  const norm =
-    unit === 'bottles' ? 'bottle' :
-    unit === 'packs' ? 'pack' :
-    unit === 'pcs' || unit === 'pieces' ? 'pc' :
-    unit;
+  const rawNum = m[1]!.toLowerCase();
+  const quantity = /^\d+$/.test(rawNum) ? Number(rawNum) : WORD_NUMS[rawNum];
+  if (!quantity) return {};
   const out: { quantity?: number; unit?: string } = { quantity };
-  if (norm) out.unit = norm;
+  const unit = normalizeUnit(m[2]);
+  if (unit) out.unit = unit;
   return out;
 }
 
@@ -68,9 +104,21 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
   } else if (PRICE_RX.test(text)) {
     intent = 'price_changes';
     confidence = 0.7;
+  } else if (RECOMMEND_RX.test(text)) {
+    intent = 'supplier_recommend';
+    confidence = productName ? 0.75 : 0.55;
   } else if (SPEND_RX.test(text)) {
-    intent = 'spend_summary';
-    confidence = 0.65;
+    // "How much did I spend on rice?" is product spend, not business spend.
+    if (productName && !supplierName) {
+      intent = 'product_spend';
+      confidence = 0.75;
+    } else if (supplierName) {
+      intent = 'supplier_spend';
+      confidence = 0.75;
+    } else {
+      intent = 'spend_summary';
+      confidence = 0.65;
+    }
   } else if (COMPARE_RX.test(text) && productName) {
     intent = 'compare_suppliers';
     confidence = 0.75;
@@ -83,11 +131,34 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
   } else if (SEARCH_RX.test(text) && productName) {
     intent = 'search_products';
     confidence = 0.7;
+  } else if (PROCURE_RX.test(text) && productName) {
+    // "I need 50kg rice" — a procurement request with a concrete product.
+    intent = 'find_cheapest';
+    confidence = 0.7;
+  } else if (productName && qty.quantity) {
+    // Bare "samba rice 25kg" — treat as procurement discovery.
+    intent = 'find_cheapest';
+    confidence = 0.55;
+  }
+
+  // Multiple products in one prompt: flag low confidence so the orchestrator
+  // can clarify or fan out instead of silently picking one.
+  if (productName && countProductHits(text, dict.products) > 1) {
+    confidence = Math.min(confidence, 0.55);
+  }
+
+  // Optimize-for hints for supplier_recommend.
+  let optimizeFor: 'price' | 'speed' | 'reliability' | undefined;
+  if (intent === 'supplier_recommend' || intent === 'find_cheapest' || intent === 'compare_suppliers') {
+    if (/\b(cheap|price|cost|afford)/i.test(text)) optimizeFor = 'price';
+    else if (/\b(fast|quick|urgent|asap|soon|deliver)/i.test(text)) optimizeFor = 'speed';
+    else if (/\b(reliab|trust|quality|consistent)/i.test(text)) optimizeFor = 'reliability';
   }
 
   const slots: Record<string, unknown> = { ...qty };
   if (productName) slots.productName = productName;
   if (supplierName) slots.supplierName = supplierName;
+  if (optimizeFor && intent === 'supplier_recommend') slots.optimizeFor = optimizeFor;
   const periodMatch = text.match(PERIOD_RX);
   if (periodMatch && periodMatch[2]) {
     const word = periodMatch[2].toLowerCase();
@@ -115,3 +186,30 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
 }
 
 export const _intentNames = INTENT_NAMES; // silence unused import
+
+// Role-based intent allowlist. Viewers get a read-only subset; members and
+// admins can invoke any intent (including write actions like usual_order /
+// reorder / supplier_recommend).
+export const INTENT_ALLOWLIST_BY_ROLE = {
+  admin: [
+    'search_products', 'find_cheapest', 'compare_suppliers', 'supplier_recommend',
+    'spend_summary', 'product_spend', 'supplier_spend', 'savings',
+    'usual_order', 'reorder', 'price_changes', 'delivery_estimate', 'clarify',
+  ],
+  member: [
+    'search_products', 'find_cheapest', 'compare_suppliers', 'supplier_recommend',
+    'spend_summary', 'product_spend', 'supplier_spend', 'savings',
+    'usual_order', 'reorder', 'price_changes', 'delivery_estimate', 'clarify',
+  ],
+  viewer: [
+    'search_products', 'find_cheapest', 'compare_suppliers',
+    'spend_summary', 'product_spend', 'supplier_spend', 'savings',
+    'price_changes', 'delivery_estimate', 'clarify',
+  ],
+} as const;
+
+export type Role = keyof typeof INTENT_ALLOWLIST_BY_ROLE;
+
+export function isIntentAllowed(intent: IntentName, role: Role): boolean {
+  return (INTENT_ALLOWLIST_BY_ROLE[role] as readonly string[]).includes(intent);
+}
