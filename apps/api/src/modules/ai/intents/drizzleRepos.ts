@@ -9,6 +9,7 @@ import {
   purchaseOrderItems,
   invoiceLineItems,
   invoiceUploads,
+  businesses,
   auditLogs,
 } from '@vyro/db/schema';
 import { newId } from '@vyro/shared';
@@ -610,6 +611,15 @@ export function drizzleRepos(env: Env): AiRepos {
         if (idx >= 0 && idx < n) out[idx]! += r.total ?? 0;
       }
       return out;
+    },
+
+    async listActiveBusinessIds() {
+      const rows = await db
+        .select({ id: businesses.id })
+        .from(businesses)
+        .where(and(eq(businesses.status, 'active'), isNull(businesses.deletedAt)))
+        .all();
+      return rows.map((r) => r.id);
     },
 
     async concentration({ businessId, sinceMs }) {

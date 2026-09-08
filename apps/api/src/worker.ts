@@ -38,6 +38,11 @@ export default {
       case '0 4 * * *':
         ctx.waitUntil(handleAuditExportRunner(env));
         break;
+      case '17 7 * * *': {
+        const { runAiInsights } = await import('./scheduled/aiInsights');
+        ctx.waitUntil(runAiInsights(env));
+        break;
+      }
       default:
         // Unknown cron — log so operators see misconfigured triggers.
         // eslint-disable-next-line no-console

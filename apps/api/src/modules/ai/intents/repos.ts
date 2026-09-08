@@ -84,6 +84,9 @@ export interface AiRepos {
     alternativePriceCents: number;
     savingCents: number;
   }>>;
+  /** Distinct business ids with at least one active member. Used by the
+   *  scheduled insights worker to fan out without scanning the whole table. */
+  listActiveBusinessIds(): Promise<string[]>;
   recentPoItemsForRecurrence(opts: { businessId: string; sinceMs: number }): Promise<PoItemRow[]>;
   recentPoItemsForReorder(opts: { businessId: string; sinceMs: number }): Promise<PoItemRow[]>;
   /**
