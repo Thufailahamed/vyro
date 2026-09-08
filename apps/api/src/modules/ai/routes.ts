@@ -33,6 +33,26 @@ const askSchema = z
       )
       .max(20)
       .optional(),
+    context: z
+      .object({
+        page: z.enum(['product', 'supplier', 'cart', 'analytics', 'orders', 'other']),
+        productName: z.string().min(1).max(120).optional(),
+        productId: z.string().min(1).max(120).optional(),
+        supplierName: z.string().min(1).max(120).optional(),
+        cartLines: z
+          .array(
+            z
+              .object({
+                product: z.string().min(1).max(120),
+                quantity: z.number().int().min(1).max(100000),
+              })
+              .strict(),
+          )
+          .max(50)
+          .optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -94,6 +114,7 @@ router.post('/ask', session(), async (c) => {
             role: aiRole,
             dict,
             ...(parsed.data.conversation ? { conversation: parsed.data.conversation } : {}),
+            ...(parsed.data.context ? { context: parsed.data.context } : {}),
           },
           parsed.data.prompt,
         )) {
@@ -171,6 +192,21 @@ router.get('/insights', session(), async (c) => {
   const { drizzleRepos } = await import('./intents/drizzleRepos');
   const { buildInsightsPayload } = await import('./home');
   return c.json(await buildInsightsPayload(drizzleRepos(c.env), businessId, limit));
+});
+
+router.get('/cart-hints', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const businessId = c.req.query('businessId') ?? ctx.businesses[0]?.businessId;
+  if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
+  // Viewer can read; only owner/manager/staff/purchasing can mutate cart.
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  const { loadCartHintInputs, loadAvgWeeklySpendCents, buildCartHints } = await import('./cartHints');
+  const { drizzleRepos } = await import('./intents/drizzleRepos');
+  const lines = await loadCartHintInputs(c.env, businessId).catch(() => []);
+  const avgSpend = await loadAvgWeeklySpendCents(c.env, businessId).catch(() => 0);
+  const hints = await buildCartHints(drizzleRepos(c.env), lines, avgSpend);
+  return c.json({ hints });
 });
 
 router.get('/suggestions', session(), async (c) => {  const ctx = c.get('ctx') as Ctx | undefined;

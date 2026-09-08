@@ -5,3 +5,4 @@ export * from './health';
 export * from './forecast';
 export * from './category';
 export * from './insights';
+export * from './budget';

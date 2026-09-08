@@ -21,6 +21,7 @@ import { BrandMark, BrandWordmark } from './brand/BrandMark';
 import { FlowPathMini } from './brand/FlowLine';
 import { cn } from '@vyro/ui';
 import { CookieConsentBanner } from './CookieConsentBanner';
+import { AskVyroFloat } from '@/ai/AskVyroFloat';
 
 function LegalLinks({ className = '' }: { className?: string }) {
   return (
@@ -393,6 +394,8 @@ function WorkspaceShell() {
         <main id="main-content" className="flex-1 w-full max-w-stage mx-auto px-4 sm:px-6 lg:px-10 py-8 pb-24 lg:pb-12">
           <Outlet />
         </main>
+
+        <AskVyroFloat />
 
         <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-ink/10 bg-paper/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
           <div className="grid grid-cols-5 h-16">

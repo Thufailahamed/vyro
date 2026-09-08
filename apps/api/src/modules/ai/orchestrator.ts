@@ -5,6 +5,9 @@ import { classify, type ClassifyContext } from './classify';
 import { narrate, summarizeResult } from './narrate';
 import { HANDLERS, type IntentContext } from './intents/catalog';
 import { drizzleRepos } from './intents/drizzleRepos';
+import { applyPageContext } from './context';
+import { loadDictionary } from './dictionary';
+import type { PageContext } from '@vyro/ai';
 import { encodeEvent } from './stream';
 import { buildAiAuditRow } from './audit';
 import { getDb } from '@vyro/db';
@@ -20,6 +23,8 @@ export interface OrchestrateContext extends ClassifyContext {
   /** AI role for intent allowlist. Defaults to 'admin' for legacy call sites; the HTTP route must always pass the real role. */
   role?: 'admin' | 'member' | 'viewer';
   conversation?: ChatMessage[];
+  /** Optional page context from the caller (never trusted for businessId). */
+  context?: PageContext;
 }
 
 /**
@@ -47,6 +52,8 @@ const STAGES: Record<string, [string, string]> = {
   category_intel: ['Reading your purchase history', 'Breaking down categories'],
   insights_feed: ['Reading your purchase history', 'Gathering insights'],
   clarify: ['Understanding your request', 'Preparing options'],
+  procurement_plan: ['Reading your purchase history', 'Pricing your weekly plan'],
+  budget_optimize: ['Reading your purchase history', 'Fitting your budget'],
 };
 
 export async function* orchestrate(
@@ -113,6 +120,20 @@ export async function* orchestrate(
     tokensOut = to;
     intentName = classifyResult.intent;
     slots = classifyResult.slots as unknown as Record<string, unknown>;
+
+    // Apply page context (classifier wins; context only fills empty slots and
+    // only for entities in the dictionary so a malicious client can't inject
+    // arbitrary names). Best-effort; dictionary load failures are non-fatal.
+    if (ctx.context) {
+      try {
+        const dict = await loadDictionary(env);
+        const { slots: merged } = applyPageContext(slots, ctx.context, dict, prompt);
+        slots = merged;
+        classifyResult.slots = merged as typeof classifyResult.slots;
+      } catch {
+        // ignore context errors — handler still has explicit classifier slots
+      }
+    }
 
     // Role-based intent allowlist gate. Viewers cannot trigger write actions.
     const role = ctx.role ?? 'admin';
