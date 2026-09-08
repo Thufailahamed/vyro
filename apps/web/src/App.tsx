@@ -32,6 +32,7 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((m) => ({ de
 const AskPage = lazy(() => import('./ask/AskPage').then((m) => ({ default: m.AskPage })));
 const AiHomePage = lazy(() => import('./ai/AiHomePage').then((m) => ({ default: m.AiHomePage })));
 const AdminAIUsagePage = lazy(() => import('./pages/AdminAIUsagePage').then((m) => ({ default: m.AdminAIUsagePage })));
+const InvoiceUploadPage = lazy(() => import('./pages/InvoiceUploadPage').then((m) => ({ default: m.InvoiceUploadPage })));
 
 const AdminHomePage = lazy(() => import('./admin/HomePage').then((m) => ({ default: m.AdminHomePage })));
 const AdminLoginPage = lazy(() => import('./admin/LoginPage').then((m) => ({ default: m.LoginPage })));
@@ -107,6 +108,7 @@ export default function App() {
         <Route path="/ask" element={<RequireAuth><AskPage /></RequireAuth>} />
         <Route path="/ai" element={<RequireAuth><AiHomePage /></RequireAuth>} />
         <Route path="/admin/ai-usage" element={<RequireAuth><AdminAIUsagePage /></RequireAuth>} />
+        <Route path="/invoices/upload" element={<RequireAuth><InvoiceUploadPage /></RequireAuth>} />
         <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
         <Route path="/legal/terms" element={<LegalPage kind="terms" />} />
         <Route path="/legal/privacy" element={<LegalPage kind="privacy" />} />

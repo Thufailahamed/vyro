@@ -507,3 +507,13 @@ export function ScaleIcon({ size = 20, className = '', ...props }: IconProps) {
   );
 }
 
+export function UploadCloudIcon({ size = 20, className = '', ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+      <path d="M4 14.9A4 4 0 0 1 8 11a6 6 0 0 1 11.6 1.6A4.5 4.5 0 0 1 16 21H7" />
+      <path d="M12 11v8" />
+      <path d="m8 15 4-4 4 4" />
+    </svg>
+  );
+}
+
