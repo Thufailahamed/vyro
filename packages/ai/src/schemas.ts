@@ -87,7 +87,29 @@ export const ComponentTypes = [
   'supplier_list_card',
   'spend_summary_card',
   'clarification_card',
+  'confirmation_card',
 ] as const;
+
+export const ConfirmationItemSchema = z
+  .object({
+    product: z.string().min(1).max(120),
+    quantity: z.number().int().min(1).max(100000),
+    unit: z.string().min(1).max(20),
+    priceCents: z.number().int().min(0),
+    supplier: z.string().min(1).max(120),
+  })
+  .strict();
+
+export const ConfirmationCardDataSchema = z
+  .object({
+    items: z.array(ConfirmationItemSchema).min(1).max(50),
+    totalCents: z.number().int().min(0),
+    estimatedDelivery: z.string().min(1).max(120),
+    idempotencyKey: z.string().min(1).max(120),
+    poRef: z.string().min(1).max(80).optional(),
+    confirmed: z.boolean().optional(),
+  })
+  .strict();
 
 export const ComponentEnvelopeSchema = z
   .object({

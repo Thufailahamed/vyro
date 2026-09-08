@@ -162,6 +162,34 @@ export function mockRepos(input: {
         { intent: 'spend_summary', count: 1 },
       ].slice(0, limit);
     },
+    async createDraftFromRecommendation({ businessId, items, idempotencyKey }: { businessId: string; userId: string; items: Array<{ product: string; quantity: number; unit: string; priceCents: number; supplier: string }>; idempotencyKey: string }) {
+      // Validate items reference known catalog rows (same as production).
+      for (const it of items) {
+        const product = products.find((p) => p.name.toLowerCase() === it.product.toLowerCase());
+        const supplier = offers.find((o) => o.supplier.name.toLowerCase() === it.supplier.toLowerCase());
+        if (!product) throw new Error(`Unknown product: ${it.product}`);
+        if (!supplier) throw new Error(`Unknown supplier: ${it.supplier}`);
+      }
+      return { poRef: `PO-MOCK-${idempotencyKey.slice(-4)}`, estimatedDelivery: '2026-09-09' };
+    },
+    async poItemCadence({ productId }: { businessId: string; productId: string; sinceMs: number }) {
+      const tsFor = (productId: string): number[] => {
+        if (productId === 'p_cadence') return [0, 7, 14, 21, 28].map((d) => d * 86400000);
+        if (productId === 'p_sparse') return [0, 90 * 86400000];
+        return [];
+      };
+      const ts = tsFor(productId);
+      if (ts.length < 3) return null;
+      const gaps = ts.slice(1).map((v, i) => (v - ts[i]!) / 86400000);
+      const mean = gaps.reduce((s, v) => s + v, 0) / gaps.length;
+      return {
+        avgIntervalDays: mean,
+        stddevDays: 0,
+        count: gaps.length,
+        minIntervalDays: Math.min(...gaps),
+        maxIntervalDays: Math.max(...gaps),
+      };
+    },
   };
 }
 

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { ComponentEnvelope, Action } from '@vyro/ai';
+import { ConfirmationPanel } from './ConfirmationPanel';
 
 export function formatLKR(cents: number | null | undefined): string {
   if (cents == null) return '—';
@@ -266,6 +267,9 @@ export function ClarificationCard({ data, onPick }: { data: any; onPick?: ((opt:
   );
 }
 
+export { ToolTimeline } from './ToolTimeline';
+export { ConfirmationPanel } from './ConfirmationPanel';export { ActionRow };
+
 export function renderComponent(env: ComponentEnvelope, idx: number, onPick?: (opt: string) => void) {
   const data = env.data as any;
   switch (env.type) {
@@ -275,9 +279,7 @@ export function renderComponent(env: ComponentEnvelope, idx: number, onPick?: (o
     case 'savings_card': return <SavingsCard key={idx} data={data} />;
     case 'procurement_plan_card': return <ProcurementPlanCard key={idx} data={data} />;
     case 'clarification_card': return <ClarificationCard key={idx} data={data} onPick={onPick} />;
+    case 'confirmation_card': return <ConfirmationPanel key={idx} card={{ id: String(idx), ...(env as object), data } as any} />;
   }
+  return null;
 }
-
-export { ActionRow };
-
-export { ToolTimeline } from './ToolTimeline';

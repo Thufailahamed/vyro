@@ -15,6 +15,7 @@ import { auditLogs } from '@vyro/db/schema';
 import { sql } from 'drizzle-orm';
 import type { Ctx } from '../../middleware/session';
 import type { Env } from '../../env';
+import { newId } from '@vyro/shared';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -31,6 +32,23 @@ const askSchema = z
       )
       .max(20)
       .optional(),
+  })
+  .strict();
+
+const confirmItemSchema = z
+  .object({
+    product: z.string().min(1).max(120),
+    quantity: z.number().int().min(1).max(100000),
+    unit: z.string().min(1).max(20),
+    priceCents: z.number().int().min(0),
+    supplier: z.string().min(1).max(120),
+  })
+  .strict();
+
+const confirmSchema = z
+  .object({
+    businessId: z.string().optional(),
+    items: z.array(confirmItemSchema).min(1).max(50),
   })
   .strict();
 
@@ -87,6 +105,48 @@ router.post('/ask', session(), async (c) => {
   });
 
   return new Response(stream, { headers: sseHeaders() });
+});
+
+router.post('/confirm', session(), rateLimit({ key: 'ai-confirm', limit: 30, window: 60 }), async (c) => {
+  assertAiEnabled(c.env);
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const parsed = confirmSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid body', parsed.error.flatten());
+
+  const businessId = parsed.data.businessId ?? ctx.businesses[0]?.businessId;
+  if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+
+  const idempotencyKey = c.req.header('idempotency-key') ?? newId();
+
+  const { drizzleRepos } = await import('./intents/drizzleRepos');
+  const repos = drizzleRepos(c.env);
+  try {
+    const { poRef, estimatedDelivery } = await repos.createDraftFromRecommendation({
+      businessId,
+      userId: ctx.userId,
+      items: parsed.data.items,
+      idempotencyKey,
+    });
+    const totalCents = parsed.data.items.reduce((s, it) => s + it.priceCents * it.quantity, 0);
+    return c.json({
+      confirmation: {
+        kind: 'confirmation_card',
+        id: idempotencyKey,
+        data: {
+          items: parsed.data.items,
+          totalCents,
+          estimatedDelivery,
+          idempotencyKey,
+          poRef,
+          confirmed: true,
+        },
+      },
+    });
+  } catch (err) {
+    throw httpError(400, 'CONFIRM_FAILED', err instanceof Error ? err.message : 'Failed to create draft PO');
+  }
 });
 
 router.get('/suggestions', session(), async (c) => {

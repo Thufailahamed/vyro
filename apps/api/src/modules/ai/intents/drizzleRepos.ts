@@ -8,6 +8,7 @@ import {
   purchaseOrderItems,
   auditLogs,
 } from '@vyro/db/schema';
+import { newId } from '@vyro/shared';
 import type { Env } from '../../../env';
 import type {
   AiRepos,
@@ -254,6 +255,38 @@ export function drizzleRepos(env: Env): AiRepos {
       return this.listRecentPoItems({ businessId, sinceMs });
     },
 
+    async poItemCadence({ businessId, productId, sinceMs }) {
+      const rows = await db
+        .select({ createdAt: purchaseOrders.createdAt })
+        .from(purchaseOrderItems)
+        .innerJoin(purchaseOrders, eq(purchaseOrders.id, purchaseOrderItems.purchaseOrderId))
+        .innerJoin(supplierProducts, eq(supplierProducts.id, purchaseOrderItems.supplierProductId))
+        .where(and(
+          eq(purchaseOrders.businessId, businessId),
+          eq(supplierProducts.productId, productId),
+          ne(purchaseOrders.status, 'cancelled'),
+          gte(purchaseOrders.createdAt, sinceMs),
+        ))
+        .all();
+      if (rows.length < 3) return null;
+      const uniqueTs = [...new Set(rows.map((r) => r.createdAt))].sort((a, b) => a - b);
+      if (uniqueTs.length < 3) return null;
+      const gaps: number[] = [];
+      for (let i = 1; i < uniqueTs.length; i++) {
+        gaps.push((uniqueTs[i]! - uniqueTs[i - 1]!) / 86400000);
+      }
+      const mean = gaps.reduce((s, v) => s + v, 0) / gaps.length;
+      const variance = gaps.reduce((s, v) => s + (v - mean) ** 2, 0) / gaps.length;
+      const stddev = Math.sqrt(variance);
+      return {
+        avgIntervalDays: Math.round(mean * 10) / 10,
+        stddevDays: Math.round(stddev * 10) / 10,
+        count: gaps.length,
+        minIntervalDays: Math.round(Math.min(...gaps) * 10) / 10,
+        maxIntervalDays: Math.round(Math.max(...gaps) * 10) / 10,
+      };
+    },
+
     async priceChangeMovers({ businessId, sinceMs }) {
       const items = await this.listRecentPoItems({ businessId, sinceMs });
       const byProd = new Map<string, Array<{ price: number; ts: number; name: string }>>();
@@ -354,6 +387,86 @@ export function drizzleRepos(env: Env): AiRepos {
       return rows
         .filter((r) => r.intent)
         .map((r) => ({ intent: String(r.intent), count: Number(r.count) }));
+    },
+
+    async createDraftFromRecommendation({ businessId, userId, items, idempotencyKey }) {
+      if (!items.length) throw new Error('items required');
+      // Resolve supplier ids + product ids from snapshot names. Caller has
+      // already passed RBAC; we further reject items referencing unknown
+      // catalog entities to avoid inserting arbitrary product names.
+      const supplierRows = await db
+        .select({ id: suppliers.id, name: suppliers.name })
+        .from(suppliers)
+        .where(isNull(suppliers.deletedAt))
+        .all();
+      const productRows = await db
+        .select({ id: products.id, name: products.name, unit: products.unit })
+        .from(products)
+        .where(and(isNull(products.deletedAt), eq(products.active, true)))
+        .all();
+      const supplierByName = new Map(supplierRows.map((s) => [s.name.toLowerCase(), s.id]));
+      const productByName = new Map(productRows.map((p) => [p.name.toLowerCase(), { id: p.id, unit: p.unit }]));
+
+      // Idempotency cache (KV). Replays return the same poRef.
+      const cacheKey = `ai:confirm:${businessId}:${idempotencyKey}`;
+      const cached = await env.CACHE?.get(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          return { poRef: parsed.poRef, estimatedDelivery: parsed.estimatedDelivery };
+        } catch {
+          // fall through to create
+        }
+      }
+
+      // Validate every item against real catalog rows.
+      const resolvedItems = items.map((it) => {
+        const product = productByName.get(it.product.toLowerCase());
+        const supplierId = supplierByName.get(it.supplier.toLowerCase());
+        if (!product) throw new Error(`Unknown product: ${it.product}`);
+        if (!supplierId) throw new Error(`Unknown supplier: ${it.supplier}`);
+        if (!Number.isFinite(it.priceCents) || it.priceCents < 0) throw new Error(`Invalid price for ${it.product}`);
+        if (!Number.isFinite(it.quantity) || it.quantity < 1) throw new Error(`Invalid quantity for ${it.product}`);
+        return { ...it, productId: product.id, supplierId };
+      });
+
+      const poId = newId();
+      const poRef = `PO-${Date.now().toString(36).toUpperCase()}-${poId.slice(-4).toUpperCase()}`;
+      const now = Date.now();
+      const totalCents = resolvedItems.reduce((s, it) => s + it.priceCents * it.quantity, 0);
+      const estimatedDelivery = new Date(now + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+      await db.insert(purchaseOrders).values({
+        id: poId,
+        businessId,
+        supplierId: resolvedItems[0]!.supplierId,
+        status: 'draft',
+        totalCents,
+        createdAt: now,
+        createdBy: userId,
+      } as any);
+
+      for (const it of resolvedItems) {
+        await db.insert(purchaseOrderItems).values({
+          id: newId(),
+          purchaseOrderId: poId,
+          supplierProductId: it.productId,
+          productNameSnapshot: it.product,
+          unitPriceCents: it.priceCents,
+          unitPriceCentsSnapshot: it.priceCents,
+          discountPctSnapshot: 0,
+          quantity: it.quantity,
+          lineTotalCents: it.priceCents * it.quantity,
+        } as any);
+      }
+
+      const payload = { poRef, estimatedDelivery };
+      try {
+        await env.CACHE?.put(cacheKey, JSON.stringify(payload), { expirationTtl: 86400 });
+      } catch {
+        // ignore cache failures
+      }
+      return payload;
     },
   };
 }

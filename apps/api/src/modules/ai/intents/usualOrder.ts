@@ -6,6 +6,9 @@ const DAY = 86400000;
 /**
  * usual_order: aggregate recent PO items by product, average quantity,
  * return a procurement plan with top N lines. Emits `procurement_plan_card`.
+ *
+ * When reorder cadence is stable (>=3 distinct purchases), surface a cadence
+ * hint per line to help the buyer plan lead time.
  */
 export async function usualOrderHandler(ctx: IntentContext, repos: AiRepos): Promise<HandlerResult> {
   const weeksBack = ctx.classify.slots.weeksBack ?? 8;
@@ -27,14 +30,25 @@ export async function usualOrderHandler(ctx: IntentContext, repos: AiRepos): Pro
     agg.set(it.productId, v);
   }
 
-  const lines = [...agg.values()]
+  const sorted = [...agg.values()]
     .sort((a, b) => b.occurrences - a.occurrences || b.totalQty - a.totalQty)
-    .slice(0, topN)
-    .map((v) => ({
-      productId: v.productId,
-      productName: v.productName,
-      typicalQuantity: Math.round(v.totalQty / Math.max(v.occurrences, 1)),
-    }));
+    .slice(0, topN);
+
+  const lines = await Promise.all(
+    sorted.map(async (v) => {
+      const cadence = await repos.poItemCadence({ businessId: ctx.businessId, productId: v.productId, sinceMs: since });
+      const typicalQuantity = Math.round(v.totalQty / Math.max(v.occurrences, 1));
+      const line: { productId: string; productName: string; typicalQuantity: number; cadenceHint?: string } = {
+        productId: v.productId,
+        productName: v.productName,
+        typicalQuantity,
+      };
+      if (cadence && cadence.count >= 3) {
+        line.cadenceHint = `You order ${v.productName} every ${cadence.minIntervalDays}–${cadence.maxIntervalDays} days (avg ${cadence.avgIntervalDays})`;
+      }
+      return line;
+    }),
+  );
 
   return {
     components: [{
@@ -42,10 +56,11 @@ export async function usualOrderHandler(ctx: IntentContext, repos: AiRepos): Pro
       data: {
         title: 'Your usual order',
         lines,
-        disclaimer: 'Quantities averaged from your recent orders. Edit before confirming.',
+        disclaimer: 'Quantities averaged from your recent orders. Cadence hints use your reorder history; edit before confirming.',
       },
     }],
     actions: [{ type: 'view_cart', label: 'Open cart', href: '/cart' }],
     rawSummary: { count: lines.length },
   };
 }
+

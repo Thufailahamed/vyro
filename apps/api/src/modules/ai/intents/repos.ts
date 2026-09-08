@@ -70,6 +70,13 @@ export interface AiRepos {
   }>>;
   recentPoItemsForRecurrence(opts: { businessId: string; sinceMs: number }): Promise<PoItemRow[]>;
   recentPoItemsForReorder(opts: { businessId: string; sinceMs: number }): Promise<PoItemRow[]>;
+  /**
+   * Reorder cadence for one product across the business's purchase history.
+   * Returns null when fewer than 3 distinct purchase timestamps exist (signal
+   * too weak to surface a stable hint). Otherwise returns average and stddev
+   * of the gaps between consecutive purchases, in days.
+   */
+  poItemCadence(opts: { businessId: string; productId: string; sinceMs: number }): Promise<{ avgIntervalDays: number; stddevDays: number; count: number; minIntervalDays: number; maxIntervalDays: number } | null>;
   priceChangeMovers(opts: { businessId: string; sinceMs: number }): Promise<Array<{ productName: string; from: number; to: number; pct: number }>>;
   listProductNames(limit?: number): Promise<string[]>;
   listSupplierNames(limit?: number): Promise<string[]>;
@@ -79,4 +86,15 @@ export interface AiRepos {
   topProductsLast30d(opts: { businessId: string; limit: number }): Promise<Array<{ name: string; count: number }>>;
   /** Top intents invoked by the business in the last 30 days, ranked by frequency. */
   topIntentsLast30d(opts: { businessId: string; limit: number }): Promise<Array<{ intent: string; count: number }>>;
+  /**
+   * Create a draft purchase order from AI-recommended items. Idempotent on
+   * `idempotencyKey`: replays return the same poRef and estimatedDelivery.
+   * Caller must validate role + tenant scope.
+   */
+  createDraftFromRecommendation(input: {
+    businessId: string;
+    userId: string;
+    items: Array<{ product: string; quantity: number; unit: string; priceCents: number; supplier: string }>;
+    idempotencyKey: string;
+  }): Promise<{ poRef: string; estimatedDelivery: string }>;
 }

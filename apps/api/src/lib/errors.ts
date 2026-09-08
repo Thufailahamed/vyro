@@ -3,6 +3,7 @@ import { logger } from './logger';
 export type ErrorCode =
   | 'VALIDATION_ERROR'
   | 'UNAUTHORIZED'
+  | 'CONFIRM_FAILED'
   | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'CONFLICT'
