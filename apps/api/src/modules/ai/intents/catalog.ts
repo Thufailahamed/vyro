@@ -3,6 +3,8 @@ import type { Env } from '../../../env';
 import type { AiRepos } from './repos';
 import { searchProductsHandler } from './searchProducts';
 import { findCheapestHandler } from './findCheapest';
+import { compareSuppliersHandler } from './compareSuppliers';
+import { supplierRecommendHandler } from './supplierRecommend';
 
 export interface IntentContext {
   env: Env;
@@ -24,8 +26,8 @@ const stub: Handler = async () => ({ components: [], actions: [], rawSummary: {}
 export const HANDLERS: Record<ClassifyResult['intent'], Handler> = {
   search_products: searchProductsHandler,
   find_cheapest: findCheapestHandler,
-  compare_suppliers: stub,
-  supplier_recommend: stub,
+  compare_suppliers: compareSuppliersHandler,
+  supplier_recommend: supplierRecommendHandler,
   spend_summary: stub,
   product_spend: stub,
   supplier_spend: stub,
