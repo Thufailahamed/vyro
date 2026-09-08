@@ -1,0 +1,65 @@
+import type { IntentName } from '../src/schemas';
+
+export interface GoldenEntry {
+  prompt: string;
+  expectedIntent: IntentName;
+  expectedSlotKeys: string[];
+  expectedEvidenceLabels?: string[];
+  mustNotMention?: string[];
+}
+
+export const GOLDEN: GoldenEntry[] = [
+  { prompt: 'show me rice under 500', expectedIntent: 'search_products', expectedSlotKeys: ['priceMaxCents'] },
+  { prompt: 'find the cheapest tea', expectedIntent: 'find_cheapest', expectedSlotKeys: ['productName'] },
+  { prompt: 'compare A and B suppliers for sugar', expectedIntent: 'compare_suppliers', expectedSlotKeys: ['productName'] },
+  { prompt: 'best supplier for coconut oil 5L', expectedIntent: 'supplier_recommend', expectedSlotKeys: ['productName'] },
+  { prompt: 'how much did I spend this month', expectedIntent: 'spend_summary', expectedSlotKeys: ['months'] },
+  { prompt: 'how much did I spend on rice last quarter', expectedIntent: 'product_spend', expectedSlotKeys: ['productName'] },
+  { prompt: 'how much did I spend with Fresh Farm last 60 days', expectedIntent: 'supplier_spend', expectedSlotKeys: ['supplierName'] },
+  { prompt: 'where can I save', expectedIntent: 'savings', expectedSlotKeys: [] },
+  { prompt: 'build my usual order', expectedIntent: 'usual_order', expectedSlotKeys: [] },
+  { prompt: 'what should I reorder', expectedIntent: 'reorder', expectedSlotKeys: [] },
+  { prompt: 'what prices moved', expectedIntent: 'price_changes', expectedSlotKeys: [] },
+  { prompt: 'when will my last order arrive', expectedIntent: 'delivery_estimate', expectedSlotKeys: [] },
+  { prompt: 'watch the price of sugar', expectedIntent: 'price_watch', expectedSlotKeys: ['productName'] },
+  { prompt: 'is the new rice price weird', expectedIntent: 'price_anomaly', expectedSlotKeys: ['productName'] },
+  { prompt: 'how reliable is Fresh Farm', expectedIntent: 'supplier_intel', expectedSlotKeys: ['supplierName'] },
+  { prompt: 'how healthy is my procurement', expectedIntent: 'procurement_health', expectedSlotKeys: [] },
+  { prompt: 'forecast spend next quarter', expectedIntent: 'spend_forecast', expectedSlotKeys: [] },
+  { prompt: 'break down spend by category', expectedIntent: 'category_intel', expectedSlotKeys: [] },
+  { prompt: 'what should I know right now', expectedIntent: 'insights_feed', expectedSlotKeys: [] },
+  { prompt: 'plan my procurement for next 2 weeks', expectedIntent: 'procurement_plan', expectedSlotKeys: [] },
+  { prompt: 'optimize my budget for 50,000 LKR', expectedIntent: 'budget_optimize', expectedSlotKeys: ['budgetCents'] },
+  { prompt: 'what if I switch from A to B for rice', expectedIntent: 'simulate_supplier_switch', expectedSlotKeys: ['productName'] },
+  { prompt: 'categorize my expenses last 3 months', expectedIntent: 'categorize_expenses', expectedSlotKeys: ['months'] },
+  { prompt: 'search rice', expectedIntent: 'search_products', expectedSlotKeys: [] },
+  { prompt: 'cheapest sugar in stock', expectedIntent: 'find_cheapest', expectedSlotKeys: ['productName'] },
+  { prompt: 'compare suppliers for flour', expectedIntent: 'compare_suppliers', expectedSlotKeys: ['productName'] },
+  { prompt: 'who supplies coconut best', expectedIntent: 'supplier_recommend', expectedSlotKeys: ['productName'] },
+  { prompt: 'spend so far this month', expectedIntent: 'spend_summary', expectedSlotKeys: [] },
+  { prompt: 'rice spending in May', expectedIntent: 'product_spend', expectedSlotKeys: ['productName'] },
+  { prompt: 'Fresh Farm spend', expectedIntent: 'supplier_spend', expectedSlotKeys: ['supplierName'] },
+  { prompt: 'any savings', expectedIntent: 'savings', expectedSlotKeys: [] },
+  { prompt: 'usual order please', expectedIntent: 'usual_order', expectedSlotKeys: [] },
+  { prompt: 'time to reorder', expectedIntent: 'reorder', expectedSlotKeys: [] },
+  { prompt: 'price moves lately', expectedIntent: 'price_changes', expectedSlotKeys: [] },
+  { prompt: 'delivery for last PO', expectedIntent: 'delivery_estimate', expectedSlotKeys: [] },
+  { prompt: 'keep an eye on tea price', expectedIntent: 'price_watch', expectedSlotKeys: ['productName'] },
+  { prompt: 'is flour price normal', expectedIntent: 'price_anomaly', expectedSlotKeys: ['productName'] },
+  { prompt: 'is DailyDairy reliable', expectedIntent: 'supplier_intel', expectedSlotKeys: ['supplierName'] },
+  { prompt: 'procurement health', expectedIntent: 'procurement_health', expectedSlotKeys: [] },
+  { prompt: 'spend forecast', expectedIntent: 'spend_forecast', expectedSlotKeys: [] },
+  { prompt: 'category breakdown', expectedIntent: 'category_intel', expectedSlotKeys: [] },
+  { prompt: 'any insights', expectedIntent: 'insights_feed', expectedSlotKeys: [] },
+  { prompt: 'procurement plan', expectedIntent: 'procurement_plan', expectedSlotKeys: [] },
+  { prompt: 'budget 250000', expectedIntent: 'budget_optimize', expectedSlotKeys: ['budgetCents'] },
+  { prompt: 'simulate switching rice to B', expectedIntent: 'simulate_supplier_switch', expectedSlotKeys: ['productName'] },
+  { prompt: 'categorize my spend', expectedIntent: 'categorize_expenses', expectedSlotKeys: [] },
+  { prompt: 'I need detergent urgently', expectedIntent: 'search_products', expectedSlotKeys: ['productName'] },
+  { prompt: 'cheapest way to get milk today', expectedIntent: 'find_cheapest', expectedSlotKeys: ['productName'] },
+  { prompt: 'who is faster A or B', expectedIntent: 'compare_suppliers', expectedSlotKeys: [] },
+  { prompt: 'reliable supplier for vegetables', expectedIntent: 'supplier_recommend', expectedSlotKeys: ['productName'] },
+  { prompt: 'did I overspend in July', expectedIntent: 'spend_summary', expectedSlotKeys: [] },
+  { prompt: 'what time is it in Tokyo', expectedIntent: 'clarify', expectedSlotKeys: [] },
+  { prompt: 'asdfghjkl', expectedIntent: 'clarify', expectedSlotKeys: [] },
+];
