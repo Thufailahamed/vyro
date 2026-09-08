@@ -50,10 +50,17 @@ max_batch_timeout = 5
 binding = "METRICS"
 dataset = "vyro_metrics"
 
+[ai]
+binding = "AI"
+
 [vars]
 ENVIRONMENT = "local"
 WEB_ORIGIN = "http://localhost:5173"
 ADMIN_ORIGIN = "http://localhost:5174"
+VYRO_AI_ENABLED = "true"
+VYRO_AI_CLASSIFY_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
+VYRO_AI_NARRATE_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+VYRO_AI_DAILY_TOKEN_CAP = "200000"
 # BETTER_AUTH_SECRET is intentionally NOT set in `[vars]` — set it as a local
 # secret so it never accidentally ships to production:
 #   npx wrangler secret put BETTER_AUTH_SECRET --config apps/api/wrangler.toml
@@ -110,6 +117,9 @@ max_batch_timeout = 5
 binding = "METRICS"
 dataset = "vyro_metrics"
 
+[env.production.ai]
+binding = "AI"
+
 [env.production.vars]
 ENVIRONMENT = "production"
 # Single origin: SPA and API are served by this Worker, so both origins are its own URL.
@@ -117,5 +127,9 @@ ENVIRONMENT = "production"
 WEB_ORIGIN = "https://vyro-api.thufailahamed627.workers.dev"
 ADMIN_ORIGIN = "https://vyro-api.thufailahamed627.workers.dev"
 BETTER_AUTH_URL = "https://vyro-api.thufailahamed627.workers.dev"
+VYRO_AI_ENABLED = "false"
+VYRO_AI_CLASSIFY_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
+VYRO_AI_NARRATE_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+VYRO_AI_DAILY_TOKEN_CAP = "200000"
 # BETTER_AUTH_SECRET is NOT set here on purpose — set it as a secret:
 #   npx wrangler secret put BETTER_AUTH_SECRET --env production --config apps/api/wrangler.toml
