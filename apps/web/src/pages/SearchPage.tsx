@@ -20,6 +20,7 @@ import {
   TruckIcon,
 } from '@/components/icons';
 import { ProductImage } from '@/components/brand/Surface';
+import { buildSearchChips } from '@/ask/nlFilters.client';
 
 interface Hit {
   product: {
@@ -233,6 +234,9 @@ export function SearchPage() {
             );
           })}
         </div>
+
+        {/* NL-detected filter chips */}
+        <NlChips q={q} onChange={(next) => { setSearchInput(next); setQ(next); setSearchParams(next ? { q: next } : {}); }} />
       </div>
 
       {/* Toolbar: Counter, Sort, Filters, View Switcher */}
@@ -561,6 +565,32 @@ export function SearchPage() {
           }
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Renders the NL-detected filter chips above the search results. Removing a
+ * chip rewrites the URL `q` without that phrase, so the page stays in sync.
+ */
+function NlChips({ q, onChange }: { q: string; onChange: (next: string) => void }) {
+  const { chips, rebuilt } = buildSearchChips(q);
+  if (!chips.length) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 pt-1" aria-label="Active NL filters">
+      <span className="text-[10px] uppercase tracking-wider font-mono text-ink-4">Active filters</span>
+      {chips.map((c, i) => (
+        <button
+          key={`${c.kind}-${i}`}
+          type="button"
+          onClick={() => onChange(rebuilt(c))}
+          className="inline-flex items-center gap-1 h-7 pl-2.5 pr-1.5 text-[11px] font-mono border border-ink/20 bg-bone hover:bg-ink hover:text-volt text-ink-3 transition-colors"
+          title="Remove filter"
+        >
+          <span>{c.label}</span>
+          <XIcon size={11} />
+        </button>
+      ))}
     </div>
   );
 }
