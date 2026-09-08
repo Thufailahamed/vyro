@@ -150,8 +150,30 @@ router.post('/confirm', session(), rateLimit({ key: 'ai-confirm', limit: 30, win
   }
 });
 
-router.get('/suggestions', session(), async (c) => {
+router.get('/home', session(), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const businessId = c.req.query('businessId') ?? ctx.businesses[0]?.businessId;
+  if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  const { drizzleRepos } = await import('./intents/drizzleRepos');
+  const { buildHomePayload } = await import('./home');
+  return c.json(await buildHomePayload(drizzleRepos(c.env), businessId));
+});
+
+router.get('/insights', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const businessId = c.req.query('businessId') ?? ctx.businesses[0]?.businessId;
+  if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  const limit = Math.min(Number(c.req.query('limit') ?? 10), 20);
+  const { drizzleRepos } = await import('./intents/drizzleRepos');
+  const { buildInsightsPayload } = await import('./home');
+  return c.json(await buildInsightsPayload(drizzleRepos(c.env), businessId, limit));
+});
+
+router.get('/suggestions', session(), async (c) => {  const ctx = c.get('ctx') as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = ctx.businesses[0]?.businessId;
   if (!businessId) return c.json({ prompts: defaultSuggestions() });
