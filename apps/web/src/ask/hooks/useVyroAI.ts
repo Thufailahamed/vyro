@@ -4,6 +4,7 @@ import {
   FinalEventSchema,
   ErrorEventSchema,
   ToolCallEventSchema,
+  ToolResultEventSchema,
   StatusEventSchema,
   type ComponentEnvelope,
 } from '@vyro/ai';
@@ -14,6 +15,19 @@ export interface VyroAIAction {
   href: string;
 }
 
+export interface ToolEntry {
+  /** Tool/intent name emitted by the server. */
+  name: string;
+  /** Human-readable label for the timeline. */
+  label: string;
+  /** Epoch ms when the tool started; absent until tool_result arrives. */
+  startedAt?: number;
+  /** How long the handler ran in ms. Filled by tool_result. */
+  durationMs?: number;
+  /** Whether the tool succeeded (set on tool_result). */
+  ok?: boolean;
+}
+
 export interface ChatTurn {
   id: number;
   role: 'user' | 'assistant';
@@ -21,6 +35,7 @@ export interface ChatTurn {
   text: string;
   components: ComponentEnvelope[];
   actions: VyroAIAction[];
+  tools: ToolEntry[];
   error?: { code: string; message: string };
 }
 
@@ -40,6 +55,8 @@ type Action =
   | { type: 'status'; stage: string }
   | { type: 'component'; c: ComponentEnvelope }
   | { type: 'final'; summary: string; actions: VyroAIAction[] }
+  | { type: 'tool_call'; entry: ToolEntry }
+  | { type: 'tool_result'; name: string; durationMs?: number; ok: boolean }
   | { type: 'turn_error'; code: string; message: string }
   | { type: 'done' }
   | { type: 'clear' };
@@ -65,6 +82,23 @@ function reducer(s: VyroAIState, a: Action): VyroAIState {
       if (!last || last.role !== 'assistant') return s;
       turns[turns.length - 1] = { ...last, text: a.summary, actions: a.actions };
       return { ...s, turns, loading: false, status: undefined };
+    }
+    case 'tool_call': {
+      const turns = s.turns.slice();
+      const last = turns[turns.length - 1];
+      if (!last || last.role !== 'assistant') return s;
+      turns[turns.length - 1] = { ...last, tools: [...last.tools, a.entry] };
+      return { ...s, turns };
+    }
+    case 'tool_result': {
+      const turns = s.turns.slice();
+      const last = turns[turns.length - 1];
+      if (!last || last.role !== 'assistant') return s;
+      const tools = last.tools.map((t) =>
+        t.name === a.name && a.durationMs !== undefined ? { ...t, durationMs: a.durationMs, ok: a.ok } : t,
+      );
+      turns[turns.length - 1] = { ...last, tools };
+      return { ...s, turns };
     }
     case 'turn_error': {
       const turns = s.turns.slice();
@@ -125,8 +159,8 @@ export function useVyroAI() {
   const send = useCallback(async (prompt: string, opts?: { businessId?: string }) => {
     const text = prompt.trim();
     if (!text) return;
-    dispatch({ type: 'user', turn: { id: ++turnId, role: 'user', text, components: [], actions: [] } });
-    dispatch({ type: 'assistant_start', turn: { id: ++turnId, role: 'assistant', text: '', components: [], actions: [] } });
+    dispatch({ type: 'user', turn: { id: ++turnId, role: 'user', text, components: [], actions: [], tools: [] } });
+    dispatch({ type: 'assistant_start', turn: { id: ++turnId, role: 'assistant', text: '', components: [], actions: [], tools: [] } });
     try {
       const res = await fetch('/api/ai/ask', {
         method: 'POST',
@@ -154,7 +188,25 @@ export function useVyroAI() {
               break;
             }
             case 'tool_call': {
-              ToolCallEventSchema.parse(json);
+              const v = ToolCallEventSchema.parse(json);
+              dispatch({
+                type: 'tool_call',
+                entry: {
+                  name: v.name,
+                  label: v.label ?? v.name,
+                  startedAt: v.startedAt ?? Date.now(),
+                },
+              });
+              break;
+            }
+            case 'tool_result': {
+              const v = ToolResultEventSchema.parse(json);
+              dispatch({
+                type: 'tool_result',
+                name: v.name,
+                ...(v.durationMs !== undefined ? { durationMs: v.durationMs } : {}),
+                ok: v.ok,
+              });
               break;
             }
             case 'component': {

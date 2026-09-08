@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useVyroAI } from './hooks/useVyroAI';
-import { renderComponent } from './components';
+import { renderComponent, ToolTimeline } from './components';
 
 export function AskPage() {
   const { state, send, clear } = useVyroAI();
@@ -93,6 +93,7 @@ export function AskPage() {
                   <strong>{turn.error.code}</strong> — {turn.error.message}
                 </div>
               )}
+              {turn.tools.length > 0 && <ToolTimeline tools={turn.tools} />}
               {turn.components.map((c, i) => renderComponent(c, i, (opt) => submit(opt)))}
               {turn.text && (
                 <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">

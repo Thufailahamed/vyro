@@ -279,3 +279,5 @@ export function renderComponent(env: ComponentEnvelope, idx: number, onPick?: (o
 }
 
 export { ActionRow };
+
+export { ToolTimeline } from './ToolTimeline';
