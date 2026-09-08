@@ -14,6 +14,7 @@ import {
   BellIcon,
   UserIcon,
   ShieldCheckIcon,
+  SparklesIcon,
 } from './icons';
 import { Button } from './ui';
 import { BrandMark, BrandWordmark } from './brand/BrandMark';
@@ -242,6 +243,7 @@ function WorkspaceShell() {
 
   const primary = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutGridIcon, show: !!user },
+    { to: '/ask', label: 'Ask VYRO', icon: SparklesIcon, show: !!user, accent: true },
     { to: '/search', label: 'Marketplace', icon: SearchIcon, show: true },
     { to: '/orders', label: 'Purchase Orders', icon: PackageIcon, show: !!user },
     { to: '/cart', label: 'Active Cart', icon: ShoppingCartIcon, show: true, badge: cartCount },
@@ -396,6 +398,7 @@ function WorkspaceShell() {
           <div className="grid grid-cols-5 h-16">
             <MobileTab to="/search" icon={SearchIcon} label="Discover" />
             <MobileTab to="/dashboard" icon={LayoutGridIcon} label="Dashboard" />
+            <MobileTab to="/ask" icon={SparklesIcon} label="Ask AI" />
             <MobileTab to="/orders" icon={PackageIcon} label="Orders" />
             <MobileTab to="/cart" icon={ShoppingCartIcon} label="Cart" badge={cartCount} />
             <MobileTab to={isSupplier ? '/supplier' : '/profile'} icon={isSupplier ? StoreIcon : UserIcon} label={isSupplier ? 'Facility' : 'Account'} />
@@ -413,7 +416,7 @@ function NavGroup({
   badge,
 }: {
   title: string;
-  items: Array<{ to: string; label: string; icon: typeof SearchIcon; badge?: number }>;
+  items: Array<{ to: string; label: string; icon: typeof SearchIcon; badge?: number; accent?: boolean }>;
   badge?: string;
 }) {
   if (items.length === 0) return null;
@@ -439,6 +442,8 @@ function NavGroup({
                   'relative flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-md transition-all duration-150',
                   isActive
                     ? 'bg-volt/10 text-volt font-semibold shadow-sm'
+                    : item.accent
+                    ? 'text-volt hover:bg-volt/10'
                     : 'text-paper/70 hover:text-paper hover:bg-paper/[0.06]',
                 )
               }
@@ -452,10 +457,15 @@ function NavGroup({
                     size={16}
                     className={cn(
                       'shrink-0 transition-colors',
-                      isActive ? 'text-volt' : 'text-paper/50 group-hover:text-paper/80',
+                      isActive || item.accent ? 'text-volt' : 'text-paper/50 group-hover:text-paper/80',
                     )}
                   />
                   <span className="flex-1 truncate">{item.label}</span>
+                  {item.accent && !isActive ? (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded font-mono uppercase bg-volt/15 text-volt border border-volt/30 leading-none">
+                      New
+                    </span>
+                  ) : null}
                   {typeof item.badge === 'number' && item.badge > 0 ? (
                     <span className="min-w-4 h-4 px-1 bg-volt text-ink text-[10px] font-mono font-bold rounded inline-flex items-center justify-center shrink-0 shadow-sm">
                       {item.badge}
