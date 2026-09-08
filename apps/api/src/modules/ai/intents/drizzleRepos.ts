@@ -300,5 +300,23 @@ export function drizzleRepos(env: Env): AiRepos {
         .all();
       return rows.map((r) => r.name);
     },
+
+    async productNamesByIds(ids) {
+      const unique = [...new Set(ids)].slice(0, 200);
+      const out = new Map<string, string>();
+      if (!unique.length) return out;
+      // Chunked to stay well within D1 variable limits.
+      for (let i = 0; i < unique.length; i += 50) {
+        const chunk = unique.slice(i, i + 50);
+        const placeholders = sql.join(chunk.map((id) => sql`${id}`), sql.raw(','));
+        const rows = await db
+          .select({ id: products.id, name: products.name })
+          .from(products)
+          .where(sql`${products.id} in (${placeholders})`)
+          .all();
+        for (const r of rows) out.set(r.id, r.name);
+      }
+      return out;
+    },
   };
 }

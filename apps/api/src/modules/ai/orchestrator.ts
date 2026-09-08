@@ -1,7 +1,7 @@
 import type { ChatMessage } from '@vyro/ai';
-import { providerFor } from './provider';
+import { isComplexIntent, providerForTask } from './provider';
 import { classify, type ClassifyContext } from './classify';
-import { narrate } from './narrate';
+import { narrate, summarizeResult } from './narrate';
 import { HANDLERS, type IntentContext } from './intents/catalog';
 import { drizzleRepos } from './intents/drizzleRepos';
 import { encodeEvent } from './stream';
@@ -19,6 +19,26 @@ export interface OrchestrateContext extends ClassifyContext {
   conversation?: ChatMessage[];
 }
 
+/**
+ * Friendly working stages per intent. The client renders these verbatim —
+ * raw intent names and tool internals never reach the UI.
+ */
+const STAGES: Record<string, [string, string]> = {
+  search_products: ['Searching VYRO products', 'Ranking best prices'],
+  find_cheapest: ['Searching VYRO products', 'Comparing suppliers'],
+  compare_suppliers: ['Searching VYRO products', 'Comparing suppliers'],
+  supplier_recommend: ['Searching VYRO products', 'Scoring suppliers'],
+  spend_summary: ['Reading your purchase history', 'Tallying spend'],
+  product_spend: ['Reading your purchase history', 'Tallying spend'],
+  supplier_spend: ['Reading your purchase history', 'Tallying spend'],
+  savings: ['Reading your purchase history', 'Hunting savings'],
+  usual_order: ['Reading your purchase history', 'Building your usual order'],
+  reorder: ['Reading your purchase history', 'Checking what is due'],
+  price_changes: ['Reading your purchase history', 'Analyzing price moves'],
+  delivery_estimate: ['Checking availability', 'Estimating delivery'],
+  clarify: ['Understanding your request', 'Preparing options'],
+};
+
 export async function* orchestrate(
   env: Env,
   ctx: OrchestrateContext,
@@ -29,9 +49,10 @@ export async function* orchestrate(
   let ok = true;
   let errorCode: string | undefined;
   let intentName = 'clarify';
-  const provider = providerFor(env);
-  const providerName = provider.name;
-  const modelName = (env as any).VYRO_AI_NARRATE_MODEL ?? 'unknown';
+  let slots: Record<string, unknown> = {};
+  const classifyProvider = providerForTask(env, 'classify');
+  const providerName = classifyProvider.name;
+  const modelName = (env as any).VYRO_AI_CLASSIFY_MODEL ?? 'unknown';
 
   let prompt: string;
   try {
@@ -51,7 +72,7 @@ export async function* orchestrate(
     return;
   }
 
-  const cap = costCap(env, ctx.businessId, 200);
+  const cap = costCap(env, ctx.businessId, 200, ctx.userId);
   if (!cap.ok) {
     ok = false;
     errorCode = 'RATE_LIMITED';
@@ -64,13 +85,18 @@ export async function* orchestrate(
     return;
   }
 
-  yield encodeEvent('status', { stage: 'classifying' });
+  yield encodeEvent('status', { stage: 'Understanding your request' });
 
   const repos = drizzleRepos(env);
 
   try {
-    const classifyResult = await classify(provider, ctx, prompt);
+    // Single model call per request: classification. Everything else is
+    // deterministic code over repository data (faster, cheaper, grounded).
+    const classifyResult = await classify(classifyProvider, ctx, prompt, ctx.conversation);
     intentName = classifyResult.intent;
+    slots = classifyResult.slots as unknown as Record<string, unknown>;
+    const [stage1, stage2] = STAGES[intentName] ?? STAGES.clarify!;
+    yield encodeEvent('status', { stage: stage1 });
     yield encodeEvent('tool_call', { name: classifyResult.intent, slots: classifyResult.slots });
 
     const handlerCtx: IntentContext = {
@@ -84,6 +110,7 @@ export async function* orchestrate(
     let actions: any[] = [];
     let rawSummary: Record<string, unknown> = {};
     try {
+      yield encodeEvent('status', { stage: stage2 });
       const handlerResult = await HANDLERS[classifyResult.intent](handlerCtx, repos);
       components = handlerResult.components;
       actions = handlerResult.actions;
@@ -105,11 +132,26 @@ export async function* orchestrate(
 
     for (const c of components) yield encodeEvent('component', c);
 
-    const narration = await narrate(
-      provider,
-      { businessName: ctx.businessName },
-      { name: classifyResult.intent, ok: ok && errorCode === undefined, summary: JSON.stringify(rawSummary) },
-    );
+    yield encodeEvent('status', { stage: 'Preparing recommendation' });
+
+    // Deterministic narration is the default: grounded numbers, zero extra
+    // model cost. Opt into LLM narration only when explicitly configured —
+    // complex intents then route to Gemini, simple ones stay on Workers AI.
+    let narration: string;
+    const handlerResult = { components, actions, rawSummary };
+    if ((env as any).VYRO_AI_NARRATE_MODE === 'llm') {
+      const narrateProvider = providerForTask(
+        env,
+        isComplexIntent(classifyResult.intent) ? 'narrate_complex' : 'narrate_simple',
+      );
+      narration = await narrate(
+        narrateProvider,
+        { businessName: ctx.businessName },
+        { name: classifyResult.intent, ok: ok && errorCode === undefined, summary: JSON.stringify(rawSummary) },
+      );
+    } else {
+      narration = summarizeResult(classifyResult.intent, handlerResult);
+    }
 
     yield encodeEvent('final', { summary: narration, actions });
   } catch (err) {
@@ -126,7 +168,7 @@ export async function* orchestrate(
     userId: ctx.userId, businessId: ctx.businessId, intent: intentName,
     provider: providerName, model: modelName, latencyMs,
     ok, ...(errorCode ? { errorCode } : {}),
-    requestId,
+    requestId, slots, toolName: intentName,
   });
   recordAiMetric(env, {
     businessId: ctx.businessId, userId: ctx.userId, intent: intentName,

@@ -35,4 +35,14 @@ export interface Env {
   VYRO_AI_NARRATE_MODEL?: string;
   /** Per-business daily token cap (soft). */
   VYRO_AI_DAILY_TOKEN_CAP?: string;
+  /** Force routing: 'auto' (default) | 'workers' | 'gemini'. */
+  VYRO_AI_PROVIDER?: string;
+  /** Gemini API key (secret). Absence disables the Gemini path. */
+  GEMINI_API_KEY?: string;
+  /** Override Gemini REST base (e.g. Cloudflare AI Gateway endpoint). */
+  VYRO_AI_GEMINI_BASE_URL?: string;
+  /** Gemini model for complex reasoning. */
+  VYRO_AI_GEMINI_MODEL?: string;
+  /** Narration mode: 'deterministic' (default, no LLM) | 'llm'. */
+  VYRO_AI_NARRATE_MODE?: string;
 }

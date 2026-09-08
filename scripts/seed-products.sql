@@ -78,7 +78,7 @@ INSERT OR REPLACE INTO product_images (id, product_id, r2_key, sort_order, alt_t
   ('img-samba-1', 'p-samba-rice-25kg', 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?auto=format&fit=crop&w=800&q=80', 1, 'Samba rice wholesale sacks'),
   ('img-samba-2', 'p-samba-rice-25kg', 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80', 2, 'Clean Samba rice grains'),
 
-  ('img-sugar-1', 'p-sugar-1kg', 'https://images.unsplash.com/photo-1622484212850-eb596d769edc?auto=format&fit=crop&w=800&q=80', 1, 'Refined white sugar crystals'),
+  ('img-sugar-1', 'p-sugar-1kg', 'https://images.unsplash.com/photo-1581441363689-1f3c3c414635?auto=format&fit=crop&w=800&q=80', 1, 'Refined white sugar crystals'),
   ('img-sugar-2', 'p-sugar-1kg', 'https://images.unsplash.com/photo-1581441363689-1f3c3c414635?auto=format&fit=crop&w=800&q=80', 2, 'Granulated white sugar scoop'),
 
   ('img-sugar50-1', 'p-sugar-50kg', 'https://images.unsplash.com/photo-1581441363689-1f3c3c414635?auto=format&fit=crop&w=800&q=80', 1, 'Bulk 50kg sugar commercial bag'),

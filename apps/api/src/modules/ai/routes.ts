@@ -106,22 +106,38 @@ aiAdminRouter.get('/usage', async (c) => {
     .select({
       intent: logs.intent,
       latency: sql<number>`cast(json_extract(metadata,'$.latencyMs') as integer)`,
+      ok: sql<number>`cast(json_extract(metadata,'$.ok') as integer)`,
+      provider: sql<string>`json_extract(metadata,'$.provider')`,
+      errorCode: sql<string>`json_extract(metadata,'$.errorCode')`,
     })
     .from(auditLogs)
     .where(sql`${auditLogs.action} = 'ai.request' and ${auditLogs.createdAt} >= ${since}`)
     .all();
   const counts = new Map<string, number>();
+  const providers = new Map<string, number>();
+  const errors = new Map<string, number>();
   let totalLatency = 0;
+  let failed = 0;
   for (const r of rows) {
     const key = r.intent ?? 'unknown';
     counts.set(key, (counts.get(key) ?? 0) + 1);
     totalLatency += Number(r.latency ?? 0);
+    providers.set(String(r.provider ?? 'unknown'), (providers.get(String(r.provider ?? 'unknown')) ?? 0) + 1);
+    if (Number(r.ok) !== 1) {
+      failed++;
+      const e = String(r.errorCode ?? 'UNKNOWN');
+      errors.set(e, (errors.get(e) ?? 0) + 1);
+    }
   }
   return c.json({
     days,
     totalRequests: rows.length,
+    failedRequests: failed,
+    failureRate: rows.length ? Math.round((failed / rows.length) * 1000) / 1000 : 0,
     avgLatencyMs: rows.length ? Math.round(totalLatency / rows.length) : 0,
     byIntent: [...counts.entries()].map(([intent, count]) => ({ intent, count })),
+    byProvider: [...providers.entries()].map(([provider, count]) => ({ provider, count })),
+    byError: [...errors.entries()].map(([code, count]) => ({ code, count })),
   });
 });
 

@@ -137,6 +137,13 @@ export function mockRepos(input: {
     async listSupplierNames() {
       return Array.from(new Set(offers.map((o) => o.supplier.name)));
     },
+    async productNamesByIds(ids: string[]) {
+      const out = new Map<string, string>();
+      for (const p of products) {
+        if (ids.includes(p.id)) out.set(p.id, p.name);
+      }
+      return out;
+    },
   };
 }
 

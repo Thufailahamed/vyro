@@ -12,14 +12,13 @@ export async function usualOrderHandler(ctx: IntentContext, repos: AiRepos): Pro
   const topN = ctx.classify.slots.topNProducts ?? 10;
   const since = Date.now() - weeksBack * 7 * DAY;
   const items = await repos.recentPoItemsForRecurrence({ businessId: ctx.businessId, sinceMs: since });
-  const productNames = new Map<string, string>();
-  for (const name of await repos.listProductNames(5000)) productNames.set(name.toLowerCase(), name);
+  const nameById = await repos.productNamesByIds(items.map((i) => i.productId));
 
   const agg = new Map<string, { productId: string; productName: string; totalQty: number; occurrences: number }>();
   for (const it of items) {
     const v = agg.get(it.productId) ?? {
       productId: it.productId,
-      productName: productNames.get(it.productId.toLowerCase()) ?? '—',
+      productName: nameById.get(it.productId) ?? 'Unknown product',
       totalQty: 0,
       occurrences: 0,
     };

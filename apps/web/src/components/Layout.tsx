@@ -255,7 +255,7 @@ function WorkspaceShell() {
   ].filter((i) => i.show);
 
   const adminItems = [
-    { to: '/admin', label: 'Control Center', icon: ShieldCheckIcon, show: Boolean(user?.isAdmin || user?.adminRole) },
+    { to: '/admin', label: 'Control Center', icon: ShieldCheckIcon, show: Boolean(user?.isAdmin || (user as unknown as { adminRole?: string })?.adminRole) },
   ].filter((i) => i.show);
 
   const contextual = [

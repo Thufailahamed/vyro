@@ -73,4 +73,6 @@ export interface AiRepos {
   priceChangeMovers(opts: { businessId: string; sinceMs: number }): Promise<Array<{ productName: string; from: number; to: number; pct: number }>>;
   listProductNames(limit?: number): Promise<string[]>;
   listSupplierNames(limit?: number): Promise<string[]>;
+  /** Batch-resolve product ids to display names. Missing ids are omitted. */
+  productNamesByIds(ids: string[]): Promise<Map<string, string>>;
 }
