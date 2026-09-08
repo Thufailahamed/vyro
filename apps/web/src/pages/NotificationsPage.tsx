@@ -29,7 +29,7 @@ interface Note {
   type: string;
 }
 
-type CategoryTab = 'all' | 'unread' | 'order' | 'delivery' | 'payment';
+type CategoryTab = 'all' | 'unread' | 'order' | 'delivery' | 'payment' | 'ai';
 
 function getNotificationIcon(type: string) {
   const t = type.toLowerCase();
@@ -87,6 +87,15 @@ export function NotificationsPage() {
     refetchInterval: 30_000,
   });
 
+  // AI-only unread count for the tab badge.
+  const { data: aiUnreadData } = useQuery({
+    queryKey: ['notifications-ai-unread'],
+    queryFn: () => api.get<{ unreadCount: number }>('/notifications/me/unread-count?source=ai'),
+    enabled: !!user,
+    refetchInterval: 30_000,
+  });
+  const aiUnread = aiUnreadData?.unreadCount ?? 0;
+
   // 2. Active Cart Query (for cart readiness context)
   const { data: cartData } = useQuery({
     queryKey: ['cart', businessId],
@@ -138,6 +147,8 @@ export function NotificationsPage() {
           n.type.toLowerCase().includes('invoice') ||
           n.type.toLowerCase().includes('credit'),
       );
+    } else if (activeTab === 'ai') {
+      list = list.filter((n) => (n as { source?: string }).source === 'ai');
     }
 
     if (searchQuery.trim()) {
@@ -236,6 +247,7 @@ export function NotificationsPage() {
             { id: 'order', label: 'Orders & Staging' },
             { id: 'delivery', label: 'Freight & Dispatch' },
             { id: 'payment', label: 'Invoices & SVAT' },
+            { id: 'ai', label: 'AI Insights', badge: aiUnread },
           ].map((tab) => {
             const active = activeTab === tab.id;
             return (

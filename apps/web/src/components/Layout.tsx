@@ -238,9 +238,16 @@ function WorkspaceShell() {
     enabled: !!user,
     refetchInterval: 30_000,
   });
+  const { data: aiUnreadData } = useQuery({
+    queryKey: ['notifications-ai-unread'],
+    queryFn: () => api.get<{ unreadCount: number }>('/notifications/me/unread-count?source=ai'),
+    enabled: !!user,
+    refetchInterval: 30_000,
+  });
 
   const cartCount = cartData?.items?.length ?? 0;
   const unread = notifData?.unreadCount ?? notifData?.notifications?.filter((n) => !n.readAt).length ?? 0;
+  const aiUnread = aiUnreadData?.unreadCount ?? 0;
 
   const primary = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutGridIcon, show: !!user },
@@ -379,6 +386,12 @@ function WorkspaceShell() {
             <Link to="/notifications" className="relative p-2">
               <BellIcon size={18} />
               {unread > 0 && <span className="absolute top-1.5 right-1.5 size-1.5 bg-volt rounded-full" />}
+              {aiUnread > 0 && (
+                <span
+                  title={`${aiUnread} AI insight${aiUnread === 1 ? '' : 's'} unread`}
+                  className="absolute -bottom-0.5 -right-0.5 size-2 bg-copper rounded-full"
+                />
+              )}
             </Link>
             <Link to="/cart" className="relative p-2">
               <ShoppingCartIcon size={18} />
