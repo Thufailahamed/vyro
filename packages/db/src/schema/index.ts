@@ -43,3 +43,5 @@ export * from './auditExportSchedules';
 export * from './invoiceUploads';
 export * from './invoiceLineItems';
 export * from './categoryMappings';
+export * from './aiPreferences';
+export * from './aiInsightEvents';
