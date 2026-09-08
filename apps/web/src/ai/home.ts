@@ -1,6 +1,6 @@
 /** Pure helpers for the VYRO AI home dashboard. No IO, fully testable. */
 export interface HomePayload {
-  reorderDue: Array<{ productName: string; lastPurchase DaysAgo?: number }>;
+  reorderDue: Array<{ productName: string; lastPurchaseDaysAgo?: number }>;
   savingsTotal: number;
   topMoves: Array<{ productName: string; from: number; to: number; pct: number }>;
   monthly: number[];
