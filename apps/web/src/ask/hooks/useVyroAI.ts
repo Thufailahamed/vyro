@@ -166,7 +166,7 @@ export function useVyroAI() {
   // Compact server-stateless history: last N user/assistant texts.
   const history = useRef<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
 
-  const send = useCallback(async (prompt: string, opts?: { businessId?: string | undefined }) => {
+  const send = useCallback(async (prompt: string, opts?: { businessId?: string | undefined; context?: unknown }) => {
     const text = prompt.trim();
     if (!text) return;
     dispatch({ type: 'user', turn: { id: ++turnId, role: 'user', text, components: [], actions: [], tools: [] } });
@@ -179,6 +179,7 @@ export function useVyroAI() {
         body: JSON.stringify({
           prompt: text,
           businessId: opts?.businessId,
+          context: opts?.context,
           conversation: history.current.slice(-HISTORY_LIMIT),
         }),
       });

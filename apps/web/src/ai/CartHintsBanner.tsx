@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { SparklesIcon, XIcon } from '@/components/icons';
+import { Surface } from '@/components/brand/Surface';
 import { dismissKey, isDismissed } from './floatHelpers';
 
 interface CartHint {
