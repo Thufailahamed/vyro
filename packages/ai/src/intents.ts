@@ -92,7 +92,28 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
   let intent: ClassifyResult['intent'] = 'clarify';
   let confidence = 0.3;
 
-  if (REORDER_RX.test(text)) {
+  if (/\b(price watch|price drop|became cheaper|increased the most|what.*cheaper this week)\b/i.test(text)) {
+    intent = 'price_watch';
+    confidence = 0.75;
+  } else if (/\b(unusual price|overcharg|why.*expensive|price anomaly)\b/i.test(text)) {
+    intent = 'price_anomaly';
+    confidence = 0.7;
+  } else if (/\b(supplier intelligence|most reliable|supplier risk|best overall|supplier concentration)\b/i.test(text)) {
+    intent = 'supplier_intel';
+    confidence = 0.75;
+  } else if (/\b(procurement health|health score)\b/i.test(text)) {
+    intent = 'procurement_health';
+    confidence = 0.8;
+  } else if (/\b(forecast|next month.*spend|how much will i spend|spending forecast)\b/i.test(text)) {
+    intent = 'spend_forecast';
+    confidence = 0.75;
+  } else if (/\b(spending by category|category|top spending category|fastest growing categor)\b/i.test(text)) {
+    intent = 'category_intel';
+    confidence = 0.7;
+  } else if (/\b(insight|what changed|vyro insight|signal)\b/i.test(text)) {
+    intent = 'insights_feed';
+    confidence = 0.7;
+  } else if (REORDER_RX.test(text)) {
     intent = 'reorder';
     confidence = 0.7;
   } else if (USUAL_RX.test(text)) {
@@ -202,17 +223,23 @@ export const INTENT_ALLOWLIST_BY_ROLE = {
   admin: [
     'search_products', 'find_cheapest', 'compare_suppliers', 'supplier_recommend',
     'spend_summary', 'product_spend', 'supplier_spend', 'savings',
-    'usual_order', 'reorder', 'price_changes', 'delivery_estimate', 'clarify',
+    'usual_order', 'reorder', 'price_changes', 'delivery_estimate',
+    'price_watch', 'price_anomaly', 'supplier_intel', 'procurement_health',
+    'spend_forecast', 'category_intel', 'insights_feed', 'clarify',
   ],
   member: [
     'search_products', 'find_cheapest', 'compare_suppliers', 'supplier_recommend',
     'spend_summary', 'product_spend', 'supplier_spend', 'savings',
-    'usual_order', 'reorder', 'price_changes', 'delivery_estimate', 'clarify',
+    'usual_order', 'reorder', 'price_changes', 'delivery_estimate',
+    'price_watch', 'price_anomaly', 'supplier_intel', 'procurement_health',
+    'spend_forecast', 'category_intel', 'insights_feed', 'clarify',
   ],
   viewer: [
     'search_products', 'find_cheapest', 'compare_suppliers',
     'spend_summary', 'product_spend', 'supplier_spend', 'savings',
-    'price_changes', 'delivery_estimate', 'clarify',
+    'price_changes', 'delivery_estimate',
+    'price_watch', 'price_anomaly', 'supplier_intel', 'procurement_health',
+    'spend_forecast', 'category_intel', 'insights_feed', 'clarify',
   ],
 } as const;
 

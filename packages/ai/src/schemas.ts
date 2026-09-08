@@ -13,6 +13,13 @@ export const INTENT_NAMES = [
   'reorder',
   'price_changes',
   'delivery_estimate',
+  'price_watch',
+  'price_anomaly',
+  'supplier_intel',
+  'procurement_health',
+  'spend_forecast',
+  'category_intel',
+  'insights_feed',
   'clarify',
 ] as const;
 
@@ -40,6 +47,7 @@ const Slots = z.object({
   // usual_order
   weeksBack: z.number().int().min(1).max(52).optional(),
   topNProducts: z.number().int().min(1).max(50).optional(),
+  limit: z.number().int().min(1).max(20).optional(),
   // clarify
   question: z.string().max(280).optional(),
   options: z.array(z.string().min(1).max(80)).max(4).optional(),

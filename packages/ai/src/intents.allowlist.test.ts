@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { INTENT_ALLOWLIST_BY_ROLE, isIntentAllowed, INTENT_NAMES, type IntentName } from './index';
 
 describe('intent allowlist', () => {
-  it('exports 13 base intents in INTENT_NAMES', () => {
-    expect(INTENT_NAMES.length).toBe(13);
+  it('exports 20 intents in INTENT_NAMES (13 base + 7 intel)', () => {
+    expect(INTENT_NAMES.length).toBe(20);
   });
 
   it('admin can run any intent', () => {
@@ -23,6 +23,8 @@ describe('intent allowlist', () => {
       'search_products', 'find_cheapest', 'compare_suppliers',
       'spend_summary', 'product_spend', 'supplier_spend', 'savings',
       'price_changes', 'delivery_estimate', 'clarify',
+      'price_watch', 'price_anomaly', 'supplier_intel', 'procurement_health',
+      'spend_forecast', 'category_intel', 'insights_feed',
     ];
     for (const intent of allowed) {
       expect(isIntentAllowed(intent, 'viewer')).toBe(true);

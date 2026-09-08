@@ -140,6 +140,33 @@ export function summarizeResult(intent: string, result: HandlerResult): string {
           ? `Found ${s.count} matching products. Pick one to compare suppliers.`
           : 'No products matched. Try a different search term.'
       ).slice(0, MAX);
+    case 'price_watch': {
+      const movers: any[] = data.movers ?? [];
+      const top = movers[0];
+      if (!top) return 'No significant price moves in the last 28 days.';
+      return `Largest mover: ${top.productName} ${top.pct >= 0 ? 'up' : 'down'} ${Math.abs(top.pct)}% across ${movers.length} products. Based on prices you paid.`.slice(0, MAX);
+    }
+    case 'price_anomaly':
+      return (s.flagged
+        ? `${s.productName ?? 'That product'}: cheapest offer is significantly above your recent purchasing range (median ${formatLKR(s.median)}, ratio ${s.ratio}x).`
+        : `${s.productName ?? 'That product'} looks within your recent purchasing range.`
+      ).slice(0, MAX);
+    case 'supplier_intel':
+      return `Scored ${s.count ?? 0} suppliers on acceptance and fulfillment over 90 days.${s.best ? ` Best overall: ${s.best}.` : ''} Based on your purchase orders.`.slice(0, MAX);
+    case 'procurement_health':
+      return `Procurement health ${s.score ?? 0}/100. Based on concentration, price competitiveness, and acceptance over 90 days.`.slice(0, MAX);
+    case 'spend_forecast':
+      return `Forecast next month: ${formatLKR(s.prediction)} (range ${formatLKR(s.low)}–${formatLKR(s.high)}). Prediction from your last 3 months; actuals may vary.`.slice(0, MAX);
+    case 'category_intel':
+      return (s.top
+        ? `Top category: ${s.top} across ${s.count ?? 0} categories in 90 days.`
+        : 'No category spend in the last 90 days.'
+      ).slice(0, MAX);
+    case 'insights_feed':
+      return (s.count
+        ? `${s.count} insights: savings, price moves, and supplier signals with evidence.`
+        : 'No fresh insights right now.'
+      ).slice(0, MAX);
     default:
       return String(data.question ?? 'What do you need help with?').slice(0, MAX);
   }

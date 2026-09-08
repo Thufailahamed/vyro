@@ -13,6 +13,13 @@ import { usualOrderHandler } from './usualOrder';
 import { reorderHandler } from './reorder';
 import { priceChangesHandler } from './priceChanges';
 import { deliveryEstimateHandler } from './deliveryEstimate';
+import { priceWatchHandler } from './priceWatch';
+import { priceAnomalyHandler } from './priceAnomaly';
+import { supplierIntelHandler } from './supplierIntel';
+import { procurementHealthHandler } from './procurementHealth';
+import { spendForecastHandler } from './spendForecast';
+import { categoryIntelHandler } from './categoryIntel';
+import { insightsFeedHandler } from './insightsFeed';
 import { clarifyHandler } from './clarify';
 
 export interface IntentContext {
@@ -43,5 +50,12 @@ export const HANDLERS: Record<ClassifyResult['intent'], Handler> = {
   reorder: reorderHandler,
   price_changes: priceChangesHandler,
   delivery_estimate: deliveryEstimateHandler,
+  price_watch: priceWatchHandler,
+  price_anomaly: priceAnomalyHandler,
+  supplier_intel: supplierIntelHandler,
+  procurement_health: procurementHealthHandler,
+  spend_forecast: spendForecastHandler,
+  category_intel: categoryIntelHandler,
+  insights_feed: insightsFeedHandler,
   clarify: clarifyHandler,
 };

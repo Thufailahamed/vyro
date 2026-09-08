@@ -39,6 +39,13 @@ const STAGES: Record<string, [string, string]> = {
   reorder: ['Reading your purchase history', 'Checking what is due'],
   price_changes: ['Reading your purchase history', 'Analyzing price moves'],
   delivery_estimate: ['Checking availability', 'Estimating delivery'],
+  price_watch: ['Reading your purchase history', 'Analyzing price moves'],
+  price_anomaly: ['Reading your purchase history', 'Checking price ranges'],
+  supplier_intel: ['Searching VYRO products', 'Scoring suppliers'],
+  procurement_health: ['Reading your purchase history', 'Scoring procurement health'],
+  spend_forecast: ['Reading your purchase history', 'Forecasting spend'],
+  category_intel: ['Reading your purchase history', 'Breaking down categories'],
+  insights_feed: ['Reading your purchase history', 'Gathering insights'],
   clarify: ['Understanding your request', 'Preparing options'],
 };
 
