@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@vyro/auth": "workspace:*",
+    "@vyro/ai": "workspace:*",
     "@vyro/db": "workspace:*",
     "@vyro/payments": "workspace:*",
     "@vyro/shared": "workspace:*",
