@@ -463,6 +463,7 @@ aiAdminRouter.get('/usage', async (c) => {
   const counts = new Map<string, number>();
   const providers = new Map<string, number>();
   const errors = new Map<string, number>();
+  const latencies: number[] = [];
   let totalLatency = 0;
   let tokensIn = 0;
   let tokensOut = 0;
@@ -470,7 +471,9 @@ aiAdminRouter.get('/usage', async (c) => {
   for (const r of rows) {
     const key = r.intent ?? 'unknown';
     counts.set(key, (counts.get(key) ?? 0) + 1);
-    totalLatency += Number(r.latency ?? 0);
+    const lat = Number(r.latency ?? 0);
+    totalLatency += lat;
+    latencies.push(lat);
     tokensIn += Number(r.tokensIn ?? 0);
     tokensOut += Number(r.tokensOut ?? 0);
     providers.set(String(r.provider ?? 'unknown'), (providers.get(String(r.provider ?? 'unknown')) ?? 0) + 1);
@@ -480,6 +483,10 @@ aiAdminRouter.get('/usage', async (c) => {
       errors.set(e, (errors.get(e) ?? 0) + 1);
     }
   }
+  latencies.sort((a, b) => a - b);
+  const p95LatencyMs = latencies.length
+    ? latencies[Math.min(latencies.length - 1, Math.floor(latencies.length * 0.95))]
+    : 0;
   let cost: unknown = null;
   if (businessId) {
     cost = await summarizeAiCost(c.env, { businessId, fromMs, toMs });
@@ -492,6 +499,7 @@ aiAdminRouter.get('/usage', async (c) => {
     failedRequests: failed,
     failureRate: rows.length ? Math.round((failed / rows.length) * 1000) / 1000 : 0,
     avgLatencyMs: rows.length ? Math.round(totalLatency / rows.length) : 0,
+    p95LatencyMs,
     tokensIn,
     tokensOut,
     costEstimateUsd: Math.round((tokensIn * 0.00002 + tokensOut * 0.00006) * 100) / 100,

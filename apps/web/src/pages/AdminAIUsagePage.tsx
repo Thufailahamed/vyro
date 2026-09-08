@@ -29,6 +29,7 @@ interface UsageResponse {
   failedRequests: number;
   failureRate: number;
   avgLatencyMs: number;
+  p95LatencyMs?: number;
   tokensIn: number;
   tokensOut: number;
   costEstimateUsd: number;
@@ -96,11 +97,14 @@ export function AdminAIUsagePage() {
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Calls" value={data.totalRequests.toLocaleString()} />
-            <Stat label="Tokens in" value={data.tokensIn.toLocaleString()} />
-            <Stat label="Tokens out" value={data.tokensOut.toLocaleString()} />
+            <Stat
+              label="Tokens"
+              value={(data.tokensIn + data.tokensOut).toLocaleString()}
+            />
             <Stat label="Est. USD" value={`$${data.costEstimateUsd.toFixed(2)}`} />
             <Stat label="Failure rate" value={`${(data.failureRate * 100).toFixed(1)}%`} />
             <Stat label="Avg latency" value={`${data.avgLatencyMs}ms`} />
+            <Stat label="p95 latency" value={`${data.p95LatencyMs ?? data.avgLatencyMs}ms`} />
             <Stat label="Failed calls" value={data.failedRequests.toLocaleString()} />
             <Stat label="Window" value={`${data.days}d`} />
           </div>
