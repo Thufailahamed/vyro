@@ -1,5 +1,6 @@
 import type { ClassifyResult, ComponentEnvelope, Action } from '@vyro/ai';
 import type { Env } from '../../../env';
+import type { AiRepos } from './repos';
 
 export interface IntentContext {
   env: Env;
@@ -14,7 +15,7 @@ export interface HandlerResult {
   rawSummary: Record<string, unknown>;
 }
 
-export type Handler = (ctx: IntentContext) => Promise<HandlerResult>;
+export type Handler = (ctx: IntentContext, repos: AiRepos) => Promise<HandlerResult>;
 
 export const HANDLERS: Record<ClassifyResult['intent'], Handler> = {} as Record<
   ClassifyResult['intent'],
