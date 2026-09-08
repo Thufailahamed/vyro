@@ -1,4 +1,5 @@
-import { NARRATE_SYSTEM, type AIProvider } from '@vyro/ai';
+import { NARRATE_SYSTEM } from '@vyro/ai';
+import type { AIProvider } from './provider/types';
 
 export interface NarrateContext {
   businessName: string;

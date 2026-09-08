@@ -17,10 +17,8 @@ import type {
   SupplierRow,
 } from './repos';
 
-const offerJoins = {
-  active: eq(supplierProducts.active, true),
-  notDeleted: isNull(supplierProducts.deletedAt),
-};
+const offerActive = eq(supplierProducts.active, true);
+const offerNotDeleted = isNull(supplierProducts.deletedAt);
 
 export function drizzleRepos(env: Env): AiRepos {
   const db = getDb(env.DB);
@@ -36,15 +34,28 @@ export function drizzleRepos(env: Env): AiRepos {
       const productIds = rows.map((r) => r.id);
       const offerMap = new Map<string, Array<OfferRow & { supplier: SupplierRow }>>();
       if (productIds.length) {
+        const placeholders = sql.join(productIds.map((id) => sql`${id}`), sql.raw(','));
         const offers = await db
           .select({ offer: supplierProducts, supplier: suppliers })
           .from(supplierProducts)
           .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
-          .where(and(sql`${supplierProducts.productId} in (${sql.join(productIds.map((id) => sql`${id}`), sql.raw(','))}`, offerJoins.notDeleted, offerJoins.active))
+          .where(and(sql`${supplierProducts.productId} in (${placeholders})`, offerNotDeleted, offerActive))
           .all();
         for (const o of offers) {
+          const flat: OfferRow & { supplier: SupplierRow } = {
+            id: o.offer.id,
+            supplierId: o.supplier.id,
+            productId: o.offer.productId,
+            priceCents: o.offer.priceCents,
+            minOrderQty: o.offer.minOrderQty,
+            leadTimeDays: o.offer.leadTimeDays,
+            deliveryAvailable: o.offer.deliveryAvailable,
+            availabilityStatus: o.offer.availabilityStatus,
+            active: o.offer.active,
+            supplier: { id: o.supplier.id, name: o.supplier.name },
+          };
           const arr = offerMap.get(o.offer.productId) ?? [];
-          arr.push(o as OfferRow & { supplier: SupplierRow });
+          arr.push(flat);
           offerMap.set(o.offer.productId, arr);
         }
       }
@@ -74,14 +85,25 @@ export function drizzleRepos(env: Env): AiRepos {
         .select({ offer: supplierProducts, supplier: suppliers })
         .from(supplierProducts)
         .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
-        .where(and(eq(supplierProducts.productId, productId), offerJoins.notDeleted, offerJoins.active))
+        .where(and(eq(supplierProducts.productId, productId), offerNotDeleted, offerActive))
         .all();
-      return rows as Array<OfferRow & { supplier: SupplierRow }>;
+      return rows.map((o) => ({
+        id: o.offer.id,
+        supplierId: o.supplier.id,
+        productId: o.offer.productId,
+        priceCents: o.offer.priceCents,
+        minOrderQty: o.offer.minOrderQty,
+        leadTimeDays: o.offer.leadTimeDays,
+        deliveryAvailable: o.offer.deliveryAvailable,
+        availabilityStatus: o.offer.availabilityStatus,
+        active: o.offer.active,
+        supplier: { id: o.supplier.id, name: o.supplier.name },
+      })) as Array<OfferRow & { supplier: SupplierRow }>;
     },
 
     async listSupplierProducts(opts) {
-      const conds: any[] = [isNull(supplierProducts.deletedAt)];
-      if (opts.active !== false) conds.push(eq(supplierProducts.active, true));
+      const conds: any[] = [offerNotDeleted];
+      if (opts.active !== false) conds.push(offerActive);
       const rows = await db
         .select({
           supplierName: suppliers.name,
@@ -119,7 +141,7 @@ export function drizzleRepos(env: Env): AiRepos {
         .select({
           id: purchaseOrderItems.id,
           purchaseOrderId: purchaseOrderItems.purchaseOrderId,
-          productId: purchaseOrderItems.productId,
+          productId: supplierProducts.productId,
           supplierId: purchaseOrders.supplierId,
           quantity: purchaseOrderItems.quantity,
           unitPriceCents: purchaseOrderItems.unitPriceCents,
@@ -127,6 +149,7 @@ export function drizzleRepos(env: Env): AiRepos {
         })
         .from(purchaseOrderItems)
         .innerJoin(purchaseOrders, eq(purchaseOrders.id, purchaseOrderItems.purchaseOrderId))
+        .innerJoin(supplierProducts, eq(supplierProducts.id, purchaseOrderItems.supplierProductId))
         .where(and(eq(purchaseOrders.businessId, businessId), ne(purchaseOrders.status, 'cancelled'), gte(purchaseOrders.createdAt, sinceMs)))
         .all();
       return rows as unknown as PoItemRow[];
@@ -134,12 +157,13 @@ export function drizzleRepos(env: Env): AiRepos {
 
     async listPosForSupplier({ businessId, supplierIds }) {
       if (!supplierIds.length) return [];
+      const placeholders = sql.join(supplierIds.map((id) => sql`${id}`), sql.raw(','));
       const rows = await db
         .select()
         .from(purchaseOrders)
         .where(and(
           eq(purchaseOrders.businessId, businessId),
-          sql`${purchaseOrders.supplierId} in (${sql.join(supplierIds.map((id) => sql`${id}`), sql.raw(','))})`,
+          sql`${purchaseOrders.supplierId} in (${placeholders})`,
         ))
         .all();
       return rows as unknown as PoRow[];
@@ -160,7 +184,8 @@ export function drizzleRepos(env: Env): AiRepos {
         .select({ total: sql<number>`sum(${purchaseOrderItems.quantity} * ${purchaseOrderItems.unitPriceCents})` })
         .from(purchaseOrderItems)
         .innerJoin(purchaseOrders, eq(purchaseOrders.id, purchaseOrderItems.purchaseOrderId))
-        .innerJoin(products, eq(products.id, purchaseOrderItems.productId))
+        .innerJoin(supplierProducts, eq(supplierProducts.id, purchaseOrderItems.supplierProductId))
+        .innerJoin(products, eq(products.id, supplierProducts.productId))
         .where(and(eq(purchaseOrders.businessId, businessId), ne(purchaseOrders.status, 'cancelled'), gte(purchaseOrders.createdAt, sinceMs), like(sql`lower(${products.name})`, `%${productName.toLowerCase()}%`)))
         .get();
       return Number(row?.total ?? 0) || 0;
@@ -198,8 +223,11 @@ export function drizzleRepos(env: Env): AiRepos {
         const offers = await this.listOffersByProduct(item.productId);
         const live = offers.filter((o) => o.availabilityStatus !== 'out_of_stock');
         if (!live.length) continue;
-        const cheapest = live.reduce((m, o) => (o.priceCents < m.priceCents ? o : m), live[0]);
-        if (cheapest.priceCents >= item.unitPriceCents) continue;
+        const cheapest = live.reduce<typeof live[number] | undefined>((m, o) => {
+          if (!m) return o;
+          return o.priceCents < m.priceCents ? o : m;
+        }, undefined);
+        if (!cheapest || cheapest.priceCents >= item.unitPriceCents) continue;
         const productRow = await db
           .select({ name: products.name })
           .from(products)
@@ -228,21 +256,26 @@ export function drizzleRepos(env: Env): AiRepos {
     async priceChangeMovers({ businessId, sinceMs }) {
       const items = await this.listRecentPoItems({ businessId, sinceMs });
       const byProd = new Map<string, Array<{ price: number; ts: number; name: string }>>();
+      const nameCache = new Map<string, string>();
       for (const it of items) {
+        let name = nameCache.get(it.productId);
+        if (!name) {
+          const r = await db.select({ name: products.name }).from(products).where(eq(products.id, it.productId)).get();
+          name = r?.name ?? '—';
+          nameCache.set(it.productId, name);
+        }
         const arr = byProd.get(it.productId) ?? [];
-        const productRow = await db.select({ name: products.name }).from(products).where(eq(products.id, it.productId)).get();
-        arr.push({ price: it.unitPriceCents, ts: it.createdAt, name: productRow?.name ?? '—' });
+        arr.push({ price: it.unitPriceCents, ts: it.createdAt, name });
         byProd.set(it.productId, arr);
       }
       const movers: Array<{ productName: string; from: number; to: number; pct: number }> = [];
       for (const [, arr] of byProd) {
         arr.sort((a, b) => a.ts - b.ts);
-        if (arr.length < 2) continue;
-        const from = arr[0].price;
-        const to = arr[arr.length - 1].price;
-        if (from === 0) continue;
-        const pct = Math.round(((to - from) / from) * 100);
-        movers.push({ productName: arr[arr.length - 1].name, from, to, pct });
+        const first = arr[0];
+        const last = arr[arr.length - 1];
+        if (!first || !last || arr.length < 2 || first.price === 0) continue;
+        const pct = Math.round(((last.price - first.price) / first.price) * 100);
+        movers.push({ productName: last.name, from: first.price, to: last.price, pct });
       }
       movers.sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct));
       return movers;

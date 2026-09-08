@@ -16,8 +16,8 @@ export async function deliveryEstimateHandler(ctx: IntentContext, repos: AiRepos
     };
   }
   const list = await repos.listSupplierProducts({
-    productName: name || undefined,
-    supplierName: supplier || undefined,
+    ...(name ? { productName: name } : {}),
+    ...(supplier ? { supplierName: supplier } : {}),
     active: true,
   });
   if (name && !list.length) {

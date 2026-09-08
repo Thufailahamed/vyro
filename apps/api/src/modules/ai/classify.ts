@@ -3,9 +3,9 @@ import {
   heuristicClassify,
   buildClassifyMessages,
   type ClassifyResult,
-  type AIProvider,
   type AiDictionary,
 } from '@vyro/ai';
+import type { AIProvider } from './provider/types';
 
 export interface ClassifyContext {
   businessName: string;

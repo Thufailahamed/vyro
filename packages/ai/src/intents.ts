@@ -42,7 +42,9 @@ function inferQuantity(text: string): { quantity?: number; unit?: string } {
     unit === 'packs' ? 'pack' :
     unit === 'pcs' || unit === 'pieces' ? 'pc' :
     unit;
-  return { quantity, unit: norm };
+  const out: { quantity?: number; unit?: string } = { quantity };
+  if (norm) out.unit = norm;
+  return out;
 }
 
 export function heuristicClassify(text: string, dict: AiDictionary): ClassifyResult {

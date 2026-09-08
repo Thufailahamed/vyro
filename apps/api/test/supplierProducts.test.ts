@@ -47,6 +47,10 @@ vi.mock('@vyro/db/schema', () => ({
   suppliers: { name: 'suppliers' },
   supplierMembers: { name: 'supplier_members' },
   auditLogs: { name: 'audit_logs' },
+  supplierProducts: { name: 'supplier_products' },
+  products: { name: 'products' },
+  purchaseOrders: { name: 'purchase_orders' },
+  purchaseOrderItems: { name: 'purchase_order_items' },
 }));
 
 vi.mock('../src/modules/suppliers/service', () => ({

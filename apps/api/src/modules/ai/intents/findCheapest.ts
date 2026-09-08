@@ -46,7 +46,7 @@ export async function findCheapestHandler(ctx: IntentContext, repos: AiRepos): P
       rawSummary: {},
     };
   }
-  const best = live[0];
+  const best = live[0]!;
   return {
     components: [{
       type: 'recommendation_card',
