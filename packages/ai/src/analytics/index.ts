@@ -8,3 +8,4 @@ export * from './insights';
 export * from './budget';
 export * from './why';
 export * from './simulator';
+export * from './categorize';
