@@ -194,6 +194,21 @@ router.get('/insights', session(), async (c) => {
   return c.json(await buildInsightsPayload(drizzleRepos(c.env), businessId, limit));
 });
 
+router.get('/cart-hints', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const businessId = c.req.query('businessId') ?? ctx.businesses[0]?.businessId;
+  if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
+  // Viewer can read; only owner/manager/staff/purchasing can mutate cart.
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  const { loadCartHintInputs, loadAvgWeeklySpendCents, buildCartHints } = await import('./cartHints');
+  const { drizzleRepos } = await import('./intents/drizzleRepos');
+  const lines = await loadCartHintInputs(c.env, businessId).catch(() => []);
+  const avgSpend = await loadAvgWeeklySpendCents(c.env, businessId).catch(() => 0);
+  const hints = await buildCartHints(drizzleRepos(c.env), lines, avgSpend);
+  return c.json({ hints });
+});
+
 router.get('/suggestions', session(), async (c) => {  const ctx = c.get('ctx') as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = ctx.businesses[0]?.businessId;

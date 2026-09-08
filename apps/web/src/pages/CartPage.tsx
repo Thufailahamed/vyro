@@ -25,6 +25,7 @@ import {
 } from '@/components/icons';
 import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, Surface } from '@/components/brand/Surface';
+import { CartHintsBanner } from '@/ai/CartHintsBanner';
 
 interface TierRef {
   minQty: number;
@@ -268,6 +269,7 @@ export function CartPage() {
         <div className="grid lg:grid-cols-[1fr_340px] gap-8 items-start">
           {/* Left Column: Supplier PO Draft Cards */}
           <div className="space-y-6">
+            <CartHintsBanner businessId={businessId} />
             {Array.from(grouped.entries()).map(([supplierName, { supplier, lines }], idx) => {
               const poNumber = `PO-${String(idx + 1).padStart(2, '0')}`;
               const sub = lines.reduce((a, b) => a + b.lineTotalCents, 0);
