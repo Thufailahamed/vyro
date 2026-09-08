@@ -1,0 +1,10 @@
+DROP INDEX IF EXISTS category_mappings_business_pattern_idx;
+DROP INDEX IF EXISTS category_mappings_business_idx;
+DROP TABLE IF EXISTS category_mappings;
+DROP INDEX IF EXISTS invoice_line_items_category_idx;
+DROP INDEX IF EXISTS invoice_line_items_business_cat_idx;
+DROP INDEX IF EXISTS invoice_line_items_upload_idx;
+DROP TABLE IF EXISTS invoice_line_items;
+DROP INDEX IF EXISTS invoice_uploads_status_idx;
+DROP INDEX IF EXISTS invoice_uploads_business_idx;
+DROP TABLE IF EXISTS invoice_uploads;
