@@ -8,6 +8,11 @@ import { supplierRecommendHandler } from './supplierRecommend';
 import { spendSummaryHandler } from './spendSummary';
 import { productSpendHandler } from './productSpend';
 import { supplierSpendHandler } from './supplierSpend';
+import { savingsHandler } from './savings';
+import { usualOrderHandler } from './usualOrder';
+import { reorderHandler } from './reorder';
+import { priceChangesHandler } from './priceChanges';
+import { deliveryEstimateHandler } from './deliveryEstimate';
 
 export interface IntentContext {
   env: Env;
@@ -34,10 +39,10 @@ export const HANDLERS: Record<ClassifyResult['intent'], Handler> = {
   spend_summary: spendSummaryHandler,
   product_spend: productSpendHandler,
   supplier_spend: supplierSpendHandler,
-  savings: stub,
-  usual_order: stub,
-  reorder: stub,
-  price_changes: stub,
-  delivery_estimate: stub,
+  savings: savingsHandler,
+  usual_order: usualOrderHandler,
+  reorder: reorderHandler,
+  price_changes: priceChangesHandler,
+  delivery_estimate: deliveryEstimateHandler,
   clarify: stub,
 };

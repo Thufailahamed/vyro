@@ -91,19 +91,15 @@ export function mockRepos(input: {
         if (!offersForProd.length) continue;
         const cheapest = offersForProd.reduce((m, o) => (o.priceCents < m.priceCents ? o : m), offersForProd[0]);
         if (cheapest.priceCents >= it.unitPriceCents) continue;
+        const product = products.find((p) => p.id === it.productId);
         out.push({
-          productName: productByName((await Promise.resolve()).valueOf?.() ?? '')?.name ?? (it as any).productName ?? '—',
+          productName: product?.name ?? '—',
           currentSupplierName: supplierName(it.supplierId),
           currentPriceCents: it.unitPriceCents,
           alternativeSupplierName: cheapest.supplier.name,
           alternativePriceCents: cheapest.priceCents,
           savingCents: it.unitPriceCents - cheapest.priceCents,
         });
-      }
-      // Resolve productName from seed
-      for (const o of out) {
-        const p = products.find((pp) => poItems.find((it) => it.productId === pp.id && it.unitPriceCents === o.currentPriceCents));
-        if (p) o.productName = p.name;
       }
       return out;
     },
