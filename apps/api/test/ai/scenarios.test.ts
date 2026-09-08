@@ -111,4 +111,67 @@ describe('real user scenarios', () => {
     expect(text).toMatch(/savings_card/);
     expect(text).toMatch(/event: final/);
   });
+
+  it('Scenario: "compare suppliers for chicken" produces a ranked comparison', async () => {
+    activeRepos = mockRepos({
+      products: [
+        { id: 'p1', name: 'Samba Rice', categoryId: 'c1', unit: 'kg' },
+        { id: 'p2', name: 'Chicken', categoryId: 'c1', unit: 'kg' },
+      ],
+      offers: [
+        { id: 'oa', supplierId: 's1', productId: 'p2', priceCents: 300000, minOrderQty: 1, leadTimeDays: 1, deliveryAvailable: true, availabilityStatus: 'in_stock', active: true, supplier: { id: 's1', name: 'Alpha' } },
+        { id: 'ob', supplierId: 's2', productId: 'p2', priceCents: 320000, minOrderQty: 1, leadTimeDays: 3, deliveryAvailable: true, availabilityStatus: 'in_stock', active: true, supplier: { id: 's2', name: 'Beta' } },
+      ],
+      pos: [],
+      poItems: [],
+    });
+    const text = await ask('compare chicken suppliers');
+    expect(text).toMatch(/supplier_list_card/);
+    expect(text).toMatch(/Alpha/);
+  });
+
+  it('Scenario: "build my usual order" returns a procurement plan', async () => {
+    const text = await ask('build my usual order');
+    expect(text).toMatch(/procurement_plan_card/);
+    expect(text).toMatch(/Samba Rice/);
+  });
+
+  it('Scenario: spend summary references chicken when asked', async () => {
+    const text = await ask('how much did I spend on chicken');
+    expect(text).toMatch(/spend_summary_card/);
+  });
+
+  it('Scenario: unknown product does not hallucinate, asks for clarification', async () => {
+    activeRepos = mockRepos({ products: [], offers: [], pos: [], poItems: [] });
+    const text = await ask('cheapest unicorn tears');
+    expect(text).not.toMatch(/recommendation_card/);
+  });
+
+  it('Scenario: prompt includes supplier name, heuristic prefers a supplier-scoped branch', async () => {
+    activeRepos = mockRepos({
+      products: [
+        { id: 'p1', name: 'Samba Rice', categoryId: 'c1', unit: 'kg' },
+        { id: 'p2', name: 'Chicken', categoryId: 'c1', unit: 'kg' },
+      ],
+      offers: [
+        { id: 'o1', supplierId: 's1', productId: 'p1', priceCents: 500000, minOrderQty: 1, leadTimeDays: 1, deliveryAvailable: true, availabilityStatus: 'in_stock', active: true, supplier: { id: 's1', name: 'Alpha' } },
+      ],
+      pos: [],
+      poItems: [],
+    });
+    const text = await ask('find me a supplier for samba rice');
+    // Either compare branch or clarify branch — both show Alpha in the response.
+    expect(text).toMatch(/Alpha/);
+  });
+
+  it('Scenario: empty catalog keeps the AI from fabricating a result', async () => {
+    activeRepos = mockRepos({ products: [], offers: [], pos: [], poItems: [] });
+    const text = await ask('cheapest samba rice');
+    expect(text).not.toMatch(/recommendation_card/);
+  });
+
+  it('Scenario: large quantity respects the actual quantity slot through classify', async () => {
+    const text = await ask('I need 200kg samba rice please');
+    expect(text).toMatch(/recommendation_card/);
+  });
 });

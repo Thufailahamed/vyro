@@ -203,6 +203,7 @@ export async function* orchestrate(
     ok, ...(errorCode ? { errorCode } : {}),
     requestId, slots, toolName: intentName,
     tokensIn, tokensOut,
+    ...(ctx.role ? { role: ctx.role } : {}),
   });
   recordAiMetric(env, {
     businessId: ctx.businessId, userId: ctx.userId, intent: intentName,

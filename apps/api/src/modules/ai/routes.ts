@@ -12,6 +12,7 @@ import { assertAiEnabled } from './guard';
 import { loadDictionary } from './dictionary';
 import { getDb } from '@vyro/db';
 import { auditLogs } from '@vyro/db/schema';
+import { summarizeAiCost } from './cost';
 import { sql } from 'drizzle-orm';
 import type { Ctx } from '../../middleware/session';
 import type { Env } from '../../env';
@@ -234,30 +235,47 @@ aiAdminRouter.use('*', session(), async (c, next) => {
 });
 
 aiAdminRouter.get('/usage', async (c) => {
-  const days = Math.min(Number(c.req.query('days') ?? 7), 30);
+  const days = Math.min(Number(c.req.query('days') ?? 7), 90);
+  const businessId = c.req.query('businessId');
+  const fromMsRaw = c.req.query('fromMs');
+  const toMsRaw = c.req.query('toMs');
+  const toMs = toMsRaw ? Math.min(Math.max(Number(toMsRaw), 0), Date.now() + 86400000) : Date.now();
+  const fromMs = fromMsRaw ? Math.max(Number(fromMsRaw), 0) : toMs - days * 86400000;
   const db = getDb(c.env.DB);
-  const since = Date.now() - days * 86400000;
+  const baseWhere = [
+    sql`${auditLogs.action} = 'ai.request'`,
+    sql`${auditLogs.createdAt} >= ${fromMs}`,
+    sql`${auditLogs.createdAt} < ${toMs}`,
+  ];
+  if (businessId) baseWhere.push(sql`json_extract(${auditLogs.metadata}, '$.businessId') = ${businessId}`);
+  const whereClause = sql.join(baseWhere, sql.raw(' AND '));
   const logs = auditLogs as any;
   const rows = await db
     .select({
-      intent: logs.intent,
+      intent: sql<string>`json_extract(metadata,'$.intent')`,
       latency: sql<number>`cast(json_extract(metadata,'$.latencyMs') as integer)`,
       ok: sql<number>`cast(json_extract(metadata,'$.ok') as integer)`,
       provider: sql<string>`json_extract(metadata,'$.provider')`,
       errorCode: sql<string>`json_extract(metadata,'$.errorCode')`,
+      tokensIn: sql<number>`cast(coalesce(json_extract(metadata,'$.tokensIn'), 0) as integer)`,
+      tokensOut: sql<number>`cast(coalesce(json_extract(metadata,'$.tokensOut'), 0) as integer)`,
     })
     .from(auditLogs)
-    .where(sql`${auditLogs.action} = 'ai.request' and ${auditLogs.createdAt} >= ${since}`)
+    .where(whereClause)
     .all();
   const counts = new Map<string, number>();
   const providers = new Map<string, number>();
   const errors = new Map<string, number>();
   let totalLatency = 0;
+  let tokensIn = 0;
+  let tokensOut = 0;
   let failed = 0;
   for (const r of rows) {
     const key = r.intent ?? 'unknown';
     counts.set(key, (counts.get(key) ?? 0) + 1);
     totalLatency += Number(r.latency ?? 0);
+    tokensIn += Number(r.tokensIn ?? 0);
+    tokensOut += Number(r.tokensOut ?? 0);
     providers.set(String(r.provider ?? 'unknown'), (providers.get(String(r.provider ?? 'unknown')) ?? 0) + 1);
     if (Number(r.ok) !== 1) {
       failed++;
@@ -265,15 +283,25 @@ aiAdminRouter.get('/usage', async (c) => {
       errors.set(e, (errors.get(e) ?? 0) + 1);
     }
   }
+  let cost: unknown = null;
+  if (businessId) {
+    cost = await summarizeAiCost(c.env, { businessId, fromMs, toMs });
+  }
   return c.json({
     days,
+    fromMs,
+    toMs,
     totalRequests: rows.length,
     failedRequests: failed,
     failureRate: rows.length ? Math.round((failed / rows.length) * 1000) / 1000 : 0,
     avgLatencyMs: rows.length ? Math.round(totalLatency / rows.length) : 0,
+    tokensIn,
+    tokensOut,
+    costEstimateUsd: Math.round((tokensIn * 0.00002 + tokensOut * 0.00006) * 100) / 100,
     byIntent: [...counts.entries()].map(([intent, count]) => ({ intent, count })),
     byProvider: [...providers.entries()].map(([provider, count]) => ({ provider, count })),
     byError: [...errors.entries()].map(([code, count]) => ({ code, count })),
+    ...(cost ? { cost } : {}),
   });
 });
 

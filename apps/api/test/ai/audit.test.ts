@@ -19,7 +19,11 @@ describe('buildAiAuditRow', () => {
       },
       1700000000000,
     );
-    expect(row.intent).toBe('find_cheapest');
+    const meta = JSON.parse(row.metadata);
+    expect(meta.intent).toBe('find_cheapest');
+    expect(meta.businessId).toBe('b1');
+    expect(meta.tokensIn).toBe(10);
+    expect(meta.tokensOut).toBe(4);
     expect(row.actorUserId).toBe('u1');
     expect(row.action).toBe('ai.request');
     expect(row.resourceType).toBe('ai_request');
@@ -28,8 +32,6 @@ describe('buildAiAuditRow', () => {
     expect(row.ip).toBeNull();
     expect(row.userAgent).toBeNull();
     expect(typeof row.id).toBe('string');
-
-    const meta = JSON.parse(row.metadata);
     expect(meta.provider).toBe('workersAI');
     expect(meta.model).toBe('@cf/meta/llama-3.1-8b-instruct-fast');
     expect(meta.ok).toBe(true);

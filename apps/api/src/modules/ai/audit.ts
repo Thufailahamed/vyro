@@ -16,6 +16,8 @@ export interface AiAuditEntry {
   requestId: string;
   slots?: Record<string, unknown>;
   toolName?: string;
+  /** Optional coarse role classification of the requesting user. */
+  role?: 'admin' | 'member' | 'viewer';
 }
 
 export interface AiAuditRow {
@@ -28,7 +30,6 @@ export interface AiAuditRow {
   ip: null;
   userAgent: null;
   createdAt: number;
-  intent: string;
 }
 
 /**
@@ -41,9 +42,14 @@ export function buildAiAuditRow(entry: AiAuditEntry, now: number = Date.now()): 
   const metadata: Record<string, unknown> = {
     provider: entry.provider,
     model: entry.model,
+    intent: entry.intent,
     latencyMs: entry.latencyMs,
     ok: entry.ok,
   };
+  if (entry.businessId) metadata.businessId = entry.businessId;
+  if (typeof entry.tokensIn === 'number' && entry.tokensIn > 0) metadata.tokensIn = entry.tokensIn;
+  if (typeof entry.tokensOut === 'number' && entry.tokensOut > 0) metadata.tokensOut = entry.tokensOut;
+  if (entry.role) metadata.role = entry.role;
   if (entry.errorCode) metadata.errorCode = entry.errorCode;
   if (entry.toolName) metadata.toolName = entry.toolName;
   if (entry.slots) metadata.slotKeys = Object.keys(entry.slots);
@@ -57,7 +63,6 @@ export function buildAiAuditRow(entry: AiAuditEntry, now: number = Date.now()): 
     ip: null,
     userAgent: null,
     createdAt: now,
-    intent: entry.intent,
   };
 }
 
