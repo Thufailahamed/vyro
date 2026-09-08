@@ -67,6 +67,7 @@ import adminExportSchedulesRouter from './modules/admin/audit/exportSchedulesRou
 import businessAnalyticsRouter from './modules/analytics/business/routes';
 import homeRouter from './modules/home/routes';
 import cspReportRouter from './modules/cspReport/routes';
+import documentsRouter from './modules/documents/routes';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -164,5 +165,6 @@ app.route('/api/admin/ai', aiAdminRouter);
 app.route('/api/analytics/business', businessAnalyticsRouter);
 app.route('/api/home', homeRouter);
 app.route('/api/csp-report', cspReportRouter);
+app.route('/api/documents', documentsRouter);
 
 export default app;
