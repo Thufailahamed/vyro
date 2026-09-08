@@ -143,7 +143,7 @@ router.get('/me', async (c) => {
   if (!session) throw httpError(401, 'UNAUTHORIZED', 'No active session');
   const ctx = await loadSessionContext(c.env.DB, session.user.id);
   const isAdmin = Boolean(ctx?.isAdmin || (session.user as any)?.isPlatformAdmin);
-  const adminRole = ctx?.adminRole ?? null;
+  const adminRole = ctx?.adminRole ?? (isAdmin ? 'super_admin' : null);
   return c.json({
     user: {
       ...session.user,

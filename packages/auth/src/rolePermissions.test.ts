@@ -58,11 +58,15 @@ describe('rolePermissions', () => {
     expect(hasPermission('finance', 'payout:approve')).toBe(true);
     expect(hasPermission('ops', 'payout:approve')).toBe(false);
     expect(hasPermission(null, 'user:suspend')).toBe(false);
+    expect(hasPermission(undefined, 'user:suspend')).toBe(false);
+    expect(hasPermission('admin' as any, 'user:suspend')).toBe(true);
+    expect(hasPermission('unknown_role' as any, 'user:suspend')).toBe(false);
   });
   it('isAdminRole narrows correctly', () => {
     expect(isAdminRole('super_admin')).toBe(true);
     expect(isAdminRole('made_up')).toBe(false);
     expect(isAdminRole(null)).toBe(false);
+    expect(isAdminRole(undefined)).toBe(false);
   });
   it('matrix is internally consistent: every role references valid Permission keys', () => {
     const valid: ReadonlySet<string> = ALL_PERMISSIONS;

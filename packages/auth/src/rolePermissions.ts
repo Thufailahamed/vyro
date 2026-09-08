@@ -83,11 +83,14 @@ export const INVITABLE_ROLES: Readonly<Record<AdminRole, readonly AdminRole[]>> 
   support: [],
 });
 
-export function hasPermission(role: AdminRole | null, perm: Permission): boolean {
+export function hasPermission(role: AdminRole | null | string | undefined, perm: Permission): boolean {
   if (!role) return false;
-  return ROLE_PERMISSIONS[role].has(perm);
+  const normalized = role === 'admin' ? 'super_admin' : role;
+  if (!isAdminRole(normalized)) return false;
+  return ROLE_PERMISSIONS[normalized].has(perm);
 }
 
-export function isAdminRole(s: string | null): s is AdminRole {
-  return s !== null && (ADMIN_ROLES as readonly string[]).includes(s);
+export function isAdminRole(s: string | null | undefined): s is AdminRole {
+  return typeof s === 'string' && (ADMIN_ROLES as readonly string[]).includes(s);
 }
+

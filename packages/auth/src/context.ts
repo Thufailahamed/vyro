@@ -49,7 +49,8 @@ export async function loadSessionContext(
     )
     .all();
 
-  const adminRole = (user as { adminRole?: string | null }).adminRole ?? null;
+  const rawRole = (user as { adminRole?: string | null }).adminRole ?? null;
+  const adminRole = rawRole === 'admin' ? 'super_admin' : rawRole;
   return {
     userId: user.id,
     email: user.email,
