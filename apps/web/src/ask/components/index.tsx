@@ -480,3 +480,32 @@ export function renderComponent(env: ComponentEnvelope, idx: number, onPick?: (o
   }
   return null;
 }
+
+/**
+ * MetricTile: small numeric readout for dashboards. Neutral language; never
+ * labels a value as "AI performance" — these are operational counters.
+ */
+export function MetricTile({
+  kicker,
+  value,
+  suffix,
+}: {
+  kicker: string;
+  value: string;
+  suffix?: string;
+}) {
+  return (
+    <div className="border border-ink/15 bg-paper p-3 shadow-xs">
+      <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-ink-3">
+        {kicker}
+      </div>
+      <div className="mt-1 flex items-baseline gap-1.5">
+        <span className="vyro-metric text-2xl text-ink tabular-nums">{value}</span>
+        {suffix && (
+          <span className="text-[10px] font-mono text-ink-3">{suffix}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+

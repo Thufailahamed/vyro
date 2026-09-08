@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useVyroAI } from './hooks/useVyroAI';
-import { renderComponent, ToolTimeline } from './components';
+import { renderComponent, ToolTimeline, MetricTile } from './components';
 import { FeedbackButtons } from './components/FeedbackButtons';
 import { PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
@@ -92,6 +92,29 @@ export function AskPage() {
     return '';
   })();
 
+  // Session-level aggregate for the metric tile grid. Honest scope:
+  // reflects the current Ask session only, not the day's tenant totals.
+  const sessionMetrics = (() => {
+    const assistantTurns = state.turns.filter((t) => t.role === 'assistant');
+    const completed = assistantTurns.filter((t) => t.meta && !t.error);
+    const latencies = completed.map((t) => t.meta!.latencyMs);
+    const totalLatency = latencies.reduce((a, b) => a + b, 0);
+    const avgLatencyMs = latencies.length ? Math.round(totalLatency / latencies.length) : 0;
+    const successRate = assistantTurns.length
+      ? completed.length / assistantTurns.length
+      : 0;
+    const tokensIn = completed.reduce((a, t) => a + (t.meta?.tokensIn ?? 0), 0);
+    const tokensOut = completed.reduce((a, t) => a + (t.meta?.tokensOut ?? 0), 0);
+    // Approx USD: 0.02/1k in + 0.06/1k out (Workers AI class model).
+    const costUsd = (tokensIn / 1000) * 0.02 + (tokensOut / 1000) * 0.06;
+    return {
+      turns: completed.length,
+      avgLatencyMs,
+      successRate,
+      costUsd: Math.round(costUsd * 100) / 100,
+    };
+  })();
+
   return (
     <div className="mx-auto max-w-4xl px-4 pb-16 pt-6 space-y-8">
       {/* Executive Page Header */}
@@ -130,6 +153,35 @@ export function AskPage() {
           )
         }
       />
+
+      {/* Session Metrics Tile Grid — only meaningful after first turn */}
+      {sessionMetrics.turns > 0 && (
+        <div
+          className="grid grid-cols-2 sm:grid-cols-4 gap-3"
+          data-testid="session-metrics"
+        >
+          <MetricTile
+            kicker="Session"
+            value={sessionMetrics.turns.toString()}
+            suffix={sessionMetrics.turns === 1 ? 'request' : 'requests'}
+          />
+          <MetricTile
+            kicker="Avg latency"
+            value={sessionMetrics.avgLatencyMs.toString()}
+            suffix="ms"
+          />
+          <MetricTile
+            kicker="Success"
+            value={`${Math.round(sessionMetrics.successRate * 100)}`}
+            suffix="%"
+          />
+          <MetricTile
+            kicker="Session cost"
+            value={`$${sessionMetrics.costUsd.toFixed(2)}`}
+            suffix="approx"
+          />
+        </div>
+      )}
 
       {/* Empty State: Centered Hero Command Console & Intelligence Deck */}
       {state.turns.length === 0 && (
