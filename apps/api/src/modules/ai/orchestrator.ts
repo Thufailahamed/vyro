@@ -187,6 +187,14 @@ export async function* orchestrate(
     }
 
     yield encodeEvent('final', { summary: narration, actions });
+    yield encodeEvent('meta', {
+      provider: providerName,
+      model: modelName,
+      latencyMs: Date.now() - started,
+      tokensIn,
+      tokensOut,
+      intent: classifyResult.intent,
+    });
   } catch (err) {
     ok = false;
     errorCode = 'AI_UNAVAILABLE';

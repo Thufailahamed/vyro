@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useVyroAI } from './hooks/useVyroAI';
 import { renderComponent, ToolTimeline } from './components';
+import { PageHeader } from '@/components/ui';
 
 export function AskPage() {
-  const { state, send, clear } = useVyroAI();
+  const { state, send, clear, regenerate } = useVyroAI();
   const [prompt, setPrompt] = useState('');
   const [suggestions, setSuggestions] = useState<Array<{ kind: 'product' | 'intent'; label: string; payload: string }>>([
     { kind: 'intent', label: 'Find my cheapest suppliers', payload: 'find cheapest suppliers' },
@@ -35,31 +36,31 @@ export function AskPage() {
     await send(text);
   };
 
+  const lastUserPrompt = (() => {
+    for (let i = state.turns.length - 1; i >= 0; i--) {
+      if (state.turns[i]!.role === 'user') return state.turns[i]!.text;
+    }
+    return '';
+  })();
+
   return (
     <div className="mx-auto max-w-3xl px-4 pb-16 pt-8">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">
-            VYRO Intelligence
-          </div>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">
-            Ask VYRO
-          </h1>
-          <p className="mt-1 max-w-xl text-sm leading-relaxed text-stone-600">
-            Your procurement expert — grounded in your real purchase history, current supplier
-            prices, and delivery options. It never guesses; every figure cites its source.
-          </p>
-        </div>
-        {state.turns.length > 0 && (
-          <button
-            type="button"
-            onClick={clear}
-            className="shrink-0 rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-600 hover:border-stone-900 hover:text-stone-900"
-          >
-            New chat
-          </button>
-        )}
-      </header>
+      <PageHeader
+        kicker="VYRO Intelligence"
+        title="Ask VYRO"
+        sub="Your procurement expert — grounded in your real purchase history, current supplier prices, and delivery options. It never guesses; every figure cites its source."
+        actions={
+          state.turns.length > 0 ? (
+            <button
+              type="button"
+              onClick={clear}
+              className="shrink-0 rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-600 hover:border-stone-900 hover:text-stone-900"
+            >
+              New chat
+            </button>
+          ) : null
+        }
+      />
 
       {state.turns.length === 0 && (
         <div className="mt-6 grid gap-2 sm:grid-cols-2">
@@ -79,7 +80,7 @@ export function AskPage() {
       )}
 
       <div className="mt-6 space-y-5" aria-live="polite">
-        {state.turns.map((turn) =>
+        {state.turns.map((turn, index) =>
           turn.role === 'user' ? (
             <div key={turn.id} className="flex justify-end">
               <div className="max-w-[85%] rounded-2xl rounded-br-md bg-stone-900 px-4 py-2.5 text-sm text-white">
@@ -95,6 +96,31 @@ export function AskPage() {
               )}
               {turn.tools.length > 0 && <ToolTimeline tools={turn.tools} />}
               {turn.components.map((c, i) => renderComponent(c, i, (opt) => submit(opt)))}
+              {turn.meta && (
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-wider text-stone-400">
+                  <div className="flex items-center gap-2">
+                    <span>{turn.meta.intent}</span>
+                    <span aria-hidden>·</span>
+                    <span>{turn.meta.provider}</span>
+                    <span aria-hidden>·</span>
+                    <span>{turn.meta.model.replace(/^@cf\/meta\//, '')}</span>
+                    <span aria-hidden>·</span>
+                    <span>{turn.meta.latencyMs}ms</span>
+                    <span aria-hidden>·</span>
+                    <span>{turn.meta.tokensIn + turn.meta.tokensOut} tok</span>
+                  </div>
+                  {index === state.turns.length - 1 && lastUserPrompt && (
+                    <button
+                      type="button"
+                      onClick={() => regenerate()}
+                      disabled={state.loading}
+                      className="rounded-full border border-stone-300 px-2.5 py-0.5 text-[10px] font-semibold normal-case tracking-wider text-stone-600 transition hover:border-stone-900 hover:text-stone-900 disabled:opacity-50"
+                    >
+                      Try again
+                    </button>
+                  )}
+                </div>
+              )}
               {turn.text && (
                 <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
                   <div className="whitespace-pre-wrap text-sm leading-relaxed text-stone-800">{turn.text}</div>

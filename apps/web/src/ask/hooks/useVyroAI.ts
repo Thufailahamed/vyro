@@ -37,6 +37,8 @@ export interface ChatTurn {
   actions: VyroAIAction[];
   tools: ToolEntry[];
   error?: { code: string; message: string };
+  /** Streaming run metadata captured at the end of each assistant turn. */
+  meta?: { provider: string; model: string; latencyMs: number; tokensIn: number; tokensOut: number; intent: string };
 }
 
 export interface VyroAIState {
@@ -57,6 +59,7 @@ type Action =
   | { type: 'final'; summary: string; actions: VyroAIAction[] }
   | { type: 'tool_call'; entry: ToolEntry }
   | { type: 'tool_result'; name: string; durationMs?: number; ok: boolean }
+  | { type: 'meta'; meta: NonNullable<ChatTurn['meta']> }
   | { type: 'turn_error'; code: string; message: string }
   | { type: 'done' }
   | { type: 'clear' };
@@ -98,6 +101,13 @@ function reducer(s: VyroAIState, a: Action): VyroAIState {
         t.name === a.name && a.durationMs !== undefined ? { ...t, durationMs: a.durationMs, ok: a.ok } : t,
       );
       turns[turns.length - 1] = { ...last, tools };
+      return { ...s, turns };
+    }
+    case 'meta': {
+      const turns = s.turns.slice();
+      const last = turns[turns.length - 1];
+      if (!last || last.role !== 'assistant') return s;
+      turns[turns.length - 1] = { ...last, meta: a.meta };
       return { ...s, turns };
     }
     case 'turn_error': {
@@ -229,6 +239,23 @@ export function useVyroAI() {
               dispatch({ type: 'turn_error', code: v.code, message: v.message });
               break;
             }
+            case 'meta': {
+              const v = json as { provider?: string; model?: string; latencyMs?: number; tokensIn?: number; tokensOut?: number; intent?: string };
+              if (typeof v.provider === 'string' && typeof v.model === 'string' && typeof v.latencyMs === 'number') {
+                dispatch({
+                  type: 'meta',
+                  meta: {
+                    provider: v.provider,
+                    model: v.model,
+                    latencyMs: v.latencyMs,
+                    tokensIn: Number(v.tokensIn ?? 0),
+                    tokensOut: Number(v.tokensOut ?? 0),
+                    intent: String(v.intent ?? ''),
+                  },
+                });
+              }
+              break;
+            }
           }
         } catch {
           // skip malformed frames
@@ -245,5 +272,15 @@ export function useVyroAI() {
     dispatch({ type: 'clear' });
   }, []);
 
-  return { state, send, clear };
+  const regenerate = useCallback(async () => {
+    for (let i = state.turns.length - 1; i >= 0; i--) {
+      const t = state.turns[i]!;
+      if (t.role === 'user') {
+        await send(t.text);
+        return;
+      }
+    }
+  }, [state.turns, send]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return { state, send, clear, regenerate };
 }
