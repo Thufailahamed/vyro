@@ -21,6 +21,8 @@ export const INTENT_NAMES = [
   'category_intel',
   'insights_feed',
   'clarify',
+  'procurement_plan',
+  'budget_optimize',
 ] as const;
 
 export type IntentName = (typeof INTENT_NAMES)[number];
@@ -51,6 +53,8 @@ const Slots = z.object({
   // clarify
   question: z.string().max(280).optional(),
   options: z.array(z.string().min(1).max(80)).max(4).optional(),
+  // budget_optimize
+  budgetCents: z.number().int().min(1).max(100000000).optional(),
 }).strict();
 
 export type SlotsByIntent = z.infer<typeof Slots>;
@@ -168,3 +172,26 @@ export type MetaEvent = z.infer<typeof MetaEventSchema>;
 export type ComponentEnvelope = z.infer<typeof ComponentEnvelopeSchema>;
 export type FinalEvent = z.infer<typeof FinalEventSchema>;
 export type Action = z.infer<typeof ActionSchema>;
+
+// Page context (caller-provided; orchestrator never trusts businessId inside).
+export const ContextSchema = z
+  .object({
+    page: z.enum(['product', 'supplier', 'cart', 'analytics', 'orders', 'other']),
+    productName: z.string().min(1).max(120).optional(),
+    productId: z.string().min(1).max(120).optional(),
+    supplierName: z.string().min(1).max(120).optional(),
+    cartLines: z
+      .array(
+        z
+          .object({
+            product: z.string().min(1).max(120),
+            quantity: z.number().int().min(1).max(100000),
+          })
+          .strict(),
+      )
+      .max(50)
+      .optional(),
+  })
+  .strict();
+
+export type PageContext = z.infer<typeof ContextSchema>;

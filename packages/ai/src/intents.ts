@@ -17,6 +17,9 @@ const SEARCH_RX = /\b(find|search|show me|list|look for|do you have)\b/i;
 const PROCURE_RX = /\b(need|needs|want|buy|order|get me|require|supply me)\b/i;
 const CHEAPEST_RX = /\b(cheapest|lowest prices?|best prices?|best deals?|lowest costs?)\b/i;
 const PERIOD_RX = /\b(this|last|past)\s+(week|month|quarter|year)\b/i;
+const PLANNER_RX = /\b(plan my procurement|weekly plan|plan.*this week|usual.*plan)\b/i;
+const BUDGET_RX = /\b(under rs|budget.*order|keep.*under|budget mode)\b/i;
+const BUDGET_AMOUNT_RX = /rs\.?\s?([\d,]+)/i;
 
 const WORD_NUMS: Record<string, number> = {
   one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8,
@@ -92,7 +95,13 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
   let intent: ClassifyResult['intent'] = 'clarify';
   let confidence = 0.3;
 
-  if (/\b(price watch|price drop|became cheaper|increased the most|what.*cheaper this week)\b/i.test(text)) {
+  if (PLANNER_RX.test(text)) {
+    intent = 'procurement_plan';
+    confidence = 0.75;
+  } else if (BUDGET_RX.test(text)) {
+    intent = 'budget_optimize';
+    confidence = 0.75;
+  } else if (/\b(price watch|price drop|became cheaper|increased the most|what.*cheaper this week)\b/i.test(text)) {
     intent = 'price_watch';
     confidence = 0.75;
   } else if (/\b(unusual price|overcharg|why.*expensive|price anomaly)\b/i.test(text)) {
@@ -195,6 +204,19 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
     slots.period = period;
   }
 
+  if (intent === 'budget_optimize') {
+    const amountMatch = text.match(BUDGET_AMOUNT_RX);
+    if (amountMatch && amountMatch[1]) {
+      const cents = Number(amountMatch[1].replace(/,/g, '')) * 100;
+      if (Number.isFinite(cents) && cents > 0) slots.budgetCents = cents;
+    }
+    slots.weeksBack = 8;
+  }
+  if (intent === 'procurement_plan') {
+    slots.weeksBack = 8;
+    slots.topNProducts = 10;
+  }
+
   let result: ClassifyResult = { intent, slots: slots as ClassifyResult['slots'], confidence };
   if (intent === 'clarify') {
     result = {
@@ -226,6 +248,7 @@ export const INTENT_ALLOWLIST_BY_ROLE = {
     'usual_order', 'reorder', 'price_changes', 'delivery_estimate',
     'price_watch', 'price_anomaly', 'supplier_intel', 'procurement_health',
     'spend_forecast', 'category_intel', 'insights_feed', 'clarify',
+    'procurement_plan', 'budget_optimize',
   ],
   member: [
     'search_products', 'find_cheapest', 'compare_suppliers', 'supplier_recommend',
@@ -233,6 +256,7 @@ export const INTENT_ALLOWLIST_BY_ROLE = {
     'usual_order', 'reorder', 'price_changes', 'delivery_estimate',
     'price_watch', 'price_anomaly', 'supplier_intel', 'procurement_health',
     'spend_forecast', 'category_intel', 'insights_feed', 'clarify',
+    'procurement_plan', 'budget_optimize',
   ],
   viewer: [
     'search_products', 'find_cheapest', 'compare_suppliers',
