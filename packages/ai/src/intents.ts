@@ -22,6 +22,8 @@ const BUDGET_RX = /\b(under rs|budget.*order|keep.*under|budget mode)\b/i;
 const BUDGET_AMOUNT_RX = /rs\.?\s?([\d,]+)/i;
 const SIMULATE_RX = /\b(what if (?:i|we) (?:switch|changed?)|simulate(?:d)?\s+(?:switch|supplier)|switching\s+supplier|switch\s+from\s+\w+\s+to\s+\w+|alternative supplier for)\b/i;
 const WHY_RX = /\b(why|why did|why is|reason|explain|what caused)\b/i;
+const CATEGORIZE_RX = /\b(categori[sz]e|classify|breakdown|group by category|spending by category)\b.*\b(expenses|spending|costs|outlays)\b/i;
+const CATEGORY_SLOT_RX = /\b(?:on|for|by)\s+(food|packaging|cleaning|office|equipment)\b/i;
 
 const WORD_NUMS: Record<string, number> = {
   one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8,
@@ -218,6 +220,27 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
     slots.weeksBack = 8;
     slots.topNProducts = 10;
   }
+  // Categorize expenses — fires on "categorize/breakdown/group by category"
+  // plus an expense noun. Also fires when user asks "what did I spend on food"
+  // (CATEGORY_SLOT_RX picks up the slug).
+  if (CATEGORIZE_RX.test(text)) {
+    intent = 'categorize_expenses';
+    confidence = Math.max(confidence, 0.7);
+  } else {
+    const cat = text.match(CATEGORY_SLOT_RX);
+    if (cat && cat[1] && /\b(spend|spent|cost|paid)\b/i.test(text)) {
+      intent = 'categorize_expenses';
+      confidence = Math.max(confidence, 0.6);
+      slots.categorySlug = cat[1];
+    }
+  }
+  if (intent === 'categorize_expenses') {
+    if (periodMatch && periodMatch[2]) {
+      slots.months = periodMatch[2].toLowerCase() === 'week' ? 1 : periodMatch[2].toLowerCase() === 'quarter' ? 3 : periodMatch[2].toLowerCase() === 'year' ? 12 : 1;
+    } else {
+      slots.months = 1;
+    }
+  }
   // Switch-simulation phrasing overrides broad intents (find_cheapest, savings,
   // compare_suppliers). Beats them when SIMULATE_RX matches.
   if (
@@ -271,6 +294,7 @@ export const INTENT_ALLOWLIST_BY_ROLE = {
     'price_watch', 'price_anomaly', 'supplier_intel', 'procurement_health',
     'spend_forecast', 'category_intel', 'insights_feed', 'clarify',
     'procurement_plan', 'budget_optimize', 'simulate_supplier_switch',
+    'categorize_expenses',
   ],
   member: [
     'search_products', 'find_cheapest', 'compare_suppliers', 'supplier_recommend',
@@ -279,6 +303,7 @@ export const INTENT_ALLOWLIST_BY_ROLE = {
     'price_watch', 'price_anomaly', 'supplier_intel', 'procurement_health',
     'spend_forecast', 'category_intel', 'insights_feed', 'clarify',
     'procurement_plan', 'budget_optimize', 'simulate_supplier_switch',
+    'categorize_expenses',
   ],
   viewer: [
     'search_products', 'find_cheapest', 'compare_suppliers',

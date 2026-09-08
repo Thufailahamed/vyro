@@ -1,4 +1,13 @@
-import type { CategoryMapping } from '@vyro/db/schema';
+/** Local minimal shape — decouples the rule engine from the DB package. */
+export interface CategoryMappingLike {
+  id: string;
+  businessId: string | null;
+  matchPattern: string;
+  categorySlug: string;
+  priority: number;
+  source: 'seed' | 'manual';
+  createdAt: number;
+}
 
 export type CategorySlug = 'food' | 'packaging' | 'cleaning' | 'office' | 'equipment' | 'other';
 
@@ -23,7 +32,7 @@ const DEFAULT_CATEGORY: CategorySlug = 'other';
  */
 export function categorizeItems(
   items: CategorizableItem[],
-  mappings: CategoryMapping[],
+  mappings: CategoryMappingLike[],
   businessId: string,
 ): CategorizedItem[] {
   return items.map((item) => {
@@ -59,7 +68,7 @@ export function buildManualMapping(input: {
   matchPattern: string;
   categorySlug: CategorySlug;
   createdAt: number;
-}): CategoryMapping {
+}): CategoryMappingLike {
   return {
     id: input.id,
     businessId: input.businessId,

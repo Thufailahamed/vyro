@@ -136,6 +136,8 @@ export interface AiRepos {
   lastBuyPrices(opts: { businessId: string; productId: string; limit: number }): Promise<number[]>;
   supplierLifecycle(opts: { businessId: string; sinceMs: number }): Promise<Array<{ supplierId: string; supplierName: string; total: number; accepted: number; rejected: number; cancelled: number; delivered: number }>>;
   categorySpend(opts: { businessId: string; sinceMs: number }): Promise<Array<{ category: string; totalCents: number }>>;
+  /** Categorized expense breakdown from reviewed invoice line items. */
+  expenseCategoryBreakdown(businessId: string, months: number): Promise<Array<{ slug: string | null; total: number }>>;
   monthlySpend(opts: { businessId: string; months: number }): Promise<number[]>;
   concentration(opts: { businessId: string; sinceMs: number }): Promise<Array<{ supplierId: string; supplierName: string; share: number }>>;
 }

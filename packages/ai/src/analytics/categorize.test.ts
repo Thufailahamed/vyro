@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { categorizeItems, buildManualMapping } from './categorize';
-import type { CategoryMapping } from '@vyro/db/schema';
+import { categorizeItems, buildManualMapping, type CategoryMappingLike } from './categorize';
 
-const mappings: CategoryMapping[] = [
+const mappings: CategoryMappingLike[] = [
   { id: 'g1', businessId: null, matchPattern: 'rice', categorySlug: 'food', priority: 10, source: 'seed', createdAt: 0 },
   { id: 'g2', businessId: null, matchPattern: 'carton', categorySlug: 'packaging', priority: 10, source: 'seed', createdAt: 0 },
   { id: 'g3', businessId: null, matchPattern: 'paper', categorySlug: 'office', priority: 10, source: 'seed', createdAt: 0 },
@@ -29,7 +28,7 @@ describe('categorizeItems', () => {
   });
 
   it('first matching pattern in priority order wins', () => {
-    const local: CategoryMapping[] = [
+    const local: CategoryMappingLike[] = [
       { id: 'b2', businessId: 'biz-3', matchPattern: 'rice', categorySlug: 'food', priority: 30, source: 'manual', createdAt: 0 },
       { id: 'b3', businessId: 'biz-3', matchPattern: 'rice', categorySlug: 'equipment', priority: 40, source: 'manual', createdAt: 0 },
     ];

@@ -24,6 +24,7 @@ export const INTENT_NAMES = [
   'procurement_plan',
   'budget_optimize',
   'simulate_supplier_switch',
+  'categorize_expenses',
 ] as const;
 
 export type IntentName = (typeof INTENT_NAMES)[number];
@@ -147,6 +148,7 @@ export const ActionSchema = z
       'view_cart',
       'view_orders',
       'view_analytics',
+      'view_invoices',
     ]),
     label: z.string().min(1).max(80),
     href: z.string().min(1).max(500),

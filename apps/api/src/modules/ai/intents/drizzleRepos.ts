@@ -7,6 +7,8 @@ import {
   suppliers,
   purchaseOrders,
   purchaseOrderItems,
+  invoiceLineItems,
+  invoiceUploads,
   auditLogs,
 } from '@vyro/db/schema';
 import { newId } from '@vyro/shared';
@@ -563,6 +565,27 @@ export function drizzleRepos(env: Env): AiRepos {
         .orderBy(sql`sum(${purchaseOrderItems.quantity} * ${purchaseOrderItems.unitPriceCents}) desc`)
         .all();
       return rows.map((r) => ({ category: r.category, totalCents: Number(r.total ?? 0) }));
+    },
+
+    async expenseCategoryBreakdown(businessId, months) {
+      const n = Math.min(Math.max(months, 1), 12);
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth() - n + 1, 1).getTime();
+      const rows = await db
+        .select({
+          slug: invoiceLineItems.categorySlug,
+          total: sql<number>`coalesce(sum(${invoiceLineItems.totalCents}), 0)`,
+        })
+        .from(invoiceLineItems)
+        .innerJoin(invoiceUploads, eq(invoiceUploads.id, invoiceLineItems.uploadId))
+        .where(and(
+          eq(invoiceLineItems.businessId, businessId),
+          eq(invoiceUploads.status, 'reviewed'),
+          gte(invoiceUploads.createdAt, start),
+        ))
+        .groupBy(invoiceLineItems.categorySlug)
+        .all();
+      return rows.map((r) => ({ slug: r.slug ?? null, total: Number(r.total ?? 0) }));
     },
 
     async monthlySpend({ businessId, months }) {

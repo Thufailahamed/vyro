@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { INTENT_ALLOWLIST_BY_ROLE, isIntentAllowed, INTENT_NAMES, type IntentName } from './index';
 
 describe('intent allowlist', () => {
-  it('exports 23 intents in INTENT_NAMES (13 base + 7 intel + 2 planner + 1 simulate)', () => {
-    expect(INTENT_NAMES.length).toBe(23);
+  it('exports 24 intents in INTENT_NAMES (13 base + 7 intel + 2 planner + 1 simulate + 1 doc intel)', () => {
+    expect(INTENT_NAMES.length).toBe(24);
   });
 
   it('admin can run any intent', () => {
