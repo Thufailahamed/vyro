@@ -1,10 +1,12 @@
 export interface Env {
   DB: D1Database;
   PRODUCTS: R2Bucket;
+  INVOICES: R2Bucket;
   CACHE: KVNamespace;
   ASSETS?: Fetcher;
   AUDIT_QUEUE: Queue;
   NOTIFICATIONS_QUEUE: Queue;
+  INVOICES_QUEUE: Queue;
   METRICS?: AnalyticsEngineDataset;
   ENVIRONMENT: string;
   WEB_ORIGIN: string;

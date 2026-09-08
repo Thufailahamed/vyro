@@ -23,6 +23,10 @@ migrations_dir = "../../packages/db/migrations"
 binding = "PRODUCTS"
 bucket_name = "vyro-products"
 
+[[r2_buckets]]
+binding = "INVOICES"
+bucket_name = "vyro-invoices"
+
 [[kv_namespaces]]
 binding = "CACHE"
 id = "5a6075baf1834db294abf12405ced2b8"
@@ -36,6 +40,10 @@ queue = "audit"
 binding = "NOTIFICATIONS_QUEUE"
 queue = "notifications"
 
+[[queues.producers]]
+binding = "INVOICES_QUEUE"
+queue = "invoices"
+
 [[queues.consumers]]
 queue = "audit"
 max_batch_size = 25
@@ -45,6 +53,11 @@ max_batch_timeout = 5
 queue = "notifications"
 max_batch_size = 25
 max_batch_timeout = 5
+
+[[queues.consumers]]
+queue = "invoices"
+max_batch_size = 10
+max_batch_timeout = 30
 
 [[analytics_engine_datasets]]
 binding = "METRICS"
@@ -91,6 +104,10 @@ database_id = "41f2e2e3-29b0-4b20-8e36-92314adcf914"
 binding = "PRODUCTS"
 bucket_name = "vyro-products"
 
+[[env.production.r2_buckets]]
+binding = "INVOICES"
+bucket_name = "vyro-invoices"
+
 [[env.production.kv_namespaces]]
 binding = "CACHE"
 id = "5a6075baf1834db294abf12405ced2b8"
@@ -103,6 +120,10 @@ queue = "audit"
 binding = "NOTIFICATIONS_QUEUE"
 queue = "notifications"
 
+[[env.production.queues.producers]]
+binding = "INVOICES_QUEUE"
+queue = "invoices"
+
 [[env.production.queues.consumers]]
 queue = "audit"
 max_batch_size = 25
@@ -112,6 +133,11 @@ max_batch_timeout = 5
 queue = "notifications"
 max_batch_size = 25
 max_batch_timeout = 5
+
+[[env.production.queues.consumers]]
+queue = "invoices"
+max_batch_size = 10
+max_batch_timeout = 30
 
 [[env.production.analytics_engine_datasets]]
 binding = "METRICS"
