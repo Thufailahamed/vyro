@@ -6,6 +6,7 @@ import {
   suppliers,
   purchaseOrders,
   purchaseOrderItems,
+  auditLogs,
 } from '@vyro/db/schema';
 import type { Env } from '../../../env';
 import type {
@@ -317,6 +318,42 @@ export function drizzleRepos(env: Env): AiRepos {
         for (const r of rows) out.set(r.id, r.name);
       }
       return out;
+    },
+
+    async topProductsLast30d({ businessId, limit }) {
+      const sinceMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      const rows = await db
+        .select({
+          name: purchaseOrderItems.productNameSnapshot,
+          count: sql<number>`count(*)`,
+        })
+        .from(purchaseOrderItems)
+        .innerJoin(purchaseOrders, eq(purchaseOrders.id, purchaseOrderItems.purchaseOrderId))
+        .where(and(eq(purchaseOrders.businessId, businessId), ne(purchaseOrders.status, 'cancelled'), gte(purchaseOrders.createdAt, sinceMs)))
+        .groupBy(purchaseOrderItems.productNameSnapshot)
+        .orderBy(sql`count(*) desc`)
+        .limit(limit)
+        .all();
+      return rows.map((r) => ({ name: r.name, count: Number(r.count) }));
+    },
+
+    async topIntentsLast30d({ businessId, limit }) {
+      // audit_logs is keyed on action='ai.request' + json_extract(metadata,'$.businessId')
+      const sinceMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      const rows = await db
+        .select({
+          intent: sql<string>`json_extract(metadata, '$.intent')`,
+          count: sql<number>`count(*)`,
+        })
+        .from(auditLogs)
+        .where(and(eq(auditLogs.action, 'ai.request'), gte(auditLogs.createdAt, sinceMs), sql`json_extract(${auditLogs.metadata}, '$.businessId') = ${businessId}`))
+        .groupBy(sql`json_extract(metadata, '$.intent')`)
+        .orderBy(sql`count(*) desc`)
+        .limit(limit)
+        .all();
+      return rows
+        .filter((r) => r.intent)
+        .map((r) => ({ intent: String(r.intent), count: Number(r.count) }));
     },
   };
 }

@@ -144,6 +144,24 @@ export function mockRepos(input: {
       }
       return out;
     },
+    async topProductsLast30d({ limit }: { businessId: string; limit: number }) {
+      const counts = new Map<string, number>();
+      for (const it of poItems) {
+        if (!it.productName) continue;
+        counts.set(it.productName, (counts.get(it.productName) ?? 0) + 1);
+      }
+      return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([name, count]) => ({ name, count }));
+    },
+    async topIntentsLast30d({ limit }: { businessId: string; limit: number }) {
+      return [
+        { intent: 'find_cheapest', count: 3 },
+        { intent: 'savings', count: 2 },
+        { intent: 'spend_summary', count: 1 },
+      ].slice(0, limit);
+    },
   };
 }
 

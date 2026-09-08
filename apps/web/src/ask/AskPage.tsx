@@ -6,12 +6,12 @@ import { renderComponent } from './components';
 export function AskPage() {
   const { state, send, clear } = useVyroAI();
   const [prompt, setPrompt] = useState('');
-  const [suggestions, setSuggestions] = useState<string[]>([
-    'Find my cheapest suppliers',
-    'Build my usual order',
-    'What should I reorder?',
-    'Where can I save?',
-    'How much did I spend this month?',
+  const [suggestions, setSuggestions] = useState<Array<{ kind: 'product' | 'intent'; label: string; payload: string }>>([
+    { kind: 'intent', label: 'Find my cheapest suppliers', payload: 'find cheapest suppliers' },
+    { kind: 'intent', label: 'Build my usual order', payload: 'build my usual order' },
+    { kind: 'intent', label: 'What should I reorder?', payload: 'what should I reorder' },
+    { kind: 'intent', label: 'Where can I save?', payload: 'where can I save' },
+    { kind: 'intent', label: 'How much did I spend this month?', payload: 'how much did I spend this month' },
   ]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -19,7 +19,7 @@ export function AskPage() {
     fetch('/api/ai/suggestions', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        const list = (d as { suggestions?: string[] } | null)?.suggestions;
+        const list = (d as { prompts?: Array<{ kind: 'product' | 'intent'; label: string; payload: string }> } | null)?.prompts;
         if (list?.length) setSuggestions(list);
       })
       .catch(() => undefined);
@@ -63,15 +63,15 @@ export function AskPage() {
 
       {state.turns.length === 0 && (
         <div className="mt-6 grid gap-2 sm:grid-cols-2">
-          {suggestions.map((s) => (
+          {suggestions.map((s, i) => (
             <button
-              key={s}
+              key={`${s.kind}-${i}`}
               type="button"
-              onClick={() => submit(s)}
+              onClick={() => submit(s.payload)}
               disabled={state.loading}
               className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-left text-sm font-medium text-stone-800 transition hover:border-stone-900 hover:shadow-sm disabled:opacity-50"
             >
-              {s}
+              {s.label}
               <span aria-hidden className="ml-2 text-stone-400">→</span>
             </button>
           ))}
@@ -132,14 +132,14 @@ export function AskPage() {
 
       {state.turns.length > 0 && !state.loading && (
         <div className="mt-4 flex flex-wrap gap-2">
-          {suggestions.slice(0, 4).map((s) => (
+          {suggestions.slice(0, 4).map((s, i) => (
             <button
-              key={s}
+              key={`followup-${i}`}
               type="button"
-              onClick={() => submit(s)}
+              onClick={() => submit(s.payload)}
               className="rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-700 hover:bg-stone-200"
             >
-              {s}
+              {s.label}
             </button>
           ))}
         </div>

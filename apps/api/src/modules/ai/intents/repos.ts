@@ -75,4 +75,8 @@ export interface AiRepos {
   listSupplierNames(limit?: number): Promise<string[]>;
   /** Batch-resolve product ids to display names. Missing ids are omitted. */
   productNamesByIds(ids: string[]): Promise<Map<string, string>>;
+  /** Top products purchased by the business in the last 30 days, ranked by line count. */
+  topProductsLast30d(opts: { businessId: string; limit: number }): Promise<Array<{ name: string; count: number }>>;
+  /** Top intents invoked by the business in the last 30 days, ranked by frequency. */
+  topIntentsLast30d(opts: { businessId: string; limit: number }): Promise<Array<{ intent: string; count: number }>>;
 }

@@ -92,16 +92,79 @@ router.post('/ask', session(), async (c) => {
 router.get('/suggestions', session(), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
-  return c.json({
-    suggestions: [
-      'Find my cheapest suppliers',
-      'Build my usual order',
-      'What should I reorder?',
-      'Where can I save?',
-      'How much did I spend this month?',
-    ],
-  });
+  const businessId = ctx.businesses[0]?.businessId;
+  if (!businessId) return c.json({ prompts: defaultSuggestions() });
+
+  // Lazy-import repos to avoid circulars
+  const { drizzleRepos } = await import('./intents/drizzleRepos');
+  const repos = drizzleRepos(c.env);
+  const [products, intents] = await Promise.all([
+    repos.topProductsLast30d({ businessId, limit: 3 }).catch(() => []),
+    repos.topIntentsLast30d({ businessId, limit: 3 }).catch(() => []),
+  ]);
+
+  const prompts = [
+    ...products.map((p) => ({
+      kind: 'product' as const,
+      label: `How is the price of ${p.name}?`,
+      payload: `Find best price for ${p.name}`,
+    })),
+    ...intents
+      .filter((i) => i.intent !== 'clarify')
+      .map((i) => ({
+        kind: 'intent' as const,
+        label: intentLabel(String(i.intent)),
+        payload: intentPrompt(String(i.intent)),
+      })),
+  ];
+
+  // Always offer at least the default starter prompts if data is empty.
+  return c.json({ prompts: prompts.length ? prompts : defaultSuggestions() });
 });
+
+function defaultSuggestions() {
+  return [
+    { kind: 'intent' as const, label: 'Find my cheapest suppliers', payload: 'find cheapest suppliers' },
+    { kind: 'intent' as const, label: 'Build my usual order', payload: 'build my usual order' },
+    { kind: 'intent' as const, label: 'What should I reorder?', payload: 'what should I reorder' },
+    { kind: 'intent' as const, label: 'Where can I save?', payload: 'where can I save' },
+    { kind: 'intent' as const, label: 'How much did I spend this month?', payload: 'how much did I spend this month' },
+  ];
+}
+
+function intentLabel(intent: string): string {
+  return ({
+    find_cheapest: 'Find cheapest supplier',
+    spend_summary: 'Show this month spending',
+    savings: 'Where can I save?',
+    usual_order: 'Build my usual order',
+    reorder: 'What should I reorder?',
+    price_changes: 'What prices moved?',
+    compare_suppliers: 'Compare suppliers',
+    delivery_estimate: 'Fastest delivery',
+    product_spend: 'Spending on this product',
+    supplier_spend: 'Spending with this supplier',
+    supplier_recommend: 'Best supplier for this product',
+    search_products: 'Search the catalog',
+  } as Record<string, string>)[intent] ?? intent;
+}
+
+function intentPrompt(intent: string): string {
+  return ({
+    find_cheapest: 'find cheapest',
+    spend_summary: 'how much did I spend this month',
+    savings: 'where can I save',
+    usual_order: 'build my usual order',
+    reorder: 'what should I reorder',
+    price_changes: 'what prices moved',
+    compare_suppliers: 'compare suppliers',
+    delivery_estimate: 'fastest delivery',
+    product_spend: 'how much did I spend on',
+    supplier_spend: 'how much did I spend with',
+    supplier_recommend: 'best supplier for',
+    search_products: 'search',
+  } as Record<string, string>)[intent] ?? intent;
+}
 
 export const aiAdminRouter = new Hono<{ Bindings: Env }>();
 aiAdminRouter.use('*', session(), async (c, next) => {
