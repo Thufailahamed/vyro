@@ -2,9 +2,17 @@ import type { Env } from '../../../env';
 import { WorkersAIProvider } from './workersAI';
 import { GeminiProvider } from './gemini';
 import type { AIProvider } from './types';
+import {
+  classifyIntentTier,
+  classifyTaskTier,
+  defaultPolicy,
+  type IntentTier,
+  type RoutingPolicy,
+} from '@vyro/ai/provider/routingPolicy';
 
 export type { AIProvider, ChatOptions, ChatResult, ChatMessage } from './types';
 export { AIUnavailableError } from './types';
+export { defaultPolicy, type RoutingPolicy, type IntentTier };
 
 /**
  * Task kinds drive smart model routing. Cheap, structured work stays on
@@ -35,9 +43,23 @@ const COMPLEX_INTENTS = new Set([
   'compare_suppliers',
 ]);
 
+/**
+ * Resolve the active routing policy. Operators may override via
+ * `VYRO_AI_COMPLEX_INTENTS` (comma-separated list); the policy module
+ * remains the single source of truth for downstream callers.
+ */
+export function resolveRoutingPolicy(env: Env = {} as Env): RoutingPolicy {
+  const override = (env as any).VYRO_AI_COMPLEX_INTENTS as string | undefined;
+  if (override) {
+    const list = override.split(',').map((s) => s.trim()).filter(Boolean);
+    return { ...defaultPolicy(), complexIntents: list };
+  }
+  return defaultPolicy();
+}
+
 /** Intents whose narration benefits from genuine reasoning (Gemini). */
-export function isComplexIntent(intent: string): boolean {
-  return COMPLEX_INTENTS.has(intent);
+export function isComplexIntent(intent: string, policy: RoutingPolicy = defaultPolicy()): boolean {
+  return classifyIntentTier(policy, intent) === 'complex';
 }
 
 function geminiAvailable(env: Env): boolean {
@@ -61,18 +83,15 @@ export function routeTask(env: Env, kind: TaskKind): RouteDecision {
   if (forced === 'workers') {
     return { provider: 'workersAI', reason: `forced provider for ${kind}` };
   }
-  switch (kind) {
-    case 'classify':
-    case 'extract':
-    case 'narrate_simple':
-      return { provider: 'workersAI', reason: `${kind} stays on cheap model` };
-    case 'narrate_complex':
-    case 'reasoning':
-      if (geminiAvailable(env)) {
-        return { provider: 'gemini', reason: `${kind} needs complex reasoning` };
-      }
-      return { provider: 'workersAI', reason: `${kind} fallback, no Gemini key` };
+  const policy = resolveRoutingPolicy(env);
+  const tier: IntentTier = classifyTaskTier(policy, kind);
+  if (tier === 'complex' && geminiAvailable(env)) {
+    return { provider: 'gemini', reason: `${kind} needs complex reasoning` };
   }
+  if (tier === 'simple') {
+    return { provider: 'workersAI', reason: `${kind} stays on cheap model` };
+  }
+  return { provider: 'workersAI', reason: `${kind} fallback, no Gemini key` };
 }
 
 /** Instantiate the provider for a task kind. Back-compat: defaults to Workers AI. */
