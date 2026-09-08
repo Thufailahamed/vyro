@@ -17,7 +17,8 @@
     "deploy:web": "node scripts/deploy-web.mjs",
     "audit:deps": "pnpm --filter @vyro/api audit:deps",
     "audit:rbac": "pnpm --filter @vyro/api audit:rbac",
-    "audit:secrets": "pnpm --filter @vyro/api audit:secrets"
+    "audit:secrets": "pnpm --filter @vyro/api audit:secrets",
+    "eval:ai": "cd apps/api && ../../apps/api/node_modules/.bin/tsx ../../scripts/eval-ai.ts"
   },
   "devDependencies": {
     "turbo": "^2.1.0",
