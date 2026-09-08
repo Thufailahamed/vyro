@@ -93,12 +93,18 @@ export function applyConversationContext(
   });
 }
 
+export interface ClassifyOutput {
+  result: ClassifyResult;
+  tokensIn: number;
+  tokensOut: number;
+}
+
 export async function classify(
   provider: AIProvider,
   ctx: ClassifyContext,
   prompt: string,
   conversation?: ChatMessage[],
-): Promise<ClassifyResult> {
+): Promise<ClassifyOutput> {
   const trimmed = prompt.slice(0, PROMPT_MAX).trim();
   try {
     const messages = buildClassifyMessages(ctx.businessName, trimmed);
@@ -107,9 +113,19 @@ export async function classify(
       responseFormatJson: true,
     });
     const parsed = safeParse(res.content);
-    if (parsed) return applyConversationContext(parsed, trimmed, conversation, ctx.dict);
+    if (parsed) {
+      return {
+        result: applyConversationContext(parsed, trimmed, conversation, ctx.dict),
+        tokensIn: res.tokensIn ?? 0,
+        tokensOut: res.tokensOut ?? 0,
+      };
+    }
   } catch {
     // fall through
   }
-  return applyConversationContext(heuristicClassify(trimmed, ctx.dict), trimmed, conversation, ctx.dict);
+  return {
+    result: applyConversationContext(heuristicClassify(trimmed, ctx.dict), trimmed, conversation, ctx.dict),
+    tokensIn: 0,
+    tokensOut: 0,
+  };
 }

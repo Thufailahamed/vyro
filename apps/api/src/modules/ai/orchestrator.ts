@@ -53,6 +53,8 @@ export async function* orchestrate(
   let errorCode: string | undefined;
   let intentName = 'clarify';
   let slots: Record<string, unknown> = {};
+  let tokensIn = 0;
+  let tokensOut = 0;
   const classifyProvider = providerForTask(env, 'classify');
   const providerName = classifyProvider.name;
   const modelName = (env as any).VYRO_AI_CLASSIFY_MODEL ?? 'unknown';
@@ -95,7 +97,9 @@ export async function* orchestrate(
   try {
     // Single model call per request: classification. Everything else is
     // deterministic code over repository data (faster, cheaper, grounded).
-    const classifyResult = await classify(classifyProvider, ctx, prompt, ctx.conversation);
+    const { result: classifyResult, tokensIn: ti, tokensOut: to } = await classify(classifyProvider, ctx, prompt, ctx.conversation);
+    tokensIn = ti;
+    tokensOut = to;
     intentName = classifyResult.intent;
     slots = classifyResult.slots as unknown as Record<string, unknown>;
 
@@ -184,11 +188,13 @@ export async function* orchestrate(
     provider: providerName, model: modelName, latencyMs,
     ok, ...(errorCode ? { errorCode } : {}),
     requestId, slots, toolName: intentName,
+    tokensIn, tokensOut,
   });
   recordAiMetric(env, {
     businessId: ctx.businessId, userId: ctx.userId, intent: intentName,
     provider: providerName, model: modelName, latencyMs,
     ok, ...(errorCode ? { errorCode } : {}),
+    tokensIn, tokensOut,
   });
 }
 
