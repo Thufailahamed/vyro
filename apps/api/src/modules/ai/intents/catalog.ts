@@ -21,6 +21,8 @@ import { spendForecastHandler } from './spendForecast';
 import { categoryIntelHandler } from './categoryIntel';
 import { insightsFeedHandler } from './insightsFeed';
 import { clarifyHandler } from './clarify';
+import { procurementPlanHandler } from './procurementPlan';
+import { budgetOptimizeHandler } from './budgetOptimize';
 
 export interface IntentContext {
   env: Env;
@@ -58,4 +60,6 @@ export const HANDLERS: Record<ClassifyResult['intent'], Handler> = {
   category_intel: categoryIntelHandler,
   insights_feed: insightsFeedHandler,
   clarify: clarifyHandler,
+  procurement_plan: procurementPlanHandler,
+  budget_optimize: budgetOptimizeHandler,
 };

@@ -33,6 +33,26 @@ const askSchema = z
       )
       .max(20)
       .optional(),
+    context: z
+      .object({
+        page: z.enum(['product', 'supplier', 'cart', 'analytics', 'orders', 'other']),
+        productName: z.string().min(1).max(120).optional(),
+        productId: z.string().min(1).max(120).optional(),
+        supplierName: z.string().min(1).max(120).optional(),
+        cartLines: z
+          .array(
+            z
+              .object({
+                product: z.string().min(1).max(120),
+                quantity: z.number().int().min(1).max(100000),
+              })
+              .strict(),
+          )
+          .max(50)
+          .optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -94,6 +114,7 @@ router.post('/ask', session(), async (c) => {
             role: aiRole,
             dict,
             ...(parsed.data.conversation ? { conversation: parsed.data.conversation } : {}),
+            ...(parsed.data.context ? { context: parsed.data.context } : {}),
           },
           parsed.data.prompt,
         )) {

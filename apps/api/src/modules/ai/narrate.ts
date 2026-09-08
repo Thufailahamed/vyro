@@ -167,6 +167,24 @@ export function summarizeResult(intent: string, result: HandlerResult): string {
         ? `${s.count} insights: savings, price moves, and supplier signals with evidence.`
         : 'No fresh insights right now.'
       ).slice(0, MAX);
+    case 'procurement_plan': {
+      const lines: any[] = data.lines ?? [];
+      if (!lines.length) return 'Not enough order history to build a weekly plan yet.';
+      const sample = lines.slice(0, 3).map((l: any) => `${l.productName} (qty ${l.typicalQuantity ?? l.quantity})`).join(', ');
+      return `Weekly plan: ${lines.length} lines priced at ${formatLKR(data.totalCents)}. Includes ${sample}. Edit quantities or swap suppliers before confirming.`.slice(0, MAX);
+    }
+    case 'budget_optimize': {
+      const swaps: any[] = data.swaps ?? [];
+      const total = formatLKR(data.totalCents);
+      const cap = formatLKR(data.budgetCents);
+      const cheapest = formatLKR(data.cheapestTotal);
+      if (data.withinBudget) {
+        return swaps.length
+          ? `Fits under ${cap}: ${total} after ${swaps.length} supplier swap${swaps.length === 1 ? '' : 's'} (cheapest possible: ${cheapest}). Confirm to send to your suppliers.`
+          : `Fits under ${cap}: ${total}. No swaps needed. Confirm to send to your suppliers.`;
+      }
+      return `Your cap of ${cap} is below the cheapest achievable total of ${cheapest}. Consider raising the cap or removing lines. Showing all lines at cheapest prices for context.`.slice(0, MAX);
+    }
     default:
       return String(data.question ?? 'What do you need help with?').slice(0, MAX);
   }
