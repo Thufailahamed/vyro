@@ -14,6 +14,7 @@ const DELIVERY_RX = /\b(deliver|delivery|how fast|when can i get)\b/i;
 const PRICE_RX = /\b(price increase|price change|why.*increase|why.*more expensive)\b/i;
 const SEARCH_RX = /\b(find|search|show me|list)\b/i;
 const CHEAPEST_RX = /\b(cheapest|lowest price|best price|best deal)\b/i;
+const PERIOD_RX = /\b(this|last|past)\s+(week|month|quarter|year)\b/i;
 
 function pickProduct(text: string, products: string[]): string | undefined {
   const lower = text.toLowerCase();
@@ -87,6 +88,12 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
   const slots: Record<string, unknown> = { ...qty };
   if (productName) slots.productName = productName;
   if (supplierName) slots.supplierName = supplierName;
+  const periodMatch = text.match(PERIOD_RX);
+  if (periodMatch) {
+    const word = periodMatch[2].toLowerCase();
+    const period = word === 'week' ? 'week' : word === 'quarter' ? 'quarter' : word === 'year' ? 'year' : 'month';
+    slots.period = period;
+  }
 
   let result: ClassifyResult = { intent, slots: slots as ClassifyResult['slots'], confidence };
   if (intent === 'clarify') {

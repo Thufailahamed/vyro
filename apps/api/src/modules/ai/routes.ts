@@ -7,6 +7,7 @@ import { rateLimit } from '../../middleware/rateLimit';
 import { sseHeaders } from './stream';
 import { orchestrate } from './orchestrator';
 import { assertAiEnabled } from './guard';
+import { loadDictionary } from './dictionary';
 import { getDb } from '@vyro/db';
 import { auditLogs } from '@vyro/db/schema';
 import { sql } from 'drizzle-orm';
@@ -47,6 +48,8 @@ router.post('/ask', session(), async (c) => {
   const businessName =
     ctx.businesses.find((b) => b.businessId === businessId)?.businessName ?? 'Your business';
 
+  const dict = await loadDictionary(c.env);
+
   const stream = new ReadableStream({
     async start(controller) {
       const enc = new TextEncoder();
@@ -57,7 +60,7 @@ router.post('/ask', session(), async (c) => {
             userId: ctx.userId,
             businessId,
             businessName,
-            dict: { products: [], suppliers: [] },
+            dict,
             ...(parsed.data.conversation ? { conversation: parsed.data.conversation } : {}),
           },
           parsed.data.prompt,
