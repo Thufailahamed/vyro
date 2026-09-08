@@ -5,6 +5,9 @@ import { searchProductsHandler } from './searchProducts';
 import { findCheapestHandler } from './findCheapest';
 import { compareSuppliersHandler } from './compareSuppliers';
 import { supplierRecommendHandler } from './supplierRecommend';
+import { spendSummaryHandler } from './spendSummary';
+import { productSpendHandler } from './productSpend';
+import { supplierSpendHandler } from './supplierSpend';
 
 export interface IntentContext {
   env: Env;
@@ -28,9 +31,9 @@ export const HANDLERS: Record<ClassifyResult['intent'], Handler> = {
   find_cheapest: findCheapestHandler,
   compare_suppliers: compareSuppliersHandler,
   supplier_recommend: supplierRecommendHandler,
-  spend_summary: stub,
-  product_spend: stub,
-  supplier_spend: stub,
+  spend_summary: spendSummaryHandler,
+  product_spend: productSpendHandler,
+  supplier_spend: supplierSpendHandler,
   savings: stub,
   usual_order: stub,
   reorder: stub,

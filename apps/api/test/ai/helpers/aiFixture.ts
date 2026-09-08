@@ -76,9 +76,9 @@ export function mockRepos(input: {
       if (!p) return 0;
       return items.filter((i) => i.productId === p.id).reduce((a, i) => a + i.quantity * i.unitPriceCents, 0);
     },
-    async spendForSupplier({ businessId, sinceMs, supplierName }) {
+    async spendForSupplier({ businessId, sinceMs, supplierName: sName }) {
       const items = await listRecentPoItems({ businessId, sinceMs });
-      return items.filter((i) => supplierName(i.supplierId).toLowerCase().includes(supplierName.toLowerCase())).reduce((a, i) => a + i.unitPriceCents * i.quantity, 0);
+      return items.filter((i) => supplierName(i.supplierId).toLowerCase().includes(sName.toLowerCase())).reduce((a, i) => a + i.unitPriceCents * i.quantity, 0);
     },
     async savingsOpportunities({ businessId, sinceMs }) {
       const items = await listRecentPoItems({ businessId, sinceMs });
