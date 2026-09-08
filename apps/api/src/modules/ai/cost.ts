@@ -19,6 +19,55 @@ export interface CostSummary {
   byProvider: Array<{ provider: string; calls: number; tokensIn: number; tokensOut: number }>;
 }
 
+/** Approx USD per 1k tokens for a Workers AI class model. */
+const USD_PER_1K_IN = 0.02;
+const USD_PER_1K_OUT = 0.06;
+
+export interface DailyBudgetUsage {
+  day: string;
+  tokensIn: number;
+  tokensOut: number;
+  /** Approx cost in USD using the default per-1k rates. */
+  costUsd: number;
+}
+
+/**
+ * dailyBudgetUsage: roll up a single business's token spend for the UTC day
+ * containing `dayMs`. Used by the soft-warn / hard-stop daily budget guard.
+ */
+export async function dailyBudgetUsage(
+  env: { DB: D1Database },
+  opts: { businessId: string; dayMs?: number },
+): Promise<DailyBudgetUsage> {
+  const db = getDb(env.DB);
+  const dayMs = opts.dayMs ?? Date.now();
+  const start = new Date(dayMs); start.setUTCHours(0, 0, 0, 0);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  const row = await db
+    .select({
+      tokensIn: sql<number>`coalesce(sum(coalesce(nullif(json_extract(${auditLogs.metadata}, '$.tokensIn'), ''), 0)), 0)`,
+      tokensOut: sql<number>`coalesce(sum(coalesce(nullif(json_extract(${auditLogs.metadata}, '$.tokensOut'), ''), 0)), 0)`,
+    })
+    .from(auditLogs)
+    .where(and(
+      eq(auditLogs.action, 'ai.request'),
+      eq(auditLogs.resourceType, 'ai_request'),
+      eq(sql`json_extract(${auditLogs.metadata}, '$.businessId')`, opts.businessId),
+      gte(auditLogs.createdAt, start.getTime()),
+      lt(auditLogs.createdAt, end.getTime()),
+    ))
+    .get();
+  const tokensIn = Number(row?.tokensIn ?? 0);
+  const tokensOut = Number(row?.tokensOut ?? 0);
+  const costUsd = (tokensIn / 1000) * USD_PER_1K_IN + (tokensOut / 1000) * USD_PER_1K_OUT;
+  return {
+    day: start.toISOString().slice(0, 10),
+    tokensIn,
+    tokensOut,
+    costUsd: Math.round(costUsd * 100) / 100,
+  };
+}
+
 /**
  * summarizeAiCost: aggregate ai.request audit rows for a business over a
  * window. Returns totals, daily bucket, intent breakdown, provider breakdown.

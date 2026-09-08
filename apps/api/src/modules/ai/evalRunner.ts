@@ -12,7 +12,7 @@ export async function runMockEval(opts: MockClassifyOptions = {}): Promise<Score
   const drop = new Set(opts.dropSlots ?? []);
   const classify = async (prompt: string) => {
     const e = GOLDEN.find((g) => g.prompt === prompt);
-    let intent = e?.expectedIntent ?? 'clarify';
+    let intent: string = e?.expectedIntent ?? 'clarify';
     for (const [k, v] of Object.entries(opts.overrides ?? {})) {
       if (prompt.includes(k)) intent = v;
     }

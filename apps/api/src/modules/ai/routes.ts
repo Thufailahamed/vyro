@@ -8,6 +8,8 @@ import { httpError } from '../../lib/errors';
 import { rateLimit } from '../../middleware/rateLimit';
 import { sseHeaders } from './stream';
 import { orchestrate } from './orchestrator';
+import { assertDailyBudget } from './guard';
+import { encodeEvent } from './stream';
 import { assertAiEnabled } from './guard';
 import { loadDictionary } from './dictionary';
 import { getDb } from '@vyro/db';
@@ -138,9 +140,20 @@ router.post('/ask', session(), async (c) => {
 
   const dict = await loadDictionary(c.env);
 
+  // Per-business daily budget check (soft-warn / hard-stop). Failures here
+  // surface as RATE_LIMITED before any model call.
+  const budget = await assertDailyBudget(c.env, businessId).catch((err) => {
+    throw err;
+  });
+
   const stream = new ReadableStream({
     async start(controller) {
       const enc = new TextEncoder();
+      if (budget.warn) {
+        controller.enqueue(enc.encode(encodeEvent('status', {
+          stage: `AI budget warning: $${budget.usageUsd.toFixed(2)} of $${budget.budgetUsd.toFixed(2)} used today`,
+        })));
+      }
       try {
         for await (const frame of orchestrate(
           c.env,
