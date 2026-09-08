@@ -40,4 +40,15 @@ describe('guard', () => {
     expect(costCap(env, 'b1', 1).ok).toBe(true);
     expect(costCap(env, 'b2', 1).ok).toBe(true);
   });
+
+  it('costCap charges actual tokens accurately', () => {
+    // Default budget ~8333/min (200000/24/60=138, capped to 10000). Use lower cap.
+    const env = { VYRO_AI_DAILY_TOKEN_CAP: '6000' } as any; // ~4 tokens/min
+    // user u1: 3 tokens consumed
+    expect(costCap(env, 'b1', 3, 'u1').ok).toBe(true);
+    // user u1: another 2 tokens, total 5 > 4 budget
+    expect(costCap(env, 'b1', 2, 'u1').ok).toBe(false);
+    // user u2 still has budget
+    expect(costCap(env, 'b1', 3, 'u2').ok).toBe(true);
+  });
 });

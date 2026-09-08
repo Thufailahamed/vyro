@@ -77,7 +77,11 @@ export async function* orchestrate(
     return;
   }
 
-  const cap = costCap(env, ctx.businessId, 200, ctx.userId);
+  // Charge the cost cap with actual token usage when available, falling back
+  // to a flat 200-token estimate when the classify path produced no metrics
+  // (e.g. prompt-rejected or rate-limited paths that never reached classify).
+  const tokensForCap = tokensIn > 0 || tokensOut > 0 ? tokensIn + tokensOut : 200;
+  const cap = costCap(env, ctx.businessId, tokensForCap, ctx.userId);
   if (!cap.ok) {
     ok = false;
     errorCode = 'RATE_LIMITED';
