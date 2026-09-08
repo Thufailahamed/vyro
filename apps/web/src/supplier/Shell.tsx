@@ -70,7 +70,7 @@ export function SupplierShell() {
   return (
     <SupplierIdProvider>
       <div className="min-h-dvh bg-bone text-ink lg:flex">
-        <aside className="hidden lg:flex w-60 shrink-0 flex-col bg-void text-paper min-h-dvh sticky top-0 border-r border-paper/5">
+        <aside className="hidden lg:flex w-60 shrink-0 flex-col bg-void text-paper h-dvh sticky top-0 border-r border-paper/5 select-none">
           <Link
             to="/supplier"
             className="flex items-center gap-2.5 px-4 h-14 border-b border-paper/10 hover:bg-paper/[0.03] transition-colors"

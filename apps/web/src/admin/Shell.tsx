@@ -87,7 +87,7 @@ export function AdminShell() {
   const shortcuts = useKeyboardShortcuts({ focusSearch: () => searchRef.current?.focus() });
   return (
     <div className="min-h-dvh bg-bone text-ink lg:flex">
-      <aside className="hidden lg:flex w-56 shrink-0 flex-col bg-void text-paper min-h-dvh sticky top-0">
+      <aside className="hidden lg:flex w-56 shrink-0 flex-col bg-void text-paper h-dvh sticky top-0 border-r border-paper/10 select-none">
         <Link to="/admin" className="flex items-center gap-2.5 px-4 h-14 border-b border-paper/10">
           <BrandMark size={24} tone="volt" />
           <BrandWordmark tone="paper" size="sm" eyebrow="Control" />

@@ -13,6 +13,7 @@ import {
   LayoutGridIcon,
   BellIcon,
   UserIcon,
+  ShieldCheckIcon,
 } from './icons';
 import { Button } from './ui';
 import { BrandMark, BrandWordmark } from './brand/BrandMark';
@@ -240,16 +241,24 @@ function WorkspaceShell() {
   const unread = notifData?.unreadCount ?? notifData?.notifications?.filter((n) => !n.readAt).length ?? 0;
 
   const primary = [
-    { to: '/dashboard', label: 'Command', icon: LayoutGridIcon, show: !!user },
-    { to: '/search', label: 'Discover', icon: SearchIcon, show: true },
-    { to: '/orders', label: 'Orders', icon: PackageIcon, show: !!user },
-    { to: '/cart', label: 'Cart', icon: ShoppingCartIcon, show: true, badge: cartCount },
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutGridIcon, show: !!user },
+    { to: '/search', label: 'Marketplace', icon: SearchIcon, show: true },
+    { to: '/orders', label: 'Purchase Orders', icon: PackageIcon, show: !!user },
+    { to: '/cart', label: 'Active Cart', icon: ShoppingCartIcon, show: true, badge: cartCount },
+  ].filter((i) => i.show);
+
+  const supplierItems = [
+    { to: '/supplier', label: 'Dispatch Console', icon: StoreIcon, show: isSupplier },
+    { to: '/supplier/orders', label: 'Incoming Orders', icon: TruckIcon, show: isSupplier },
+  ].filter((i) => i.show);
+
+  const adminItems = [
+    { to: '/admin', label: 'Control Center', icon: ShieldCheckIcon, show: Boolean(user?.isAdmin || user?.adminRole) },
   ].filter((i) => i.show);
 
   const contextual = [
-    { to: '/supplier/orders', label: 'Incoming', icon: StoreIcon, show: isSupplier },
-    { to: '/notifications', label: 'Signals', icon: BellIcon, show: !!user, badge: unread },
-    { to: '/profile', label: 'Account', icon: UserIcon, show: true },
+    { to: '/notifications', label: 'Notifications', icon: BellIcon, show: !!user, badge: unread },
+    { to: '/profile', label: 'Account & Settings', icon: UserIcon, show: true },
   ].filter((i) => i.show);
 
   return (
@@ -260,55 +269,96 @@ function WorkspaceShell() {
       >
         Skip to main content
       </a>
-      <aside className="hidden lg:flex w-sidebar shrink-0 flex-col bg-ink text-paper min-h-dvh sticky top-0">
-        <Link to="/" className="flex items-center gap-3 px-5 h-16 border-b border-paper/10">
-          <BrandMark size={28} tone="volt" />
-          <BrandWordmark tone="paper" size="sm" />
-        </Link>
+      <aside className="hidden lg:flex w-sidebar shrink-0 flex-col bg-ink text-paper h-dvh sticky top-0 border-r border-paper/10 select-none">
+        <div className="flex items-center justify-between px-5 h-16 border-b border-paper/10 shrink-0">
+          <Link to="/" className="flex items-center gap-3">
+            <BrandMark size={28} tone="volt" />
+            <BrandWordmark tone="paper" size="sm" />
+          </Link>
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-volt/10 border border-volt/20 text-[10px] font-mono text-volt">
+            <span className="size-1.5 rounded-full bg-volt animate-pulse" />
+            <span>ONLINE</span>
+          </div>
+        </div>
 
-        <div className="px-4 pt-5 pb-3">
-          <div className="vyro-kicker text-volt/80 mb-2">Workspace</div>
-          <div className="bg-paper/5 px-3 py-2.5">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-paper/40">
-              {isSupplier && !business ? 'Supplier' : 'Business'}
-            </div>
-            <div className="mt-1 text-sm font-semibold truncate">
-              {business?.businessName ?? supplier?.supplierName ?? 'Guest catalog'}
+        <div className="px-3.5 pt-4 pb-2 shrink-0">
+          <div className="text-[10px] uppercase tracking-[0.16em] text-paper/40 font-mono mb-2 px-1 flex items-center justify-between">
+            <span>Workspace</span>
+            <span className="text-volt text-[9px] font-semibold tracking-normal uppercase">
+              {isSupplier ? 'Facility' : 'Commercial'}
+            </span>
+          </div>
+          <div className="bg-paper/[0.04] border border-paper/10 rounded-lg p-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="size-8 rounded bg-volt/15 border border-volt/30 text-volt flex items-center justify-center font-bold text-xs shrink-0 font-display">
+                {(business?.businessName ?? supplier?.supplierName ?? 'V').slice(0, 1).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-semibold text-paper truncate leading-tight">
+                  {business?.businessName ?? supplier?.supplierName ?? 'Guest Workspace'}
+                </div>
+                <div className="text-[10px] text-paper/45 truncate mt-0.5 flex items-center gap-1">
+                  <span className="size-1.5 rounded-full bg-emerald-400 shrink-0" />
+                  <span>{business?.role ? `${business.role} · Verified` : isSupplier ? 'Owner · Active' : 'Sri Lanka Network'}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 px-3 space-y-6 overflow-y-auto">
+        <nav className="flex-1 px-3 py-2 space-y-5 overflow-y-auto min-h-0">
           <NavGroup title="Operate" items={primary} />
-          <NavGroup title="Context" items={contextual} />
+          {supplierItems.length > 0 && (
+            <NavGroup title="Supplier Dispatch" items={supplierItems} badge="FACILITY" />
+          )}
+          {adminItems.length > 0 && (
+            <NavGroup title="Management" items={adminItems} badge="ADMIN" />
+          )}
+          <NavGroup title="Preferences" items={contextual} />
         </nav>
 
-        <div className="p-4 border-t border-paper/10">
+        <div className="p-3.5 border-t border-paper/10 bg-ink/90 shrink-0">
           {user ? (
-            <div className="flex items-center gap-3">
-              <Link to="/profile" className="flex-1 min-w-0 flex items-center gap-2.5">
-                <span className="size-8 bg-volt text-ink text-[11px] font-bold inline-flex items-center justify-center">
-                  {(user.name || 'U').slice(0, 2).toUpperCase()}
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2.5">
+                <Link
+                  to="/profile"
+                  className="flex-1 min-w-0 flex items-center gap-2.5 p-1 rounded-md hover:bg-paper/5 transition-colors group"
+                >
+                  <span className="size-8 rounded bg-volt text-ink text-xs font-bold inline-flex items-center justify-center font-mono shrink-0 shadow-sm">
+                    {(user.name || 'U').slice(0, 2).toUpperCase()}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-semibold text-paper group-hover:text-volt transition-colors truncate leading-tight">
+                      {user.name}
+                    </span>
+                    <span className="block text-[10px] text-paper/40 truncate font-mono mt-0.5">
+                      {user.email}
+                    </span>
+                  </span>
+                </Link>
+                <button
+                  title="Sign out"
+                  onClick={async () => {
+                    await signOut();
+                    navigate('/');
+                  }}
+                  className="size-8 rounded inline-flex items-center justify-center text-paper/40 hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0"
+                >
+                  <LogOutIcon size={16} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between text-[10px] font-mono text-paper/30 px-1 border-t border-paper/5 pt-2">
+                <span className="flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full bg-emerald-400" />
+                  <span>SL GATEWAY</span>
                 </span>
-                <span className="min-w-0">
-                  <span className="block text-sm truncate">{user.name}</span>
-                  <span className="block text-[10px] text-paper/40 truncate">{user.email}</span>
-                </span>
-              </Link>
-              <button
-                title="Sign out"
-                onClick={async () => {
-                  await signOut();
-                  navigate('/');
-                }}
-                className="size-9 inline-flex items-center justify-center text-paper/50 hover:text-volt hover:bg-paper/5"
-              >
-                <LogOutIcon size={16} />
-              </button>
+                <span>v0.1.0</span>
+              </div>
             </div>
           ) : (
             <Link to="/login">
-              <Button size="sm" className="w-full bg-volt text-ink hover:bg-volt-glow">
+              <Button size="sm" className="w-full bg-volt text-ink hover:bg-volt-glow font-medium">
                 Sign in
               </Button>
             </Link>
@@ -345,10 +395,10 @@ function WorkspaceShell() {
         <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-ink/10 bg-paper/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
           <div className="grid grid-cols-5 h-16">
             <MobileTab to="/search" icon={SearchIcon} label="Discover" />
-            <MobileTab to="/dashboard" icon={LayoutGridIcon} label="Command" />
+            <MobileTab to="/dashboard" icon={LayoutGridIcon} label="Dashboard" />
             <MobileTab to="/orders" icon={PackageIcon} label="Orders" />
             <MobileTab to="/cart" icon={ShoppingCartIcon} label="Cart" badge={cartCount} />
-            <MobileTab to={isSupplier ? '/supplier/orders' : '/profile'} icon={isSupplier ? StoreIcon : UserIcon} label={isSupplier ? 'Inbox' : 'You'} />
+            <MobileTab to={isSupplier ? '/supplier' : '/profile'} icon={isSupplier ? StoreIcon : UserIcon} label={isSupplier ? 'Facility' : 'Account'} />
           </div>
         </nav>
       </div>
@@ -360,13 +410,23 @@ function WorkspaceShell() {
 function NavGroup({
   title,
   items,
+  badge,
 }: {
   title: string;
   items: Array<{ to: string; label: string; icon: typeof SearchIcon; badge?: number }>;
+  badge?: string;
 }) {
+  if (items.length === 0) return null;
   return (
     <div>
-      <div className="px-3 mb-2 text-[10px] uppercase tracking-[0.16em] text-paper/35">{title}</div>
+      <div className="px-3 mb-1.5 text-[10px] uppercase tracking-[0.16em] text-paper/40 font-mono flex items-center justify-between">
+        <span>{title}</span>
+        {badge ? (
+          <span className="text-[9px] px-1.5 py-0.5 rounded font-mono uppercase bg-volt/10 text-volt border border-volt/20 leading-none">
+            {badge}
+          </span>
+        ) : null}
+      </div>
       <div className="space-y-0.5">
         {items.map((item) => {
           const Icon = item.icon;
@@ -376,18 +436,33 @@ function NavGroup({
               to={item.to}
               className={({ isActive }) =>
                 cn(
-                  'relative flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-200',
-                  isActive ? 'nav-active text-volt' : 'text-paper/70 hover:text-paper hover:bg-paper/5',
+                  'relative flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-md transition-all duration-150',
+                  isActive
+                    ? 'bg-volt/10 text-volt font-semibold shadow-sm'
+                    : 'text-paper/70 hover:text-paper hover:bg-paper/[0.06]',
                 )
               }
             >
-              <Icon size={16} />
-              <span className="flex-1">{item.label}</span>
-              {item.badge ? (
-                <span className="min-w-5 h-5 px-1 bg-volt text-ink text-[10px] font-mono inline-flex items-center justify-center">
-                  {item.badge}
-                </span>
-              ) : null}
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-volt rounded-r" />
+                  )}
+                  <Icon
+                    size={16}
+                    className={cn(
+                      'shrink-0 transition-colors',
+                      isActive ? 'text-volt' : 'text-paper/50 group-hover:text-paper/80',
+                    )}
+                  />
+                  <span className="flex-1 truncate">{item.label}</span>
+                  {typeof item.badge === 'number' && item.badge > 0 ? (
+                    <span className="min-w-4 h-4 px-1 bg-volt text-ink text-[10px] font-mono font-bold rounded inline-flex items-center justify-center shrink-0 shadow-sm">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </>
+              )}
             </NavLink>
           );
         })}
