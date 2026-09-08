@@ -1,4 +1,4 @@
-import { ClassifyResultSchema, INTENT_NAMES, type ClassifyResult } from './schemas';
+import { ClassifyResultSchema, INTENT_NAMES, type ClassifyResult, type IntentName } from './schemas';
 
 export interface AiDictionary {
   products: string[];
@@ -186,3 +186,30 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
 }
 
 export const _intentNames = INTENT_NAMES; // silence unused import
+
+// Role-based intent allowlist. Viewers get a read-only subset; members and
+// admins can invoke any intent (including write actions like usual_order /
+// reorder / supplier_recommend).
+export const INTENT_ALLOWLIST_BY_ROLE = {
+  admin: [
+    'search_products', 'find_cheapest', 'compare_suppliers', 'supplier_recommend',
+    'spend_summary', 'product_spend', 'supplier_spend', 'savings',
+    'usual_order', 'reorder', 'price_changes', 'delivery_estimate', 'clarify',
+  ],
+  member: [
+    'search_products', 'find_cheapest', 'compare_suppliers', 'supplier_recommend',
+    'spend_summary', 'product_spend', 'supplier_spend', 'savings',
+    'usual_order', 'reorder', 'price_changes', 'delivery_estimate', 'clarify',
+  ],
+  viewer: [
+    'search_products', 'find_cheapest', 'compare_suppliers',
+    'spend_summary', 'product_spend', 'supplier_spend', 'savings',
+    'price_changes', 'delivery_estimate', 'clarify',
+  ],
+} as const;
+
+export type Role = keyof typeof INTENT_ALLOWLIST_BY_ROLE;
+
+export function isIntentAllowed(intent: IntentName, role: Role): boolean {
+  return (INTENT_ALLOWLIST_BY_ROLE[role] as readonly string[]).includes(intent);
+}
