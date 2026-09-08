@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePageTitle } from '@/lib/usePageTitle';
+import { api, ApiError } from '@/lib/api';
 import { Button, EmptyState, PageHeader } from '@/components/ui';
 import { StatusDots } from '@/components/ui';
 import type { OrderStatus } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
-import { PackageIcon, SearchIcon } from '@/components/icons';
+import { PackageIcon, SearchIcon, RefreshCwIcon } from '@/components/icons';
 import { MetricNumber } from '@/components/brand/Surface';
 
 interface Order {
@@ -29,16 +30,45 @@ const STATUS_FILTERS = [
   { id: 'disputed', label: 'Disputed' },
 ];
 
+// Reorder only makes sense for orders that already reached a terminal-ish
+// state (supplier received the goods and acknowledged them). Earlier statuses
+// have nothing to repeat.
+const REORDERABLE: ReadonlySet<string> = new Set([
+  'delivered',
+  'completed',
+]);
+
 export function OrdersPage() {
+  usePageTitle('Orders');
   const { user } = useAuth();
   const businessId = user?.memberships?.[0]?.businessId;
   const [filter, setFilter] = useState('all');
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
+  const [reorderError, setReorderError] = useState('');
+  const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
     queryKey: ['orders', businessId],
     queryFn: () => api.get<{ orders: Order[] }>(`/purchase-orders?businessId=${businessId}`),
     enabled: !!businessId,
   });
+
+  async function reorder(o: Order) {
+    setReorderError('');
+    setReorderingId(o.id);
+    try {
+      await api.post(`/purchase-orders/${o.id}/reorder`);
+      void qc.invalidateQueries({ queryKey: ['orders', businessId] });
+    } catch (e) {
+      setReorderError(
+        e instanceof ApiError
+          ? e.message
+          : 'Could not reorder — some items may no longer be available.',
+      );
+    } finally {
+      setReorderingId(null);
+    }
+  }
 
   if (!user) {
     return (
@@ -85,6 +115,14 @@ export function OrdersPage() {
           );
         })}
       </div>
+      {reorderError && (
+        <div
+          role="alert"
+          className="border border-red-300 bg-red-50 text-red-900 px-4 py-2 text-sm"
+        >
+          {reorderError}
+        </div>
+      )}
       {filteredOrders.length === 0 ? (
         <EmptyState
           icon={<PackageIcon size={20} />}
@@ -102,19 +140,50 @@ export function OrdersPage() {
         />
       ) : (
         <div className="divide-y divide-ink/10 border-y border-ink/10">
-          {filteredOrders.map((o) => (
-            <Link key={o.id} to={`/orders/${o.id}`} className="flex flex-col sm:flex-row sm:items-center gap-3 py-5 hover:bg-paper/80 px-1">
-              <span className="vyro-metric text-sm w-36">{o.poNumber}</span>
-              <StatusDots status={(o.status as OrderStatus) ?? 'pending'} />
-              <span className="text-xs text-ink-4 w-40 truncate" title={o.supplierId}>
-                {o.supplierId.slice(0, 8)}…
-              </span>
-              <span className="text-xs text-ink-4 flex-1">
-                {new Date(o.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </span>
-              <MetricNumber size="sm">{formatLKR(o.totalCents)}</MetricNumber>
-            </Link>
-          ))}
+          {filteredOrders.map((o) => {
+            const canReorder = REORDERABLE.has(o.status.toLowerCase());
+            const isReordering = reorderingId === o.id;
+            return (
+              <div
+                key={o.id}
+                className="flex flex-col sm:flex-row sm:items-center gap-3 py-5 hover:bg-paper/80 px-1"
+              >
+                <Link
+                  to={`/orders/${o.id}`}
+                  className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 min-w-0"
+                >
+                  <span className="vyro-metric text-sm w-36">{o.poNumber}</span>
+                  <StatusDots status={(o.status as OrderStatus) ?? 'pending'} />
+                  <span className="text-xs text-ink-4 w-40 truncate" title={o.supplierId}>
+                    {o.supplierId.slice(0, 8)}…
+                  </span>
+                  <span className="text-xs text-ink-4 flex-1">
+                    {new Date(o.createdAt).toLocaleDateString('en-GB', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </span>
+                  <MetricNumber size="sm">{formatLKR(o.totalCents)}</MetricNumber>
+                </Link>
+                {canReorder && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    loading={isReordering}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void reorder(o);
+                    }}
+                    aria-label={`Reorder ${o.poNumber}`}
+                  >
+                    <RefreshCwIcon size={14} /> Reorder
+                  </Button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

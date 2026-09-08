@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { PageHeader, Surface, ErrorBanner, Button } from '@/components/ui';
 import { usePermission } from './lib/permissions';
+import { api } from '@/lib/api';
 import {
   useAbuseReports,
   useClaimReport,
@@ -145,6 +147,22 @@ function KycTab() {
   const list = useKycReviews({ status: 'pending' });
   const decision = useKycDecision();
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const detail = useQuery({
+    queryKey: ['kyc-detail', detailId],
+    queryFn: async () => {
+      const r = await api.get<{
+        id: string;
+        userId: string;
+        status: string;
+        documentsJson: string | null;
+        notes: string | null;
+        createdAt: number;
+      }>(`/admin/kyc/${detailId}`);
+      return r;
+    },
+    enabled: !!detailId,
+  });
   if (!canRead) return <ErrorBanner message="You need kyc:read permission" />;
   return (
     <Surface className="p-4">
@@ -174,6 +192,9 @@ function KycTab() {
                 />
               </td>
               <td className="space-x-1 text-right">
+                <Button size="sm" variant="ghost" onClick={() => setDetailId(k.id)}>
+                  View
+                </Button>
                 {canReview ? (
                   <>
                     <Button size="sm" variant="primary" onClick={() => decision.mutate({ id: k.id, decision: 'approved' })}>Approve</Button>
@@ -189,6 +210,51 @@ function KycTab() {
           ) : null}
         </tbody>
       </table>
+      {detailId ? (
+        <div
+          className="fixed inset-0 z-50 bg-ink/60 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="kyc-detail-title"
+          onClick={() => setDetailId(null)}
+        >
+          <div
+            className="bg-paper border border-ink/10 max-w-lg w-full p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="kyc-detail-title" className="vyro-display text-xl">
+              KYC review detail
+            </h3>
+            {detail.isLoading ? (
+              <p className="text-sm text-ink-500">Loading…</p>
+            ) : detail.isError ? (
+              <ErrorBanner message={(detail.error as Error).message} />
+            ) : detail.data ? (
+              <dl className="grid grid-cols-[120px_1fr] gap-2 text-sm">
+                <dt className="text-ink-500">Review id</dt>
+                <dd className="font-mono text-xs break-all">{detail.data.id}</dd>
+                <dt className="text-ink-500">User</dt>
+                <dd className="font-mono text-xs break-all">{detail.data.userId}</dd>
+                <dt className="text-ink-500">Status</dt>
+                <dd className="capitalize">{detail.data.status}</dd>
+                <dt className="text-ink-500">Created</dt>
+                <dd>{fmtTs(detail.data.createdAt)}</dd>
+                <dt className="text-ink-500">Reviewer notes</dt>
+                <dd>{detail.data.notes ?? '—'}</dd>
+                <dt className="text-ink-500">Documents</dt>
+                <dd className="font-mono text-xs whitespace-pre-wrap break-all">
+                  {detail.data.documentsJson ?? 'No documents on file.'}
+                </dd>
+              </dl>
+            ) : null}
+            <div className="flex justify-end">
+              <Button variant="ghost" onClick={() => setDetailId(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </Surface>
   );
 }

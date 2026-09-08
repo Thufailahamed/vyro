@@ -88,3 +88,30 @@ export async function setSupplierStatus(
   const db = getDb(d1);
   await db.update(suppliers).set({ status, updatedAt: Date.now() }).where(eq(suppliers.id, id)).run();
 }
+
+export type SupplierVerificationStatus = 'pending' | 'verified' | 'rejected' | 'suspended';
+
+/**
+ * Moves a supplier through KYB verification.
+ *
+ * Guarded with `expectStatus` so two admins reviewing the same supplier cannot
+ * both apply a decision — the loser gets 0 changed rows and the route turns that
+ * into a 409 rather than silently overwriting the first decision.
+ */
+export async function setSupplierVerification(
+  d1: D1Database,
+  id: string,
+  status: SupplierVerificationStatus,
+  expectStatus?: SupplierVerificationStatus,
+): Promise<boolean> {
+  const db = getDb(d1);
+  const where = expectStatus
+    ? and(eq(suppliers.id, id), eq(suppliers.verificationStatus, expectStatus))
+    : eq(suppliers.id, id);
+  const res = await db
+    .update(suppliers)
+    .set({ verificationStatus: status, updatedAt: Date.now() })
+    .where(where)
+    .run();
+  return (res.meta?.changes ?? 0) > 0;
+}

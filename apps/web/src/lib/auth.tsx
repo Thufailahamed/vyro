@@ -23,14 +23,16 @@ export interface SessionUser {
 interface AuthContextValue {
   user: SessionUser | null;
   loading: boolean;
-  refresh: () => Promise<void>;
+  /** Re-reads `/auth/me` and returns the resolved user so callers can branch on
+   *  memberships immediately after sign-in without waiting for a re-render. */
+  refresh: () => Promise<SessionUser | null>;
   signOut: () => Promise<void>;
 }
 
 const Ctx = createContext<AuthContextValue>({
   user: null,
   loading: true,
-  refresh: async () => {},
+  refresh: async () => null,
   signOut: async () => {},
 });
 
@@ -38,16 +40,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function refresh() {
+  async function refresh(): Promise<SessionUser | null> {
     try {
       const data = await api.get<{ user: SessionUser | null }>('/auth/me');
       setUser(data.user);
+      return data.user;
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         setUser(null);
       } else {
         setUser(null);
       }
+      return null;
     } finally {
       setLoading(false);
     }

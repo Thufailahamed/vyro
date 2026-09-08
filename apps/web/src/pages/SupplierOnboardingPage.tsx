@@ -7,6 +7,7 @@ import { FlowLine } from '@/components/brand/FlowLine';
 import { Surface } from '@/components/brand/Surface';
 import { cn } from '@vyro/ui';
 import { SRI_LANKAN_DISTRICTS } from '@/lib/sriLanka';
+import { usePageTitle } from '@/lib/usePageTitle';
 import {
   StoreIcon,
   MapPinIcon,
@@ -75,6 +76,7 @@ const BUYER_SLUGS = ['restaurant', 'hotel', 'cafe', 'retail', 'bakery', 'caterin
 const STEPS = ['Supply Line', 'Trade Identity', 'Dispatch Base', 'Key Contact'];
 
 export function SupplierOnboardingPage() {
+  usePageTitle('Become a supplier');
   const { user, refresh } = useAuth();
   const [types, setTypes] = useState<BusinessType[]>([]);
   const [step, setStep] = useState(0);

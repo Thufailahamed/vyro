@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { usePageTitle } from '@/lib/usePageTitle';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { TimeSeries, Button, MetricStack, StatusDots, PageHeader } from '@/components/ui';
@@ -114,6 +115,7 @@ const DEFAULT_SUPPLIER_PHOTO =
   'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80';
 
 export function DashboardPage() {
+  usePageTitle('Command');
   const { user } = useAuth();
   const businessId = user?.memberships?.[0]?.businessId;
   const businessName = user?.memberships?.[0]?.businessName;
@@ -665,7 +667,9 @@ export function DashboardPage() {
                   </Button>
                 </Link>
                 <span className="text-[11px] text-paper/60">
-                  ⚡ {hits.length > 0 ? `${hits.length} commodities` : 'Over 12 staple commodities'} ready for immediate dispatch
+                  ⚡ {hits.length > 0
+                    ? `${hits.length} commodit${hits.length === 1 ? 'y' : 'ies'} ready for immediate dispatch`
+                    : 'No live commodities in stock — try the catalog'}
                 </span>
               </div>
             </div>

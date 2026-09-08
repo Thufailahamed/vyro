@@ -4,9 +4,9 @@ import { Layout } from './components/Layout';
 import { AdminAuthProvider, AdminShell, RequireAdmin } from './admin/Shell';
 import { SupplierShell } from './supplier/Shell';
 import { InstallBanner } from './components/InstallBanner';
+import { RedirectIfAuthed, RequireAuth, RequireBusiness } from './components/RequireAuth';
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
-const MarketingPages = lazy(() => import('./pages/MarketingPages').then((m) => ({ default: m.AboutPage })));
 const AboutPage = lazy(() => import('./pages/MarketingPages').then((m) => ({ default: m.AboutPage })));
 const HowItWorksPage = lazy(() => import('./pages/MarketingPages').then((m) => ({ default: m.HowItWorksPage })));
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
@@ -27,6 +27,8 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ 
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
 const LegalPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.LegalPage })));
 const InvoicePage = lazy(() => import('./pages/InvoicePage').then((m) => ({ default: m.InvoicePage })));
+const PaymentReturnPage = lazy(() => import('./pages/PaymentReturnPage').then((m) => ({ default: m.PaymentReturnPage })));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })));
 
 const AdminHomePage = lazy(() => import('./admin/HomePage').then((m) => ({ default: m.AdminHomePage })));
 const AdminLoginPage = lazy(() => import('./admin/LoginPage').then((m) => ({ default: m.LoginPage })));
@@ -36,7 +38,6 @@ const SupplierDetailPage = lazy(() => import('./admin/SupplierDetailPage').then(
 const BusinessDetailPage = lazy(() => import('./admin/BusinessDetailPage').then((m) => ({ default: m.BusinessDetailPage })));
 const UsersPage = lazy(() => import('./admin/UsersPage').then((m) => ({ default: m.UsersPage })));
 const DisputedPage = lazy(() => import('./admin/DisputedAndAudit').then((m) => ({ default: m.DisputedPage })));
-const AuditPage = lazy(() => import('./admin/DisputedAndAudit').then((m) => ({ default: m.AuditPage })));
 const RolesPage = lazy(() => import('./admin/RolesPage').then((m) => ({ default: m.RolesPage })));
 const AdminActivityPage = lazy(() => import('./admin/AdminActivityPage').then((m) => ({ default: m.AdminActivityPage })));
 const InviteAcceptPage = lazy(() => import('./admin/InviteAcceptPage').then((m) => ({ default: m.InviteAcceptPage })));
@@ -67,8 +68,6 @@ function PageFallback() {
   );
 }
 
-void MarketingPages;
-
 export default function App() {
   return (
     <>
@@ -79,25 +78,35 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/login" element={<RedirectIfAuthed><LoginPage /></RedirectIfAuthed>} />
+        <Route path="/signup" element={<RedirectIfAuthed><SignupPage /></RedirectIfAuthed>} />
         <Route path="/forgot" element={<ForgotPasswordPage />} />
         <Route path="/reset" element={<ResetPasswordPage />} />
-        <Route path="/onboarding/business" element={<BusinessOnboardingPage />} />
-        <Route path="/onboarding/supplier" element={<SupplierOnboardingPage />} />
+        <Route path="/onboarding/business" element={<RequireAuth><BusinessOnboardingPage /></RequireAuth>} />
+        <Route path="/onboarding/supplier" element={<RequireAuth><SupplierOnboardingPage /></RequireAuth>} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/products/:id" element={<ProductDetailPage />} />
-        <Route path="/cart" element={<CartPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/orders" element={<OrdersPage />} />
-        <Route path="/orders/:id" element={<OrderDetailPage />} />
-        <Route path="/orders/:poId/invoice/:invoiceId" element={<InvoicePage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/cart" element={<RequireBusiness><CartPage /></RequireBusiness>} />
+        <Route path="/checkout" element={<RequireBusiness><CheckoutPage /></RequireBusiness>} />
+        <Route path="/orders" element={<RequireAuth><OrdersPage /></RequireAuth>} />
+        <Route path="/orders/:id" element={<RequireAuth><OrderDetailPage /></RequireAuth>} />
+        <Route
+          path="/orders/:id/payment-success"
+          element={<RequireAuth><PaymentReturnPage outcome="success" /></RequireAuth>}
+        />
+        <Route
+          path="/orders/:id/payment-cancel"
+          element={<RequireAuth><PaymentReturnPage outcome="cancel" /></RequireAuth>}
+        />
+        <Route path="/orders/:poId/invoice/:invoiceId" element={<RequireAuth><InvoicePage /></RequireAuth>} />
+        <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+        <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
+        <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
         <Route path="/legal/terms" element={<LegalPage kind="terms" />} />
         <Route path="/legal/privacy" element={<LegalPage kind="privacy" />} />
         <Route path="/legal/cookies" element={<LegalPage kind="cookies" />} />
+        {/* Buyer-portal 404 — keeps the chrome so the user can navigate out. */}
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
 
       {/* Admin SPA — shared AdminAuthProvider */}
@@ -117,7 +126,7 @@ export default function App() {
           <Route path="businesses" element={<RequireAdmin><BusinessesPage /></RequireAdmin>} />
           <Route path="businesses/:id" element={<RequireAdmin><BusinessDetailPage /></RequireAdmin>} />
           <Route path="disputed" element={<RequireAdmin><DisputedPage /></RequireAdmin>} />
-          <Route path="audit" element={<RequireAdmin><AuditPage /></RequireAdmin>} />
+          <Route path="audit" element={<Navigate to="/admin/activity" replace />} />
           <Route path="users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
           <Route path="activity" element={<RequireAdmin><AdminActivityPage /></RequireAdmin>} />
           <Route path="roles" element={<RequireAdmin><RolesPage /></RequireAdmin>} />
@@ -149,8 +158,9 @@ export default function App() {
         <Route path="*" element={<Navigate to="/supplier" replace />} />
       </Route>
 
-      {/* Global fallback route */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Global fallback — the buyer Layout route above already owns "*", so this
+          only catches paths outside every shell. */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
     </Suspense>
     <InstallBanner />

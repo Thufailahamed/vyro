@@ -32,8 +32,8 @@ export function RolesPage() {
   const admins = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
-      const r = await api.get<{ users: AdminUser[] }>('/admin/users');
-      return r.users;
+      const r = await api.get<{ items: AdminUser[] }>('/admin/users');
+      return r.items;
     },
   });
 
@@ -57,8 +57,16 @@ export function RolesPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   });
 
+  const revokeInvite = useMutation({
+    mutationFn: async (id: string) => {
+      await api.del(`/admin/invites/${id}`);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-invites'] }),
+  });
+
   const errMsg = admins.error instanceof Error ? admins.error.message : null;
   const changeErr = change.error instanceof Error ? change.error.message : null;
+  const revokeErr = revokeInvite.error instanceof Error ? revokeInvite.error.message : null;
 
   return (
     <div className="space-y-6">
@@ -74,6 +82,7 @@ export function RolesPage() {
 
       {errMsg ? <ErrorBanner message={errMsg} /> : null}
       {changeErr ? <ErrorBanner message={changeErr} /> : null}
+      {revokeErr ? <ErrorBanner message={revokeErr} /> : null}
 
       <Surface>
         <table className="w-full text-sm">
@@ -135,14 +144,33 @@ export function RolesPage() {
         <Surface>
           <h3 className="text-sm font-semibold p-2">Pending invites</h3>
           {(invites.data ?? []).map((i) => (
-            <div key={i.id} className="flex justify-between border-t py-2 px-2">
-              <div>
-                {i.email} · <RoleBadge role={i.role} />
+            <div key={i.id} className="flex justify-between items-center border-t py-2 px-2 gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="truncate">{i.email}</span>
+                <RoleBadge role={i.role} />
               </div>
-              <div>
-                {i.acceptedAt
-                  ? 'accepted'
-                  : `expires ${new Date(i.expiresAt).toISOString()}`}
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-ink-500">
+                  {i.acceptedAt
+                    ? 'accepted'
+                    : `expires ${new Date(i.expiresAt).toISOString().slice(0, 10)}`}
+                </span>
+                {!i.acceptedAt && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (window.confirm(`Revoke invite for ${i.email}?`)) {
+                        revokeInvite.mutate(i.id);
+                      }
+                    }}
+                    loading={revokeInvite.isPending && revokeInvite.variables === i.id}
+                    disabled={revokeInvite.isPending}
+                    aria-label={`Revoke invite for ${i.email}`}
+                  >
+                    Revoke
+                  </Button>
+                )}
               </div>
             </div>
           ))}

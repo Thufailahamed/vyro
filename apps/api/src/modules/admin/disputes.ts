@@ -5,7 +5,7 @@ import { session } from '../../middleware/session';
 import { requireRole } from '../../middleware/rbac';
 import { httpError } from '../../lib/errors';
 import { getDb } from '@vyro/db';
-import { auditLogs, notifications } from '@vyro/db/schema';
+import { auditLogs } from '@vyro/db/schema';
 import { findDisputedPo, listDisputed, setPoStatus } from './disputeRepository';
 import { eq } from 'drizzle-orm';
 import { resolveGateway } from '@vyro/payments';
@@ -16,6 +16,8 @@ import {
 } from '../refunds/repository';
 import { recordAudit } from '../supplierProducts/repository';
 import { auditAdmin } from './lib/audit';
+import { notifyOrderParties } from '../notifications/dispatcher';
+import { NotificationType } from '@vyro/shared';
 
 type Ctx = { userId: string };
 
@@ -146,15 +148,28 @@ router.post('/disputes/:poId/resolve', async (c) => {
   }
 
   const now = Date.now();
-  const counterpartyId = parsed.data.outcome === 'refund_business' ? po.supplierId : po.businessId;
-  await db.insert(notifications).values({
-    id: crypto.randomUUID(),
-    userId: counterpartyId,
-    type: 'dispute.resolved',
-    title: parsed.data.outcome === 'refund_business' ? 'Order refunded' : 'Order released',
-    link: `/orders/${poId}`,
-    createdAt: now,
-  });
+  // Fan out to both orgs — admin is the actor so they get nothing, and the
+  // membership tables filter to humans who actually belong to each side.
+  try {
+    const title = parsed.data.outcome === 'refund_business' ? 'Dispute resolved: order refunded' : 'Dispute resolved: order released';
+    const body = parsed.data.outcome === 'refund_business'
+      ? 'Admin ruled in favor of the business. A refund has been processed.'
+      : 'Admin ruled in favor of the supplier. Funds have been released.';
+    await notifyOrderParties(
+      c.env.DB,
+      c.env.NOTIFICATIONS_QUEUE,
+      { id: po.id, poNumber: po.poNumber, businessId: po.businessId, supplierId: po.supplierId },
+      {
+        type: NotificationType.DISPUTE_RESOLVED,
+        title,
+        body: body + (parsed.data.note ? ` Note: ${parsed.data.note}` : ''),
+        link: `/orders/${poId}`,
+        audience: 'both',
+      },
+    );
+  } catch (err) {
+    console.error('[disputes.resolve] notify failed', err);
+  }
   await db.insert(auditLogs).values({
     id: crypto.randomUUID(),
     actorUserId: ctx.userId,

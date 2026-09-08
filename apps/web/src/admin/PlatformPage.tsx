@@ -136,12 +136,16 @@ function WebhooksTab() {
   const list = useWebhooks();
   const create = useCreateWebhook();
   const disable = useDisableWebhook();
-  const deliveries = useWebhookDeliveries('wh-1');
   const retry = useRetryDelivery();
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [events, setEvents] = useState('order.created');
   const [secret, setSecret] = useState('');
+  // Default to the first webhook so deliveries always reflect a real endpoint,
+  // not the prior hardcoded "wh-1" stub.
+  const [selectedWebhookId, setSelectedWebhookId] = useState<string | null>(null);
+  const selectedId = selectedWebhookId ?? list.data?.[0]?.id ?? null;
+  const deliveries = useWebhookDeliveries(selectedId);
   if (!canRead) return <ErrorBanner message="You need webhook:read permission" />;
   return (
     <div className="space-y-4">
@@ -203,7 +207,25 @@ function WebhooksTab() {
         </table>
       </Surface>
       <Surface className="p-4">
-        <h3 className="text-sm font-medium mb-2">Recent deliveries (mock)</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium">Recent deliveries</h3>
+          {list.data && list.data.length > 1 ? (
+            <label className="text-xs flex items-center gap-2">
+              <span className="text-ink-500">Webhook</span>
+              <select
+                value={selectedId ?? ''}
+                onChange={(e) => setSelectedWebhookId(e.target.value || null)}
+                className="border border-ink/20 rounded px-2 py-1"
+              >
+                {list.data.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-ink-500">
@@ -232,6 +254,11 @@ function WebhooksTab() {
                 </td>
               </tr>
             ))}
+            {!selectedId ? (
+              <tr><td colSpan={6} className="py-4 text-center text-ink-500">Create a webhook to see deliveries</td></tr>
+            ) : !deliveries.data?.length ? (
+              <tr><td colSpan={6} className="py-4 text-center text-ink-500">No deliveries yet</td></tr>
+            ) : null}
           </tbody>
         </table>
       </Surface>

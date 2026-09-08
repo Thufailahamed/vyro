@@ -29,6 +29,23 @@ type Offer = {
   leadTimeDays: number;
   availabilityStatus: 'in_stock' | 'low' | 'out_of_stock';
   active: boolean;
+  stockQty?: number;
+  reservedQty?: number;
+  lowStockThreshold?: number;
+  trackInventory?: boolean;
+  availableQty?: number | null;
+};
+
+type StockMovement = {
+  id: string;
+  reason: string;
+  qtyDelta: number;
+  reservedDelta: number;
+  stockQtyAfter: number;
+  reservedQtyAfter: number;
+  note: string | null;
+  createdAt: number;
+  purchaseOrderId: string | null;
 };
 
 type Product = {
@@ -56,6 +73,8 @@ export function SupplierInventoryPage() {
   const toast = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | Offer['availabilityStatus']>('all');
+  const [stockOfferId, setStockOfferId] = useState<string | null>(null);
+  const [movementsOfferId, setMovementsOfferId] = useState<string | null>(null);
 
   const offers = useQuery({
     queryKey: ['supplier', supplierId, 'offers'],
@@ -93,6 +112,26 @@ export function SupplierInventoryPage() {
     onError: () => {
       toast.error('Failed to update stock status');
     },
+  });
+
+  const adjustStock = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: { mode: 'set' | 'adjust'; quantity: number; lowStockThreshold?: number; trackInventory?: boolean; note?: string } }) =>
+      api.post<{ offer: Offer }>(`/supplier-products/${id}/stock`, body),
+    onSuccess: () => {
+      toast.success('Stock updated');
+      void qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'offers'] });
+      void qc.invalidateQueries({ queryKey: ['stock-movements', stockOfferId] });
+    },
+    onError: (err: any) => toast.error(err?.message ?? 'Stock update failed'),
+  });
+
+  const movementsQuery = useQuery({
+    queryKey: ['stock-movements', movementsOfferId],
+    queryFn: () =>
+      api.get<{ movements: StockMovement[] }>(
+        `/supplier-products/${movementsOfferId}/movements?limit=50`,
+      ),
+    enabled: !!movementsOfferId,
   });
 
   const filteredList = useMemo(() => {
@@ -501,6 +540,7 @@ export function SupplierInventoryPage() {
                       <th className="text-left px-5 py-3.5 font-medium">Depot Commodity</th>
                       <th className="text-left px-4 py-3.5 font-medium">Depot SKU</th>
                       <th className="text-left px-4 py-3.5 font-medium">Live Status</th>
+                      <th className="text-right px-4 py-3.5 font-medium">On-hand / Free</th>
                       <th className="text-right px-4 py-3.5 font-medium">MOQ & Dispatch Lead</th>
                       <th className="text-right px-5 py-3.5 font-medium">1-Click Availability State</th>
                     </tr>
@@ -508,6 +548,10 @@ export function SupplierInventoryPage() {
                   <tbody className="divide-y divide-line">
                     {filteredList.map((o) => {
                       const product = nameMap.get(o.productId);
+                      const free = o.availableQty ?? null;
+                      const onHand = o.stockQty ?? 0;
+                      const reserved = o.reservedQty ?? 0;
+                      const tracked = !!o.trackInventory;
                       return (
                         <tr key={o.id} className="hover:bg-mist/30 transition-colors">
                           <td className="px-5 py-4">
@@ -550,6 +594,38 @@ export function SupplierInventoryPage() {
                           </td>
                           <td className="px-4 py-4">
                             <Badge variant={TONE[o.availabilityStatus]}>{LABEL[o.availabilityStatus]}</Badge>
+                          </td>
+                          <td className="px-4 py-4 text-right text-xs text-ink-3">
+                            {tracked ? (
+                              <div className="flex flex-col items-end gap-0.5 font-mono">
+                                <button
+                                  type="button"
+                                  onClick={() => setStockOfferId(o.id)}
+                                  className="font-semibold text-ink hover:text-copper transition-colors"
+                                  title="Edit stock"
+                                >
+                                  {onHand.toLocaleString()} on-hand
+                                </button>
+                                <span className="text-[11px] text-ink-4">
+                                  {free?.toLocaleString() ?? 0} free · {reserved.toLocaleString()} reserved
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setMovementsOfferId(o.id)}
+                                  className="text-[10px] text-copper hover:underline uppercase tracking-wider mt-0.5"
+                                >
+                                  Ledger →
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setStockOfferId(o.id)}
+                                className="text-[11px] text-ink-4 hover:text-copper transition-colors uppercase tracking-wider"
+                              >
+                                Track stock →
+                              </button>
+                            )}
                           </td>
                           <td className="px-4 py-4 text-right text-xs text-ink-3">
                             <div className="flex items-center justify-end gap-1.5 font-mono">
@@ -598,6 +674,204 @@ export function SupplierInventoryPage() {
           </Surface>
         </div>
       )}
+
+      {/* Stock editor modal */}
+      {stockOfferId && (
+        <StockEditorModal
+          offer={list.find((o) => o.id === stockOfferId)!}
+          unit={nameMap.get(list.find((o) => o.id === stockOfferId)?.productId ?? '')?.unit ?? 'units'}
+          submitting={adjustStock.isPending}
+          onClose={() => setStockOfferId(null)}
+          onSubmit={(body) => adjustStock.mutate({ id: stockOfferId, body })}
+        />
+      )}
+
+      {/* Movements drawer */}
+      {movementsOfferId && (
+        <MovementsDrawer
+          offer={list.find((o) => o.id === movementsOfferId)!}
+          product={nameMap.get(list.find((o) => o.id === movementsOfferId)?.productId ?? '') ?? undefined}
+          movements={movementsQuery.data?.movements ?? []}
+          loading={movementsQuery.isLoading}
+          onClose={() => setMovementsOfferId(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function StockEditorModal({
+  offer,
+  unit,
+  submitting,
+  onClose,
+  onSubmit,
+}: {
+  offer: Offer;
+  unit: string;
+  submitting: boolean;
+  onClose: () => void;
+  onSubmit: (body: { mode: 'set' | 'adjust'; quantity: number; lowStockThreshold?: number; trackInventory?: boolean; note?: string }) => void;
+}) {
+  const [mode, setMode] = useState<'set' | 'adjust'>('set');
+  const [quantity, setQuantity] = useState<string>(String(offer.stockQty ?? 0));
+  const [threshold, setThreshold] = useState<string>(String(offer.lowStockThreshold ?? 0));
+  const [tracked, setTracked] = useState<boolean>(!!offer.trackInventory);
+  const [note, setNote] = useState<string>('');
+
+  return (
+    <div className="fixed inset-0 z-50 bg-ink/50 flex items-center justify-center p-4" role="dialog">
+      <div className="bg-paper border border-ink/10 rounded-lg shadow-soft w-full max-w-md p-5 space-y-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="font-display text-lg font-bold">Stock control</h2>
+            <p className="text-xs text-ink-4 mt-0.5">{unit}</p>
+          </div>
+          <button onClick={onClose} className="text-ink-4 hover:text-ink text-sm">Close</button>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {(['set', 'adjust'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={`py-1.5 text-xs font-mono border rounded transition-colors ${
+                mode === m ? 'bg-ink text-paper border-ink' : 'bg-paper border-ink/10 text-ink-3 hover:bg-mist/60'
+              }`}
+            >
+              {m === 'set' ? 'Set absolute' : 'Adjust ±'}
+            </button>
+          ))}
+          <label className="flex items-center gap-2 text-xs px-2 col-span-1">
+            <input
+              type="checkbox"
+              checked={tracked}
+              onChange={(e) => setTracked(e.target.checked)}
+              className="accent-copper"
+            />
+            Track
+          </label>
+        </div>
+        <label className="block text-xs">
+          <span className="text-ink-3">Quantity ({mode === 'adjust' ? 'delta' : 'absolute'})</span>
+          <Input
+            type="number"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            className="mt-1 font-mono"
+            min={mode === 'set' ? 0 : -1000000}
+          />
+          <span className="text-[10px] text-ink-4 mt-1 block">
+            On-hand {offer.stockQty ?? 0} · Reserved {offer.reservedQty ?? 0} · Free {offer.availableQty ?? '—'}
+          </span>
+        </label>
+        <label className="block text-xs">
+          <span className="text-ink-3">Low-stock threshold</span>
+          <Input
+            type="number"
+            value={threshold}
+            onChange={(e) => setThreshold(e.target.value)}
+            className="mt-1 font-mono"
+            min={0}
+          />
+        </label>
+        <label className="block text-xs">
+          <span className="text-ink-3">Note (optional)</span>
+          <Input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Why?"
+            className="mt-1"
+          />
+        </label>
+        <div className="flex justify-end gap-2 pt-1">
+          <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={submitting}
+            onClick={() => {
+              const qty = Number(quantity);
+              const thr = Number(threshold);
+              const body: { mode: 'set' | 'adjust'; quantity: number; lowStockThreshold?: number; trackInventory?: boolean; note?: string } = {
+                mode,
+                quantity: Number.isFinite(qty) ? qty : 0,
+                trackInventory: tracked,
+              };
+              // Empty input parses to NaN, which the API rejects with a 400.
+              if (threshold.trim() !== '' && Number.isFinite(thr)) body.lowStockThreshold = thr;
+              if (note) body.note = note;
+              onSubmit(body);
+            }}
+          >
+            {submitting ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MovementsDrawer({
+  offer,
+  product,
+  movements,
+  loading,
+  onClose,
+}: {
+  offer: Offer;
+  product: Product | undefined;
+  movements: StockMovement[];
+  loading: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-ink/50 flex items-stretch justify-end" role="dialog">
+      <div className="bg-paper border-l border-ink/10 w-full max-w-lg h-full flex flex-col">
+        <header className="px-5 py-4 border-b border-ink/10 flex items-center justify-between">
+          <div>
+            <h2 className="font-display text-lg font-bold">Stock ledger</h2>
+            <p className="text-xs text-ink-4 mt-0.5">{product?.name ?? '—'}</p>
+          </div>
+          <button onClick={onClose} className="text-ink-4 hover:text-ink text-sm">Close</button>
+        </header>
+        <div className="flex-1 overflow-y-auto p-5">
+          {loading ? (
+            <div className="h-20 bg-mist animate-pulse" />
+          ) : movements.length === 0 ? (
+            <p className="text-sm text-ink-4">No movements yet.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-wider text-ink-4 font-mono">
+                  <th className="text-left py-2">When</th>
+                  <th className="text-left py-2">Reason</th>
+                  <th className="text-right py-2">Δ qty</th>
+                  <th className="text-right py-2">Δ reserved</th>
+                  <th className="text-right py-2">After</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink/10">
+                {movements.map((m) => (
+                  <tr key={m.id}>
+                    <td className="py-2 text-[11px] text-ink-4">{new Date(m.createdAt).toLocaleString('en-GB')}</td>
+                    <td className="py-2 text-xs">{m.reason}</td>
+                    <td className={`py-2 text-right font-mono ${m.qtyDelta > 0 ? 'text-emerald-700' : m.qtyDelta < 0 ? 'text-rose' : 'text-ink-4'}`}>
+                      {m.qtyDelta > 0 ? '+' : ''}{m.qtyDelta}
+                    </td>
+                    <td className={`py-2 text-right font-mono ${m.reservedDelta > 0 ? 'text-amber' : m.reservedDelta < 0 ? 'text-ink-4' : 'text-ink-4'}`}>
+                      {m.reservedDelta > 0 ? '+' : ''}{m.reservedDelta}
+                    </td>
+                    <td className="py-2 text-right font-mono text-[11px]">
+                      {m.stockQtyAfter} on-hand · {m.reservedQtyAfter} reserved
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

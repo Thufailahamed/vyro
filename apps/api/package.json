@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "wrangler dev --local --port 8787",
     "build": "tsc",
-    "deploy": "wrangler deploy",
+    "deploy": "wrangler deploy --env production",
     "typecheck": "tsc --noEmit",
-    "lint": "echo 'lint stub'",
+    "lint": "tsc --noEmit",
     "test": "vitest run",
     "db:migrate:local": "wrangler d1 migrations apply vyro --local",
     "db:migrate:remote": "wrangler d1 migrations apply vyro --remote",
@@ -33,6 +33,6 @@
     "@cloudflare/workers-types": "^4.20240909.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0",
-    "wrangler": "^3.80.0"
+    "wrangler": "^4.20.0"
   }
 }

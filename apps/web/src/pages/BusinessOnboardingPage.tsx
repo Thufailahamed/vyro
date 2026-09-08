@@ -7,6 +7,7 @@ import { FlowLine } from '@/components/brand/FlowLine';
 import { Surface } from '@/components/brand/Surface';
 import { SRI_LANKAN_DISTRICTS } from '@/lib/sriLanka';
 import { cn } from '@vyro/ui';
+import { usePageTitle } from '@/lib/usePageTitle';
 import {
   Building2Icon,
   MapPinIcon,
@@ -73,6 +74,7 @@ const BUYER_CATEGORY_META: Record<
 const STEPS = ['Sector', 'Identity', 'Delivery Place', 'Lead Contact'];
 
 export function BusinessOnboardingPage() {
+  usePageTitle('Register a business');
   const { user, refresh } = useAuth();
   const [types, setTypes] = useState<BusinessType[]>([]);
   const [step, setStep] = useState(0);

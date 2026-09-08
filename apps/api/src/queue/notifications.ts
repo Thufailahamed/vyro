@@ -1,8 +1,9 @@
 import type { MessageBatch } from '@cloudflare/workers-types';
 import { getDb } from '@vyro/db';
-import { notifications } from '@vyro/db/schema';
+import { notifications, users } from '@vyro/db/schema';
 import { eq } from 'drizzle-orm';
 import type { Env } from '../env';
+import { renderSupplierVerification, sendEmail } from '../lib/email';
 
 /**
  * NOTIFICATIONS_QUEUE consumer.
@@ -11,7 +12,8 @@ import type { Env } from '../env';
  * `{ notificationId, userId, type }`. This is the fan-out hub where future
  * channels (email, push, SMS) hook in. For now we:
  *   1. Verify the referenced notification row exists.
- *   2. Mark it as `deliveredAt` if not already set.
+ *   2. Email the recipient when the notification type warrants it
+ *      (e.g. supplier verification decisions, invites).
  *   3. Increment the analytics engine metric.
  *
  * Idempotent on `notificationId`.
@@ -26,6 +28,9 @@ export async function handleNotificationsBatch(
       notificationId: string;
       userId: string;
       type: string;
+      title?: string;
+      body?: string | null;
+      link?: string | null;
     }> | null;
     if (
       !body ||
@@ -46,6 +51,7 @@ export async function handleNotificationsBatch(
         msg.ack();
         continue;
       }
+      await maybeEmailNotification(env, body.type ?? '', body.userId, body.title, body.body, body.link);
       if (env.METRICS) {
         try {
           env.METRICS.writeDataPoint({
@@ -67,4 +73,72 @@ export async function handleNotificationsBatch(
       });
     }
   }
+}
+
+/**
+ * Sends an email for notifications whose `type` maps to a transactional event.
+ * Other notification types are in-app only — they pass through silently.
+ */
+async function maybeEmailNotification(
+  env: Env,
+  type: string,
+  userId: string,
+  title: string | undefined,
+  body: string | null | undefined,
+  link: string | null | undefined,
+): Promise<void> {
+  let subject: string | null = null;
+  let text: string | null = null;
+  let html: string | undefined;
+
+  if (type === 'supplier.verified') {
+    subject = 'You are verified on Vyro';
+    text =
+      'Good news — your supplier account is now verified on Vyro. Buyers can find you and you can publish offers.';
+  } else if (type === 'supplier.rejected') {
+    subject = 'Your verification was rejected';
+    text = `Unfortunately we were not able to verify your supplier account.${body ? `\n\nReason: ${body}` : ''}`;
+    html = body
+      ? `<p>Unfortunately we were not able to verify your supplier account.</p><p><strong>Reason:</strong> ${escapeHtml(body)}</p>`
+      : undefined;
+  } else if (type === 'supplier.review_required') {
+    subject = 'More information needed for your Vyro verification';
+    text =
+      'We need a little more information before we can verify your supplier account. Please update your verification details.';
+  } else {
+    return; // not a transactional type
+  }
+
+  const db = getDb(env.DB);
+  const user = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .get();
+  if (!user) return;
+  const linkStr = link ?? null;
+  const rendered =
+    type === 'supplier.verified' || type === 'supplier.rejected'
+      ? renderSupplierVerification({
+          to: user.email,
+          status: type === 'supplier.verified' ? 'verified' : 'rejected',
+          reason: body ?? null,
+          link: linkStr ?? 'https://vyro.local/supplier/verification',
+        })
+      : {
+          to: user.email,
+          subject: subject ?? title ?? 'Vyro notification',
+          text: text ?? '',
+          ...(html ? { html } : {}),
+        };
+  await sendEmail(env, rendered);
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

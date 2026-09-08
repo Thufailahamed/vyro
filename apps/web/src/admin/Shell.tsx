@@ -83,6 +83,7 @@ export function AdminShell() {
   const { user, setUser } = useAdminAuth();
   const navigate = useNavigate();
   const searchRef = useRef<HTMLInputElement>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const shortcuts = useKeyboardShortcuts({ focusSearch: () => searchRef.current?.focus() });
   return (
     <div className="min-h-dvh bg-bone text-ink lg:flex">
@@ -107,9 +108,6 @@ export function AdminShell() {
             </NavLink>
             <NavLink to="/admin/disputed" className={linkClass}>
               Disputes
-            </NavLink>
-            <NavLink to="/admin/audit" className={linkClass}>
-              Audit
             </NavLink>
             <NavLink to="/admin/users" className={linkClass}>
               Users
@@ -201,6 +199,16 @@ export function AdminShell() {
       </aside>
       <div className="flex-1 min-w-0">
         <header className="lg:hidden h-12 px-4 flex items-center justify-between border-b border-ink/10 bg-ink text-paper">
+          <button
+            type="button"
+            aria-label="Open navigation"
+            aria-expanded={drawerOpen}
+            aria-controls="admin-drawer"
+            onClick={() => setDrawerOpen((v) => !v)}
+            className="text-paper/70 hover:text-volt"
+          >
+            <span aria-hidden="true">≡</span>
+          </button>
           <Link to="/admin" className="vyro-display text-sm tracking-tight">
             VYRO CONTROL
           </Link>
@@ -208,10 +216,134 @@ export function AdminShell() {
             Web
           </Link>
         </header>
-        <main className="max-w-stage mx-auto px-4 sm:px-8 py-8">
+        <main id="main-content" className="max-w-stage mx-auto px-4 sm:px-8 py-8">
           <Outlet />
         </main>
       </div>
+      {drawerOpen ? (
+        <div
+          id="admin-drawer"
+          className="lg:hidden fixed inset-0 z-50 bg-ink/70"
+          onClick={() => setDrawerOpen(false)}
+        >
+          <div
+            className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-void text-paper flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label="Admin navigation"
+          >
+            <Link
+              to="/admin"
+              onClick={() => setDrawerOpen(false)}
+              className="flex items-center gap-2.5 px-4 h-14 border-b border-paper/10"
+            >
+              <BrandMark size={24} tone="volt" />
+              <BrandWordmark tone="paper" size="sm" eyebrow="Control" />
+            </Link>
+            <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
+              <NavLink to="/admin" end className={linkClass} onClick={() => setDrawerOpen(false)}>
+                Overview
+              </NavLink>
+              <NavLink to="/admin/suppliers" className={linkClass} onClick={() => setDrawerOpen(false)}>
+                Suppliers
+              </NavLink>
+              <NavLink to="/admin/businesses" className={linkClass} onClick={() => setDrawerOpen(false)}>
+                Businesses
+              </NavLink>
+              <NavLink to="/admin/disputed" className={linkClass} onClick={() => setDrawerOpen(false)}>
+                Disputes
+              </NavLink>
+              <NavLink to="/admin/users" className={linkClass} onClick={() => setDrawerOpen(false)}>
+                Users
+              </NavLink>
+              {user?.adminRole && hasPermission(user.adminRole, 'audit:read') ? (
+                <NavLink to="/admin/activity" className={linkClass} onClick={() => setDrawerOpen(false)}>
+                  Activity
+                </NavLink>
+              ) : null}
+              {user?.adminRole && hasPermission(user.adminRole, 'admin:role_change') ? (
+                <NavLink to="/admin/roles" className={linkClass} onClick={() => setDrawerOpen(false)}>
+                  Roles
+                </NavLink>
+              ) : null}
+              {user?.adminRole &&
+              (hasPermission(user.adminRole, 'product:read') ||
+                hasPermission(user.adminRole, 'category:read') ||
+                hasPermission(user.adminRole, 'type:read')) ? (
+                <NavLink to="/admin/catalog" className={linkClass} onClick={() => setDrawerOpen(false)}>
+                  Catalog
+                </NavLink>
+              ) : null}
+              {user?.adminRole &&
+              (hasPermission(user.adminRole, 'payment:read') ||
+                hasPermission(user.adminRole, 'payout:read') ||
+                hasPermission(user.adminRole, 'ledger:read')) ? (
+                <NavLink to="/admin/money" className={linkClass} onClick={() => setDrawerOpen(false)}>
+                  Money
+                </NavLink>
+              ) : null}
+              {user?.adminRole &&
+              (hasPermission(user.adminRole, 'abuse_report:read') ||
+                hasPermission(user.adminRole, 'kyc:read') ||
+                hasPermission(user.adminRole, 'user:suspend')) ? (
+                <NavLink
+                  to="/admin/trust-safety"
+                  className={linkClass}
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  Trust &amp; Safety
+                </NavLink>
+              ) : null}
+              {user?.adminRole &&
+              (hasPermission(user.adminRole, 'feature_flag:read') ||
+                hasPermission(user.adminRole, 'email_template:read') ||
+                hasPermission(user.adminRole, 'webhook:read')) ? (
+                <NavLink to="/admin/platform" className={linkClass} onClick={() => setDrawerOpen(false)}>
+                  Platform
+                </NavLink>
+              ) : null}
+              {user?.adminRole &&
+              (hasPermission(user.adminRole, 'session:revoke') ||
+                hasPermission(user.adminRole, 'impersonation:start') ||
+                hasPermission(user.adminRole, 'data_export:run') ||
+                hasPermission(user.adminRole, '2fa:enforce')) ? (
+                <NavLink to="/admin/security" className={linkClass} onClick={() => setDrawerOpen(false)}>
+                  Security
+                </NavLink>
+              ) : null}
+              {user?.adminRole &&
+              (hasPermission(user.adminRole, 'health:read') ||
+                hasPermission(user.adminRole, 'cron:read')) ? (
+                <NavLink
+                  to="/admin/observability"
+                  className={linkClass}
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  Observability
+                </NavLink>
+              ) : null}
+            </nav>
+            <div className="p-3 border-t border-paper/10 flex items-center justify-between text-xs">
+              <Link to="/" className="text-paper/40 hover:text-volt" onClick={() => setDrawerOpen(false)}>
+                ← Web
+              </Link>
+              {user && (
+                <button
+                  onClick={async () => {
+                    setDrawerOpen(false);
+                    await api.post('/auth/sign-out');
+                    setUser(null);
+                    navigate('/admin/login');
+                  }}
+                  className="text-paper/40 hover:text-paper"
+                >
+                  Sign out
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
       {shortcuts.helpOpen ? (
         <div
           className="fixed inset-0 z-50 bg-ink/60 flex items-center justify-center p-4"

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePageTitle } from '@/lib/usePageTitle';
 import { api, ApiError } from '@/lib/api';
 import { Button, EmptyState } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
@@ -59,10 +60,20 @@ interface CartItem {
     minOrderQty: number;
     leadTimeDays: number;
     availabilityStatus: string;
+    trackInventory?: boolean;
+    availableQty?: number | null;
+    lowStockThreshold?: number;
   };
+  issues?: Array<{
+    code: 'OUT_OF_STOCK' | 'BELOW_MOQ' | 'INSUFFICIENT_STOCK';
+    message: string;
+    minOrderQty?: number;
+    available?: number;
+  }>;
 }
 
 export function CartPage() {
+  usePageTitle('Cart');
   const { user } = useAuth();
   const businessId = user?.memberships?.[0]?.businessId;
   const qc = useQueryClient();
@@ -373,6 +384,26 @@ export function CartPage() {
                                   </button>
                                 </div>
                               )}
+
+                              {/* Stock warnings (server-validated) */}
+                              {it.issues?.map((issue, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex items-center gap-2 text-xs text-rose bg-rose/5 border border-rose/30 px-2.5 py-1 mt-1.5"
+                                >
+                                  <AlertCircleIcon size={13} />
+                                  <span>{issue.message}</span>
+                                  {issue.code === 'BELOW_MOQ' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSetExact(it.id, it.offer.minOrderQty)}
+                                      className="font-semibold underline ml-1 hover:text-ink"
+                                    >
+                                      Set to MOQ ({it.offer.minOrderQty})
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
                             </div>
                           </div>
 
@@ -587,7 +618,7 @@ export function CartPage() {
                 <Button
                   size="lg"
                   className="w-full justify-center"
-                  disabled={belowMoq.length > 0}
+                  disabled={belowMoq.length > 0 || items.some((it) => (it.issues?.length ?? 0) > 0)}
                   onClick={() => navigate('/checkout')}
                   icon={<ArrowRightIcon size={16} />}
                 >

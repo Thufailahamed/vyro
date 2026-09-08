@@ -5,6 +5,7 @@ import { getDb } from '@vyro/db';
 import { users } from '@vyro/db/schema';
 import { ensureEmailAvailable } from './service';
 import { httpError } from '../../lib/errors';
+import { authEnv } from '../../lib/authEnv';
 import type { Env } from '../../env';
 
 
@@ -15,7 +16,7 @@ const handleSignUp = async (c: any) => {
   if (!parsed.success)
     throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
   await ensureEmailAvailable(c.env.DB, parsed.data.email);
-  const auth = createAuth(c.env);
+  const auth = createAuth(authEnv(c.env));
   const res = await auth.api.signUpEmail({
     body: {
       email: parsed.data.email.toLowerCase(),
@@ -59,7 +60,7 @@ const handleSignIn = async (c: any) => {
   const parsed = signInSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success)
     throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
-  const auth = createAuth(c.env);
+  const auth = createAuth(authEnv(c.env));
   const res = await auth.api.signInEmail({
     body: {
       email: parsed.data.email.toLowerCase(),
@@ -72,7 +73,7 @@ const handleSignIn = async (c: any) => {
 };
 
 const handleSignOut = async (c: any) => {
-  const auth = createAuth(c.env);
+  const auth = createAuth(authEnv(c.env));
   const res = await auth.api.signOut({ headers: c.req.raw.headers, asResponse: true });
   return res;
 };
@@ -87,7 +88,7 @@ router.post('/signout', handleSignOut);
 router.post('/sign-out', handleSignOut);
 
 router.post('/forget-password', async (c) => {
-  const auth = createAuth(c.env);
+  const auth = createAuth(authEnv(c.env));
   const res = await auth.api.requestPasswordReset({
     body: await c.req.json().catch(() => ({})),
     headers: c.req.raw.headers,
@@ -97,7 +98,7 @@ router.post('/forget-password', async (c) => {
 });
 
 router.post('/reset-password', async (c) => {
-  const auth = createAuth(c.env);
+  const auth = createAuth(authEnv(c.env));
   const res = await auth.api.resetPassword({
     body: await c.req.json().catch(() => ({})),
     headers: c.req.raw.headers,
@@ -107,7 +108,7 @@ router.post('/reset-password', async (c) => {
 });
 
 router.post('/2fa/enable', async (c) => {
-  const auth = createAuth(c.env);
+  const auth = createAuth(authEnv(c.env));
   const res = await auth.api.enableTwoFactor({
     body: await c.req.json().catch(() => ({})),
     headers: c.req.raw.headers,
@@ -117,7 +118,7 @@ router.post('/2fa/enable', async (c) => {
 });
 
 router.post('/2fa/verify', async (c) => {
-  const auth = createAuth(c.env);
+  const auth = createAuth(authEnv(c.env));
   const res = await auth.api.verifyTOTP({
     body: await c.req.json().catch(() => ({})),
     headers: c.req.raw.headers,
@@ -127,7 +128,7 @@ router.post('/2fa/verify', async (c) => {
 });
 
 router.post('/2fa/disable', async (c) => {
-  const auth = createAuth(c.env);
+  const auth = createAuth(authEnv(c.env));
   const res = await auth.api.disableTwoFactor({
     body: await c.req.json().catch(() => ({})),
     headers: c.req.raw.headers,
@@ -137,7 +138,7 @@ router.post('/2fa/disable', async (c) => {
 });
 
 router.get('/me', async (c) => {
-  const auth = createAuth(c.env);
+  const auth = createAuth(authEnv(c.env));
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!session) throw httpError(401, 'UNAUTHORIZED', 'No active session');
   const ctx = await loadSessionContext(c.env.DB, session.user.id);

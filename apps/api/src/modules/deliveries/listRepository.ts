@@ -10,6 +10,7 @@ export type DeliveryListItem = {
   estimatedAt: number | null;
   deliveredAt: number | null;
   driverName: string | null;
+  driverPhone: string | null;
 };
 
 export async function listDeliveriesForSupplier(
@@ -31,6 +32,7 @@ export async function listDeliveriesForSupplier(
       estimatedAt: deliveries.estimatedAt,
       deliveredAt: deliveries.deliveredAt,
       driverName: deliveries.driverName,
+      driverPhone: deliveries.driverPhone,
     })
     .from(deliveries)
     .innerJoin(purchaseOrders, eq(purchaseOrders.id, deliveries.purchaseOrderId))

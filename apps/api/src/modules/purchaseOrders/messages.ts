@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { and, eq, asc, gt, isNull, or } from 'drizzle-orm';
+import { and, eq, asc, gt, isNull, ne } from 'drizzle-orm';
 import type { Env } from '../../env';
 import { session } from '../../middleware/session';
 import type { Ctx } from '../../middleware/session';
@@ -13,9 +13,9 @@ import {
   suppliers,
   businessMembers,
   supplierMembers,
-  notifications,
 } from '@vyro/db/schema';
-import { newId } from '@vyro/shared';
+import { newId, NotificationType } from '@vyro/shared';
+import { notifyOrderParties } from '../notifications/dispatcher';
 
 const sendSchema = z.object({ body: z.string().min(1).max(2000) });
 
@@ -47,38 +47,27 @@ async function assertParticipant(d1: D1Database, userId: string, isAdmin: boolea
   throw httpError(403, 'FORBIDDEN', 'Not a participant');
 }
 
-async function notifyRecipient(d1: D1Database, senderUserId: string, poId: string, body: string) {
+async function notifyRecipient(
+  d1: D1Database,
+  queue: { send: (body: unknown) => Promise<unknown> } | undefined,
+  senderUserId: string,
+  poId: string,
+  body: string,
+) {
   const db = getDb(d1);
   const po = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, poId)).get();
   if (!po) return;
-  const bizMembers = await db
-    .select({ userId: businessMembers.userId })
-    .from(businessMembers)
-    .where(eq(businessMembers.businessId, po.businessId))
-    .all();
-  const supMembers = await db
-    .select({ userId: supplierMembers.userId })
-    .from(supplierMembers)
-    .where(eq(supplierMembers.supplierId, po.supplierId))
-    .all();
-  const all = new Set<string>();
-  for (const m of bizMembers) all.add(m.userId);
-  for (const m of supMembers) all.add(m.userId);
-  all.delete(senderUserId);
-  for (const userId of all) {
-    await db
-      .insert(notifications)
-      .values({
-        id: newId(),
-        userId,
-        type: 'po.message',
-        title: `New message on PO ${po.poNumber}`,
-        body: body.slice(0, 120),
-        link: `/orders/${po.id}`,
-        createdAt: Date.now(),
-      })
-      .run();
-  }
+  await notifyOrderParties(
+    d1,
+    queue,
+    { id: po.id, poNumber: po.poNumber, businessId: po.businessId, supplierId: po.supplierId },
+    {
+      type: NotificationType.PO_MESSAGE,
+      title: `New message on PO ${po.poNumber}`,
+      body: body.slice(0, 120),
+      excludeUserId: senderUserId,
+    },
+  );
 }
 
 router.post('/:id/messages', async (c) => {
@@ -100,7 +89,7 @@ router.post('/:id/messages', async (c) => {
       createdAt,
     })
     .run();
-  await notifyRecipient(c.env.DB, ctx.userId, poId, parsed.data.body);
+  await notifyRecipient(c.env.DB, c.env.NOTIFICATIONS_QUEUE, ctx.userId, poId, parsed.data.body);
   return c.json({ id, createdAt }, 201);
 });
 
@@ -132,7 +121,8 @@ router.post('/:id/messages/read', async (c) => {
       and(
         eq(poMessages.purchaseOrderId, poId),
         isNull(poMessages.readAt),
-        or(eq(poMessages.senderUserId, '__none__'), eq(poMessages.purchaseOrderId, poId)),
+        // Only the counterparty's messages are marked read by the reader.
+        ne(poMessages.senderUserId, ctx.userId),
       ),
     )
     .run();

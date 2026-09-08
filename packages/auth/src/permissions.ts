@@ -1,7 +1,7 @@
 export const PERMISSION_KEYS = [
   'user:read', 'user:suspend', 'user:unsuspend',
   'business:read', 'business:freeze', 'business:unfreeze',
-  'supplier:read', 'supplier:freeze', 'supplier:unfreeze',
+  'supplier:read', 'supplier:freeze', 'supplier:unfreeze', 'supplier:verify',
   'product:read', 'product:moderate',
   'category:read', 'category:write',
   'type:read', 'type:write',

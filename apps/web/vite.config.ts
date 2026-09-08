@@ -27,7 +27,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://vyro-api.thufailahamed627.workers.dev',
+        // Point at a local `wrangler dev` with VITE_API_PROXY=http://127.0.0.1:8787
+        target: process.env.VITE_API_PROXY ?? 'https://vyro-api.thufailahamed627.workers.dev',
         changeOrigin: true,
         secure: true,
       },

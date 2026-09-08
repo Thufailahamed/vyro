@@ -14,6 +14,9 @@ export const createSupplierProductSchema = z
     deliveryAvailable: z.boolean().optional(),
     deliveryRadiusKm: z.number().int().min(0).max(500).nullable().optional(),
     availabilityStatus: z.enum(['in_stock', 'low', 'out_of_stock']).optional(),
+    stockQty: z.number().int().min(0).max(1000000).optional(),
+    lowStockThreshold: z.number().int().min(0).max(1000000).optional(),
+    trackInventory: z.boolean().optional(),
     tier1MinQty: tierMinQty.optional(),
     tier1DiscountPct: tierDiscount.optional(),
     tier2MinQty: tierMinQty.optional(),
@@ -33,6 +36,8 @@ export const updateSupplierProductSchema = z
     deliveryRadiusKm: z.number().int().min(0).max(500).nullable().optional(),
     availabilityStatus: z.enum(['in_stock', 'low', 'out_of_stock']).optional(),
     active: z.boolean().optional(),
+    lowStockThreshold: z.number().int().min(0).max(1000000).optional(),
+    trackInventory: z.boolean().optional(),
     tier1MinQty: tierMinQty.optional(),
     tier1DiscountPct: tierDiscount.optional(),
     tier2MinQty: tierMinQty.optional(),
@@ -41,6 +46,23 @@ export const updateSupplierProductSchema = z
     tier3DiscountPct: tierDiscount.optional(),
   })
   .strict();
+
+/** Stock write: absolute count (`set`) or signed delta (`adjust`). */
+export const stockAdjustSchema = z
+  .object({
+    mode: z.enum(['set', 'adjust']).default('set'),
+    quantity: z.number().int().min(-1000000).max(1000000),
+    lowStockThreshold: z.number().int().min(0).max(1000000).optional(),
+    trackInventory: z.boolean().optional(),
+    note: z.string().max(300).optional(),
+  })
+  .strict()
+  .refine((v) => v.mode === 'adjust' || v.quantity >= 0, {
+    message: 'quantity must be >= 0 when mode is "set"',
+    path: ['quantity'],
+  });
+
+export type StockAdjustInput = z.infer<typeof stockAdjustSchema>;
 
 export type CreateSupplierProductInput = z.infer<typeof createSupplierProductSchema>;
 export type UpdateSupplierProductInput = z.infer<typeof updateSupplierProductSchema>;

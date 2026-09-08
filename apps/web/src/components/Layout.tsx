@@ -50,6 +50,12 @@ function OnboardingShell() {
   const { user, signOut } = useAuth();
   return (
     <div className="min-h-dvh bg-bone text-ink flex flex-col">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:bg-ink focus:text-volt focus:text-sm"
+      >
+        Skip to main content
+      </a>
       <header className="sticky top-0 z-40 border-b border-ink/10 bg-bone/95 backdrop-blur-sm">
         <div className="max-w-stage mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-4">
           <Link to="/" className="flex items-center gap-3">
@@ -75,7 +81,7 @@ function OnboardingShell() {
           </div>
         </div>
       </header>
-      <main className="flex-1 max-w-stage mx-auto w-full px-5 sm:px-8 py-8 sm:py-12">
+      <main id="main-content" className="flex-1 max-w-stage mx-auto w-full px-5 sm:px-8 py-8 sm:py-12">
         <Outlet />
       </main>
       <footer className="border-t border-ink/10 py-6 bg-bone text-[11px] text-ink-4">
@@ -94,6 +100,12 @@ function MarketingShell() {
   const { user } = useAuth();
   return (
     <div className="min-h-dvh bg-bone text-ink">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:bg-ink focus:text-volt focus:text-sm"
+      >
+        Skip to main content
+      </a>
       <header className="sticky top-0 z-40 border-b border-ink/10 bg-bone/90 backdrop-blur-md">
         <div className="max-w-stage mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-4">
           <Link to="/" className="flex items-center gap-3">
@@ -134,7 +146,7 @@ function MarketingShell() {
           </div>
         </div>
       </header>
-      <main>
+      <main id="main-content">
         <Outlet />
       </main>
       <MarketingFooter />
@@ -219,12 +231,13 @@ function WorkspaceShell() {
   });
   const { data: notifData } = useQuery({
     queryKey: ['notifications-me'],
-    queryFn: () => api.get<{ notifications: Array<{ id: string; readAt: number | null }> }>('/notifications/me'),
+    queryFn: () => api.get<{ notifications: Array<{ id: string; readAt: number | null }>; unreadCount: number }>('/notifications/me?limit=20'),
     enabled: !!user,
+    refetchInterval: 30_000,
   });
 
   const cartCount = cartData?.items?.length ?? 0;
-  const unread = notifData?.notifications?.filter((n) => !n.readAt).length ?? 0;
+  const unread = notifData?.unreadCount ?? notifData?.notifications?.filter((n) => !n.readAt).length ?? 0;
 
   const primary = [
     { to: '/dashboard', label: 'Command', icon: LayoutGridIcon, show: !!user },
@@ -241,6 +254,12 @@ function WorkspaceShell() {
 
   return (
     <div className="min-h-dvh bg-bone text-ink lg:flex">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:bg-ink focus:text-volt focus:text-sm"
+      >
+        Skip to main content
+      </a>
       <aside className="hidden lg:flex w-sidebar shrink-0 flex-col bg-ink text-paper min-h-dvh sticky top-0">
         <Link to="/" className="flex items-center gap-3 px-5 h-16 border-b border-paper/10">
           <BrandMark size={28} tone="volt" />
@@ -319,7 +338,7 @@ function WorkspaceShell() {
           </div>
         </header>
 
-        <main className="flex-1 w-full max-w-stage mx-auto px-4 sm:px-6 lg:px-10 py-8 pb-24 lg:pb-12">
+        <main id="main-content" className="flex-1 w-full max-w-stage mx-auto px-4 sm:px-6 lg:px-10 py-8 pb-24 lg:pb-12">
           <Outlet />
         </main>
 

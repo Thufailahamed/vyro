@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { usePageTitle } from '@/lib/usePageTitle';
 import { api } from '@/lib/api';
 import { Button, EmptyState, Input } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
@@ -16,6 +17,7 @@ interface Hit {
 const QUICK_FILTERS = ['All', 'Rice', 'Sugar', 'Tea', 'Milk', 'Oil', 'Flour', 'Cement', 'Packaging', 'Spices'];
 
 export function SearchPage() {
+  usePageTitle('Discover');
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQ = searchParams.get('q') || '';
   const [q, setQ] = useState(initialQ); // committed query string sent to API

@@ -19,10 +19,36 @@ import {
   upsertCartItem,
 } from './repository';
 import { resolveTier, nextTier, applyTier, discountCents, type TierSet } from './pricing';
+import { availableQty, checkPurchasable, deriveAvailability } from '@vyro/shared';
 
 const router = new Hono<{ Bindings: Env }>();
 
 const CART_ROLES = ['owner', 'manager', 'staff'] as const;
+
+/**
+ * Server-side purchasability gate. The buyer UI mirrors this with
+ * `checkPurchasable` from @vyro/shared, but the server is authoritative so a
+ * direct API call cannot order out-of-stock or below-MOQ quantities.
+ */
+function assertPurchasable(
+  offer: {
+    minOrderQty: number;
+    stockQty: number;
+    reservedQty: number;
+    lowStockThreshold: number;
+    trackInventory: boolean;
+    availabilityStatus: 'in_stock' | 'low' | 'out_of_stock';
+  },
+  quantity: number,
+): void {
+  const verdict = checkPurchasable(offer, quantity);
+  if (!verdict.ok) {
+    throw httpError(409, verdict.code, verdict.message, {
+      ...(verdict.code === 'BELOW_MOQ' ? { minOrderQty: verdict.minOrderQty } : {}),
+      ...(verdict.code === 'INSUFFICIENT_STOCK' ? { available: verdict.available } : {}),
+    });
+  }
+}
 
 router.get('/', session(), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
@@ -92,7 +118,19 @@ router.get('/', session(), async (c) => {
           imageUrl: imageMap.get(o.product.id) ?? null,
         },
         supplier: o.supplier,
-        offer: { id: o.sp.id, minOrderQty: o.sp.minOrderQty, leadTimeDays: o.sp.leadTimeDays, availabilityStatus: o.sp.availabilityStatus },
+        offer: {
+          id: o.sp.id,
+          minOrderQty: o.sp.minOrderQty,
+          leadTimeDays: o.sp.leadTimeDays,
+          availabilityStatus: deriveAvailability(o.sp),
+          trackInventory: o.sp.trackInventory,
+          availableQty: o.sp.trackInventory ? availableQty(o.sp) : null,
+          lowStockThreshold: o.sp.lowStockThreshold,
+        },
+        issues: (() => {
+          const verdict = checkPurchasable(o.sp, i.quantity);
+          return verdict.ok ? [] : [verdict];
+        })(),
       };
     }).filter(Boolean);
   }
@@ -123,6 +161,7 @@ router.post('/items', session(), async (c) => {
   const offer = await db.select().from(supplierProducts).where(eq(supplierProducts.id, parsed.data.supplierProductId)).get();
   if (!offer || offer.deletedAt) throw httpError(404, 'NOT_FOUND', 'Offer not found');
   if (!offer.active) throw httpError(409, 'CONFLICT', 'Offer inactive');
+  assertPurchasable(offer, parsed.data.quantity);
 
   const cart = await ensureOpenCart(c.env.DB, parsed.data.businessId);
   const id = await upsertCartItem(c.env.DB, cart.id, parsed.data.supplierProductId, parsed.data.quantity);
@@ -142,6 +181,15 @@ router.patch('/items/:itemId', session(), async (c) => {
   const cart = await db.select().from(carts).where(eq(carts.id, item.cartId)).get();
   if (!cart) throw httpError(404, 'NOT_FOUND', 'Cart not found');
   requireBusinessRole(ctx, cart.businessId, CART_ROLES);
+
+  const offer = await db
+    .select()
+    .from(supplierProducts)
+    .where(eq(supplierProducts.id, item.supplierProductId))
+    .get();
+  if (!offer || offer.deletedAt) throw httpError(404, 'NOT_FOUND', 'Offer not found');
+  if (!offer.active) throw httpError(409, 'CONFLICT', 'Offer inactive');
+  assertPurchasable(offer, parsed.data.quantity);
 
   await upsertCartItem(c.env.DB, cart.id, item.supplierProductId, parsed.data.quantity);
   return c.json({ ok: true });

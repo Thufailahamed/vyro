@@ -1,18 +1,22 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button, ErrorBanner, Input, Label, PageHeader } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { resolveNextPath } from '@/components/RequireAuth';
 import { BrandMark, BrandWordmark } from '@/components/brand/BrandMark';
 import { FlowCanvas, FlowLine } from '@/components/brand/FlowLine';
+import { usePageTitle } from '@/lib/usePageTitle';
 
 export function LoginPage() {
+  usePageTitle('Sign in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const { refresh } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -20,8 +24,10 @@ export function LoginPage() {
     setLoading(true);
     try {
       await api.post('/auth/sign-in', { email, password });
-      await refresh();
-      navigate('/dashboard');
+      // `refresh` resolves the session before we decide where to land, so the
+      // redirect can read memberships instead of guessing /dashboard.
+      const user = await refresh();
+      navigate(resolveNextPath(location.search, user), { replace: true });
     } catch (e) {
       setErr(e instanceof ApiError ? `${e.message}` : 'Sign in failed. Please check your credentials.');
     } finally {

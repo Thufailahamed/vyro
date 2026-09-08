@@ -18,19 +18,29 @@ router.post('/', requirePermission('admin:invite'), async (c) => {
   if (!ctx.adminRole) throw httpError(403, 'FORBIDDEN', 'No admin role');
   const parsed = adminInviteCreate.safeParse(await c.req.json());
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
-  const out = await createInviteForEmail(c.env.DB, {
+  const out = await createInviteForEmail(c.env, {
     email: parsed.data.email,
     role: parsed.data.role as AdminRole,
     actorRole: ctx.adminRole,
     actorId: ctx.userId,
+    actorName: ctx.email,
   });
   await auditAdmin({
     ctx: c,
     action: 'admin.invite.create',
     target: { type: 'admin_invite', id: out.id },
-    after: { email: parsed.data.email, role: parsed.data.role },
+    after: { email: parsed.data.email, role: parsed.data.role, emailFailed: out.emailFailed },
   });
-  return c.json({ id: out.id, acceptUrl: out.acceptUrl, expiresAt: out.expiresAt }, 201);
+  return c.json(
+    {
+      id: out.id,
+      acceptUrl: out.acceptUrl,
+      expiresAt: out.expiresAt,
+      emailFailed: out.emailFailed,
+      ...(out.emailError ? { emailError: out.emailError } : {}),
+    },
+    out.emailFailed ? 202 : 201,
+  );
 });
 
 router.get('/', requirePermission('admin:invite'), async (c) => {

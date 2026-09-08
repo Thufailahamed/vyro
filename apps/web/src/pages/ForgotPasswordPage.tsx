@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { Button, ErrorBanner, Input, Label, PageHeader } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { BrandMark, BrandWordmark } from '@/components/brand/BrandMark';
+import { usePageTitle } from '@/lib/usePageTitle';
 
 export function ForgotPasswordPage() {
+  usePageTitle('Reset password');
   const [email, setEmail] = useState('');
   const [err, setErr] = useState('');
   const [done, setDone] = useState(false);

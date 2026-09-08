@@ -47,7 +47,7 @@ router.get('/', async (c) => {
       count: sql<number>`count(*)`,
     })
     .from(supplierProducts)
-    .where(and(eq(supplierProducts.active, 1), isNull(supplierProducts.deletedAt)))
+    .where(and(eq(supplierProducts.active, true), isNull(supplierProducts.deletedAt)))
     .groupBy(supplierProducts.supplierId)
     .all();
 

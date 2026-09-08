@@ -9,11 +9,13 @@ import type { Ctx } from '../../middleware/session';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
-import { businessMembers, supplierMembers, purchaseOrders } from '@vyro/db/schema';
+import { businessMembers, supplierMembers, purchaseOrders, orderEvents } from '@vyro/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { ensureDelivery, findDeliveryByPo, updateDelivery } from './repository';
 import { recordAudit } from '../supplierProducts/repository';
 import { listDeliveriesForSupplier, requireSupplierMember } from './listRepository';
+import { notifyOrderParties } from '../notifications/dispatcher';
+import { NotificationType, newId } from '@vyro/shared';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -104,6 +106,55 @@ router.post('/:poId/transitions', session(), async (c) => {
     resourceId: c.req.param('poId'),
     metadata: { from: existing.status, to: parsed.data.status, reason: parsed.data.reason ?? null },
   });
+
+  // Mirror delivery state into the order timeline so buyer/supplier views show it.
+  const db = getDb(c.env.DB);
+  await db.insert(orderEvents).values({
+    id: newId(),
+    purchaseOrderId: c.req.param('poId'),
+    actorUserId: ctx.userId,
+    fromStatus: existing.status,
+    toStatus: parsed.data.status,
+    reason: parsed.data.reason ?? null,
+    metadata: null,
+    createdAt: now,
+  });
+
+  // Best-effort buyer notification — supplier is the actor and is excluded.
+  try {
+    const po = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, c.req.param('poId'))).get();
+    if (po) {
+      const titles: Record<string, string> = {
+        assigned: 'Delivery assigned',
+        picked_up: 'Driver picked up your order',
+        in_transit: 'Your order is on the way',
+        delivered: 'Order delivered',
+        failed: 'Delivery failed',
+      };
+      const bodies: Record<string, string> = {
+        assigned: `Delivery for PO ${po.poNumber} has been assigned.`,
+        picked_up: `Driver picked up PO ${po.poNumber}.`,
+        in_transit: `PO ${po.poNumber} is on the way.`,
+        delivered: `PO ${po.poNumber} has been delivered.`,
+        failed: `Delivery of PO ${po.poNumber} failed.${parsed.data.reason ? ` Reason: ${parsed.data.reason}` : ''}`,
+      };
+      await notifyOrderParties(
+        c.env.DB,
+        c.env.NOTIFICATIONS_QUEUE,
+        { id: po.id, poNumber: po.poNumber, businessId: po.businessId, supplierId: po.supplierId },
+        {
+          type: NotificationType.DELIVERY_UPDATED,
+          title: titles[parsed.data.status] ?? `Delivery updated: ${parsed.data.status}`,
+          body: bodies[parsed.data.status] ?? null,
+          link: `/orders/${po.id}`,
+          excludeUserId: ctx.userId,
+          audience: 'buyer',
+        },
+      );
+    }
+  } catch (err) {
+    console.error('[delivery.transition] notify failed', err);
+  }
 
   return c.json({ ok: true });
 });

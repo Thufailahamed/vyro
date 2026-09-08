@@ -616,7 +616,33 @@ export function SupplierPaymentsPage() {
                 </div>
               </div>
               <a
-                href={`/api/accounts/statement.csv?accountType=supplier&accountId=${supplierId}`}
+                href={`/api/accounts/statement?format=csv&accountType=supplier&accountId=${supplierId}`}
+                download={`statement-${supplierId}.csv`}
+                rel="noopener"
+                onClick={async (e) => {
+                  // Programmatic fetch so we can show a real error if the session
+                  // expired or the API returns 4xx; a plain <a> would just dump
+                  // the user on a blank error page with no recourse.
+                  e.preventDefault();
+                  try {
+                    const res = await fetch(
+                      `/api/accounts/statement?format=csv&accountType=supplier&accountId=${supplierId}`,
+                      { credentials: 'include' },
+                    );
+                    if (!res.ok) throw new Error(`Download failed (${res.status})`);
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `statement-${supplierId}.csv`;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    URL.revokeObjectURL(url);
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : 'Could not export statement.');
+                  }
+                }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium border border-ink/20 bg-paper text-ink hover:bg-ink hover:text-paper transition-colors rounded shadow-xs shrink-0"
               >
                 <DownloadIcon size={13} />

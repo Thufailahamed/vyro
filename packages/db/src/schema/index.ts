@@ -9,6 +9,7 @@ export * from './categories';
 export * from './products';
 export * from './productImages';
 export * from './supplierProducts';
+export * from './stockMovements';
 export * from './carts';
 export * from './cartItems';
 export * from './purchaseOrders';

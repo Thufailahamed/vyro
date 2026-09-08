@@ -6,25 +6,20 @@ export type RefundRow = {
   paymentId: string;
   amountCents: number;
   reason: string | null;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'requested' | 'processing' | 'completed' | 'failed';
   requestedByUserId: string;
-  requestedAt: number;
-  processedAt: number | null;
-  failureReason: string | null;
+  createdAt: number;
 };
 
 export type PayoutBatchRow = {
   id: string;
-  periodStart: number;
-  periodEnd: number;
-  payoutCount: number;
-  totalCents: number;
+  createdBy: string;
+  approvedBy: string | null;
   status: 'pending' | 'approved' | 'rejected';
-  createdByUserId: string;
+  totalCents: number;
+  note: string | null;
   createdAt: number;
-  approvedByUserId: string | null;
   approvedAt: number | null;
-  notes: string | null;
 };
 
 export type PayoutRow = {
@@ -63,7 +58,12 @@ export type ChargebackRow = {
 export function useRefundQueue() {
   return useQuery({
     queryKey: ['admin-refund-queue'],
-    queryFn: async () => (await api.get<RefundRow[]>('/admin/refunds/queue')) as RefundRow[],
+    queryFn: async () => {
+      const r = await api.get<{ items: RefundRow[]; nextCursor: string | null }>(
+        '/admin/refunds/queue',
+      );
+      return r.items;
+    },
   });
 }
 
@@ -78,7 +78,9 @@ export function useApproveRefund() {
 export function useRejectRefund() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => api.post<RefundRow>(`/admin/refunds/${id}/reject`, {}),
+    // The API requires a non-empty rejection reason (adminRefundRejectBody).
+    mutationFn: async (vars: { id: string; reason: string }) =>
+      api.post<RefundRow>(`/admin/refunds/${vars.id}/reject`, { reason: vars.reason }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-refund-queue'] }),
   });
 }
@@ -86,14 +88,19 @@ export function useRejectRefund() {
 export function usePayoutBatchQueue() {
   return useQuery({
     queryKey: ['admin-payout-batch-queue'],
-    queryFn: async () => (await api.get<PayoutBatchRow[]>('/admin/payout-batches/queue')) as PayoutBatchRow[],
+    queryFn: async () => {
+      const r = await api.get<{ items: PayoutBatchRow[]; nextCursor: string | null }>(
+        '/admin/payout-batches/queue',
+      );
+      return r.items;
+    },
   });
 }
 
 export function useCreatePayoutBatch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { periodStart: number; periodEnd: number; notes?: string }) =>
+    mutationFn: async (body: { note?: string; supplierIds?: string[] }) =>
       api.post<PayoutBatchRow>('/admin/payout-batches/batch', body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-payout-batch-queue'] }),
   });

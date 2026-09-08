@@ -7,6 +7,7 @@ export type SupplierDetail = {
   name: string;
   description: string | null;
   status: string;
+  verificationStatus: string;
   createdAt: number;
   members: Array<{ userId: string; role: string; email: string | null }>;
   offerCount: number;
@@ -48,6 +49,7 @@ export async function getSupplierDetailForAdmin(
     name: supplier.name,
     description: supplier.description ?? null,
     status: supplier.status,
+    verificationStatus: supplier.verificationStatus,
     createdAt: supplier.createdAt,
     members,
     offerCount: offerRow.length,

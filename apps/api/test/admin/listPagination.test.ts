@@ -191,15 +191,6 @@ describe('GET /api/admin/businesses', () => {
   });
 });
 
-describe('GET /api/admin/audit', () => {
-  it('returns audit logs', async () => {
-    const res = await buildApp().fetch(new Request('http://localhost/api/admin/audit'), env);
-    const body = (await res.json()) as any;
-    expect(body.logs).toHaveLength(3);
-  });
-
-  it('400 on invalid query', async () => {
-    const res = await buildApp().fetch(new Request('http://localhost/api/admin/audit?limit=abc'), env);
-    expect(res.status).toBe(400);
-  });
-});
+// The legacy GET /api/admin/audit (returning {logs}) was retired when the new
+// adminAuditLogs-backed router took over. Full coverage for the new endpoint
+// lives in apps/api/test/admin/audit.test.ts.

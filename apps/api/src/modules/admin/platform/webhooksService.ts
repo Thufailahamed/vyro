@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 import { httpError } from '../../../lib/errors';
 import { auditAdmin } from '../../admin/lib/audit';
 import * as repo from './webhooksRepository';
+import { processDeliveries } from '../../../lib/webhooks';
 
 export async function list(d1: D1Database) {
   return repo.listWebhooks(d1);
@@ -91,7 +92,8 @@ export async function retryDelivery(ctx: Context, webhookId: string, deliveryId:
   const d1 = ctx.env.DB as D1Database;
   const delivery = await repo.getDelivery(d1, webhookId, deliveryId);
   if (!delivery) throw httpError(404, 'NOT_FOUND', 'Delivery not found');
-  // Mock the retry by marking as pending and returning. Real retry would fetch + post.
+  // Reset for immediate re-dispatch, then drain the queue now so the admin
+  // sees the result on the same request.
   await repo.markDelivery(d1, deliveryId, 'pending', null);
   await auditAdmin({
     ctx,
@@ -100,5 +102,8 @@ export async function retryDelivery(ctx: Context, webhookId: string, deliveryId:
     before: { status: delivery.status },
     after: { status: 'pending' },
   });
-  return { ok: true };
+  // Best-effort drain. The retry itself is already audited; if processing
+  // fails the delivery stays pending and the cron tick will pick it up.
+  const processed = await processDeliveries(ctx.env as never, { batchSize: 25 });
+  return { ok: true, processed };
 }

@@ -5,24 +5,27 @@ import { INVITABLE_ROLES, type AdminRole } from '@vyro/auth';
 import { getDb } from '@vyro/db';
 import { users } from '@vyro/db/schema';
 import { eq } from 'drizzle-orm';
+import type { Env } from '../../../env';
+import { renderAdminInvite, sendEmail } from '../../../lib/email';
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function createInviteForEmail(
-  d1: D1Database,
+  env: Env,
   opts: {
     email: string;
     role: AdminRole;
     actorRole: AdminRole;
     actorId: string;
+    actorName?: string | null;
   },
-) {
+): Promise<{ id: string; acceptUrl: string; expiresAt: number; emailFailed: boolean; emailError?: string }> {
   const allowed = INVITABLE_ROLES[opts.actorRole];
   if (!allowed.includes(opts.role)) {
     throw httpError(422, 'ROLE_NOT_GRANTABLE', `Role ${opts.role} not grantable by ${opts.actorRole}`);
   }
   // Reject if user already exists with a different role
-  const db = getDb(d1);
+  const db = getDb(env.DB);
   const existing = await db.select({ id: users.id, adminRole: users.adminRole, status: users.status }).from(users).where(eq(users.email, opts.email.toLowerCase())).get();
   if (existing?.status === 'suspended') {
     throw httpError(409, 'USER_SUSPENDED', 'User is suspended');
@@ -33,15 +36,45 @@ export async function createInviteForEmail(
   const token = randomBytes(32).toString('base64url');
   const tokenHash = createHash('sha256').update(token).digest('hex');
   const expiresAt = Date.now() + INVITE_TTL_MS;
-  const { id } = await createInvite(d1, {
+  const { id } = await createInvite(env.DB, {
     email: opts.email.toLowerCase(),
     role: opts.role,
     tokenHash,
     invitedBy: opts.actorId,
     expiresAt,
   });
-  await sendMagicEmail(opts.email, token, expiresAt);
-  return { id, acceptUrl: `/admin/invite/accept?token=${token}`, expiresAt };
+  const acceptUrl = buildAbsoluteAcceptUrl(env, token);
+  const result = await sendEmail(env, renderAdminInvite({
+    to: opts.email,
+    acceptUrl,
+    role: opts.role,
+    expiresAtIso: new Date(expiresAt).toISOString(),
+    invitedBy: opts.actorName ?? opts.actorId,
+  }));
+  if (!result.ok) {
+    // Don't silently swallow — the invite is persisted but the email didn't go.
+    // Surface so the caller can show "invite created but email failed".
+    return {
+      id,
+      acceptUrl: `/admin/invite/accept?token=${token}`,
+      expiresAt,
+      emailFailed: true,
+      emailError: result.error,
+    };
+  }
+  return {
+    id,
+    acceptUrl: `/admin/invite/accept?token=${token}`,
+    expiresAt,
+    emailFailed: false,
+  };
+}
+
+function buildAbsoluteAcceptUrl(env: Env, token: string): string {
+  // ADMIN_ORIGIN is the SPA origin (== this Worker in production). The accept
+  // page lives at `/admin/invite/accept`.
+  const origin = env.ADMIN_ORIGIN || env.WEB_ORIGIN || 'https://vyro.local';
+  return `${origin.replace(/\/$/, '')}/admin/invite/accept?token=${token}`;
 }
 
 export async function acceptInvite(
@@ -106,10 +139,4 @@ async function hashPassword(_password: string): Promise<string> {
   // For invite-acceptance the user can finish setting password through /api/auth/forget-password
   // or by signing in with their existing flow. We persist a sentinel marker.
   return `invite:${Date.now()}`;
-}
-
-async function sendMagicEmail(email: string, token: string, expiresAt: number) {
-  // Real email pipeline arrives in T4. For now log to stdout + persist to notifications for traceability.
-  const url = `/admin/invite/accept?token=${token}`;
-  console.log(`[admin-invite] ${email} accept until ${new Date(expiresAt).toISOString()} url=${url}`);
 }

@@ -74,6 +74,13 @@ vi.mock('../../src/modules/admin/lib/audit', () => ({
   },
 }));
 
+vi.mock('../../src/lib/webhooks', () => ({
+  processDeliveries: async () => 0,
+  dispatch: async () => [],
+  buildSignature: () => 't=1,v1=abc',
+  verifySignature: () => true,
+}));
+
 import whRouter from '../../src/modules/admin/platform/webhooksRoutes';
 import { errorEnvelope } from '../../src/lib/errors';
 

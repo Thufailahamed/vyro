@@ -7,16 +7,40 @@ import { authSchema } from './schema';
 
 export function createAuth(env: AuthEnv) {
   const db = getDb(env.DB);
+  // In production we require a real secret — the dev fallback exists for
+  // local `wrangler dev` only and must never be reachable in prod.
+  const isProd = env.ENVIRONMENT === 'production';
+  if (isProd && (!env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32)) {
+    throw new Error('BETTER_AUTH_SECRET is required and must be >=32 chars in production');
+  }
+  const secret = env.BETTER_AUTH_SECRET || 'vyro-local-dev-secret-must-be-32-chars-long';
   return betterAuth({
-    secret: env.BETTER_AUTH_SECRET || 'vyro-local-dev-secret-must-be-32-chars-long',
+    secret,
     baseURL: env.BETTER_AUTH_URL || 'http://localhost:8787',
     database: drizzleAdapter(db, { provider: 'sqlite', schema: authSchema }),
     emailAndPassword: {
       enabled: true,
       autoSignIn: true,
       sendResetPassword: async ({ user, url }) => {
-        // In production, replace with a real email send (SES, Resend, etc.).
-        // In dev, log the link so it can be hand-copied from wrangler tail.
+        const subject = 'Reset your Vyro password';
+        const text =
+          `Someone (hopefully you) asked to reset your Vyro password.\n\n` +
+          `Open this link within 60 minutes to choose a new one:\n${url}\n\n` +
+          `If you didn't request this, ignore this email — your password has not been changed.\n`;
+        if (env.sendEmail) {
+          try {
+            const r = await env.sendEmail({ to: user.email, subject, text });
+            if (!r.ok) {
+              // eslint-disable-next-line no-console
+              console.error('[auth] sendResetPassword failed', { to: user.email, error: r.error });
+            }
+            return;
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.error('[auth] sendResetPassword threw', err);
+          }
+        }
+        // Fallback for local dev with no provider configured.
         // eslint-disable-next-line no-console
         console.log(`[auth] password reset for ${user.email}: ${url}`);
       },

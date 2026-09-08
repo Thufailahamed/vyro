@@ -1,0 +1,134 @@
+/**
+ * Catalog of in-app notification types plus the preference category each maps
+ * to. The dispatcher (apps/api/src/modules/notifications/dispatcher.ts) uses
+ * `NOTIFICATION_CATEGORY` to decide which user/supplier preference gates a
+ * given notification, so a new type cannot silently bypass opt-outs.
+ */
+
+export const NotificationCategory = {
+  ORDER: 'order',
+  MESSAGE: 'message',
+  PAYMENT: 'payment',
+  STOCK: 'stock',
+  MARKETING: 'marketing',
+  SYSTEM: 'system',
+} as const;
+export type NotificationCategory =
+  (typeof NotificationCategory)[keyof typeof NotificationCategory];
+
+export const NotificationType = {
+  ORDER_PLACED: 'order.placed',
+  ORDER_ACCEPTED: 'order.accepted',
+  ORDER_REJECTED: 'order.rejected',
+  ORDER_PREPARING: 'order.preparing',
+  ORDER_READY: 'order.ready_for_pickup',
+  ORDER_DISPATCHED: 'order.out_for_delivery',
+  ORDER_DELIVERED: 'order.delivered',
+  ORDER_COMPLETED: 'order.completed',
+  ORDER_CANCELLED: 'order.cancelled',
+  ORDER_DISPUTED: 'order.disputed',
+  DELIVERY_UPDATED: 'delivery.updated',
+  PAYMENT_RECEIVED: 'payment.received',
+  PAYMENT_FAILED: 'payment.failed',
+  REFUND_INITIATED: 'refund.initiated',
+  REFUND_COMPLETED: 'refund.completed',
+  DISPUTE_RESOLVED: 'dispute.resolved',
+  STOCK_LOW: 'stock.low',
+  STOCK_OUT: 'stock.out',
+  PO_MESSAGE: 'po.message',
+} as const;
+export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
+
+export const NOTIFICATION_CATEGORY: Record<string, NotificationCategory> = {
+  [NotificationType.ORDER_PLACED]: NotificationCategory.ORDER,
+  [NotificationType.ORDER_ACCEPTED]: NotificationCategory.ORDER,
+  [NotificationType.ORDER_REJECTED]: NotificationCategory.ORDER,
+  [NotificationType.ORDER_PREPARING]: NotificationCategory.ORDER,
+  [NotificationType.ORDER_READY]: NotificationCategory.ORDER,
+  [NotificationType.ORDER_DISPATCHED]: NotificationCategory.ORDER,
+  [NotificationType.ORDER_DELIVERED]: NotificationCategory.ORDER,
+  [NotificationType.ORDER_COMPLETED]: NotificationCategory.ORDER,
+  [NotificationType.ORDER_CANCELLED]: NotificationCategory.ORDER,
+  [NotificationType.ORDER_DISPUTED]: NotificationCategory.ORDER,
+  [NotificationType.DELIVERY_UPDATED]: NotificationCategory.ORDER,
+  [NotificationType.PAYMENT_RECEIVED]: NotificationCategory.PAYMENT,
+  [NotificationType.PAYMENT_FAILED]: NotificationCategory.PAYMENT,
+  [NotificationType.REFUND_INITIATED]: NotificationCategory.PAYMENT,
+  [NotificationType.REFUND_COMPLETED]: NotificationCategory.PAYMENT,
+  [NotificationType.DISPUTE_RESOLVED]: NotificationCategory.ORDER,
+  [NotificationType.STOCK_LOW]: NotificationCategory.STOCK,
+  [NotificationType.STOCK_OUT]: NotificationCategory.STOCK,
+  [NotificationType.PO_MESSAGE]: NotificationCategory.MESSAGE,
+};
+
+export function categoryForNotificationType(type: string): NotificationCategory {
+  return NOTIFICATION_CATEGORY[type] ?? NotificationCategory.SYSTEM;
+}
+
+/** Order status -> notification type for lifecycle transitions. */
+export const ORDER_STATUS_NOTIFICATION: Record<string, NotificationType> = {
+  pending: NotificationType.ORDER_PLACED,
+  accepted: NotificationType.ORDER_ACCEPTED,
+  rejected: NotificationType.ORDER_REJECTED,
+  preparing: NotificationType.ORDER_PREPARING,
+  ready_for_pickup: NotificationType.ORDER_READY,
+  out_for_delivery: NotificationType.ORDER_DISPATCHED,
+  delivered: NotificationType.ORDER_DELIVERED,
+  completed: NotificationType.ORDER_COMPLETED,
+  cancelled: NotificationType.ORDER_CANCELLED,
+  disputed: NotificationType.ORDER_DISPUTED,
+};
+
+/** Human copy for each order status, used in notification titles/bodies. */
+export const ORDER_STATUS_COPY: Record<string, { label: string; buyer: string; supplier: string }> = {
+  pending: {
+    label: 'placed',
+    buyer: 'Your order was placed and is awaiting supplier confirmation.',
+    supplier: 'A new purchase order needs your review.',
+  },
+  accepted: {
+    label: 'accepted',
+    buyer: 'The supplier accepted your order.',
+    supplier: 'You accepted this order.',
+  },
+  rejected: {
+    label: 'rejected',
+    buyer: 'The supplier rejected your order.',
+    supplier: 'You rejected this order.',
+  },
+  preparing: {
+    label: 'being prepared',
+    buyer: 'Your order is being prepared.',
+    supplier: 'Order moved to preparing.',
+  },
+  ready_for_pickup: {
+    label: 'ready',
+    buyer: 'Your order is ready for pickup or dispatch.',
+    supplier: 'Order marked ready for pickup.',
+  },
+  out_for_delivery: {
+    label: 'out for delivery',
+    buyer: 'Your order is out for delivery.',
+    supplier: 'Order dispatched for delivery.',
+  },
+  delivered: {
+    label: 'delivered',
+    buyer: 'Your order was delivered. Please confirm to complete it.',
+    supplier: 'Order marked delivered.',
+  },
+  completed: {
+    label: 'completed',
+    buyer: 'You completed this order.',
+    supplier: 'The buyer completed this order.',
+  },
+  cancelled: {
+    label: 'cancelled',
+    buyer: 'This order was cancelled.',
+    supplier: 'The buyer cancelled this order.',
+  },
+  disputed: {
+    label: 'disputed',
+    buyer: 'This order is under dispute.',
+    supplier: 'This order has been disputed.',
+  },
+};

@@ -2,6 +2,7 @@ export interface Env {
   DB: D1Database;
   PRODUCTS: R2Bucket;
   CACHE: KVNamespace;
+  ASSETS?: Fetcher;
   AUDIT_QUEUE: Queue;
   NOTIFICATIONS_QUEUE: Queue;
   METRICS?: AnalyticsEngineDataset;
@@ -20,4 +21,8 @@ export interface Env {
   PAYHERE_MOCK?: string;
   PAYHERE_MOCK_FORCE_FAILURE?: string;
   LEDGER_ENCRYPTION_KEY?: string;
+  /** Resend transactional email API key. Optional. */
+  RESEND_API_KEY?: string;
+  /** Default `From:` address for outbound email. */
+  EMAIL_FROM?: string;
 }

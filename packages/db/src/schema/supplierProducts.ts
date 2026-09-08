@@ -27,6 +27,13 @@ export const supplierProducts = sqliteTable(
     availabilityStatus: text('availability_status', { enum: ['in_stock', 'low', 'out_of_stock'] })
       .notNull()
       .default('in_stock'),
+    // Inventory. `trackInventory` opts an offer into quantity-based
+    // availability; when false the supplier drives `availabilityStatus`
+    // manually and quantities are informational only.
+    stockQty: integer('stock_qty').notNull().default(0),
+    reservedQty: integer('reserved_qty').notNull().default(0),
+    lowStockThreshold: integer('low_stock_threshold').notNull().default(0),
+    trackInventory: integer('track_inventory', { mode: 'boolean' }).notNull().default(false),
     active: integer('active', { mode: 'boolean' }).notNull().default(true),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),

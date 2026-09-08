@@ -36,6 +36,10 @@ export const purchaseOrders = sqliteTable(
     deliveredAt: integer('delivered_at'),
     completedAt: integer('completed_at'),
     cancelledAt: integer('cancelled_at'),
+    // Inventory lifecycle stamps — make reserve/release/commit idempotent.
+    stockReservedAt: integer('stock_reserved_at'),
+    stockReleasedAt: integer('stock_released_at'),
+    stockCommittedAt: integer('stock_committed_at'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
   },

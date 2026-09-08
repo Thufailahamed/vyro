@@ -5,6 +5,7 @@ import { Button, Badge, PageHeader, Input, Label } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { Surface } from '@/components/brand/Surface';
+import { usePageTitle } from '@/lib/usePageTitle';
 import {
   Building2Icon,
   StoreIcon,
@@ -132,6 +133,7 @@ function DataPrivacyTab() {
 }
 
 export function ProfilePage() {
+  usePageTitle('Account');
   const { user, signOut } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = (searchParams.get('tab') as TabType) || 'organizations';

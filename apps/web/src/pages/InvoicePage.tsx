@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { usePageTitle } from '@/lib/usePageTitle';
 import { api } from '@/lib/api';
 import { Button, Surface } from '@/components/ui';
 import { ArrowLeftIcon } from '@/components/icons';
@@ -14,6 +15,7 @@ interface Invoice {
 }
 
 export function InvoicePage() {
+  usePageTitle('Invoice');
   const { poId, invoiceId } = useParams();
   const id = invoiceId ?? '';
 

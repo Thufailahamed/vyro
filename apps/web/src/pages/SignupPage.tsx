@@ -5,8 +5,10 @@ import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { BrandMark, BrandWordmark } from '@/components/brand/BrandMark';
 import { FlowCanvas } from '@/components/brand/FlowLine';
+import { usePageTitle } from '@/lib/usePageTitle';
 
 export function SignupPage() {
+  usePageTitle('Sign up');
   const [search] = useSearchParams();
   const intent = search.get('intent') === 'supplier' ? 'supplier' : 'buyer';
   const [email, setEmail] = useState('');

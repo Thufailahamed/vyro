@@ -41,7 +41,12 @@ router.post('/checkout', session(), async (c) => {
 
   requireBusinessRole(ctx, parsed.data.businessId, PO_BUSINESS_ROLES);
 
-  const out = await checkoutService.checkout(c.env.DB, ctx.userId, parsed.data);
+  const out = await checkoutService.checkout(
+    c.env.DB,
+    ctx.userId,
+    parsed.data,
+    c.env.NOTIFICATIONS_QUEUE,
+  );
   return c.json(out, 201);
 });
 
@@ -92,12 +97,16 @@ router.post('/:id/transition', session(), async (c) => {
   else if (hasSupplierAccess(ctx, po.supplierId)) actorRole = 'supplier';
   else throw httpError(403, 'FORBIDDEN', 'No access');
 
-  await checkoutService.transition(c.env.DB, {
-    poId: po.id,
-    to: parsed.data.to as never,
-    actor: { role: actorRole, userId: ctx.userId },
-    reason: parsed.data.reason ?? null,
-  });
+  await checkoutService.transition(
+    c.env.DB,
+    {
+      poId: po.id,
+      to: parsed.data.to as never,
+      actor: { role: actorRole, userId: ctx.userId },
+      reason: parsed.data.reason ?? null,
+    },
+    c.env.NOTIFICATIONS_QUEUE,
+  );
   return c.json({ ok: true });
 });
 
@@ -107,8 +116,29 @@ router.get('/:id/events', session(), async (c) => {
   const poId = c.req.param('id');
   const po = await findPurchaseOrder(c.env.DB, poId);
   if (!po) throw httpError(404, 'NOT_FOUND', 'PO not found');
+  // Only participants (or admins) may read an order's timeline.
+  const isBiz = hasBusinessAccess(ctx, po.businessId);
+  const isSup = !isBiz && hasSupplierAccess(ctx, po.supplierId);
+  if (!isBiz && !isSup && !ctx.isAdmin) throw httpError(403, 'FORBIDDEN', 'No access');
   const events = await listEventsForPo(c.env.DB, poId);
   return c.json({ events });
+});
+
+router.post('/:id/reorder', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const sourcePoId = c.req.param('id');
+  const sourcePo = await findPo(c.env.DB, sourcePoId);
+  if (!sourcePo) throw httpError(404, 'NOT_FOUND', 'Order not found');
+  // Only the buyer side may reorder — suppliers don't place reorders.
+  requireBusinessRole(ctx, sourcePo.businessId, PO_BUSINESS_ROLES);
+  const out = await checkoutService.reorder(
+    c.env.DB,
+    ctx.userId,
+    sourcePoId,
+    c.env.NOTIFICATIONS_QUEUE,
+  );
+  return c.json(out, 201);
 });
 
 import messagesRouter from './messages';

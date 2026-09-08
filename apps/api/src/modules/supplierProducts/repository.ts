@@ -45,6 +45,9 @@ export async function createOffer(
     deliveryAvailable?: boolean | undefined;
     deliveryRadiusKm?: number | null | undefined;
     availabilityStatus?: 'in_stock' | 'low' | 'out_of_stock' | undefined;
+    stockQty?: number | undefined;
+    lowStockThreshold?: number | undefined;
+    trackInventory?: boolean | undefined;
   } & TierFields,
 ) {
   const db = getDb(d1);
@@ -61,6 +64,10 @@ export async function createOffer(
     deliveryAvailable: input.deliveryAvailable ?? true,
     deliveryRadiusKm: input.deliveryRadiusKm ?? null,
     availabilityStatus: input.availabilityStatus ?? 'in_stock',
+    stockQty: input.stockQty ?? 0,
+    lowStockThreshold: input.lowStockThreshold ?? 0,
+    trackInventory: input.trackInventory ?? input.stockQty !== undefined,
+    reservedQty: 0,
     active: true,
     ...(input.tier1MinQty !== undefined ? { tier1MinQty: input.tier1MinQty } : {}),
     ...(input.tier1DiscountPct !== undefined ? { tier1DiscountPct: input.tier1DiscountPct } : {}),
@@ -86,6 +93,8 @@ export async function updateOffer(
     deliveryRadiusKm?: number | null | undefined;
     availabilityStatus?: 'in_stock' | 'low' | 'out_of_stock' | undefined;
     active?: boolean | undefined;
+    lowStockThreshold?: number | undefined;
+    trackInventory?: boolean | undefined;
   } & TierFields,
 ) {
   const db = getDb(d1);

@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePageTitle } from '@/lib/usePageTitle';
 import { api, ApiError } from '@/lib/api';
 import { Button, ErrorBanner, Select, Input, StatusDots } from '@/components/ui';
 import type { OrderStatus } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
-import { ArrowLeftIcon } from '@/components/icons';
+import { ArrowLeftIcon, RefreshCwIcon } from '@/components/icons';
 import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, Surface } from '@/components/brand/Surface';
 import { MessageThread } from '@/components/MessageThread';
@@ -64,15 +65,42 @@ function journeyState(status: string): Array<{ label: string; state: 'done' | 'a
 
 export function OrderDetailPage() {
   const { id } = useParams();
+  usePageTitle(`Order ${id?.slice(0, 8) ?? ''}`);
+  const qc = useQueryClient();
   const [to, setTo] = useState('completed');
   const [reason, setReason] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
+  const [refundMsg, setRefundMsg] = useState('');
+  const [reordering, setReordering] = useState(false);
+  const [reorderMsg, setReorderMsg] = useState('');
 
   const { data, refetch, isLoading } = useQuery({
     queryKey: ['order', id],
     queryFn: () => api.get<OrderDetail>(`/purchase-orders/${id}`),
   });
+
+  const { data: paymentsData } = useQuery({
+    queryKey: ['payments', id],
+    queryFn: () =>
+      api.get<{
+        payments: Array<{ id: string; status: 'pending' | 'confirmed' | 'failed' | 'refunded'; amountCents: number }>;
+      }>(`/payments/by-po/${id}`),
+    enabled: !!id,
+  });
+
+  // Latest confirmed payment is the refund target. Refunds on failed or pending
+  // payments are meaningless and rejected by the API anyway.
+  const refundablePayment = useMemo(() => {
+    const confirmed = (paymentsData?.payments ?? [])
+      .filter((p) => p.status === 'confirmed')
+      .sort((a, b) => b.amountCents - a.amountCents);
+    return confirmed[0] ?? null;
+  }, [paymentsData]);
 
   async function transition() {
     setErr('');
@@ -85,6 +113,60 @@ export function OrderDetailPage() {
       setErr(e instanceof ApiError ? e.message : 'Failed to update order status');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function confirmReceipt() {
+    if (!data || data.order.status !== 'delivered') return;
+    setErr('');
+    setConfirming(true);
+    try {
+      await api.post(`/purchase-orders/${id}/transition`, { to: 'completed' });
+      await refetch();
+      void qc.invalidateQueries({ queryKey: ['payments', id] });
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Could not confirm receipt');
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  async function submitRefund() {
+    if (!refundablePayment) return;
+    setRefundMsg('');
+    setRefundSubmitting(true);
+    try {
+      await api.post(`/refunds/${refundablePayment.id}/refund`, {
+        reason: refundReason.trim() || 'Buyer requested refund',
+      });
+      setRefundMsg('Refund requested. You will be notified when it completes.');
+      setRefundOpen(false);
+      setRefundReason('');
+      void qc.invalidateQueries({ queryKey: ['payments', id] });
+    } catch (e) {
+      setRefundMsg(e instanceof ApiError ? e.message : 'Refund request failed');
+    } finally {
+      setRefundSubmitting(false);
+    }
+  }
+
+  async function reorder() {
+    if (!data || !id) return;
+    if (data.order.status !== 'delivered' && data.order.status !== 'completed') return;
+    setReorderMsg('');
+    setReordering(true);
+    try {
+      await api.post(`/purchase-orders/${id}/reorder`);
+      setReorderMsg('Reorder placed. New order(s) are now in your orders list.');
+      void qc.invalidateQueries({ queryKey: ['orders'] });
+    } catch (e) {
+      setReorderMsg(
+        e instanceof ApiError
+          ? e.message
+          : 'Could not reorder — some items may no longer be available.',
+      );
+    } finally {
+      setReordering(false);
     }
   }
 
@@ -168,6 +250,60 @@ export function OrderDetailPage() {
             poStatus={order.status}
             totalCents={order.totalCents}
           />
+          {order.status === 'delivered' && (
+            <Surface kind="elevated" className="p-5 space-y-3 border-mint/40 bg-mint/5">
+              <h3 className="font-display text-lg">Confirm receipt</h3>
+              <p className="text-xs text-ink-4">
+                Goods arrived in full and in good condition? Marking complete releases any held funds to the supplier.
+              </p>
+              <Button onClick={confirmReceipt} loading={confirming} className="w-full">
+                Yes — confirm receipt
+              </Button>
+            </Surface>
+          )}
+          {(order.status === 'delivered' || order.status === 'completed') && (
+            <Surface kind="elevated" className="p-5 space-y-3">
+              <h3 className="font-display text-lg">Request a refund</h3>
+              {!refundablePayment ? (
+                <p className="text-xs text-ink-4">
+                  Refunds are only available on confirmed payments. This order has no confirmed payment yet.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-ink-4">
+                    Opens a refund for the most recent confirmed payment ({formatLKR(refundablePayment.amountCents)}).
+                    Admin will review and notify you when funds are returned.
+                  </p>
+                  <Button
+                    variant="danger"
+                    onClick={() => setRefundOpen(true)}
+                    className="w-full"
+                    disabled={!refundablePayment}
+                  >
+                    Request refund
+                  </Button>
+                </>
+              )}
+              {refundMsg && <p className="text-xs text-ink-4">{refundMsg}</p>}
+            </Surface>
+          )}
+          {(order.status === 'delivered' || order.status === 'completed') && (
+            <Surface kind="elevated" className="p-5 space-y-3">
+              <h3 className="font-display text-lg">Reorder these items</h3>
+              <p className="text-xs text-ink-4">
+                Creates a brand new order at today's prices. Each supplier on this order becomes its own new PO.
+              </p>
+              <Button
+                variant="secondary"
+                onClick={reorder}
+                loading={reordering}
+                className="w-full"
+              >
+                <RefreshCwIcon size={14} /> Reorder
+              </Button>
+              {reorderMsg && <p className="text-xs text-ink-4">{reorderMsg}</p>}
+            </Surface>
+          )}
           {allowed.length > 0 && (
             <Surface kind="elevated" className="p-5 space-y-3">
               <h3 className="font-display text-lg">Update status</h3>
@@ -199,6 +335,51 @@ export function OrderDetailPage() {
           </Surface>
         </div>
       </div>
+
+      {refundOpen && refundablePayment && (
+        <div
+          className="fixed inset-0 z-50 bg-ink/60 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="refund-modal-title"
+          onClick={() => !refundSubmitting && setRefundOpen(false)}
+        >
+          <div
+            className="bg-paper border border-ink/10 max-w-md w-full p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="refund-modal-title" className="vyro-display text-2xl">
+              Request a refund
+            </h2>
+            <p className="text-sm text-ink-3">
+              We will refund <strong>{formatLKR(refundablePayment.amountCents)}</strong> from payment{' '}
+              <span className="font-mono text-xs">{refundablePayment.id.slice(0, 8)}</span> once approved.
+            </p>
+            <label className="block text-xs uppercase tracking-[0.14em] text-ink-4">
+              Why are you requesting a refund?
+            </label>
+            <textarea
+              className="w-full min-h-[96px] border border-line bg-paper p-3 text-sm"
+              maxLength={500}
+              placeholder="e.g. 12 of 50 units arrived damaged."
+              value={refundReason}
+              onChange={(e) => setRefundReason(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setRefundOpen(false)} disabled={refundSubmitting}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={submitRefund}
+                disabled={refundSubmitting || !refundReason.trim()}
+              >
+                Submit refund request
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <MessageThread purchaseOrderId={order.id} />
     </div>

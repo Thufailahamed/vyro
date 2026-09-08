@@ -39,6 +39,11 @@ try {
 
   // 3. Deploy Cloudflare Worker API
   if (!isLocal) {
+    // The Worker serves the SPA from apps/web/dist via [assets], so the bundle must
+    // exist and be current before `wrangler deploy` uploads it.
+    console.log(`\n🧱 Building web bundle for the Worker asset upload...`);
+    run(`pnpm --filter @vyro/web build`);
+
     console.log(`\n☁️ Deploying API Cloudflare Worker (env=production)...`);
     run(`npx wrangler deploy --env production --config ./apps/api/wrangler.toml`);
   }

@@ -16,7 +16,7 @@
     "migrate": "echo 'migrate stub'",
     "seed": "echo 'seed stub'",
     "studio": "echo 'studio stub'",
-    "lint": "echo 'lint stub'",
+    "lint": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {

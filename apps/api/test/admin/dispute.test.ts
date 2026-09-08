@@ -23,6 +23,18 @@ const state = vi.hoisted(() => ({
   audit: [] as any[],
   notifications: [] as any[],
   list: [] as any[],
+  notify: [] as any[],
+}));
+
+vi.mock(setup.SRC + '/modules/notifications/dispatcher', () => ({
+  notifyOrderParties: async (
+    _d1: any,
+    _queue: any,
+    _po: any,
+    opts: any,
+  ) => {
+    state.notify.push(opts);
+  },
 }));
 
 vi.mock('@vyro/db', () => ({
@@ -97,6 +109,7 @@ describe('POST /api/admin/disputes/:poId/resolve', () => {
     state.audit = [];
     state.notifications = [];
     state.list = [];
+    state.notify = [];
   });
 
   it('404 when PO not found', async () => {
@@ -126,8 +139,11 @@ describe('POST /api/admin/disputes/:poId/resolve', () => {
     expect(body.status).toBe('cancelled');
     expect(state.resolved).toEqual({ status: 'cancelled' });
     expect(state.audit[0].action).toBe('dispute.resolved');
-    // notification targeted at supplier (counterparty when refunding buyer)
-    expect(state.notifications.find((n) => n.userId === 's-1')).toBeTruthy();
+    // Both parties notified via dispatcher, never raw insert.
+    expect(state.notify.length).toBe(1);
+    expect(state.notify[0].type).toBe('dispute.resolved');
+    expect(state.notify[0].audience).toBe('both');
+    expect(state.notifications).toHaveLength(0);
   });
 
   it('release_supplier → delivered', async () => {
@@ -143,8 +159,9 @@ describe('POST /api/admin/disputes/:poId/resolve', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.status).toBe('delivered');
-    // notification targeted at buyer (counterparty when releasing supplier)
-    expect(state.notifications.find((n) => n.userId === 'b-1')).toBeTruthy();
+    expect(state.notify.length).toBe(1);
+    expect(state.notify[0].audience).toBe('both');
+    expect(state.notifications).toHaveLength(0);
   });
 
   it('409 when PO not in disputed state', async () => {

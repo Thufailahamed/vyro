@@ -3,6 +3,17 @@ export interface AuthEnv {
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
   ENVIRONMENT?: string;
+  /**
+   * Optional email sender for better-auth hooks (password reset, verification).
+   * If absent, we log to stdout so devs can still hand-copy the link from
+   * `wrangler tail` during local work.
+   */
+  sendEmail?: (input: {
+    to: string;
+    subject: string;
+    text: string;
+    html?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
 }
 
 export interface MembershipSummary {

@@ -1,0 +1,26 @@
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /how-it-works
+Allow: /search
+Allow: /products/
+Allow: /legal/
+
+# Authenticated surfaces — nothing here is useful to a crawler and most of it
+# 302s to /login anyway.
+Disallow: /admin
+Disallow: /supplier
+Disallow: /api/
+Disallow: /cart
+Disallow: /checkout
+Disallow: /orders
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /notifications
+Disallow: /onboarding/
+Disallow: /login
+Disallow: /signup
+Disallow: /forgot
+Disallow: /reset
+
+Sitemap: https://vyro-api.thufailahamed627.workers.dev/sitemap.xml

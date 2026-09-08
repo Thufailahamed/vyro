@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePageTitle } from '@/lib/usePageTitle';
 import { api, ApiError } from '@/lib/api';
 import { Button, ErrorBanner, PageSection } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
@@ -28,7 +29,6 @@ function availabilityLabel(status: string | undefined): { label: string; tone: '
   switch (status) {
     case 'in_stock':
       return { label: 'In stock', tone: 'good' };
-    case 'low_stock':
     case 'low':
       return { label: 'Low stock', tone: 'warn' };
     case 'out_of_stock':
@@ -59,6 +59,9 @@ interface Offer {
     tier1DiscountPct?: number;
     tier2MinQty?: number;
     tier2DiscountPct?: number;
+    trackInventory?: boolean;
+    availableQty?: number | null;
+    lowStockThreshold?: number;
   };
   supplier: {
     id: string;
@@ -102,6 +105,7 @@ export function ProductDetailPage() {
   const qc = useQueryClient();
   const toast = useToast();
 
+  usePageTitle(data?.product?.name ?? 'Product');
   async function add(businessId: string, offerId: string, q: number) {
     setErr('');
     setSubmittingId(offerId);
@@ -542,6 +546,11 @@ export function ProductDetailPage() {
                           <span className={`inline-flex items-center px-1.5 py-0.5 border text-[10px] uppercase tracking-wider font-medium ${toneClass[avail.tone]}`}>
                             {avail.label}
                           </span>
+                          {row.offer.trackInventory && row.offer.availableQty != null && (
+                            <div className="text-[10px] text-ink-4 font-mono mt-0.5">
+                              {row.offer.availableQty} avail.
+                            </div>
+                          )}
                         </td>
                         <td className="p-3.5 font-mono">
                           <div className="font-semibold text-sm">{formatLKR(row.offer.priceCents)}</div>
@@ -586,9 +595,10 @@ export function ProductDetailPage() {
                               size="sm"
                               onClick={() => add(businessId, row.offer.id, selectedQty)}
                               loading={submittingId === row.offer.id}
+                              disabled={row.offer.availabilityStatus === 'out_of_stock'}
                               icon={<ShoppingCartIcon size={13} />}
                             >
-                              Add
+                              {row.offer.availabilityStatus === 'out_of_stock' ? 'Out' : 'Add'}
                             </Button>
                           ) : (
                             <Link to="/login">
@@ -667,6 +677,11 @@ export function ProductDetailPage() {
                           <span className={`inline-flex items-center px-2 py-0.5 border text-[10px] uppercase tracking-wider font-medium ${toneClass[avail.tone]}`}>
                             {avail.label}
                           </span>
+                          {row.offer.trackInventory && row.offer.availableQty != null && (
+                            <span className="inline-flex items-center gap-1 text-ink-4 font-mono text-[10px]">
+                              · {row.offer.availableQty} {data.product.unit}s available
+                            </span>
+                          )}
                         </div>
 
                         {/* Comparative Insight Pill */}
@@ -735,10 +750,11 @@ export function ProductDetailPage() {
                               <Button
                                 onClick={() => add(businessId, row.offer.id, selectedQty)}
                                 loading={submittingId === row.offer.id}
+                                disabled={row.offer.availabilityStatus === 'out_of_stock'}
                                 icon={<ShoppingCartIcon size={15} />}
                                 className="whitespace-nowrap"
                               >
-                                Add to Cart
+                                {row.offer.availabilityStatus === 'out_of_stock' ? 'Out of stock' : 'Add to Cart'}
                               </Button>
                             </div>
 

@@ -5,7 +5,8 @@
  */
 export async function freshDb(env: Env): Promise<void> {
   await env.DB.exec(
-    'DELETE FROM purchase_order_items; ' +
+    'DELETE FROM stock_movements; ' +
+      'DELETE FROM purchase_order_items; ' +
       'DELETE FROM order_events; ' +
       'DELETE FROM deliveries; ' +
       'DELETE FROM payments; ' +

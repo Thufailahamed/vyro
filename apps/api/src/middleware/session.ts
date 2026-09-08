@@ -2,6 +2,7 @@ import type { MiddlewareHandler } from 'hono';
 import { createAuth, loadSessionContext, type SessionContext } from '@vyro/auth';
 import { httpError } from '../lib/errors';
 import type { Env } from '../env';
+import { authEnv } from '../lib/authEnv';
 
 export type Ctx = SessionContext;
 
@@ -15,7 +16,7 @@ declare module 'hono' {
 export const session = (): MiddlewareHandler => async (c, next) => {
   const env = c.env as Env;
   try {
-    const auth = createAuth(env);
+    const auth = createAuth(authEnv(env));
     const result = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!result) throw httpError(401, 'UNAUTHORIZED', 'No active session');
     const ctx = await loadSessionContext(env.DB, result.user.id);

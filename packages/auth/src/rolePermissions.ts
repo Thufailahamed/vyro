@@ -9,7 +9,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, ReadonlySet<Permission
   super_admin: all(
     'user:read', 'user:suspend', 'user:unsuspend',
     'business:read', 'business:freeze', 'business:unfreeze',
-    'supplier:read', 'supplier:freeze', 'supplier:unfreeze',
+    'supplier:read', 'supplier:freeze', 'supplier:unfreeze', 'supplier:verify',
     'product:read', 'product:moderate',
     'category:read', 'category:write',
     'type:read', 'type:write',
@@ -36,7 +36,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, ReadonlySet<Permission
   ops: all(
     'user:read', 'user:suspend', 'user:unsuspend',
     'business:read', 'business:freeze', 'business:unfreeze',
-    'supplier:read', 'supplier:freeze', 'supplier:unfreeze',
+    'supplier:read', 'supplier:freeze', 'supplier:unfreeze', 'supplier:verify',
     'product:read', 'product:moderate',
     'category:read', 'category:write',
     'type:read', 'type:write',

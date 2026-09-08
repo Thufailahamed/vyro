@@ -28,7 +28,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc",
-    "lint": "echo 'lint stub'",
+    "lint": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {

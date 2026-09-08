@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
+import { usePageTitle } from '@/lib/usePageTitle';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { Button, ErrorBanner, Label, PageHeader, Textarea } from '@/components/ui';
@@ -20,6 +21,7 @@ interface CartItem {
 }
 
 export function CheckoutPage() {
+  usePageTitle('Checkout');
   const { user } = useAuth();
   const businessId = user?.memberships?.[0]?.businessId;
   const [notes, setNotes] = useState('');

@@ -68,10 +68,13 @@ function RefundQueueTab() {
   const queue = useRefundQueue();
   const approve = useApproveRefund();
   const reject = useRejectRefund();
+  const [rejecting, setRejecting] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
   if (!canRefund) return <ErrorBanner message="You need payment:refund permission" />;
   return (
     <Surface className="p-4">
       {queue.isError ? <ErrorBanner message={(queue.error as Error).message} /> : null}
+      {reject.isError ? <ErrorBanner message={(reject.error as Error).message} /> : null}
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-ink-500">
@@ -90,17 +93,57 @@ function RefundQueueTab() {
               <td className="font-mono text-xs">{r.paymentId}</td>
               <td>{fmtCents(r.amountCents)}</td>
               <td>{r.status}</td>
-              <td>{fmtTs(r.requestedAt)}</td>
+              <td>{fmtTs(r.createdAt)}</td>
               <td className="space-x-2 text-right">
-                {r.status === 'pending' ? (
-                  <>
-                    <Button size="sm" variant="primary" onClick={() => approve.mutate(r.id)}>
-                      Approve
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => reject.mutate(r.id)}>
-                      Reject
-                    </Button>
-                  </>
+                {r.status === 'requested' ? (
+                  rejecting === r.id ? (
+                    <span className="inline-flex gap-2 items-center">
+                      <input
+                        autoFocus
+                        placeholder="Rejection reason"
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        className="border border-ink/20 rounded px-2 py-1 text-xs"
+                      />
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        disabled={!rejectReason.trim() || reject.isPending}
+                        onClick={() =>
+                          reject.mutate(
+                            { id: r.id, reason: rejectReason.trim() },
+                            {
+                              onSuccess: () => {
+                                setRejecting(null);
+                                setRejectReason('');
+                              },
+                            },
+                          )
+                        }
+                      >
+                        Confirm
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setRejecting(null)}>
+                        Cancel
+                      </Button>
+                    </span>
+                  ) : (
+                    <>
+                      <Button size="sm" variant="primary" onClick={() => approve.mutate(r.id)}>
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setRejecting(r.id);
+                          setRejectReason('');
+                        }}
+                      >
+                        Reject
+                      </Button>
+                    </>
+                  )
                 ) : null}
               </td>
             </tr>
@@ -120,44 +163,37 @@ function PayoutBatchesTab() {
   const queue = usePayoutBatchQueue();
   const create = useCreatePayoutBatch();
   const approve = useApprovePayoutBatch();
-  const [periodStart, setPeriodStart] = useState('');
-  const [periodEnd, setPeriodEnd] = useState('');
+  const [note, setNote] = useState('');
   if (!canRead) return <ErrorBanner message="You need payout:read permission" />;
   return (
     <div className="space-y-4">
       {canApprove ? (
         <Surface className="p-4">
           <h3 className="text-sm font-medium mb-2">Create batch</h3>
+          <p className="text-xs text-ink-500 mb-2">
+            Groups every unbatched pending payout into one approval batch.
+          </p>
+          {create.isError ? <ErrorBanner message={(create.error as Error).message} /> : null}
           <div className="flex gap-2 items-end">
-            <label className="flex flex-col text-xs">
-              <span className="text-ink-500">Period start (ISO)</span>
+            <label className="flex flex-col text-xs flex-1">
+              <span className="text-ink-500">Note (optional)</span>
               <input
-                type="datetime-local"
-                value={periodStart}
-                onChange={(e) => setPeriodStart(e.target.value)}
-                className="border border-ink/20 rounded px-2 py-1"
-              />
-            </label>
-            <label className="flex flex-col text-xs">
-              <span className="text-ink-500">Period end (ISO)</span>
-              <input
-                type="datetime-local"
-                value={periodEnd}
-                onChange={(e) => setPeriodEnd(e.target.value)}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={500}
                 className="border border-ink/20 rounded px-2 py-1"
               />
             </label>
             <Button
               variant="primary"
+              disabled={create.isPending}
               onClick={() =>
-                create.mutate({
-                  periodStart: new Date(periodStart).getTime(),
-                  periodEnd: new Date(periodEnd).getTime(),
+                create.mutate(note.trim() ? { note: note.trim() } : {}, {
+                  onSuccess: () => setNote(''),
                 })
               }
-              disabled={!periodStart || !periodEnd}
             >
-              Create
+              {create.isPending ? 'Creating…' : 'Create'}
             </Button>
           </div>
         </Surface>
@@ -168,8 +204,8 @@ function PayoutBatchesTab() {
           <thead>
             <tr className="text-left text-ink-500">
               <th className="py-2">Batch</th>
-              <th>Period</th>
-              <th>Payouts</th>
+              <th>Created</th>
+              <th>Note</th>
               <th>Total</th>
               <th>Status</th>
               <th />
@@ -179,8 +215,8 @@ function PayoutBatchesTab() {
             {(queue.data ?? []).map((b) => (
               <tr key={b.id} className="border-t border-ink/10">
                 <td className="py-2 font-mono text-xs">{b.id}</td>
-                <td className="text-xs">{fmtTs(b.periodStart)} → {fmtTs(b.periodEnd)}</td>
-                <td>{b.payoutCount}</td>
+                <td className="text-xs">{fmtTs(b.createdAt)}</td>
+                <td className="text-xs">{b.note ?? '—'}</td>
                 <td>{fmtCents(b.totalCents)}</td>
                 <td>{b.status}</td>
                 <td className="text-right">

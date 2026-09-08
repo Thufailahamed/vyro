@@ -6,8 +6,14 @@ import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
 import { notifications } from '@vyro/db/schema';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, count, desc, eq, isNull, lt } from 'drizzle-orm';
 import { newId } from '@vyro/shared';
+export {
+  notifyUsers,
+  notifyOrderParties,
+  notifySupplierOrg,
+  notifyBusinessOrg,
+} from './dispatcher';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -43,14 +49,62 @@ router.get('/me', session(), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const db = getDb(c.env.DB);
+  const limitRaw = Number(c.req.query('limit') ?? 50);
+  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(Math.trunc(limitRaw), 1), 100) : 50;
+  const before = Number(c.req.query('before') ?? 0);
+  const unreadOnly = c.req.query('unread') === '1' || c.req.query('unread') === 'true';
+
+  const filters = [eq(notifications.userId, ctx.userId)];
+  if (Number.isFinite(before) && before > 0) filters.push(lt(notifications.createdAt, before));
+  if (unreadOnly) filters.push(isNull(notifications.readAt));
+
   const rows = await db
     .select()
     .from(notifications)
-    .where(eq(notifications.userId, ctx.userId))
-    .orderBy(sql`${notifications.createdAt} desc`)
-    .limit(50)
+    .where(and(...filters))
+    .orderBy(desc(notifications.createdAt))
+    .limit(limit + 1)
     .all();
-  return c.json({ notifications: rows });
+
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const unread = await db
+    .select({ n: count() })
+    .from(notifications)
+    .where(and(eq(notifications.userId, ctx.userId), isNull(notifications.readAt)))
+    .get();
+
+  return c.json({
+    notifications: page,
+    unreadCount: unread?.n ?? 0,
+    nextCursor: hasMore ? (page[page.length - 1]?.createdAt ?? null) : null,
+  });
+});
+
+router.get('/me/unread-count', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const db = getDb(c.env.DB);
+  const row = await db
+    .select({ n: count() })
+    .from(notifications)
+    .where(and(eq(notifications.userId, ctx.userId), isNull(notifications.readAt)))
+    .get();
+  return c.json({ unreadCount: row?.n ?? 0 });
+});
+
+router.post('/me/read-all', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const db = getDb(c.env.DB);
+  const now = Date.now();
+  const result = await db
+    .update(notifications)
+    .set({ readAt: now })
+    .where(and(eq(notifications.userId, ctx.userId), isNull(notifications.readAt)))
+    .run();
+  const changes = (result as unknown as { meta?: { changes?: number } }).meta?.changes ?? 0;
+  return c.json({ ok: true, readAt: now, updated: changes });
 });
 
 router.post('/:id/read', session(), async (c) => {
@@ -71,16 +125,24 @@ router.post('/:id/read', session(), async (c) => {
   return c.json({ ok: true });
 });
 
-export const notifyUser = async (d1: D1Database, userId: string, type: string, title: string, body?: string, link?: string) => {
-  const db = getDb(d1);
-  await db.insert(notifications).values({
-    id: newId(),
-    userId,
+/**
+ * Single-user convenience wrapper. Goes through the dispatcher so preferences
+ * are always honoured.
+ */
+export const notifyUser = async (
+  d1: D1Database,
+  userId: string,
+  type: string,
+  title: string,
+  body?: string,
+  link?: string,
+) => {
+  const { notifyUsers } = await import('./dispatcher');
+  await notifyUsers(d1, undefined, [userId], {
     type,
     title,
     body: body ?? null,
     link: link ?? null,
-    createdAt: Date.now(),
   });
 };
 

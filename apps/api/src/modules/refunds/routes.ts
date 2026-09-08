@@ -7,7 +7,7 @@ import { getDb } from '@vyro/db';
 import { payments as paymentsTable, purchaseOrders } from '@vyro/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { createRefundSchema } from '@vyro/validation/payment';
-import { newId } from '@vyro/shared';
+import { NotificationType } from '@vyro/shared';
 import { recordAudit } from '../supplierProducts/repository';
 import { resolveGateway } from '@vyro/payments';
 import { writeLedgerEntry } from '../ledger';
@@ -19,6 +19,7 @@ import {
   updateRefundStatus,
 } from './repository';
 import { requireBusinessPaymentRole, isSupplierMember } from '../payments/membership';
+import { notifyOrderParties } from '../notifications/dispatcher';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -177,6 +178,30 @@ router.post('/:paymentId/refund', session(), async (c) => {
       feeRefundCents,
     },
   });
+
+  // Best-effort buyer + supplier notifications.
+  try {
+    const initiated = refund.status === 'requested' || refund.status === 'processing';
+    await notifyOrderParties(
+      c.env.DB,
+      c.env.NOTIFICATIONS_QUEUE,
+      { id: po.id, poNumber: po.poNumber, businessId: po.businessId, supplierId: po.supplierId },
+      {
+        type: initiated ? NotificationType.REFUND_INITIATED : NotificationType.REFUND_COMPLETED,
+        title: initiated
+          ? `Refund requested for PO ${po.poNumber}`
+          : `Refund completed for PO ${po.poNumber}`,
+        body: initiated
+          ? `A refund of ${refundCents} cents is being processed.`
+          : `A refund of ${refundCents} cents has been completed.`,
+        link: `/orders/${po.id}`,
+        audience: 'both',
+        excludeUserId: ctx.userId,
+      },
+    );
+  } catch (err) {
+    console.error('[refunds.create] notify failed', err);
+  }
 
   return c.json({ id: refund.id, status: refund.status, amountCents: refund.amountCents }, 201);
 });

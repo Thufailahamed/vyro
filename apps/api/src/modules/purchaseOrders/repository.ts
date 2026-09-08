@@ -123,11 +123,16 @@ export async function listPoEvents(d1: D1Database, poId: string) {
   return db.select().from(orderEvents).where(eq(orderEvents.purchaseOrderId, poId)).all();
 }
 
-export async function updatePoStatus(d1: D1Database, poId: string, status: string, timestamps: Record<string, number | null>) {
+export async function updatePoStatus(
+  d1: D1Database,
+  poId: string,
+  status: string,
+  patch: Record<string, number | string | null>,
+) {
   const db = getDb(d1);
   await db
     .update(purchaseOrders)
-    .set({ status, ...timestamps, updatedAt: Date.now() })
+    .set({ status, ...patch, updatedAt: Date.now() })
     .where(eq(purchaseOrders.id, poId));
 }
 

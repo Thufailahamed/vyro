@@ -2,12 +2,14 @@ import { Hono } from 'hono';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
 import { payments as paymentsTable, purchaseOrders } from '@vyro/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { resolveGateway } from '@vyro/payments';
 import { writeLedgerEntry } from '../ledger';
 import { generateReceiptForPayment } from '../invoices/generate';
 import { recordAudit } from '../supplierProducts/repository';
 import { httpError } from '../../lib/errors';
+import { notifyOrderParties } from '../notifications/dispatcher';
+import { NotificationType } from '@vyro/shared';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -105,6 +107,23 @@ router.post('/payhere', async (c) => {
         metadata: { paymentId: payment.id, error: String(e) },
       });
     }
+    // Notify both buyer (payment received) and supplier (funds incoming).
+    try {
+      await notifyOrderParties(
+        env.DB,
+        env.NOTIFICATIONS_QUEUE,
+        { id: po.id, poNumber: po.poNumber, businessId: po.businessId, supplierId: po.supplierId },
+        {
+          type: NotificationType.PAYMENT_RECEIVED,
+          title: `Payment received for PO ${po.poNumber}`,
+          body: `Buyer confirmed payment via ${provider}.`,
+          link: `/orders/${po.id}`,
+          audience: 'both',
+        },
+      );
+    } catch (err) {
+      console.error('[payhere.webhook] payment.received notify failed', err);
+    }
   } else if (event.type === 'payment.failed' || event.type === 'payment.cancelled') {
     const now = Date.now();
     db.update(paymentsTable)
@@ -115,6 +134,23 @@ router.post('/payhere', async (c) => {
       })
       .where(eq(paymentsTable.id, payment.id))
       .run();
+    // Notify buyer so they can retry.
+    try {
+      await notifyOrderParties(
+        env.DB,
+        env.NOTIFICATIONS_QUEUE,
+        { id: po.id, poNumber: po.poNumber, businessId: po.businessId, supplierId: po.supplierId },
+        {
+          type: NotificationType.PAYMENT_FAILED,
+          title: `Payment failed for PO ${po.poNumber}`,
+          body: `Gateway reported ${event.type}. Please retry.`,
+          link: `/orders/${po.id}`,
+          audience: 'buyer',
+        },
+      );
+    } catch (err) {
+      console.error('[payhere.webhook] payment.failed notify failed', err);
+    }
   }
 
   await recordAudit(env.DB, {
