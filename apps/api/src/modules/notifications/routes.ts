@@ -53,10 +53,13 @@ router.get('/me', session(), async (c) => {
   const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(Math.trunc(limitRaw), 1), 100) : 50;
   const before = Number(c.req.query('before') ?? 0);
   const unreadOnly = c.req.query('unread') === '1' || c.req.query('unread') === 'true';
+  const source = c.req.query('source');
 
   const filters = [eq(notifications.userId, ctx.userId)];
   if (Number.isFinite(before) && before > 0) filters.push(lt(notifications.createdAt, before));
   if (unreadOnly) filters.push(isNull(notifications.readAt));
+  if (source === 'ai') filters.push(eq(notifications.source, 'ai'));
+  if (source === 'system') filters.push(eq(notifications.source, 'system'));
 
   const rows = await db
     .select()
@@ -85,10 +88,14 @@ router.get('/me/unread-count', session(), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const db = getDb(c.env.DB);
+  const source = c.req.query('source');
+  const conditions = [eq(notifications.userId, ctx.userId), isNull(notifications.readAt)];
+  if (source === 'ai') conditions.push(eq(notifications.source, 'ai'));
+  if (source === 'system') conditions.push(eq(notifications.source, 'system'));
   const row = await db
     .select({ n: count() })
     .from(notifications)
-    .where(and(eq(notifications.userId, ctx.userId), isNull(notifications.readAt)))
+    .where(and(...conditions))
     .get();
   return c.json({ unreadCount: row?.n ?? 0 });
 });

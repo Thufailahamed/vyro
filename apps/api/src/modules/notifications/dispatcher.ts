@@ -7,6 +7,7 @@ import {
   supplierMembers,
   supplierSettings,
   userSettings,
+  aiInsightEvents,
 } from '@vyro/db/schema';
 import { newId } from '@vyro/shared';
 import {
@@ -167,7 +168,7 @@ export async function notifyUsers(
     title: payload.title.slice(0, 200),
     body: payload.body != null ? payload.body.slice(0, 2000) : null,
     link: payload.link ?? null,
-    readAt: null as number | null,
+    source: (payload.type === 'ai.insight' ? 'ai' : 'system') as 'ai' | 'system',
     createdAt: now,
   }));
   try {
@@ -319,4 +320,88 @@ export async function loadOrderRef(
     .where(eq(purchaseOrders.id, poId))
     .get();
   return row ?? null;
+}
+
+export interface AiInsightInput {
+  kind: string;
+  summary: string;
+  evidenceUrl?: string;
+}
+
+/**
+ * Filter business members by their `notify_ai_insights` opt-in. Defaults to
+ * opted-in when no settings row exists, matching the dispatcher convention.
+ */
+async function filterUsersByAiPreference(
+  d1: D1Database,
+  userIds: string[],
+): Promise<string[]> {
+  if (!userIds.length) return userIds;
+  const db = getDb(d1);
+  const rows = await db
+    .select({ userId: userSettings.userId, flag: userSettings.notifyAiInsights })
+    .from(userSettings)
+    .where(inArray(userSettings.userId, userIds))
+    .all();
+  const byUser = new Map(rows.map((r) => [r.userId, isTruthyFlag(r.flag)]));
+  return userIds.filter((u) => byUser.get(u) ?? true);
+}
+
+/**
+ * Fan-out an AI insight to every active member of a buyer business org.
+ * Inserts notifications with `source='ai'` so the NotificationCenter can
+ * filter them independently of system traffic.
+ */
+export async function notifyAiInsight(
+  d1: D1Database,
+  queue: QueueLike | undefined,
+  businessId: string,
+  insight: AiInsightInput,
+): Promise<string[]> {
+  const recipients = await listBusinessMemberIds(d1, businessId);
+  const opted = await filterUsersByAiPreference(d1, recipients);
+  return notifyUsers(d1, queue, opted, {
+    type: 'ai.insight',
+    title: insight.summary.slice(0, 200),
+    body: insight.kind.replace(/_/g, ' '),
+    link: insight.evidenceUrl ?? '/ai',
+    category: NotificationCategory.SYSTEM,
+  });
+}
+
+/** List the (kind, payloadHash) pairs already dispatched for a business. */
+export async function listInsightEvents(
+  d1: D1Database,
+  businessId: string,
+): Promise<Array<{ payloadHash: string; kind: string }>> {
+  const db = getDb(d1);
+  const rows = await db
+    .select({ payloadHash: aiInsightEvents.payloadHash, kind: aiInsightEvents.kind })
+    .from(aiInsightEvents)
+    .where(eq(aiInsightEvents.businessId, businessId))
+    .all();
+  return rows;
+}
+
+/** Record a dispatched insight event. Unique-index conflicts are silently ignored. */
+export async function recordInsightEvent(
+  d1: D1Database,
+  businessId: string,
+  kind: string,
+  payloadHash: string,
+): Promise<void> {
+  const db = getDb(d1);
+  try {
+    await db.insert(aiInsightEvents).values({
+      id: crypto.randomUUID(),
+      businessId,
+      kind,
+      payloadJson: '{}',
+      payloadHash,
+      dispatchedAt: String(Date.now()),
+      status: 'sent',
+    });
+  } catch {
+    /* duplicate (unique index on businessId, kind, payloadHash) */
+  }
 }

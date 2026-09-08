@@ -15,9 +15,9 @@ interface InsightRepo {
 }
 
 interface InsightDispatcher {
-  notifyAiInsight(businessId: string, insight: { kind: InsightKind; summary: string; evidenceUrl?: string }): Promise<void>;
-  listInsightEvents(businessId: string): Promise<Array<{ payloadHash: string; kind: InsightKind }>>;
-  recordInsightEvent(businessId: string, kind: InsightKind, payloadHash: string): Promise<void>;
+  notifyAiInsight(businessId: string, insight: { kind: InsightKind; summary: string; evidenceUrl?: string }): Promise<unknown>;
+  listInsightEvents(businessId: string): Promise<Array<{ payloadHash: string; kind: string }>>;
+  recordInsightEvent(businessId: string, kind: string, payloadHash: string): Promise<unknown>;
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -36,7 +36,8 @@ export async function evaluateInsightsForBusiness(
   now: number = Date.now(),
 ): Promise<InsightInput[]> {
   const seen = await dispatcher.listInsightEvents(businessId);
-  const seenHashes = new Set(seen.map((e) => `${e.kind}:${e.payloadHash}`));
+  const seenHashes = new Set<string>();
+  for (const e of seen) seenHashes.add(`${e.kind}:${e.payloadHash}`);
   const out: InsightInput[] = [];
 
   // price_drop
@@ -80,9 +81,9 @@ export async function runAiInsights(env: { DB: D1Database; NOTIFICATIONS_QUEUE?:
   let insights = 0;
   for (const b of businesses) {
     const list = await evaluateInsightsForBusiness(b, repos, {
-      notifyAiInsight,
-      listInsightEvents,
-      recordInsightEvent,
+      notifyAiInsight: async (biz, ins) => notifyAiInsight(env.DB, env.NOTIFICATIONS_QUEUE, biz, ins),
+      listInsightEvents: async (biz) => listInsightEvents(env.DB, biz),
+      recordInsightEvent: async (biz, k, h) => recordInsightEvent(env.DB, biz, k, h),
     });
     for (const i of list) {
       await notifyAiInsight(env.DB, env.NOTIFICATIONS_QUEUE, b, i);

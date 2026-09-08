@@ -13,9 +13,13 @@ export const notifications = sqliteTable(
     body: text('body'),
     readAt: integer('read_at'),
     link: text('link'),
+    source: text('source', { enum: ['system', 'ai'] }).notNull().default('system'),
     createdAt: integer('created_at').notNull(),
   },
-  (t) => ({ userReadIdx: index('notifications_user_read_idx').on(t.userId, t.readAt) }),
+  (t) => ({
+    userReadIdx: index('notifications_user_read_idx').on(t.userId, t.readAt),
+    sourceIdx: index('notifications_source_idx').on(t.userId, t.source, t.readAt),
+  }),
 );
 
 export type Notification = typeof notifications.$inferSelect;
