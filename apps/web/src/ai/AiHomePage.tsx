@@ -45,12 +45,20 @@ export function AiHomePage() {
         title={`${greeting} — here's what VYRO found for ${businessName}.`}
         sub="Proactive procurement intelligence, grounded in your purchase history and live supplier offers."
         actions={
-          <Link
-            to="/ask"
-            className="inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-mono font-bold bg-ink text-paper hover:bg-charcoal transition-colors shadow-xs"
-          >
-            <span>Ask VYRO →</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/ai/preferences"
+              className="inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-mono font-bold border border-ink/20 text-ink hover:border-copper transition-colors"
+            >
+              <span>AI Memory</span>
+            </Link>
+            <Link
+              to="/ask"
+              className="inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-mono font-bold bg-ink text-paper hover:bg-charcoal transition-colors shadow-xs"
+            >
+              <span>Ask VYRO →</span>
+            </Link>
+          </div>
         }
       />
 

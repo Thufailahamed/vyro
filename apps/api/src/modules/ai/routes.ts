@@ -260,6 +260,81 @@ router.get('/cart-line-hints', session(), async (c) => {
   return c.json({ hints: lineHints });
 });
 
+const prefSetSchema = z
+  .object({
+    kind: z.enum(['preferred_supplier', 'frequently_ordered', 'procurement_default']),
+    key: z.string().min(1).max(200),
+    valueJson: z.string().min(2).max(2000),
+    source: z.enum(['user', 'inferred']),
+  })
+  .strict();
+
+const prefPromoteSchema = z
+  .object({
+    kind: z.enum(['preferred_supplier', 'frequently_ordered', 'procurement_default']),
+    key: z.string().min(1).max(200),
+  })
+  .strict();
+
+router.get('/preferences', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const businessId = c.req.query('businessId') ?? ctx.businesses[0]?.businessId;
+  if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  const { drizzlePreferenceRepo } = await import('./memoryRepo');
+  const { getMemory } = await import('./memory');
+  const prefs = await getMemory(drizzlePreferenceRepo(c.env.DB), { businessId }).list();
+  return c.json({ preferences: prefs });
+});
+
+router.post('/preferences', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const businessId = c.req.query('businessId') ?? ctx.businesses[0]?.businessId;
+  if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  const parsed = prefSetSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
+  const { drizzlePreferenceRepo } = await import('./memoryRepo');
+  const { getMemory } = await import('./memory');
+  const pref = await getMemory(drizzlePreferenceRepo(c.env.DB), { businessId }).setPreference({
+    ...parsed.data,
+    userId: ctx.userId,
+  });
+  return c.json({ preference: pref }, 201);
+});
+
+router.post('/preferences/promote', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const businessId = c.req.query('businessId') ?? ctx.businesses[0]?.businessId;
+  if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
+  requireBusinessRole(ctx, businessId, ['owner', 'manager']);
+  const parsed = prefPromoteSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
+  const { drizzlePreferenceRepo } = await import('./memoryRepo');
+  const { getMemory } = await import('./memory');
+  try {
+    const pref = await getMemory(drizzlePreferenceRepo(c.env.DB), { businessId }).recordCorrection(parsed.data);
+    return c.json({ preference: pref });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Promotion failed';
+    throw httpError(400, 'PROMOTION_FAILED', msg);
+  }
+});
+
+router.post('/preferences/:id/delete', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const businessId = c.req.query('businessId') ?? ctx.businesses[0]?.businessId;
+  if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
+  requireBusinessRole(ctx, businessId, ['owner', 'manager']);
+  const { drizzlePreferenceRepo } = await import('./memoryRepo');
+  await drizzlePreferenceRepo(c.env.DB).delete(c.req.param('id'));
+  return c.json({ ok: true });
+});
+
 router.get('/suggestions', session(), async (c) => {  const ctx = c.get('ctx') as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = ctx.businesses[0]?.businessId;
