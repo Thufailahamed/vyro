@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useVyroAI } from './hooks/useVyroAI';
 import { renderComponent, ToolTimeline } from './components';
+import { FeedbackButtons } from './components/FeedbackButtons';
 import { PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import {
@@ -399,6 +400,14 @@ export function AskPage() {
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Feedback (final, successful turn only). */}
+              {index === state.turns.length - 1 && !turn.error && turn.requestId && !state.loading && (
+                <FeedbackButtons
+                  requestId={turn.requestId}
+                  {...(turn.meta?.intent ? { intentHint: turn.meta.intent } : {})}
+                />
               )}
             </div>
           ),

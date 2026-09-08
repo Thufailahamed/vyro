@@ -17,6 +17,7 @@ import { sql } from 'drizzle-orm';
 import type { Ctx } from '../../middleware/session';
 import type { Env } from '../../env';
 import { newId } from '@vyro/shared';
+import { writeFeedbackAudit } from './audit';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -24,6 +25,8 @@ const askSchema = z
   .object({
     prompt: z.string().min(1).max(800),
     businessId: z.string().optional(),
+    /** Client-supplied correlation id; ties ask → optional later feedback. */
+    requestId: z.string().min(1).max(80).optional(),
     conversation: z
       .array(
         z.object({
@@ -73,7 +76,41 @@ const confirmSchema = z
   })
   .strict();
 
+const feedbackSchema = z
+  .object({
+    requestId: z.string().min(1).max(80),
+    helpful: z.boolean(),
+    reason: z
+      .enum(['wrong_product', 'wrong_supplier', 'price_incorrect', 'not_relevant', 'other'])
+      .optional(),
+    intentHint: z.string().max(80).optional(),
+  })
+  .strict();
+
 router.use('/ask', rateLimit({ key: 'ai-ask', limit: 30, window: 60 }));
+router.use('/feedback', rateLimit({ key: 'ai-feedback', limit: 60, window: 60 }));
+
+router.post('/feedback', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const parsed = feedbackSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid feedback body', parsed.error.flatten());
+
+  const businessId = ctx.businesses[0]?.businessId;
+  if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
+  // Read-only role check: feedback is observational, no write side effects.
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+
+  await writeFeedbackAudit(c.env, {
+    userId: ctx.userId,
+    businessId,
+    requestId: parsed.data.requestId,
+    helpful: parsed.data.helpful,
+    ...(parsed.data.reason ? { reason: parsed.data.reason } : {}),
+    ...(parsed.data.intentHint ? { intentHint: parsed.data.intentHint } : {}),
+  });
+  return c.json({ ok: true });
+});
 
 router.post('/ask', session(), async (c) => {
   assertAiEnabled(c.env);
@@ -117,6 +154,7 @@ router.post('/ask', session(), async (c) => {
             ...(parsed.data.context ? { context: parsed.data.context } : {}),
           },
           parsed.data.prompt,
+          parsed.data.requestId,
         )) {
           controller.enqueue(enc.encode(frame));
         }
@@ -207,6 +245,19 @@ router.get('/cart-hints', session(), async (c) => {
   const avgSpend = await loadAvgWeeklySpendCents(c.env, businessId).catch(() => 0);
   const hints = await buildCartHints(drizzleRepos(c.env), lines, avgSpend);
   return c.json({ hints });
+});
+
+router.get('/cart-line-hints', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const businessId = c.req.query('businessId') ?? ctx.businesses[0]?.businessId;
+  if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  const { loadCartHintInputs, buildCartLineHints } = await import('./cartHints');
+  const { drizzleRepos } = await import('./intents/drizzleRepos');
+  const lines = await loadCartHintInputs(c.env, businessId).catch(() => []);
+  const lineHints = await buildCartLineHints(drizzleRepos(c.env), lines);
+  return c.json({ hints: lineHints });
 });
 
 router.get('/suggestions', session(), async (c) => {  const ctx = c.get('ctx') as Ctx | undefined;

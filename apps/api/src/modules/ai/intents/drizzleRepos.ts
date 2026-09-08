@@ -97,7 +97,7 @@ export function drizzleRepos(env: Env): AiRepos {
         filtered.sort((a: any, b: any) => a.bestOffer.leadTimeDays - b.bestOffer.leadTimeDays);
       }
       return filtered;
-    }
+    },
 
     async findProductByName(name) {
       const row = await db

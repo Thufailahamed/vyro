@@ -39,6 +39,8 @@ export interface ChatTurn {
   error?: { code: string; message: string };
   /** Streaming run metadata captured at the end of each assistant turn. */
   meta?: { provider: string; model: string; latencyMs: number; tokensIn: number; tokensOut: number; intent: string };
+  /** Client-generated correlation id; ties this turn to optional feedback. */
+  requestId?: string;
 }
 
 export interface VyroAIState {
@@ -169,8 +171,9 @@ export function useVyroAI() {
   const send = useCallback(async (prompt: string, opts?: { businessId?: string | undefined; context?: unknown }) => {
     const text = prompt.trim();
     if (!text) return;
+    const requestId = (globalThis.crypto?.randomUUID?.() ?? `vyro-${Date.now()}-${Math.random().toString(16).slice(2)}`);
     dispatch({ type: 'user', turn: { id: ++turnId, role: 'user', text, components: [], actions: [], tools: [] } });
-    dispatch({ type: 'assistant_start', turn: { id: ++turnId, role: 'assistant', text: '', components: [], actions: [], tools: [] } });
+    dispatch({ type: 'assistant_start', turn: { id: ++turnId, role: 'assistant', text: '', components: [], actions: [], tools: [], requestId } });
     try {
       const res = await fetch('/api/ai/ask', {
         method: 'POST',
@@ -181,6 +184,7 @@ export function useVyroAI() {
           businessId: opts?.businessId,
           context: opts?.context,
           conversation: history.current.slice(-HISTORY_LIMIT),
+          requestId,
         }),
       });
       if (!res.ok || !res.body) {

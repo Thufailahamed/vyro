@@ -8,10 +8,21 @@ import type { AiRepos } from './repos';
  * Emits `supplier_list_card` with hits and best price per product.
  */
 export async function searchProductsHandler(ctx: IntentContext, repos: AiRepos): Promise<HandlerResult> {
-  const slotQuery = (ctx.classify.slots.query ?? ctx.classify.slots.productName ?? '').trim();
-  const rawPrompt = ctx.prompt ?? slotQuery;
+  const slotQuery = (ctx.classify.slots.query ?? '').trim();
+  const slotProduct = (ctx.classify.slots.productName ?? '').trim();
+  const rawPrompt = ctx.prompt ?? (slotQuery || slotProduct);
   const { filters, query: cleanQuery } = parseNlFilters(rawPrompt);
-  const q = (cleanQuery || slotQuery).toLowerCase().trim();
+
+  // Pick the most focused query. NL strip wins when phrases were removed;
+  // otherwise prefer the dict-matched product name. Fall back to raw.
+  const stripped =
+    (cleanQuery || '').toLowerCase().trim() !== (rawPrompt || '').toLowerCase().trim();
+  const focused = slotProduct && slotProduct.length >= 3 ? slotProduct.toLowerCase() : '';
+  const qRaw = stripped
+    ? (cleanQuery || '').trim()
+    : focused || slotQuery || cleanQuery || rawPrompt;
+  const q = qRaw.toLowerCase().trim();
+
   const hasFilter =
     typeof filters.priceMaxCents === 'number' ||
     typeof filters.availableWithinDays === 'number' ||
@@ -28,12 +39,17 @@ export async function searchProductsHandler(ctx: IntentContext, repos: AiRepos):
   const limit = ctx.classify.slots.topN ?? 20;
   const sort = (filters.sort ?? 'recommended') as 'price_asc' | 'lead_asc' | 'recommended';
 
-  const hits = await repos.searchProductsFiltered({
-    ...(q ? { query: q } : {}),
-    ...filters,
-    sort,
-    limit,
-  });
+  // Prefer filtered search when the repo supports it; fall back to plain
+  // searchProducts for backwards-compat with existing test mocks.
+  const useFiltered = typeof repos.searchProductsFiltered === 'function';
+  const hits = useFiltered
+    ? await repos.searchProductsFiltered({
+        ...(q ? { query: q } : {}),
+        ...filters,
+        sort,
+        limit,
+      })
+    : await repos.searchProducts(focused && !stripped ? focused : q, limit);
 
   if (!hits.length) {
     return {

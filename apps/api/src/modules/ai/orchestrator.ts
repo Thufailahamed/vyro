@@ -62,8 +62,9 @@ export async function* orchestrate(
   env: Env,
   ctx: OrchestrateContext,
   rawPrompt: string,
+  clientRequestId?: string,
 ): AsyncGenerator<string> {
-  const requestId = newId();
+  const requestId = clientRequestId ?? newId();
   const started = Date.now();
   let ok = true;
   let errorCode: string | undefined;

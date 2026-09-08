@@ -23,13 +23,29 @@ export interface AiAuditEntry {
 export interface AiAuditRow {
   id: string;
   actorUserId: string;
-  action: 'ai.request';
-  resourceType: 'ai_request';
+  action: 'ai.request' | 'ai.feedback';
+  resourceType: string;
   resourceId: string;
   metadata: string;
   ip: null;
   userAgent: null;
   createdAt: number;
+}
+
+export type FeedbackReason =
+  | 'wrong_product'
+  | 'wrong_supplier'
+  | 'price_incorrect'
+  | 'not_relevant'
+  | 'other';
+
+export interface FeedbackAuditEntry {
+  userId: string;
+  businessId: string;
+  requestId: string;
+  helpful: boolean;
+  reason?: FeedbackReason;
+  intentHint?: string;
 }
 
 /**
@@ -67,6 +83,30 @@ export function buildAiAuditRow(entry: AiAuditEntry, now: number = Date.now()): 
 }
 
 /**
+ * buildFeedbackAudit: append-only feedback row. Captures helpful + reason
+ * for offline evaluation. NEVER triggers a model retrain.
+ */
+export function buildFeedbackAudit(entry: FeedbackAuditEntry, now: number = Date.now()): AiAuditRow {
+  const metadata: Record<string, unknown> = {
+    kind: 'feedback',
+    helpful: entry.helpful,
+  };
+  if (entry.reason) metadata.reason = entry.reason;
+  if (entry.intentHint) metadata.intentHint = entry.intentHint;
+  return {
+    id: newId(),
+    actorUserId: entry.userId,
+    action: 'ai.feedback',
+    resourceType: 'ai_request',
+    resourceId: entry.requestId,
+    metadata: JSON.stringify(metadata),
+    ip: null,
+    userAgent: null,
+    createdAt: now,
+  };
+}
+
+/**
  * writeAiAudit: append an audit row to audit_logs.
  * Real D1 insert path; tested via buildAiAuditRow unit tests (Drizzle requires
  * real D1 client for its query chain).
@@ -74,5 +114,11 @@ export function buildAiAuditRow(entry: AiAuditEntry, now: number = Date.now()): 
 export async function writeAiAudit(env: { DB: D1Database }, entry: AiAuditEntry): Promise<void> {
   const db = getDb(env.DB);
   const row = buildAiAuditRow(entry);
+  await db.insert(auditLogs).values(row as any);
+}
+
+export async function writeFeedbackAudit(env: { DB: D1Database }, entry: FeedbackAuditEntry): Promise<void> {
+  const db = getDb(env.DB);
+  const row = buildFeedbackAudit(entry);
   await db.insert(auditLogs).values(row as any);
 }
