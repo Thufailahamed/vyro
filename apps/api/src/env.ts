@@ -25,4 +25,14 @@ export interface Env {
   RESEND_API_KEY?: string;
   /** Default `From:` address for outbound email. */
   EMAIL_FROM?: string;
+  /** Cloudflare Workers AI binding. Optional in unit tests. */
+  AI?: Ai;
+  /** Master switch. "false" returns 503 from /api/ai/*. */
+  VYRO_AI_ENABLED?: string;
+  /** Model used for slot extraction. */
+  VYRO_AI_CLASSIFY_MODEL?: string;
+  /** Model used for narrating handler results. */
+  VYRO_AI_NARRATE_MODEL?: string;
+  /** Per-business daily token cap (soft). */
+  VYRO_AI_DAILY_TOKEN_CAP?: string;
 }
