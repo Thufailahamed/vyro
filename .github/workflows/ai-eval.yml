@@ -1,0 +1,29 @@
+name: ai-eval
+
+on:
+  pull_request:
+    paths:
+      - 'packages/ai/**'
+      - 'apps/api/src/modules/ai/**'
+      - 'apps/api/test/ai/**'
+      - 'scripts/eval-ai.ts'
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @vyro/api test:security
+      - run: pnpm eval:ai
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-eval-report
+          path: docs/superpowers/evals/
