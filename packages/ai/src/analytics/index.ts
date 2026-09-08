@@ -6,3 +6,5 @@ export * from './forecast';
 export * from './category';
 export * from './insights';
 export * from './budget';
+export * from './why';
+export * from './simulator';
