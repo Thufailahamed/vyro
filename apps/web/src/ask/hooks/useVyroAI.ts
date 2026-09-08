@@ -181,8 +181,8 @@ export function useVyroAI() {
         headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
         body: JSON.stringify({
           prompt: text,
-          businessId: opts?.businessId,
-          context: opts?.context,
+          ...(opts?.businessId ? { businessId: opts.businessId } : {}),
+          ...(opts?.context ? { context: opts.context } : {}),
           conversation: history.current.slice(-HISTORY_LIMIT),
           requestId,
         }),
