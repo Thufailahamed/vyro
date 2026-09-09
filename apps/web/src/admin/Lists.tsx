@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/ui';
 import {
@@ -12,6 +12,16 @@ import {
 } from './icons';
 import { PhoneIcon, SearchIcon, CheckCircleIcon, ClockIcon, ArrowRightIcon } from '@/components/icons';
 import { useAdminTable } from '@/lib/useAdminTable';
+import { useQueryClient } from '@tanstack/react-query';
+import { usePermission } from './lib/permissions';
+import {
+  useBulkBusinessesSuspend,
+  useBulkBusinessesUnsuspend,
+  type BulkResult,
+} from './useBulkAction';
+import { BulkActionBar } from './BulkActionBar';
+import { BulkConfirmDialog } from './BulkConfirmDialog';
+import { BulkResultDialog } from './BulkResultDialog';
 
 interface Supplier {
   id: string;
@@ -141,13 +151,26 @@ export function SuppliersPage() {
 }
 
 export function BusinessesPage() {
+  const qc = useQueryClient();
   const table = useAdminTable<Business>({
     endpoint: '/admin/businesses',
     queryKey: ['admin-businesses'],
     rowKey: 'businesses',
   });
 
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  useEffect(() => { setSelected(new Set()); }, [table.searchInput]);
+
+  const canSuspend = usePermission('user:suspend');
+  const bulkSuspend = useBulkBusinessesSuspend(qc);
+  const bulkUnsuspend = useBulkBusinessesUnsuspend(qc);
+
+  type ConfirmKind = 'suspend' | 'unsuspend';
+  const [confirmKind, setConfirmKind] = useState<ConfirmKind | null>(null);
+  const [result, setResult] = useState<BulkResult | null>(null);
+
   const rows = table.rows;
+  const exceedsCap = rows.length > 100;
 
   const stats = useMemo(() => {
     const active = rows.filter((b) => b.status !== 'suspended').length;
@@ -155,6 +178,29 @@ export function BusinessesPage() {
     const districts = new Set(rows.map((b) => b.district).filter(Boolean)).size;
     return { total: rows.length, active, suspended, districts };
   }, [rows]);
+
+  const toggle = (id: string) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const toggleAll = () => {
+    if (selected.size === rows.length) setSelected(new Set());
+    else setSelected(new Set(rows.map((r) => r.id)));
+  };
+
+  const ids = [...selected];
+  const runBulk = () => {
+    if (!confirmKind || ids.length === 0) { setConfirmKind(null); return; }
+    const onDone = (r: BulkResult) => { setResult(r); setSelected(new Set()); setConfirmKind(null); };
+    if (confirmKind === 'suspend') bulkSuspend.mutate({ ids }, { onSuccess: onDone });
+    else bulkUnsuspend.mutate({ ids }, { onSuccess: onDone });
+  };
+
+  const bulkActions = canSuspend ? [
+    { label: 'Suspend', run: () => setConfirmKind('suspend'), destructive: true, disabled: bulkSuspend.isPending },
+    { label: 'Unsuspend', run: () => setConfirmKind('unsuspend'), disabled: bulkUnsuspend.isPending },
+  ] : [];
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -233,6 +279,32 @@ export function BusinessesPage() {
         loadMore={table.loadMore}
         hasMore={table.hasMore}
         fetchingMore={table.fetchingMore}
+        selected={selected}
+        onToggle={toggle}
+        onToggleAll={toggleAll}
+        exceedsCap={exceedsCap}
+      />
+
+      {bulkActions.length > 0 ? (
+        <BulkActionBar
+          count={selected.size}
+          onClear={() => setSelected(new Set())}
+          actions={bulkActions}
+        />
+      ) : null}
+
+      <BulkConfirmDialog
+        open={confirmKind !== null}
+        count={selected.size}
+        action={confirmKind === 'suspend' ? 'Suspend' : 'Unsuspend'}
+        onCancel={() => setConfirmKind(null)}
+        onConfirm={() => runBulk()}
+      />
+
+      <BulkResultDialog
+        open={result !== null}
+        result={result}
+        onClose={() => setResult(null)}
       />
     </div>
   );
@@ -286,6 +358,10 @@ function Table({
   loadMore,
   hasMore,
   fetchingMore,
+  selected,
+  onToggle,
+  onToggleAll,
+  exceedsCap,
 }: {
   rows: (Supplier | Business)[];
   isLoading?: boolean;
@@ -293,6 +369,10 @@ function Table({
   loadMore: () => void;
   hasMore: boolean;
   fetchingMore: boolean;
+  selected?: Set<string>;
+  onToggle?: (id: string) => void;
+  onToggleAll?: () => void;
+  exceedsCap?: boolean;
 }) {
   if (isLoading) {
     return (
@@ -320,6 +400,18 @@ function Table({
             <table className="w-full text-left text-sm border-collapse">
               <thead>
                 <tr className="border-b border-ink/15 bg-bone/70 text-[10px] font-mono uppercase tracking-wider text-ink-3">
+                  {selected && onToggle && onToggleAll ? (
+                    <th className="py-3 px-4 w-8">
+                      <input
+                        type="checkbox"
+                        aria-label="Select all"
+                        checked={selected.size > 0 && selected.size === rows.length}
+                        disabled={!!exceedsCap}
+                        title={exceedsCap ? 'Bulk actions cap at 100 — refine filter' : undefined}
+                        onChange={onToggleAll}
+                      />
+                    </th>
+                  ) : null}
                   <th className="py-3 px-4">Entity & ID</th>
                   <th className="py-3 px-4">Location & District</th>
                   <th className="py-3 px-4">Direct Contact</th>
@@ -338,6 +430,16 @@ function Table({
 
                   return (
                     <tr key={r.id} className="hover:bg-bone/40 transition-colors group">
+                      {selected && onToggle ? (
+                        <td className="py-3.5 px-4 w-8">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${r.name}`}
+                            checked={selected.has(r.id)}
+                            onChange={() => onToggle(r.id)}
+                          />
+                        </td>
+                      ) : null}
                       <td className="py-3.5 px-4">
                         <Link to={detailPath} className="block group-hover:text-copper transition-colors">
                           <div className="font-display font-semibold text-ink text-base flex items-center gap-2">

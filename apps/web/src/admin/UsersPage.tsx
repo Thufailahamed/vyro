@@ -1,3 +1,4 @@
+import { useState, useEffect, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { PageHeader } from '@/components/ui';
@@ -10,6 +11,17 @@ import {
   AlertCircleIcon,
   ShieldCheckIcon,
 } from '@/components/icons';
+import { usePermission } from './lib/permissions';
+import {
+  useBulkUsersSuspend,
+  useBulkUsersUnsuspend,
+  useBulkUsersRole,
+  type BulkResult,
+  type AdminRole,
+} from './useBulkAction';
+import { BulkActionBar } from './BulkActionBar';
+import { BulkConfirmDialog } from './BulkConfirmDialog';
+import { BulkResultDialog } from './BulkResultDialog';
 
 type User = {
   id: string;
@@ -30,6 +42,21 @@ export function UsersPage() {
     queryKey: ['admin-users'],
     rowKey: 'items',
   });
+
+  // Bulk selection state — cleared whenever the filter input changes.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  useEffect(() => { setSelected(new Set()); }, [table.searchInput]);
+
+  const canSuspend = usePermission('user:suspend');
+  const canRole = usePermission('admin:role_change');
+  const bulkSuspend = useBulkUsersSuspend(qc);
+  const bulkUnsuspend = useBulkUsersUnsuspend(qc);
+  const bulkRole = useBulkUsersRole(qc);
+
+  type ConfirmKind = 'suspend' | 'unsuspend' | 'role';
+  const [confirmKind, setConfirmKind] = useState<ConfirmKind | null>(null);
+  const [roleChoice, setRoleChoice] = useState<AdminRole>('ops');
+  const [result, setResult] = useState<BulkResult | null>(null);
 
   const suspend = useMutation({
     mutationFn: (id: string) => api.post(`/admin/users/${id}/suspend`),
@@ -53,6 +80,42 @@ export function UsersPage() {
   const adminCount = list.filter((u) => u.isAdmin).length;
   const activeCount = list.filter((u) => u.status !== 'suspended').length;
   const suspendedCount = list.filter((u) => u.status === 'suspended').length;
+
+  const idsArray = useMemo(() => [...selected], [selected]);
+  const exceedsCap = list.length > 100;
+
+  const toggle = (id: string) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const toggleAll = () => {
+    if (selected.size === list.length) setSelected(new Set());
+    else setSelected(new Set(list.map((u) => u.id)));
+  };
+
+  const bulkActions = [
+    ...(canSuspend ? [{
+      label: 'Suspend', run: () => setConfirmKind('suspend'),
+      destructive: true, disabled: bulkSuspend.isPending,
+    }] : []),
+    ...(canSuspend ? [{
+      label: 'Unsuspend', run: () => setConfirmKind('unsuspend'),
+      disabled: bulkUnsuspend.isPending,
+    }] : []),
+    ...(canRole ? [{
+      label: 'Assign role…', run: () => setConfirmKind('role'),
+      disabled: bulkRole.isPending,
+    }] : []),
+  ];
+
+  const runBulk = (roleOverride?: AdminRole) => {
+    if (!confirmKind || idsArray.length === 0) { setConfirmKind(null); return; }
+    const onDone = (r: BulkResult) => { setResult(r); setSelected(new Set()); setConfirmKind(null); };
+    if (confirmKind === 'suspend') bulkSuspend.mutate({ ids: idsArray }, { onSuccess: onDone });
+    else if (confirmKind === 'unsuspend') bulkUnsuspend.mutate({ ids: idsArray }, { onSuccess: onDone });
+    else bulkRole.mutate({ ids: idsArray, role: roleOverride ?? roleChoice }, { onSuccess: onDone });
+  };
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -142,6 +205,16 @@ export function UsersPage() {
             <table className="w-full text-left text-sm border-collapse">
               <thead>
                 <tr className="border-b border-ink/15 bg-bone/70 text-[10px] font-mono uppercase tracking-wider text-ink-3">
+                  <th className="py-3 px-4 w-8">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all"
+                      checked={selected.size > 0 && selected.size === list.length}
+                      disabled={exceedsCap}
+                      title={exceedsCap ? 'Bulk actions cap at 100 — refine filter' : undefined}
+                      onChange={toggleAll}
+                    />
+                  </th>
                   <th className="py-3 px-4">User Name</th>
                   <th className="py-3 px-4">Direct Email</th>
                   <th className="py-3 px-4">Role / Access</th>
@@ -153,6 +226,14 @@ export function UsersPage() {
               <tbody className="divide-y divide-ink/10">
                 {list.map((u) => (
                   <tr key={u.id} className="hover:bg-bone/40 transition-colors">
+                    <td className="py-3.5 px-4 w-8">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${u.email}`}
+                        checked={selected.has(u.id)}
+                        onChange={() => toggle(u.id)}
+                      />
+                    </td>
                     <td className="py-3.5 px-4 font-semibold text-ink">
                       <div>{u.name || 'Unnamed Identity'}</div>
                       <div className="text-[10px] font-mono text-ink-4 mt-0.5">
@@ -242,6 +323,54 @@ export function UsersPage() {
           </div>
         )}
       </div>
+
+      {bulkActions.length > 0 ? (
+        <BulkActionBar
+          count={selected.size}
+          onClear={() => setSelected(new Set())}
+          actions={bulkActions}
+        />
+      ) : null}
+
+      <BulkConfirmDialog
+        open={confirmKind !== null && confirmKind !== 'role'}
+        count={selected.size}
+        action={confirmKind === 'suspend' ? 'Suspend'
+          : confirmKind === 'unsuspend' ? 'Unsuspend'
+          : ''}
+        onCancel={() => setConfirmKind(null)}
+        onConfirm={() => runBulk()}
+      />
+
+      {confirmKind === 'role' ? (
+        <div className="fixed inset-0 bg-ink/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-paper border border-ink/15 rounded-lg w-full max-w-sm p-4 space-y-3 shadow-lg">
+            <h3 className="font-medium">Assign role to {selected.size} user{selected.size === 1 ? '' : 's'}</h3>
+            <select
+              value={roleChoice}
+              onChange={(e) => setRoleChoice(e.currentTarget.value as AdminRole)}
+              className="w-full border border-ink/20 rounded px-2 py-1 text-sm bg-paper"
+            >
+              {(['super_admin', 'ops', 'finance', 'support'] as AdminRole[]).map((r) =>
+                <option key={r} value={r}>{r}</option>)}
+            </select>
+            <div className="flex gap-2 justify-end">
+              <button type="button"
+                onClick={() => setConfirmKind(null)}
+                className="px-3 py-1 text-xs">Cancel</button>
+              <button type="button"
+                onClick={() => runBulk()}
+                className="px-3 py-1 text-xs bg-ink text-paper">Confirm</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <BulkResultDialog
+        open={result !== null}
+        result={result}
+        onClose={() => setResult(null)}
+      />
     </div>
   );
 }
