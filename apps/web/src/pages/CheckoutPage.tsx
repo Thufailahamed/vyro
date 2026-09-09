@@ -169,6 +169,16 @@ export function CheckoutPage() {
             </div>
           </Surface>
 
+          <Surface kind="elevated" className="p-6 space-y-2">
+            <div className="vyro-kicker">Payment</div>
+            <h2 className="font-display text-xl">Pay securely with PayHere</h2>
+            <p className="text-xs text-ink-4">
+              After issuing your purchase orders you can pay online securely through PayHere from
+              each order. Totals are calculated on the server — the amount you pay always matches
+              the confirmed order.
+            </p>
+          </Surface>
+
           <div className="grid lg:grid-cols-[1fr_300px] gap-8">
             <Surface className="p-6">
               <h2 className="font-display text-xl">Delivery notes</h2>

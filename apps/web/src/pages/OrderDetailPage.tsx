@@ -96,7 +96,11 @@ export function OrderDetailPage() {
     queryKey: ['payments', id],
     queryFn: () =>
       api.get<{
-        payments: Array<{ id: string; status: 'pending' | 'confirmed' | 'failed' | 'refunded'; amountCents: number }>;
+        payments: Array<{
+          id: string;
+          status: 'pending' | 'confirmed' | 'failed' | 'cancelled' | 'chargeback' | 'refunded';
+          amountCents: number;
+        }>;
       }>(`/payments/by-po/${id}`),
     enabled: !!id,
   });

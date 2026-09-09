@@ -9,7 +9,8 @@ import { usePageTitle } from '@/lib/usePageTitle';
 interface Payment {
   id: string;
   purchaseOrderId: string;
-  status: 'pending' | 'confirmed' | 'failed' | 'refunded';
+  poNumber?: string;
+  status: 'pending' | 'confirmed' | 'failed' | 'cancelled' | 'chargeback' | 'refunded';
   amountCents: number;
   currency: string;
   transactionReference: string | null;
@@ -60,7 +61,11 @@ export function PaymentReturnPage({ outcome }: Props) {
     return list.length > 0 ? list[list.length - 1] : null;
   }, [data, paymentId]);
 
-  const settled = payment?.status === 'confirmed' || payment?.status === 'failed';
+  const settled =
+    payment?.status === 'confirmed' ||
+    payment?.status === 'failed' ||
+    payment?.status === 'cancelled' ||
+    payment?.status === 'chargeback';
 
   useEffect(() => {
     if (!shouldPoll || settled) return;
@@ -77,10 +82,14 @@ export function PaymentReturnPage({ outcome }: Props) {
     outcome === 'cancel'
       ? 'Payment cancelled'
       : payment?.status === 'confirmed'
-        ? 'Payment confirmed'
+        ? 'Payment successful'
         : payment?.status === 'failed'
           ? 'Payment failed'
-          : 'Confirming your payment';
+          : payment?.status === 'cancelled'
+            ? 'Payment cancelled'
+            : payment?.status === 'chargeback'
+              ? 'Payment under review'
+              : 'Verifying your payment...';
   usePageTitle(title);
 
   const orderLink = poId ? `/orders/${poId}` : '/orders';
@@ -92,12 +101,16 @@ export function PaymentReturnPage({ outcome }: Props) {
         title={title}
         sub={
           outcome === 'cancel'
-            ? 'No money has left your account. The order is still waiting for payment.'
+            ? 'Your order has not been marked as successfully paid.'
             : payment?.status === 'confirmed'
               ? 'The supplier has been notified and will begin processing your order.'
               : payment?.status === 'failed'
-                ? 'The gateway rejected this payment. Nothing was charged.'
-                : 'The gateway has sent you back. We are waiting for its confirmation callback — this usually takes a few seconds.'
+                ? 'Your payment could not be completed.'
+                : payment?.status === 'cancelled'
+                  ? 'Your order has not been marked as successfully paid.'
+                  : payment?.status === 'chargeback'
+                    ? 'This payment was flagged for investigation. Our team will be in touch.'
+                    : 'We are waiting for payment confirmation. Your order will update once the server callback arrives.'
         }
       />
 
@@ -123,8 +136,17 @@ export function PaymentReturnPage({ outcome }: Props) {
           </dl>
         )}
 
+        {payment?.status === 'confirmed' && (
+          <div className="mt-6">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-ink-4">Your payment of</p>
+            <p className="mt-1 text-2xl font-medium">{formatLKR(payment.amountCents)}</p>
+            <p className="mt-1 text-sm text-ink-4">has been confirmed.</p>
+          </div>
+        )}
+
         {outcome === 'success' && !settled && (
           <div className="mt-6 text-sm text-ink-4">
+            <p aria-live="polite" className="font-medium">Payment processing</p>
             {isLoading && <p>Loading payment…</p>}
             {!isLoading && !timedOut && (
               <p aria-live="polite">Waiting for gateway confirmation…</p>
@@ -139,18 +161,36 @@ export function PaymentReturnPage({ outcome }: Props) {
         )}
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <Link to={orderLink}>
-            <Button>View order</Button>
-          </Link>
-          {outcome === 'success' && !settled && (
-            <Button variant="secondary" onClick={() => void refetch()}>
-              Check again
-            </Button>
-          )}
-          {outcome === 'cancel' && (
-            <Link to={orderLink}>
-              <Button variant="secondary">Back to order to retry</Button>
-            </Link>
+          {payment?.status === 'confirmed' ? (
+            <>
+              <Link to={orderLink}>
+                <Button>View order</Button>
+              </Link>
+              <Link to="/orders">
+                <Button variant="secondary">Continue shopping</Button>
+              </Link>
+              <Link to="/dashboard">
+                <Button variant="secondary">Back to dashboard</Button>
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link to={orderLink}>
+                <Button>View order</Button>
+              </Link>
+              {outcome === 'success' && !settled && (
+                <Button variant="secondary" onClick={() => void refetch()}>
+                  Refresh status
+                </Button>
+              )}
+              {(outcome === 'cancel' ||
+                payment?.status === 'failed' ||
+                payment?.status === 'cancelled') && (
+                <Link to={orderLink}>
+                  <Button variant="secondary">Try again</Button>
+                </Link>
+              )}
+            </>
           )}
         </div>
       </Surface>

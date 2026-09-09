@@ -10,7 +10,7 @@ interface Payment {
   id: string;
   purchaseOrderId: string;
   method: 'cash' | 'bank_transfer' | 'online';
-  status: 'pending' | 'confirmed' | 'failed' | 'refunded';
+  status: 'pending' | 'confirmed' | 'failed' | 'cancelled' | 'chargeback' | 'refunded';
   amountCents: number;
   feeCents: number;
   netCents: number;
@@ -110,16 +110,34 @@ export function PaymentPanel({ purchaseOrderId, poStatus, totalCents }: Props) {
   const canRecord = isBusinessMember && outstanding > 0;
   const canConfirm = (isSupplierMember || isAdmin);
 
+  const failedPayments = payments.filter(
+    (p) => p.status === 'failed' || p.status === 'cancelled' || p.status === 'chargeback',
+  );
+  const lastFailed = failedPayments[failedPayments.length - 1];
+
   return (
     <Surface className="p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-display text-lg">Payment</h3>
+        <div>
+          <div className="vyro-kicker">Payment</div>
+          <h3 className="font-display text-lg mt-1">Order total {formatLKR(totalCents)}</h3>
+        </div>
         <span className="vyro-metric text-sm text-ink-4">
           {formatLKR(confirmedTotal)} / {formatLKR(totalCents)}
         </span>
       </div>
 
+      <div className="border border-ink/10 p-3">
+        <div className="text-xs uppercase tracking-[0.14em] text-ink-4">Payment method</div>
+        <div className="mt-1 font-medium">PayHere</div>
+        <p className="mt-1 text-xs text-ink-4">
+          Accept online payment securely through PayHere. You will be redirected to PayHere to
+          complete payment — we never see or store your card details.
+        </p>
+      </div>
+
       <ErrorBanner message={err} />
+      {busy && <p aria-live="polite" className="text-xs text-ink-4">Preparing secure payment…</p>}
 
       {payments.length === 0 ? (
         <p className="text-sm text-ink-4">No payments recorded yet.</p>
@@ -144,9 +162,15 @@ export function PaymentPanel({ purchaseOrderId, poStatus, totalCents }: Props) {
               )}
               {p.status === 'pending' && p.method === 'online' && canRecord && (
                 <Button size="sm" onClick={() => payOnline(p.id)} loading={busy}>
-                  Pay online
+                  Pay securely
                 </Button>
               )}
+              {(p.status === 'failed' || p.status === 'cancelled' || p.status === 'chargeback') &&
+                canRecord && (
+                  <span className="text-[11px] text-ink-4">
+                    {p.status === 'chargeback' ? 'Flagged for review' : 'Not paid — try again below'}
+                  </span>
+                )}
             </li>
           ))}
         </ul>
@@ -171,7 +195,7 @@ export function PaymentPanel({ purchaseOrderId, poStatus, totalCents }: Props) {
                   const r = await api.post<{ id: string }>(`/payments`, {
                     purchaseOrderId,
                     method: 'online',
-                    notes: 'Pay online',
+                    notes: lastFailed ? `Retry after ${lastFailed.status}` : 'Pay online via PayHere',
                   });
                   await payOnline(r.id);
                 } catch (e) {
@@ -181,7 +205,7 @@ export function PaymentPanel({ purchaseOrderId, poStatus, totalCents }: Props) {
               }}
               loading={busy}
             >
-              Pay online
+              Pay securely
             </Button>
           </div>
         </div>
@@ -190,6 +214,7 @@ export function PaymentPanel({ purchaseOrderId, poStatus, totalCents }: Props) {
       {outstanding > 0 && poStatus !== 'cancelled' && (
         <p className="text-[11px] text-ink-4">
           Outstanding: <span className="vyro-metric">{formatLKR(outstanding)}</span>
+          {' · '}After PayHere you will return here — status updates only from server confirmation.
         </p>
       )}
     </Surface>
