@@ -12,6 +12,7 @@ export const NotificationCategory = {
   STOCK: 'stock',
   MARKETING: 'marketing',
   SYSTEM: 'system',
+  ADMIN_ALERT: 'admin_alert',
 } as const;
 export type NotificationCategory =
   (typeof NotificationCategory)[keyof typeof NotificationCategory];

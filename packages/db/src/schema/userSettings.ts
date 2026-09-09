@@ -13,6 +13,7 @@ export const userSettings = sqliteTable('user_settings', {
   notifyMessages: integer('notify_messages').notNull().default(1),
   notifyMarketing: integer('notify_marketing').notNull().default(0),
   notifyAiInsights: integer('notify_ai_insights').notNull().default(1),
+  notifyAdminAlerts: integer('notify_admin_alerts').notNull().default(1),
   twoFactorEnabled: integer('two_factor_enabled').notNull().default(0),
   sessionTimeoutMin: integer('session_timeout_min').notNull().default(1440),
   createdAt: integer('created_at').notNull(),
