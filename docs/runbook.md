@@ -137,3 +137,29 @@ If you migrate to a custom domain, edit `apps/api/wrangler.toml`
 
 Then redeploy (`node scripts/deploy-backend.mjs --env production`). CORS,
 cookies, and CSRF all derive their allow-list from those vars.
+
+## Queue ops dashboard
+
+Two secrets are required for the admin `/admin/observability/queues`
+page (Analytics Engine SQL API access):
+
+```bash
+npx wrangler secret put CF_ACCOUNT_ID --config apps/api/wrangler.toml
+npx wrangler secret put CF_API_TOKEN --config apps/api/wrangler.toml
+```
+
+The token needs `Account > Analytics Engine > Read` permission. Local
+dev: set the same keys in `.dev.vars` (gitignored). Retention of
+`queue_events` rows defaults to 7 days; override with
+`QUEUE_EVENTS_RETENTION_DAYS` in `apps/api/wrangler.toml`.
+
+### Deploying
+
+After deploying, in production:
+
+```bash
+npx wrangler secret put CF_ACCOUNT_ID --config apps/api/wrangler.toml --env production
+npx wrangler secret put CF_API_TOKEN --config apps/api/wrangler.toml --env production
+```
+
+Then visit `/admin/observability/queues` to confirm tiles render.
