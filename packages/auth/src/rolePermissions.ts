@@ -33,6 +33,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, ReadonlySet<Permission
     'health:read',
     'cron:read', 'cron:trigger',
     'queues:read', 'queues:write',
+    'notification:read', 'notification:write', 'notification:dismiss',
   ),
   ops: all(
     'user:read', 'user:suspend', 'user:unsuspend',
@@ -49,6 +50,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, ReadonlySet<Permission
     'takedown:write',
     'health:read',
     'cron:read',
+    'notification:read', 'notification:dismiss',
   ),
   finance: all(
     'user:read', 'business:read', 'supplier:read', 'product:read',
@@ -60,6 +62,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, ReadonlySet<Permission
     'settings:read',
     'admin:read',
     'audit:read',
+    'notification:read', 'notification:dismiss',
   ),
   support: all(
     'user:read',
@@ -74,6 +77,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, ReadonlySet<Permission
     'abuse_report:read', 'abuse_report:resolve',
     'kyc:read', 'kyc:review',
     'takedown:write',
+    'notification:read', 'notification:dismiss',
   ),
 });
 
