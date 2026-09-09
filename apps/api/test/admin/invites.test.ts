@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { Hono } from 'hono';
 import type { AdminRole } from '@vyro/auth';
 
@@ -121,6 +121,16 @@ function reset() {
   state.audit = [];
   state.nextRevokeOk = true;
 }
+
+// Stub fetch so sendEmail never hits real MailChannels (flaky/timeout
+// under parallel vitest load). 500 forces fast fallback to console provider.
+const realFetch = globalThis.fetch;
+beforeEach(() => {
+  globalThis.fetch = vi.fn(async () => new Response('down', { status: 500 })) as typeof fetch;
+});
+afterEach(() => {
+  globalThis.fetch = realFetch;
+});
 
 describe('POST /api/admin/invites', () => {
   beforeEach(reset);

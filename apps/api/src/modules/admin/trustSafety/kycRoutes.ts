@@ -10,6 +10,10 @@ import {
   adminKycCreateBody,
 } from '@vyro/validation';
 import * as svc from './kycService';
+import { getDb } from '@vyro/db';
+import { invoiceUploads } from '@vyro/db/schema';
+import { eq, inArray } from 'drizzle-orm';
+import { getKyc } from './kycRepository';
 
 const router = new Hono<{ Bindings: Env }>();
 router.use('*', session());
@@ -52,6 +56,41 @@ router.post('/:id/decision', requirePermission('kyc:review'), async (c) => {
   return c.json(
     await svc.decide(c, parsed.data.id, body.data.decision, body.data.notes),
   );
+});
+
+router.get('/:id/documents', requirePermission('kyc:read'), async (c) => {
+  const parsed = adminKycIdParam.safeParse(c.req.param());
+  if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid id');
+  const row = await getKyc(c.env.DB, parsed.data.id);
+  if (!row) throw httpError(404, 'NOT_FOUND', 'KYC review not found');
+  let refIds: string[] = [];
+  if (row.documentsJson) {
+    try {
+      const v: unknown = JSON.parse(row.documentsJson);
+      if (Array.isArray(v)) refIds = v.filter((x): x is string => typeof x === 'string');
+    } catch {
+      refIds = [];
+    }
+  }
+  const db = getDb(c.env.DB);
+  const byRef = refIds.length
+    ? await db.select().from(invoiceUploads).where(inArray(invoiceUploads.id, refIds)).all()
+    : [];
+  const byUser = await db
+    .select()
+    .from(invoiceUploads)
+    .where(eq(invoiceUploads.uploadedByUserId, row.userId))
+    .all();
+  const seen = new Map(byRef.concat(byUser).map((r) => [r.id, r]));
+  return c.json({
+    documents: [...seen.values()].map((r) => ({
+      id: r.id,
+      filename: r.originalFilename,
+      mimeType: r.mimeType,
+      sizeBytes: r.sizeBytes,
+      createdAt: r.createdAt,
+    })),
+  });
 });
 
 export default router;

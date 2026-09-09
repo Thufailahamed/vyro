@@ -17,6 +17,7 @@ import {
   type AbuseReportRow,
   type KycReviewRow,
 } from './useAdminTrustSafety';
+import { DocumentViewer } from './DocumentViewer';
 import {
   ShieldCheckIcon,
   AlertTriangleIcon,
@@ -1038,9 +1039,7 @@ function KycTab() {
                   <h4 className="text-xs font-mono uppercase tracking-wider text-ink font-semibold mb-1.5">
                     Submitted Identity Documents
                   </h4>
-                  <div className="p-3 bg-sand/10 border border-ink/15 rounded-md font-mono text-xs text-ink max-h-48 overflow-y-auto whitespace-pre-wrap break-all">
-                    {detailQuery.data.documentsJson || 'No document attachments on file.'}
-                  </div>
+                  <DocumentViewer kycId={detailQuery.data.id} />
                 </div>
 
                 {/* Existing Notes */}

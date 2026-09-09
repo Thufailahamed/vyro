@@ -36,12 +36,16 @@ beforeEach(() => {
 describe('email provider selection', () => {
   it('tries mailchannels first in local with no keys', async () => {
     const env = makeEnv();
-    const r = await sendEmail(env, { to: 'a@b.c', subject: 'hi', text: 'hello' });
-    expect(r.ok).toBe(true);
-    // In local with no RESEND key, mailchannels is tried first. We do not
-    // assert which one wins (the test sandbox may make mailchannels fail
-    // and fall through to console) — only that *some* provider worked.
-    if (r.ok) expect(['resend', 'mailchannels', 'console']).toContain(r.provider);
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async () => new Response('down', { status: 500 })) as typeof fetch;
+    try {
+      const r = await sendEmail(env, { to: 'a@b.c', subject: 'hi', text: 'hello' });
+      expect(r.ok).toBe(true);
+      // Mailchannels stubbed to fail → falls through to console.
+      if (r.ok) expect(['resend', 'mailchannels', 'console']).toContain(r.provider);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   });
 
   it('prefers resend when RESEND_API_KEY is set', async () => {
