@@ -19,6 +19,7 @@ import { categorizeItems, type CategorySlug } from '@vyro/ai';
 import { getDb } from '@vyro/db';
 import { invoiceUploads } from '@vyro/db/schema';
 import { eq } from 'drizzle-orm';
+import { queueSend } from '../../lib/queue';
 
 const router = new Hono<{ Bindings: Env }>();
 router.use('*', session());
@@ -55,7 +56,7 @@ router.post('/upload-direct', rateLimit({ key: 'doc-upload', limit: 20, window: 
   const r2Key = buildR2Key(businessId, uploadId, file.name);
   await c.env.INVOICES.put(r2Key, buf, { httpMetadata: { contentType: file.type } });
   await getDb(c.env.DB).update(invoiceUploads).set({ r2Key }).where(eq(invoiceUploads.id, uploadId));
-  await c.env.INVOICES_QUEUE.send({ uploadId });
+  await queueSend(c.env, 'invoices', { uploadId });
 
   return c.json({ uploadId, status: 'pending' });
 });

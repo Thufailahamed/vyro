@@ -8,6 +8,7 @@ import { getDb } from '@vyro/db';
 import { notifications } from '@vyro/db/schema';
 import { and, count, desc, eq, isNull, lt } from 'drizzle-orm';
 import { newId } from '@vyro/shared';
+import { queueSend } from '../../lib/queue';
 export {
   notifyUsers,
   notifyOrderParties,
@@ -40,7 +41,7 @@ router.post('/', session(), async (c) => {
   });
   // Best-effort queue send; never block responses.
   try {
-    await c.env.NOTIFICATIONS_QUEUE.send({ notificationId: id, userId: parsed.data.userId, type: parsed.data.type });
+    await queueSend(c.env, 'notifications', { notificationId: id, userId: parsed.data.userId, type: parsed.data.type });
   } catch {}
   return c.json({ id }, 201);
 });
