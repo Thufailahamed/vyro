@@ -51,6 +51,8 @@ const InviteAcceptPage = lazy(() => import('./admin/InviteAcceptPage').then((m) 
 const CatalogPage = lazy(() => import('./admin/CatalogPage').then((m) => ({ default: m.CatalogPage })));
 const AdminProductDetailPage = lazy(() => import('./admin/AdminProductDetailPage').then((m) => ({ default: m.AdminProductDetailPage })));
 const MoneyPage = lazy(() => import('./admin/MoneyPage').then((m) => ({ default: m.MoneyPage })));
+const PaymentsPage = lazy(() => import('./admin/PaymentsPage').then((m) => ({ default: m.PaymentsPage })));
+const PaymentDetailPage = lazy(() => import('./admin/PaymentDetailPage').then((m) => ({ default: m.PaymentDetailPage })));
 const TrustSafetyPage = lazy(() => import('./admin/TrustSafetyPage').then((m) => ({ default: m.TrustSafetyPage })));
 const PlatformPage = lazy(() => import('./admin/PlatformPage').then((m) => ({ default: m.PlatformPage })));
 const SecurityPage = lazy(() => import('./admin/SecurityPage').then((m) => ({ default: m.SecurityPage })));
@@ -148,6 +150,8 @@ export default function App() {
           <Route path="catalog" element={<RequireAdmin><CatalogPage /></RequireAdmin>} />
           <Route path="catalog/products/:id" element={<RequireAdmin><AdminProductDetailPage /></RequireAdmin>} />
           <Route path="money" element={<RequireAdmin><MoneyPage /></RequireAdmin>} />
+          <Route path="payments" element={<RequireAdmin><PaymentsPage /></RequireAdmin>} />
+          <Route path="payments/:id" element={<RequireAdmin><PaymentDetailPage /></RequireAdmin>} />
           <Route path="trust-safety" element={<RequireAdmin><TrustSafetyPage /></RequireAdmin>} />
           <Route path="platform" element={<RequireAdmin><PlatformPage /></RequireAdmin>} />
           <Route path="security" element={<RequireAdmin><SecurityPage /></RequireAdmin>} />

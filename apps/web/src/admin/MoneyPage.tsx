@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { PageHeader, Surface, ErrorBanner, Button } from '@/components/ui';
 import { usePermission } from './lib/permissions';
 import {
@@ -27,6 +27,9 @@ export function MoneyPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Money & Orders" sub="Approve refunds, payout batches, view ledger, resolve chargebacks" />
+      <div className="text-xs">
+        <Link to="/admin/payments" className="text-volt underline">All payments →</Link>
+      </div>
       <nav className="flex gap-2 border-b border-ink/10">
         <TabBtn active={tab === 'refunds'} onClick={() => switchTab('refunds')}>Refund queue</TabBtn>
         <TabBtn active={tab === 'payouts'} onClick={() => switchTab('payouts')}>Payout batches</TabBtn>
