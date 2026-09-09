@@ -58,6 +58,7 @@ const PlatformPage = lazy(() => import('./admin/PlatformPage').then((m) => ({ de
 const SecurityPage = lazy(() => import('./admin/SecurityPage').then((m) => ({ default: m.SecurityPage })));
 const ObservabilityPage = lazy(() => import('./admin/ObservabilityPage').then((m) => ({ default: m.ObservabilityPage })));
 const QueuesPage = lazy(() => import('./admin/QueuesPage').then((m) => ({ default: m.QueuesPage })));
+const AdminNotificationsPage = lazy(() => import('./admin/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
 
 const SupplierDashboardPage = lazy(() => import('./supplier/DashboardPage').then((m) => ({ default: m.SupplierDashboardPage })));
 const SupplierProductsPage = lazy(() => import('./supplier/ProductsPage').then((m) => ({ default: m.SupplierProductsPage })));
@@ -157,6 +158,7 @@ export default function App() {
           <Route path="security" element={<RequireAdmin><SecurityPage /></RequireAdmin>} />
           <Route path="observability" element={<RequireAdmin><ObservabilityPage /></RequireAdmin>} />
           <Route path="observability/queues" element={<RequireAdmin><QueuesPage /></RequireAdmin>} />
+          <Route path="notifications" element={<RequireAdmin><AdminNotificationsPage /></RequireAdmin>} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
       </Route>

@@ -7,6 +7,8 @@ import { hasPermission, type AdminRole } from '@vyro/auth';
 import { RoleBadge } from './RoleBadge';
 import { GlobalSearchBar } from './GlobalSearchBar';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
+import { BellButton } from './BellButton';
+import { usePermission } from './lib/permissions';
 
 export interface AdminUser {
   isAdmin: boolean;
@@ -92,6 +94,11 @@ export function AdminShell() {
           <BrandMark size={24} tone="volt" />
           <BrandWordmark tone="paper" size="sm" eyebrow="Control" />
         </Link>
+        {usePermission('notification:read') ? (
+          <div className="px-3 py-2 border-b border-paper/10 flex justify-end">
+            <BellButton />
+          </div>
+        ) : null}
         <div className="px-3 py-2 border-b border-paper/10">
           <GlobalSearchBar ref={searchRef} />
         </div>
