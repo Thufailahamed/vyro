@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAdminNotificationUnread, useAdminNotificationDismiss } from './useAdminNotifications';
+import { BellIcon } from '@/components/icons';
 
 export function BellButton() {
   const unread = useAdminNotificationUnread();
@@ -15,15 +16,16 @@ export function BellButton() {
         aria-label="Admin notifications"
         onClick={() => navigate('/admin/notifications')}
         onMouseEnter={() => setOpen(true)}
-        className="relative p-2 text-paper/60 hover:text-volt"
+        className="relative p-1.5 rounded-xs text-paper/60 hover:text-volt hover:bg-paper/10 transition-colors"
       >
-        <span aria-hidden="true">🔔</span>
+        <BellIcon size={16} />
         {count > 0 ? (
-          <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 rounded-full bg-rose text-paper text-[10px] font-mono flex items-center justify-center">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-rose text-paper text-[9px] font-mono font-bold flex items-center justify-center shadow-xs">
             {count > 99 ? '99+' : count}
           </span>
         ) : null}
       </button>
+
       {open ? <PreviewPopover onClose={() => setOpen(false)} /> : null}
     </div>
   );

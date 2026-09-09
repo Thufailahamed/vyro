@@ -8,7 +8,7 @@ const ROLE_STYLES: Record<string, { badge: string; dot: string }> = {
   default: { badge: 'bg-paper/10 text-paper/80 border-paper/20', dot: 'bg-paper/50' },
 };
 
-export function RoleBadge({ role }: { role: AdminRole | string }) {
+export function RoleBadge({ role, compact = false }: { role: AdminRole | string; compact?: boolean }) {
   const normKey =
     role === 'admin' || role === 'admin_role'
       ? 'super_admin'
@@ -23,15 +23,16 @@ export function RoleBadge({ role }: { role: AdminRole | string }) {
   const style = ROLE_STYLES[normKey] ?? ROLE_STYLES.default ?? { badge: 'bg-paper/10 text-paper/80 border-paper/20', dot: 'bg-paper/50' };
 
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex items-center justify-between gap-1.5 shrink-0">
       <span
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider border ${style.badge}`}
+        className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider border rounded-xs ${style.badge}`}
         title={meta.description}
       >
         <span className={`size-1.5 rounded-full ${style.dot} animate-pulse`} />
         <span>{meta.label}</span>
       </span>
-      <span className="text-[9px] font-mono text-paper/40">Verified</span>
+      {!compact && <span className="text-[9px] font-mono text-paper/40">Verified</span>}
     </div>
   );
 }
+

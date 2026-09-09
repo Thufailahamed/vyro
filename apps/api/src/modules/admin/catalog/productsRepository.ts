@@ -7,6 +7,7 @@ export type ProductRow = {
   name: string;
   description: string | null;
   categoryId: string;
+  categoryName?: string | null;
   brand: string | null;
   unit: string;
   packSize: string | null;
@@ -46,8 +47,23 @@ export async function listProducts(
     conds.push(sql`${products.id} IN (${offerIds})`);
   }
   const rows = await db
-    .select()
+    .select({
+      id: products.id,
+      name: products.name,
+      description: products.description,
+      categoryId: products.categoryId,
+      categoryName: categories.name,
+      brand: products.brand,
+      unit: products.unit,
+      packSize: products.packSize,
+      active: products.active,
+      featured: products.featured,
+      moderationNotes: products.moderationNotes,
+      createdAt: products.createdAt,
+      updatedAt: products.updatedAt,
+    })
     .from(products)
+    .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(and(...conds))
     .orderBy(desc(products.createdAt))
     .limit(limit + 1)
@@ -58,6 +74,7 @@ export async function listProducts(
     name: r.name,
     description: r.description,
     categoryId: r.categoryId,
+    categoryName: r.categoryName ?? null,
     brand: r.brand,
     unit: r.unit,
     packSize: r.packSize,

@@ -6,6 +6,7 @@ export type ProductRow = {
   name: string;
   description: string | null;
   categoryId: string;
+  categoryName?: string | null;
   brand: string | null;
   unit: string;
   packSize: string | null;
@@ -24,11 +25,11 @@ export type ProductDetail = {
 };
 
 export type ProductFilters = {
-  q?: string;
-  categoryId?: string;
-  supplierId?: string;
-  active?: boolean;
-  featured?: boolean;
+  q?: string | undefined;
+  categoryId?: string | undefined;
+  supplierId?: string | undefined;
+  active?: boolean | undefined;
+  featured?: boolean | undefined;
 };
 
 export type CategoryRow = {

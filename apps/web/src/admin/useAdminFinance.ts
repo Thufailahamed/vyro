@@ -5,13 +5,37 @@ export type FailedPayout = {
   id: string;
   status: string;
   supplierId?: string;
+  supplierName?: string | null;
   amountCents?: number;
+  feeCents?: number;
+  netCents?: number;
+  currency?: string;
+  periodStart?: number;
+  periodEnd?: number;
+  method?: string;
+  reference?: string | null;
+  batchId?: string | null;
+  failureReason?: string | null;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type FinanceMetrics = {
+  failedCount: number;
+  failedAmountCents: number;
+  pendingCount: number;
+  totalCount: number;
+};
+
+export type FinanceSummaryResponse = {
+  failedPayouts: FailedPayout[];
+  metrics?: FinanceMetrics;
 };
 
 export function useFailedPayouts() {
   return useQuery({
     queryKey: ['admin-finance-summary'],
-    queryFn: () => api.get<{ failedPayouts: FailedPayout[] }>('/admin/finance/summary'),
+    queryFn: () => api.get<FinanceSummaryResponse>('/admin/finance/summary'),
   });
 }
 

@@ -5,8 +5,8 @@ import { requireRole } from '../../middleware/rbac';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
-import { payouts } from '@vyro/db/schema';
-import { eq } from 'drizzle-orm';
+import { payouts, suppliers } from '@vyro/db/schema';
+import { eq, sql } from 'drizzle-orm';
 import { adminReasonBody } from '@vyro/validation';
 import { auditAdmin } from './lib/audit';
 
@@ -16,8 +16,55 @@ router.use('*', session(), requireRole({ admin: true }));
 
 router.get('/summary', async (c) => {
   const db = getDb(c.env.DB);
-  const failed = await db.select().from(payouts).where(eq(payouts.status, 'failed')).limit(50).all();
-  return c.json({ failedPayouts: failed });
+  const failed = await db
+    .select({
+      id: payouts.id,
+      supplierId: payouts.supplierId,
+      supplierName: suppliers.name,
+      amountCents: payouts.amountCents,
+      feeCents: payouts.feeCents,
+      netCents: payouts.netCents,
+      currency: payouts.currency,
+      status: payouts.status,
+      periodStart: payouts.periodStart,
+      periodEnd: payouts.periodEnd,
+      method: payouts.method,
+      reference: payouts.reference,
+      batchId: payouts.batchId,
+      paidAt: payouts.paidAt,
+      paidByUserId: payouts.paidByUserId,
+      failureReason: payouts.failureReason,
+      createdAt: payouts.createdAt,
+      updatedAt: payouts.updatedAt,
+    })
+    .from(payouts)
+    .leftJoin(suppliers, eq(payouts.supplierId, suppliers.id))
+    .where(eq(payouts.status, 'failed'))
+    .limit(50)
+    .all();
+
+  const [pendingRow] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(payouts)
+    .where(eq(payouts.status, 'pending'))
+    .all();
+
+  const [totalRow] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(payouts)
+    .all();
+
+  const failedAmountCents = failed.reduce((sum, p) => sum + (p.netCents ?? p.amountCents ?? 0), 0);
+
+  return c.json({
+    failedPayouts: failed,
+    metrics: {
+      failedCount: failed.length,
+      failedAmountCents,
+      pendingCount: Number(pendingRow?.count ?? 0),
+      totalCount: Number(totalRow?.count ?? 0),
+    },
+  });
 });
 
 router.post('/payouts/:id/retry', async (c) => {
@@ -28,6 +75,16 @@ router.post('/payouts/:id/retry', async (c) => {
   const db = getDb(c.env.DB);
   const row = await db.select().from(payouts).where(eq(payouts.id, c.req.param('id'))).get();
   if (!row) throw httpError(404, 'NOT_FOUND', 'Payout not found');
+
+  await db
+    .update(payouts)
+    .set({
+      status: 'pending',
+      failureReason: null,
+      updatedAt: Date.now(),
+    })
+    .where(eq(payouts.id, row.id));
+
   await auditAdmin({
     ctx: c,
     action: 'payout.retry',

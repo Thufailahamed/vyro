@@ -31,6 +31,13 @@ export default defineConfig({
         target: process.env.VITE_API_PROXY ?? 'https://vyro-api.thufailahamed627.workers.dev',
         changeOrigin: true,
         secure: true,
+        // Rewrite Set-Cookie so the browser stores the session on `localhost`
+        // (otherwise prod cookies are scoped to vyro-api...workers.dev and never
+        // ride back through this proxy).
+        cookieDomainRewrite: {
+          'vyro-api.thufailahamed627.workers.dev': 'localhost',
+        },
+        ...({ cookieSecureRewrite: false } as Record<string, unknown>),
       },
     },
   },

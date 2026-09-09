@@ -28,6 +28,6 @@ directory regardless of journal contents.
 
 1. Pick the next numeric prefix (`0015_`, `0016_`, …).
 2. Write the SQL — use `CREATE TABLE IF NOT EXISTS` for new tables.
-3. If the change is reversible, add a paired `*_down.sql` for clarity.
-4. Run `pnpm db:migrate` to apply locally (or `wrangler d1 migrations apply`
-   against remote).
+3. If the change is reversible, place the paired `*_down.sql` in `packages/db/migrations_down/` (NEVER in this directory, as Cloudflare Wrangler treats all `.sql` files in `migrations_dir` as forward migrations).
+4. Run `pnpm db:migrate` to apply locally (or `wrangler d1 migrations apply` against remote).
+

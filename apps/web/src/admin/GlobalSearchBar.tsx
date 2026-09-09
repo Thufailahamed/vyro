@@ -1,6 +1,7 @@
 import { forwardRef, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGlobalSearch, type SearchResults } from './useGlobalSearch';
+import { SearchIcon } from '@/components/icons';
 
 export const GlobalSearchBar = forwardRef<HTMLInputElement>(function GlobalSearchBar(_props, ref) {
   const [q, setQ] = useState('');
@@ -26,20 +27,29 @@ export const GlobalSearchBar = forwardRef<HTMLInputElement>(function GlobalSearc
   }
 
   return (
-    <div ref={wrapperRef} className="relative w-full max-w-xs">
-      <input
-        ref={ref}
-        type="text"
-        value={q}
-        onChange={(e) => {
-          setQ(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        placeholder="Search… (⌘K)"
-        aria-label="Global admin search"
-        className="w-full text-sm bg-paper/5 border border-paper/10 rounded px-2 py-1 text-paper placeholder:text-paper/40 focus:outline-none focus:border-volt"
-      />
+    <div ref={wrapperRef} className="relative w-full">
+      <div className="relative flex items-center">
+        <span className="absolute left-2.5 pointer-events-none text-paper/35">
+          <SearchIcon size={14} />
+        </span>
+        <input
+          ref={ref}
+          type="text"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder="Search controls..."
+          aria-label="Global admin search"
+          className="w-full text-xs bg-paper/5 border border-paper/10 rounded-xs pl-8 pr-9 py-1.5 text-paper placeholder:text-paper/40 focus:outline-none focus:border-volt focus:bg-paper/10 transition-colors"
+        />
+        <kbd className="absolute right-2 pointer-events-none font-mono text-[9px] px-1 py-0.2 rounded bg-paper/10 text-paper/40 border border-paper/10">
+          ⌘K
+        </kbd>
+      </div>
+
       {open && q.length >= 2 ? (
         <div className="absolute z-50 right-0 mt-1 w-96 max-h-96 overflow-y-auto bg-void border border-paper/10 rounded shadow-lg">
           <SearchResultsView data={data ?? {}} onGo={go} />

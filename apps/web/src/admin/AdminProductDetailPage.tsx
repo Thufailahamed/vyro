@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { PageHeader, Surface, Button, ErrorBanner } from '@/components/ui';
 import {
   useAdminProduct,
@@ -8,18 +8,24 @@ import {
 import { usePermission } from './lib/permissions';
 
 export function AdminProductDetailPage() {
-  const { id } = useParams();
+  const { id = '' } = useParams();
   const canModerate = usePermission('product:moderate');
   const q = useAdminProduct(id ?? null);
-  const update = useUpdateProduct(id ?? '');
-  const toggleFeatured = useToggleFeatured(id ?? '');
+  const update = useUpdateProduct(id);
+  const toggleFeatured = useToggleFeatured(id);
   const err = q.error instanceof Error ? q.error.message : null;
   if (err) return <ErrorBanner message={err} />;
   const data = q.data;
   if (!data) return <div className="text-sm text-ink-500">Loading…</div>;
   const p = data.product;
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-5xl mx-auto pb-16">
+      <Link
+        to="/admin/catalog"
+        className="inline-flex items-center gap-1.5 text-xs font-mono text-ink-3 hover:text-ink transition"
+      >
+        <span>← Back to Catalog Registry</span>
+      </Link>
       <PageHeader
         title={p.name}
         sub={p.brand ?? undefined}
