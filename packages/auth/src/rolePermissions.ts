@@ -32,6 +32,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, ReadonlySet<Permission
     '2fa:enforce',
     'health:read',
     'cron:read', 'cron:trigger',
+    'queues:read', 'queues:write',
   ),
   ops: all(
     'user:read', 'user:suspend', 'user:unsuspend',

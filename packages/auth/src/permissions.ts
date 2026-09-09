@@ -24,6 +24,7 @@ export const PERMISSION_KEYS = [
   '2fa:enforce',
   'health:read',
   'cron:read', 'cron:trigger',
+  'queues:read', 'queues:write',
 ] as const;
 
 export type Permission = (typeof PERMISSION_KEYS)[number];
