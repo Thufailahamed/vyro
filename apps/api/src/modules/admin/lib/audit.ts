@@ -44,7 +44,8 @@ export async function auditAdmin(opts: {
 /**
  * Context-free audit for triggers fired outside an HTTP request
  * (cron jobs, queue DLQ hooks, dispatcher). Uses the same admin_audit_logs
- * table — actorId is the admin who caused the trigger, or null for system.
+ * table. Skipped when actorUserId is null (system-triggered) since
+ * adminAuditLogs.actorId is NOT NULL by design.
  */
 export async function auditAdminFromDb(opts: {
   db: ReturnType<typeof getDb>;
@@ -53,18 +54,22 @@ export async function auditAdminFromDb(opts: {
   target: AuditTarget;
   metadata?: Record<string, unknown>;
 }): Promise<void> {
+  if (!opts.actorUserId) {
+    console.warn('[auditAdminFromDb] skipped (no actorUserId)', opts.action, opts.target);
+    return;
+  }
   try {
     await opts.db
       .insert(adminAuditLogs)
       .values({
         id: randomUUID(),
-        actorId: opts.actorUserId ?? null,
+        actorId: opts.actorUserId,
         action: opts.action,
         targetType: opts.target.type,
         targetId: opts.target.id,
         before: null,
         after: opts.metadata === undefined ? null : JSON.stringify(opts.metadata),
-        requestId: null,
+        requestId: '',
         ip: null,
         userAgent: null,
         createdAt: Date.now(),
