@@ -6,6 +6,7 @@ import {
   handleWebhookRetry,
   handleAuditExportRunner,
 } from './cron/handlers';
+import { handleQueueEventsPrune } from './cron/queue-events-prune';
 import { handleAuditBatch } from './queue/audit';
 import { handleNotificationsBatch } from './queue/notifications';
 import type { Env } from './env';
@@ -37,6 +38,9 @@ export default {
         break;
       case '0 4 * * *':
         ctx.waitUntil(handleAuditExportRunner(env));
+        break;
+      case '0 5 * * *':
+        ctx.waitUntil(handleQueueEventsPrune(env));
         break;
       case '17 7 * * *': {
         const { runAiInsights } = await import('./scheduled/aiInsights');

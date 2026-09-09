@@ -32,6 +32,12 @@ export const CRON_JOBS: CronJob[] = [
     description: 'Run scheduled audit exports (stub: no delivery in v1)',
     handler: async () => undefined,
   },
+  {
+    name: 'queue-events-prune',
+    schedule: '0 5 * * *',
+    description: 'Prune queue_events rows older than QUEUE_EVENTS_RETENTION_DAYS',
+    handler: async () => undefined,
+  },
 ];
 
 export function getCronJob(name: string): CronJob | undefined {

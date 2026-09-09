@@ -84,7 +84,7 @@ BETTER_AUTH_URL = "https://vyro-api.thufailahamed627.workers.dev"
 [triggers]
 # Audit retention + daily housekeeping, webhook retry (every 15m),
 # session cleanup (hourly), audit export runner (4am).
-crons = ["0 3 * * *", "*/15 * * * *", "0 * * * *", "0 4 * * *", "17 7 * * *"]
+crons = ["0 3 * * *", "*/15 * * * *", "0 * * * *", "0 4 * * *", "0 5 * * *", "17 7 * * *"]
 
 [env.production]
 name = "vyro-api"
