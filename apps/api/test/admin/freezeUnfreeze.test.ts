@@ -38,6 +38,7 @@ vi.mock(setup.SRC + '/middleware/rbac', () => ({
     c.set('ctx', { userId: 'admin-1', isAdmin: true });
     await next();
   },
+  requirePermission: () => async (_c: any, next: any) => { await next(); },
 }));
 
 vi.mock(setup.SRC + '/middleware/session', () => ({
