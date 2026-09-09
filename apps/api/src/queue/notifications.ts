@@ -122,7 +122,7 @@ async function handleAdminAlertEmail(env: Env, body: Record<string, unknown>): P
     link: typeof link === 'string' ? link : null,
     severity: sev,
   });
-  await sendEmailOrThrow(env, { to: recipientEmail, subject, html });
+  await sendEmailOrThrow(env, { to: recipientEmail, subject, html, text: `${title}\n\n${text}` });
 }
 
 /**
