@@ -2,6 +2,8 @@ import type { Context } from 'hono';
 import { randomUUID } from 'crypto';
 import { httpError } from '../../../lib/errors';
 import { auditAdmin } from '../../admin/lib/audit';
+import { notifyAdmins } from '../../notifications/dispatcher';
+import type { Env } from '../../../env';
 import * as repo from './kycRepository';
 
 export async function list(
@@ -34,6 +36,16 @@ export async function create(ctx: Context, body: { userId: string; documentsJson
     action: 'kyc.create',
     target: { type: 'kyc', id: row.id },
     after: { userId: row.userId },
+  });
+  await notifyAdmins(ctx.env as unknown as Env, {
+    role: 'support',
+    severity: 'info',
+    category: 'admin_alert',
+    title: `KYC review queued: ${row.id.slice(0, 8)}`,
+    body: `New KYC review for user ${row.userId} needs decision.`,
+    link: `/admin/trust-safety?kyc=${row.id}`,
+    sourceRef: `kyc:${row.id}`,
+    actorUserId: ctx.get('ctx')?.userId ?? null,
   });
   return row;
 }

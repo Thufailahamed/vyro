@@ -13,6 +13,8 @@ import { recordAudit } from '../supplierProducts/repository';
 import { auditAdmin } from '../admin/lib/audit';
 import { writeLedgerEntry } from '../ledger';
 import { getOrCreateSupplierSettings } from '../settings/supplierRepository';
+import { notifyAdmins } from '../notifications/dispatcher';
+import type { Env } from '../../env';
 import {
   aggregatePayableForSupplier,
   createPayout,
@@ -176,6 +178,17 @@ adminRouter.post('/:id/mark-failed', requirePermission('payout:approve'), async 
     target: { type: 'payout', id: payout.id },
     before: { status: payout.status },
     after: { status: 'failed', reason: parsed.data.reason },
+  });
+
+  await notifyAdmins(c.env as unknown as Env, {
+    role: 'finance',
+    severity: 'critical',
+    category: 'admin_alert',
+    title: `Payout ${payout.id} marked failed`,
+    body: `Supplier ${payout.supplierId}: ${parsed.data.reason.slice(0, 180)}`,
+    link: `/admin/money`,
+    sourceRef: `payout:${payout.id}`,
+    actorUserId: ctx.userId,
   });
 
   return c.json({ ok: true });
