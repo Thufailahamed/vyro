@@ -10,7 +10,7 @@ export const payments = sqliteTable(
       .notNull()
       .references(() => purchaseOrders.id),
     method: text('method', { enum: ['cash', 'bank_transfer', 'online'] }).notNull(),
-    status: text('status', { enum: ['pending', 'confirmed', 'failed', 'refunded'] })
+    status: text('status', { enum: ['pending', 'confirmed', 'failed', 'cancelled', 'chargeback', 'refunded'] })
       .notNull()
       .default('pending'),
     amountCents: integer('amount_cents').notNull(),
