@@ -10,8 +10,13 @@ export const adminUsersListQuery = z
         z.literal('business'),
         z.literal('supplier'),
         z.literal('user'),
+        z.literal('super_admin'),
+        z.literal('ops'),
+        z.literal('finance'),
+        z.literal('support'),
       ])
       .optional(),
+    isAdmin: z.enum(['true', 'false']).optional(),
   })
   .strict();
 

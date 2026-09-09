@@ -26,7 +26,7 @@ export type KycReviewRow = {
   createdAt: number;
 };
 
-export function useAbuseReports(opts: { status?: string; assignedTo?: string }) {
+export function useAbuseReports(opts: { status?: string | undefined; assignedTo?: string | undefined }) {
   return useQuery({
     queryKey: ['admin-abuse-reports', opts],
     queryFn: async () => {
@@ -61,7 +61,7 @@ export function useAddReportNote() {
 export function useResolveReport() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { id: string; resolution: 'resolved' | 'dismissed'; notes?: string }) =>
+    mutationFn: async (body: { id: string; resolution: 'resolved' | 'dismissed'; notes?: string | undefined }) =>
       api.post<AbuseReportRow>(`/admin/abuse-reports/${body.id}/resolve`, {
         resolution: body.resolution,
         ...(body.notes !== undefined ? { notes: body.notes } : {}),
@@ -78,7 +78,7 @@ export function useTakedown() {
   });
 }
 
-export function useKycReviews(opts: { status?: string }) {
+export function useKycReviews(opts: { status?: string | undefined }) {
   return useQuery({
     queryKey: ['admin-kyc', opts],
     queryFn: async () => {
@@ -95,7 +95,7 @@ export function useKycReviews(opts: { status?: string }) {
 export function useKycDecision() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { id: string; decision: 'approved' | 'rejected' | 'needs_more_info'; notes?: string }) =>
+    mutationFn: async (body: { id: string; decision: 'approved' | 'rejected' | 'needs_more_info'; notes?: string | undefined }) =>
       api.post<KycReviewRow>(`/admin/kyc/${body.id}/decision`, {
         decision: body.decision,
         ...(body.notes !== undefined ? { notes: body.notes } : {}),

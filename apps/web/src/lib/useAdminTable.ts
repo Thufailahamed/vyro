@@ -25,9 +25,15 @@ export function useAdminTable<T>({
   const q = useInfiniteQuery<Page<T>>({
     queryKey: [...queryKey, filter],
     queryFn: async ({ pageParam }) => {
-      const qs = new URLSearchParams(filter);
+      const qs = new URLSearchParams();
+      for (const [k, v] of Object.entries(filter)) {
+        if (v === '' || v == null) continue;
+        qs.set(k, v);
+      }
       if (pageParam) qs.set('cursor', String(pageParam));
-      const data = await api.get<Record<string, unknown>>(`${endpoint}?${qs.toString()}`);
+      const data = await api.get<Record<string, unknown>>(
+        `${endpoint}${qs.toString() ? `?${qs.toString()}` : ''}`,
+      );
       const rows = (data[rowKey] as T[] | undefined) ?? [];
       const nextCursor = (data.nextCursor as string | undefined) ?? undefined;
       const out: Page<T> = { rows, nextCursor };

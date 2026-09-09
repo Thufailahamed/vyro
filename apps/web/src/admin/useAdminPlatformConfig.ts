@@ -97,6 +97,15 @@ export function useDisableWebhook() {
   });
 }
 
+export function useUpdateWebhook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { id: string; patch: Partial<{ name: string; url: string; eventTypes: string[]; active: boolean }> }) =>
+      api.patch<WebhookRow>(`/admin/webhooks/${args.id}`, args.patch),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-webhooks'] }),
+  });
+}
+
 export function useWebhookDeliveries(webhookId: string | null) {
   return useQuery({
     queryKey: ['admin-webhook-deliveries', webhookId],

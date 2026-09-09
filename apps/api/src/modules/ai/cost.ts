@@ -77,9 +77,17 @@ export async function dailyBudgetUsage(
  */
 export async function summarizeAiCost(
   env: { DB: D1Database },
-  opts: { businessId: string; fromMs: number; toMs: number },
+  opts: { businessId?: string | undefined; fromMs: number; toMs: number },
 ): Promise<CostSummary> {
   const db = getDb(env.DB);
+  const whereConditions = [
+    eq(auditLogs.action, 'ai.request'),
+    eq(auditLogs.resourceType, 'ai_request'),
+    ...(opts.businessId ? [eq(sql`json_extract(${auditLogs.metadata}, '$.businessId')`, opts.businessId)] : []),
+    gte(auditLogs.createdAt, opts.fromMs),
+    lt(auditLogs.createdAt, opts.toMs),
+  ];
+
   const totalRow = await db
     .select({
       calls: sql<number>`count(*)`,
@@ -88,13 +96,7 @@ export async function summarizeAiCost(
       errors: sql<number>`coalesce(sum(case when json_extract(${auditLogs.metadata}, '$.ok') in ('false', 0) then 1 else 0 end), 0)`,
     })
     .from(auditLogs)
-    .where(and(
-      eq(auditLogs.action, 'ai.request'),
-      eq(auditLogs.resourceType, 'ai_request'),
-      eq(sql`json_extract(${auditLogs.metadata}, '$.businessId')`, opts.businessId),
-      gte(auditLogs.createdAt, opts.fromMs),
-      lt(auditLogs.createdAt, opts.toMs),
-    ))
+    .where(and(...whereConditions))
     .get();
 
   const dayRows = await db
@@ -106,13 +108,7 @@ export async function summarizeAiCost(
       errors: sql<number>`coalesce(sum(case when json_extract(${auditLogs.metadata}, '$.ok') in ('false', 0) then 1 else 0 end), 0)`,
     })
     .from(auditLogs)
-    .where(and(
-      eq(auditLogs.action, 'ai.request'),
-      eq(auditLogs.resourceType, 'ai_request'),
-      eq(sql`json_extract(${auditLogs.metadata}, '$.businessId')`, opts.businessId),
-      gte(auditLogs.createdAt, opts.fromMs),
-      lt(auditLogs.createdAt, opts.toMs),
-    ))
+    .where(and(...whereConditions))
     .groupBy(sql`strftime('%Y-%m-%d', ${auditLogs.createdAt} / 1000, 'unixepoch')`)
     .orderBy(sql`strftime('%Y-%m-%d', ${auditLogs.createdAt} / 1000, 'unixepoch')`)
     .all();
@@ -125,13 +121,7 @@ export async function summarizeAiCost(
       tokensOut: sql<number>`coalesce(sum(coalesce(nullif(json_extract(${auditLogs.metadata}, '$.tokensOut'), ''), 0)), 0)`,
     })
     .from(auditLogs)
-    .where(and(
-      eq(auditLogs.action, 'ai.request'),
-      eq(auditLogs.resourceType, 'ai_request'),
-      eq(sql`json_extract(${auditLogs.metadata}, '$.businessId')`, opts.businessId),
-      gte(auditLogs.createdAt, opts.fromMs),
-      lt(auditLogs.createdAt, opts.toMs),
-    ))
+    .where(and(...whereConditions))
     .groupBy(sql`json_extract(${auditLogs.metadata}, '$.intent')`)
     .orderBy(sql`count(*) desc`)
     .all();
@@ -144,13 +134,7 @@ export async function summarizeAiCost(
       tokensOut: sql<number>`coalesce(sum(coalesce(nullif(json_extract(${auditLogs.metadata}, '$.tokensOut'), ''), 0)), 0)`,
     })
     .from(auditLogs)
-    .where(and(
-      eq(auditLogs.action, 'ai.request'),
-      eq(auditLogs.resourceType, 'ai_request'),
-      eq(sql`json_extract(${auditLogs.metadata}, '$.businessId')`, opts.businessId),
-      gte(auditLogs.createdAt, opts.fromMs),
-      lt(auditLogs.createdAt, opts.toMs),
-    ))
+    .where(and(...whereConditions))
     .groupBy(sql`json_extract(${auditLogs.metadata}, '$.provider')`)
     .orderBy(sql`count(*) desc`)
     .all();

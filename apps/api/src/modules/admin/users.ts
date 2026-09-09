@@ -22,6 +22,8 @@ router.get('/', requireRole({ admin: true }), async (c) => {
   const out = await listAdminUsers(c.env.DB, {
     cursor: parsed.data.cursor,
     q: parsed.data.q,
+    role: parsed.data.role,
+    isAdmin: parsed.data.isAdmin,
   });
   return c.json(out);
 });

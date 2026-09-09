@@ -487,10 +487,11 @@ aiAdminRouter.get('/usage', async (c) => {
   const p95LatencyMs = latencies.length
     ? latencies[Math.min(latencies.length - 1, Math.floor(latencies.length * 0.95))]
     : 0;
-  let cost: unknown = null;
-  if (businessId) {
-    cost = await summarizeAiCost(c.env, { businessId, fromMs, toMs });
-  }
+  const cost = await summarizeAiCost(c.env, {
+    ...(businessId ? { businessId } : {}),
+    fromMs,
+    toMs,
+  });
   return c.json({
     days,
     fromMs,

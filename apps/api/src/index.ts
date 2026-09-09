@@ -162,6 +162,7 @@ app.route('/api/admin/cron', adminCronRouter);
 app.route('/api/admin/search', adminSearchRouter);
 app.route('/api/admin/audit/exports', adminExportSchedulesRouter);
 app.route('/api/admin/ai', aiAdminRouter);
+app.route('/api/ai/admin', aiAdminRouter);
 app.route('/api/analytics/business', businessAnalyticsRouter);
 app.route('/api/home', homeRouter);
 app.route('/api/csp-report', cspReportRouter);

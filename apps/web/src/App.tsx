@@ -118,7 +118,6 @@ export default function App() {
         <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
         <Route path="/ask" element={<RequireAuth><AskPage /></RequireAuth>} />
         <Route path="/ai" element={<RequireAuth><AiHomePage /></RequireAuth>} />
-        <Route path="/admin/ai-usage" element={<RequireAuth><AdminAIUsagePage /></RequireAuth>} />
         <Route path="/invoices/upload" element={<RequireAuth><InvoiceUploadPage /></RequireAuth>} />
         <Route path="/invoices" element={<RequireAuth><InvoiceListPage /></RequireAuth>} />
         <Route path="/invoices/:id/review" element={<RequireAuth><InvoiceReviewPage /></RequireAuth>} />
@@ -166,6 +165,7 @@ export default function App() {
           <Route path="security" element={<RequireAdmin><SecurityPage /></RequireAdmin>} />
           <Route path="observability" element={<RequireAdmin><ObservabilityPage /></RequireAdmin>} />
           <Route path="observability/queues" element={<RequireAdmin><QueuesPage /></RequireAdmin>} />
+          <Route path="ai-usage" element={<RequireAdmin><AdminAIUsagePage /></RequireAdmin>} />
           <Route path="notifications" element={<RequireAdmin><AdminNotificationsPage /></RequireAdmin>} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
