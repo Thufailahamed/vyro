@@ -242,3 +242,54 @@ pnpm --filter @vyro/db migrate -- 0022_admin_notifications
 No new secrets. After deploy, mark a payout failed from `/admin/money` and
 confirm a critical-severity row lands in `/admin/notifications` for an
 ops/finance admin.
+
+## Admin Bulk Actions
+
+Multi-row actions live under `/api/admin/bulk/*`. Each request accepts up
+to 100 IDs (zod-enforced). Response shape:
+
+```ts
+{
+  batchId: string;
+  total: number;          // after dedupe
+  succeeded: string[];    // actually transitioned
+  failed: Array<{ id, code, message }>;
+}
+```
+
+Status code is `200` even with partial failures. Inspect `failed[]` for
+per-item outcomes. Every request writes one summary audit row
+(`action='bulk.batch'`) plus one row per item attempt under the same
+`batch_id` on `admin_audit_logs`. Query with
+`SELECT * FROM admin_audit_logs WHERE batch_id = ?`.
+
+### Endpoints
+
+| Endpoint                                    | Permission         |
+|---------------------------------------------|--------------------|
+| POST /api/admin/bulk/users/suspend          | user:suspend       |
+| POST /api/admin/bulk/users/unsuspend        | user:suspend       |
+| POST /api/admin/bulk/users/role             | admin:role_change  |
+| POST /api/admin/bulk/businesses/suspend     | user:suspend       |
+| POST /api/admin/bulk/businesses/unsuspend   | user:suspend       |
+
+### Cap rationale
+
+100 IDs ≈ 5s sequential on Workers; larger batches risk the CPU-time
+limit. Override with `BULK_MAX_IDS` env if needed.
+
+### UI
+
+UsersPage + BusinessesPage show a sticky bottom action bar when rows are
+selected. Cap warning: if the filtered list exceeds 100, the select-all
+checkbox is disabled with a tooltip "Bulk actions cap at 100 — refine
+filter".
+
+### Migration
+
+```bash
+pnpm --filter @vyro/db migrate -- 0023_admin_audit_batch
+```
+
+Adds `admin_audit_logs.batch_id` (text, nullable) + index for batch
+grouping. No data backfill required.
