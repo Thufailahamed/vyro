@@ -57,7 +57,8 @@ vi.mock('@vyro/db', () => ({
   }),
 }));
 
-vi.mock('@vyro/db/schema', () => ({
+vi.mock('@vyro/db/schema', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@vyro/db/schema')>()),
   businessMembers: { name: 'business_members' },
   businessTypes: { name: 'business_types' },
   suppliers: { name: 'suppliers' },

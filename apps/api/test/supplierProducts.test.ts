@@ -43,7 +43,8 @@ vi.mock('@vyro/db', () => ({
   }),
 }));
 
-vi.mock('@vyro/db/schema', () => ({
+vi.mock('@vyro/db/schema', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@vyro/db/schema')>()),
   suppliers: { name: 'suppliers' },
   supplierMembers: { name: 'supplier_members' },
   auditLogs: { name: 'audit_logs' },

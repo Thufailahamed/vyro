@@ -94,7 +94,8 @@ vi.mock('@vyro/db', () => {
 });
 
 // Also mock the schema barrel — replace each table with a tagged ref so from() can dispatch.
-vi.mock('@vyro/db/schema', () => ({
+vi.mock('@vyro/db/schema', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@vyro/db/schema')>()),
   suppliers: { __vyroMockKey: 'suppliers', name: { name: 'name' }, status: { name: 'status' }, createdAt: { name: 'createdAt' } },
   businesses: { __vyroMockKey: 'businesses', name: { name: 'name' }, status: { name: 'status' }, createdAt: { name: 'createdAt' } },
   auditLogs: { __vyroMockKey: 'audit', action: { name: 'action' }, resourceType: { name: 'resourceType' }, actorUserId: { name: 'actorUserId' }, createdAt: { name: 'createdAt' } },
