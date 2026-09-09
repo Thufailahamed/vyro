@@ -14,6 +14,9 @@ export const NotificationCategory = {
   SYSTEM: 'system',
   ADMIN_ALERT: 'admin_alert',
 } as const;
+
+export const ADMIN_ALERT_SEVERITY = ['info', 'warning', 'critical'] as const;
+export type AdminAlertSeverity = (typeof ADMIN_ALERT_SEVERITY)[number];
 export type NotificationCategory =
   (typeof NotificationCategory)[keyof typeof NotificationCategory];
 
