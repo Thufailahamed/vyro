@@ -16,6 +16,7 @@ import {
 import { notifySupplierOrg } from '../notifications/dispatcher';
 import { auditAdmin } from './lib/audit';
 import { dispatch as dispatchWebhook } from '../../lib/webhooks';
+import { queuesRoutes } from './queues/queuesRoutes';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -45,6 +46,8 @@ const listQuery = z.object({
 const DEFAULT_LIMIT = 50;
 
 router.use('*', session(), requireRole({ admin: true }));
+
+router.route('/queues', queuesRoutes);
 
 router.get('/suppliers', async (c) => {
   const parsed = listQuery.safeParse(c.req.query());

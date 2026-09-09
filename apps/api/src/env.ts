@@ -41,6 +41,12 @@ export interface Env {
   VYRO_AI_PROVIDER?: string;
   /** Gemini API key (secret). Absence disables the Gemini path. */
   GEMINI_API_KEY?: string;
+  /** Cloudflare account id for Analytics Engine SQL API. */
+  CF_ACCOUNT_ID?: string;
+  /** Cloudflare API token with Analytics Engine: Read scope. */
+  CF_API_TOKEN?: string;
+  /** Days to retain queue_events rows. Defaults to 7. */
+  QUEUE_EVENTS_RETENTION_DAYS?: string;
   /** Override Gemini REST base (e.g. Cloudflare AI Gateway endpoint). */
   VYRO_AI_GEMINI_BASE_URL?: string;
   /** Gemini model for complex reasoning. */
