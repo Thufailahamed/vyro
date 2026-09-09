@@ -34,6 +34,8 @@ const state = vi.hoisted(() => ({
     businesses: [{ id: 'b-1', name: 'Foo', email: 'f@b.c' }],
     products: [{ id: 'p-1', name: 'Widget' }],
     orders: [{ id: 'o-1', poNumber: 'PO-1', status: 'pending' }],
+    invoices: [{ id: 'i-1', number: 'INV-1' }],
+    deliveries: [{ id: 'd-1', status: 'pending' }],
     abuseReports: [{ id: 'r-1', reason: 'spam', status: 'open' }],
   },
 }));
@@ -73,6 +75,8 @@ describe('search', () => {
     expect(body.suppliers?.length).toBe(1);
     expect(body.products?.length).toBe(1);
     expect(body.orders?.length).toBe(1);
+    expect(body.invoices?.length).toBe(1);
+    expect(body.deliveries?.length).toBe(1);
     expect(body.abuseReports?.length).toBe(1);
   });
 

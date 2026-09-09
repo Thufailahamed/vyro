@@ -1,5 +1,5 @@
 import { getDb } from '@vyro/db';
-import { users, suppliers, businesses, products, purchaseOrders, abuseReports } from '@vyro/db/schema';
+import { users, suppliers, businesses, products, purchaseOrders, abuseReports, invoices, deliveries } from '@vyro/db/schema';
 import { sql, like, or, eq } from 'drizzle-orm';
 
 export type SearchResults = {
@@ -8,6 +8,8 @@ export type SearchResults = {
   businesses: Array<{ id: string; name: string; email: string }>;
   products: Array<{ id: string; name: string }>;
   orders: Array<{ id: string; poNumber: string; status: string }>;
+  invoices: Array<{ id: string; number: string }>;
+  deliveries: Array<{ id: string; status: string }>;
   abuseReports: Array<{ id: string; reason: string; status: string }>;
 };
 
@@ -46,9 +48,23 @@ export async function searchAll(d1: D1Database, q: string, limit: number): Promi
   const orderRows = (await db
     .select({ id: purchaseOrders.id, poNumber: purchaseOrders.poNumber, status: purchaseOrders.status })
     .from(purchaseOrders)
-    .where(like(purchaseOrders.poNumber, pattern))
+    .where(or(like(purchaseOrders.poNumber, pattern), like(purchaseOrders.id, pattern)))
     .limit(limit)
     .all()) as Array<{ id: string; poNumber: string; status: string }>;
+
+  const invoiceRows = (await db
+    .select({ id: invoices.id, number: invoices.number })
+    .from(invoices)
+    .where(or(like(invoices.number, pattern), like(invoices.id, pattern)))
+    .limit(limit)
+    .all()) as Array<{ id: string; number: string }>;
+
+  const deliveryRows = (await db
+    .select({ id: deliveries.id, status: deliveries.status })
+    .from(deliveries)
+    .where(like(deliveries.id, pattern))
+    .limit(limit)
+    .all()) as Array<{ id: string; status: string }>;
 
   const reportRows = (await db
     .select({ id: abuseReports.id, reason: abuseReports.reason, status: abuseReports.status })
@@ -63,6 +79,8 @@ export async function searchAll(d1: D1Database, q: string, limit: number): Promi
     businesses: businessRows,
     products: productRows,
     orders: orderRows,
+    invoices: invoiceRows,
+    deliveries: deliveryRows,
     abuseReports: reportRows,
   };
 }

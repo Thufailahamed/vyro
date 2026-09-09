@@ -96,9 +96,28 @@ function SearchResultsView({ data, onGo }: { data: SearchResults; onGo: (path: s
       {data.orders && data.orders.length ? (
         <Group label="Orders">
           {data.orders.map((o) => (
-            <Row key={o.id} onClick={() => onGo(`/admin/disputed`)}>
+            <Row key={o.id} onClick={() => onGo(`/admin/orders/${o.id}`)}>
               <span className="font-mono text-xs">{o.poNumber}</span>
               <span className="text-xs text-paper/40">{o.status}</span>
+            </Row>
+          ))}
+        </Group>
+      ) : null}
+      {data.invoices && data.invoices.length ? (
+        <Group label="Invoices">
+          {data.invoices.map((i) => (
+            <Row key={i.id} onClick={() => onGo(`/admin/finance`)}>
+              <span className="font-mono text-xs">{i.number}</span>
+            </Row>
+          ))}
+        </Group>
+      ) : null}
+      {data.deliveries && data.deliveries.length ? (
+        <Group label="Deliveries">
+          {data.deliveries.map((d) => (
+            <Row key={d.id} onClick={() => onGo(`/admin/deliveries`)}>
+              <span className="font-mono text-xs">{d.id}</span>
+              <span className="text-xs text-paper/40">{d.status}</span>
             </Row>
           ))}
         </Group>

@@ -122,6 +122,9 @@ export function AdminShell() {
             <NavLink to="/admin/deliveries" className={linkClass}>
               Deliveries
             </NavLink>
+            <NavLink to="/admin/finance" className={linkClass}>
+              Finance
+            </NavLink>
             <NavLink to="/admin/users" className={linkClass}>
               Users
             </NavLink>
@@ -271,6 +274,9 @@ export function AdminShell() {
               </NavLink>
               <NavLink to="/admin/deliveries" className={linkClass} onClick={() => setDrawerOpen(false)}>
                 Deliveries
+              </NavLink>
+              <NavLink to="/admin/finance" className={linkClass} onClick={() => setDrawerOpen(false)}>
+                Finance
               </NavLink>
               <NavLink to="/admin/users" className={linkClass} onClick={() => setDrawerOpen(false)}>
                 Users

@@ -18,6 +18,8 @@ export async function search(
   if (hasPermission(role, 'business:read')) visible.businesses = all.businesses;
   if (hasPermission(role, 'product:read')) visible.products = all.products;
   if (hasPermission(role, 'dispute:read')) visible.orders = all.orders;
+  if (hasPermission(role, 'dispute:read')) visible.deliveries = all.deliveries;
+  if (hasPermission(role, 'invoice:read')) visible.invoices = all.invoices;
   if (hasPermission(role, 'abuse_report:read')) visible.abuseReports = all.abuseReports;
 
   return visible;

@@ -23,6 +23,7 @@ import adminBulkRoutes from './bulk/routes';
 import commandCenterRoutes from './commandCenter';
 import ordersRoutes from './orders';
 import deliveriesAdminRoutes from './deliveriesAdmin';
+import financeRoutes from './finance';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -60,6 +61,7 @@ router.route('/bulk', adminBulkRoutes);
 router.route('/command-center', commandCenterRoutes);
 router.route('/orders', ordersRoutes);
 router.route('/deliveries', deliveriesAdminRoutes);
+router.route('/finance', financeRoutes);
 
 router.get('/suppliers', async (c) => {
   const parsed = listQuery.safeParse(c.req.query());

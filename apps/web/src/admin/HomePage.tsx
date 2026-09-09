@@ -19,6 +19,7 @@ import {
   ArrowRightIcon,
 } from '@/components/icons';
 import { MetricNumber, Surface } from '@/components/brand/Surface';
+import { CommandCenter } from './CommandCenter';
 
 type AdminAnalyticsRange = '7d' | '30d' | '90d';
 
@@ -124,6 +125,8 @@ export function AdminHomePage() {
           </div>
         </div>
       </header>
+
+      <CommandCenter />
 
       {/* KPI Metric Tiles */}
       {isLoading ? (

@@ -8,6 +8,8 @@ export type SearchResults = {
   businesses?: Array<{ id: string; name: string; email: string }>;
   products?: Array<{ id: string; name: string }>;
   orders?: Array<{ id: string; poNumber: string; status: string }>;
+  invoices?: Array<{ id: string; number: string }>;
+  deliveries?: Array<{ id: string; status: string }>;
   abuseReports?: Array<{ id: string; reason: string; status: string }>;
 };
 
