@@ -83,6 +83,8 @@ app.use('/api/auth/signin', rateLimit({ key: 'auth-login', limit: 5, window: 60 
 app.use('/api/auth/forget-password', rateLimit({ key: 'auth-forgot', limit: 5, window: 60 }));
 app.use('/api/auth/reset-password', rateLimit({ key: 'auth-reset', limit: 5, window: 60 }));
 app.use('/api/auth/2fa/*', rateLimit({ key: 'auth-2fa', limit: 10, window: 60 }));
+app.use('/api/webhooks/*', rateLimit({ key: 'webhook', limit: 30, window: 60 }));
+app.use('/api/payments/payhere/*', rateLimit({ key: 'webhook', limit: 30, window: 60 }));
 app.use('/api/categories/*', cacheControl({ public: true, maxAge: 3600 }));
 app.use('/api/products/*', cacheControl({ public: true, maxAge: 300 }));
 app.use('/api/*', verifyCsrf());
@@ -123,6 +125,7 @@ app.route('/api/payouts', payoutsRouter);
 app.route('/api/admin/payouts', payoutsAdminRouter);
 app.route('/api/invoices', invoicesRouter);
 app.route('/api/webhooks', webhooksRouter);
+app.route('/api/payments/payhere', webhooksRouter);
 app.route('/api/accounts', accountsRouter);
 app.route('/api/notifications', notificationRouter);
 app.route('/api/ai', aiRouter);
