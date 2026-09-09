@@ -19,6 +19,7 @@ import { dispatch as dispatchWebhook } from '../../lib/webhooks';
 import { queuesRoutes } from './queues/queuesRoutes';
 import paymentSearchRoutes from './payments/paymentSearchRoutes';
 import adminNotificationsRoutes from './notifications/routes';
+import adminBulkRoutes from './bulk/routes';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -52,6 +53,7 @@ router.use('*', session(), requireRole({ admin: true }));
 router.route('/queues', queuesRoutes);
 router.route('/payments', paymentSearchRoutes);
 router.route('/notifications', adminNotificationsRoutes);
+router.route('/bulk', adminBulkRoutes);
 
 router.get('/suppliers', async (c) => {
   const parsed = listQuery.safeParse(c.req.query());
