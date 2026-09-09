@@ -42,8 +42,12 @@ export function drizzlePreferenceRepo(d1: D1Database): PreferenceRepo {
         });
       return values;
     },
-    async delete(id) {
-      await db.delete(aiPreferences).where(eq(aiPreferences.id, id));
+    async delete(id, businessId?: string) {
+      if (businessId) {
+        await db.delete(aiPreferences).where(and(eq(aiPreferences.id, id), eq(aiPreferences.businessId, businessId)));
+      } else {
+        await db.delete(aiPreferences).where(eq(aiPreferences.id, id));
+      }
     },
   };
 }

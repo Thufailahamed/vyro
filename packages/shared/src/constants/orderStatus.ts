@@ -49,5 +49,10 @@ export const TRANSITION_RULES: readonly TransitionRule[] = [
 ];
 
 export function canTransition(from: OrderStatus, to: OrderStatus, actor: ActorRole): boolean {
-  return TRANSITION_RULES.some((r) => r.from === from && r.to === to && r.actors.includes(actor));
+  const rule = TRANSITION_RULES.find((r) => r.from === from && r.to === to);
+  if (!rule) return false;
+  // Admin is an ops override: may perform any otherwise-legal state edge,
+  // so stuck orders (e.g. supplier unresponsive) can be recovered with audit.
+  if (actor === 'admin') return true;
+  return rule.actors.includes(actor);
 }

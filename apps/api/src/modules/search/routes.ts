@@ -107,13 +107,17 @@ router.get('/products', async (c) => {
     const live = entry?.offers.filter((o) => o.active) ?? [];
     const best = live.slice().sort((a, b) => a.priceCents - b.priceCents)[0] ?? null;
     const supplier = best ? entry?.suppliers.get(best.supplierId) ?? null : null;
+    // Strip supplier contact PII from anonymous search — full contact is
+    // available to authenticated buyers via compare endpoints.
+    const { contactPerson: _cp, phone: _ph, email: _em, address: _ad, ...publicSupplier } = (supplier ?? {}) as SupplierRow;
+    void _cp; void _ph; void _em; void _ad;
     return {
       product: {
         ...p,
         imageUrl: imgEntry?.url || null,
         images: imgEntry?.images || [],
       },
-      bestOffer: best && supplier ? { ...best, supplier } : null,
+      bestOffer: best && supplier ? { ...best, supplier: publicSupplier as SupplierRow } : null,
       offerCount: live.length,
     };
   });

@@ -33,7 +33,7 @@ export function FeedbackButtons({ requestId, intentHint }: { requestId: string; 
     if (sent || sending || !requestId) return;
     setSending(true);
     try {
-      await fetch('/api/ai/feedback', {
+      await fetch((import.meta.env.VITE_API_URL?.replace(/\/$/,'') || '') + '/api/ai/feedback', {
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },

@@ -1,4 +1,4 @@
-import { and, desc, eq, gt } from 'drizzle-orm';
+import { and, desc, eq, lt } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
 import { deliveries, purchaseOrders, supplierMembers } from '@vyro/db/schema';
 
@@ -21,7 +21,7 @@ export async function listDeliveriesForSupplier(
 ): Promise<DeliveryListItem[]> {
   const db = getDb(d1);
   const conds = [eq(purchaseOrders.supplierId, supplierId)];
-  if (cursor) conds.push(gt(deliveries.estimatedAt, cursor));
+  if (cursor) conds.push(lt(deliveries.createdAt, cursor));
   if (status) conds.push(eq(deliveries.status, status as any));
   const rows = await db
     .select({
@@ -37,7 +37,7 @@ export async function listDeliveriesForSupplier(
     .from(deliveries)
     .innerJoin(purchaseOrders, eq(purchaseOrders.id, deliveries.purchaseOrderId))
     .where(and(...conds))
-    .orderBy(desc(deliveries.estimatedAt))
+    .orderBy(desc(deliveries.createdAt))
     .limit(50)
     .all();
   return rows;
@@ -52,9 +52,9 @@ export async function requireSupplierMember(
   const m = await db
     .select({ role: supplierMembers.role })
     .from(supplierMembers)
-    .where(and(eq(supplierMembers.supplierId, supplierId), eq(supplierMembers.userId, userId)))
+    .where(and(eq(supplierMembers.supplierId, supplierId), eq(supplierMembers.userId, userId), eq(supplierMembers.status, 'active')))
     .get();
-  if (!m || !['owner', 'manager', 'sales'].includes(m.role)) {
+  if (!m || !['owner', 'manager', 'sales', 'operations'].includes(m.role)) {
     throw new Error('FORBIDDEN');
   }
 }

@@ -279,6 +279,7 @@ function FlagsTab() {
   const [newRollout, setNewRollout] = useState(100);
   const [newEnabled, setNewEnabled] = useState(true);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [jsonError, setJsonError] = useState<string | null>(null);
 
   // Sync server data into local visual state
   useEffect(() => {
@@ -352,20 +353,21 @@ function FlagsTab() {
     try {
       const parsed = JSON.parse(jsonDraft);
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-        alert('Feature flags must be a valid JSON object');
+        setJsonError('Feature flags must be a valid JSON object');
         return;
       }
       update.mutate(
         { value: parsed as Record<string, unknown>, expectedVersion: q.data?.version ?? 0 },
         {
           onSuccess: () => {
+            setJsonError(null);
             setSaveSuccess(true);
             setTimeout(() => setSaveSuccess(false), 3000);
           },
         }
       );
     } catch {
-      alert('Invalid JSON syntax. Please verify commas and quotes.');
+      setJsonError('Invalid JSON syntax. Please verify commas and quotes.');
     }
   };
 
@@ -404,6 +406,7 @@ function FlagsTab() {
     <div className="space-y-4">
       {q.isError ? <ErrorBanner message={(q.error as Error).message} /> : null}
       {update.isError ? <ErrorBanner message={(update.error as Error).message} /> : null}
+      {jsonError ? <ErrorBanner message={jsonError} /> : null}
       {saveSuccess && (
         <div className="p-3 bg-mint/10 border border-mint/30 text-mint text-xs rounded-xl flex items-center gap-2">
           <CheckCircleIcon size={16} />
@@ -594,7 +597,7 @@ function FlagsTab() {
                   const p = JSON.parse(jsonDraft);
                   setJsonDraft(JSON.stringify(p, null, 2));
                 } catch {
-                  alert('Invalid JSON syntax');
+                  setJsonError('Invalid JSON syntax');
                 }
               }}
             >
@@ -696,6 +699,7 @@ function TemplatesTab() {
   const [activeKey, setActiveKey] = useState<string>('');
   const [jsonDraft, setJsonDraft] = useState<string>('');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [jsonError, setJsonError] = useState<string | null>(null);
 
   // Sync server data into state
   useEffect(() => {
@@ -766,7 +770,7 @@ function TemplatesTab() {
         }
       );
     } catch {
-      alert('Invalid JSON syntax');
+      setJsonError('Invalid JSON syntax');
     }
   };
 

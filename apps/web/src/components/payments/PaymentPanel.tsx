@@ -56,6 +56,9 @@ export function PaymentPanel({ purchaseOrderId, poStatus, totalCents }: Props) {
       const r = await api.post<{ redirectUrl: string; isMock: boolean; provider: string }>(
         `/payments/${paymentId}/checkout`,
       );
+      if (r.isMock) {
+        setErr('Online checkout is running against the staging payment simulator — no real money will move. Configure PayHere credentials for live payments.');
+      }
       window.location.href = r.redirectUrl;
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : 'Checkout failed');
@@ -69,16 +72,21 @@ export function PaymentPanel({ purchaseOrderId, poStatus, totalCents }: Props) {
     setBusy(true);
     try {
       const idempotencyKey = crypto.randomUUID();
-      const r = await api.post<{ id: string }>(`/payments`, {
-        purchaseOrderId,
-        method: 'bank_transfer',
-        transactionReference: ref || undefined,
-        notes: 'Recorded from order detail',
-      });
-      // Confirm immediately for offline methods
-      await api.post(`/payments/${r.id}/confirm`, { status: 'confirmed' });
+      await api.post<{ id: string }>(
+        `/payments`,
+        {
+          purchaseOrderId,
+          method: 'bank_transfer',
+          transactionReference: ref || undefined,
+          notes: 'Recorded from order detail',
+        },
+        { idempotencyKey },
+      );
+      // Offline payments stay pending until the supplier confirms receipt.
+      // Do NOT auto-confirm here: POST /:id/confirm requires supplier/admin.
       setRef('');
       await refetch();
+      setErr('');
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : 'Payment failed');
     } finally {

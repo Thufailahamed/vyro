@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { usePageTitle } from '@/lib/usePageTitle';
-import { api } from '@/lib/api';
+import { api, apiBase } from '@/lib/api';
 import { Button, Surface } from '@/components/ui';
 import { ArrowLeftIcon } from '@/components/icons';
 
@@ -39,7 +39,7 @@ export function InvoicePage() {
     );
   }
 
-  const htmlUrl = `/api/invoices/${encodeURIComponent(data.invoice.number)}/html`;
+  const htmlUrl = `${apiBase}/invoices/${encodeURIComponent(data.invoice.number)}/html`;
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -67,7 +67,6 @@ export function InvoicePage() {
         </div>
 
         <iframe
-          srcDoc={`<meta http-equiv="refresh" content="0; url=${htmlUrl}">`}
           src={htmlUrl}
           className="w-full border border-ink/10 bg-paper"
           style={{ height: '70vh' }}

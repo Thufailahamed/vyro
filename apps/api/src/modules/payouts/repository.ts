@@ -86,7 +86,7 @@ export async function createPayout(
   const id = newId();
   const now = Date.now();
   // Composite UQ may throw — caller handles
-  db.insert(payoutsTable)
+  await db.insert(payoutsTable)
     .values({
       id,
       supplierId: input.supplierId,
@@ -159,7 +159,7 @@ export async function updatePayoutStatus(
   >,
 ): Promise<void> {
   const db = getDb(d1);
-  db.update(payoutsTable)
+  await db.update(payoutsTable)
     .set({ ...fields, updatedAt: Date.now() })
     .where(eq(payoutsTable.id, id))
     .run();

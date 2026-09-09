@@ -105,6 +105,7 @@ export function SupplierDeliveriesPage() {
   const list = deliveries.data?.items ?? [];
   const orders = ordersQuery.data?.orders ?? [];
   const settings = settingsQuery.data?.settings;
+  const orderById = useMemo(() => new Map(orders.map((o) => [o.id, o])), [orders]);
 
   const handleRefresh = async () => {
     toast.info('Checking fleet tracking status…');
@@ -426,8 +427,13 @@ export function SupplierDeliveriesPage() {
                           to={`/orders/${d.purchaseOrderId}`}
                           className="text-ink hover:text-copper underline decoration-ink/20 font-medium"
                         >
-                          {d.purchaseOrderId.slice(0, 12)}…
+                          {orderById.get(d.purchaseOrderId)?.poNumber ?? `${d.purchaseOrderId.slice(0, 12)}…`}
                         </Link>
+                        {orderById.get(d.purchaseOrderId)?.status && (
+                          <div className="text-[10px] text-ink-4 mt-0.5">
+                            PO: {orderById.get(d.purchaseOrderId)!.status.replace(/_/g, ' ')}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-4">
                         <Badge variant={TONE[d.status as Status] ?? 'neutral'}>

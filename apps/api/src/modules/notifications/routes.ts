@@ -9,6 +9,7 @@ import { notifications } from '@vyro/db/schema';
 import { and, count, desc, eq, isNull, lt } from 'drizzle-orm';
 import { newId } from '@vyro/shared';
 import { queueSend } from '../../lib/queue';
+import { requirePermission } from '../../middleware/rbac';
 export {
   notifyUsers,
   notifyOrderParties,
@@ -22,7 +23,7 @@ const createSchema = z
   .object({ userId: z.string().min(1), type: z.string().min(1).max(60), title: z.string().min(1).max(200), body: z.string().max(2000).optional(), link: z.string().max(500).optional() })
   .strict();
 
-router.post('/', session(), async (c) => {
+router.post('/', session(), requirePermission('notification:write'), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   if (!ctx.isAdmin) throw httpError(403, 'FORBIDDEN', 'Admin only for direct create');

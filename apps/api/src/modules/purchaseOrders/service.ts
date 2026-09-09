@@ -53,10 +53,19 @@ function tsForStatus(to: string): Record<string, number> {
 }
 
 async function nextPoNumber(d1: D1Database, businessId: string): Promise<string> {
-  const now = new Date();
-  const yyyymmdd = now.toISOString().slice(0, 10).replace(/-/g, '');
-  // Cheap uniqueness: timestamp + uuid-tail.
-  return `PO-${yyyymmdd}-${Math.floor(Math.random() * 1e6).toString(36).toUpperCase()}`;
+  void businessId;
+  const db = getDb(d1);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const now = new Date();
+    const yyyymmdd = now.toISOString().slice(0, 10).replace(/-/g, '');
+    // Cheap uniqueness: timestamp + uuid-tail. Retry on collision instead of
+    // surfacing a raw unique-constraint 500 to the buyer.
+    const candidate = `PO-${yyyymmdd}-${Math.floor(Math.random() * 1e6).toString(36).toUpperCase()}-${Date.now().toString(36).toUpperCase().slice(-4)}`;
+    const existing = await db.select().from(purchaseOrders).where(eq(purchaseOrders.poNumber, candidate)).get();
+    if (!existing) return candidate;
+  }
+  // Final fallback: globally unique id suffix (no collision possible).
+  return `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${newId().slice(-8).toUpperCase()}`;
 }
 
 export const checkoutService = {

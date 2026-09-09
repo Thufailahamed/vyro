@@ -50,6 +50,19 @@ vi.mock('../../src/modules/admin/security/impersonationRepository', () => ({
   },
 }));
 
+vi.mock('@vyro/db', () => ({
+  getDb: () => ({
+    select: () => ({
+      from: (_t: any) => ({
+        where: (_c: any) => ({
+          // Active non-admin buyer for impersonation target validation.
+          get: async () => ({ id: 'u-buyer', status: 'active', adminRole: null, deletedAt: null }),
+        }),
+      }),
+    }),
+  }),
+}));
+
 vi.mock('../../src/modules/admin/lib/audit', () => ({
   auditAdmin: async (opts: any) => {
     state.audit.push({ action: opts.action, target: opts.target });

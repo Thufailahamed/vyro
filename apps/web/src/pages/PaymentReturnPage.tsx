@@ -149,7 +149,7 @@ export function PaymentReturnPage({ outcome }: Props) {
           )}
           {outcome === 'cancel' && (
             <Link to={orderLink}>
-              <Button variant="secondary">Retry payment</Button>
+              <Button variant="secondary">Back to order to retry</Button>
             </Link>
           )}
         </div>

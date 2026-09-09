@@ -32,7 +32,7 @@ router.post('/upload-direct', rateLimit({ key: 'doc-upload', limit: 20, window: 
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = ctx.businesses[0]?.businessId;
   if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
-  requireBusinessRole(ctx, businessId, ['owner', 'manager']);
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'purchasing']);
 
   const form = await c.req.formData();
   const file = form.get('file');
@@ -54,8 +54,18 @@ router.post('/upload-direct', rateLimit({ key: 'doc-upload', limit: 20, window: 
     supplierId,
   });
   const r2Key = buildR2Key(businessId, uploadId, file.name);
-  await c.env.INVOICES.put(r2Key, buf, { httpMetadata: { contentType: file.type } });
-  await getDb(c.env.DB).update(invoiceUploads).set({ r2Key }).where(eq(invoiceUploads.id, uploadId));
+  try {
+    await c.env.INVOICES.put(r2Key, buf, { httpMetadata: { contentType: file.type } });
+    await getDb(c.env.DB).update(invoiceUploads).set({ r2Key }).where(eq(invoiceUploads.id, uploadId)).run();
+  } catch (err) {
+    // Never leave a placeholder row: R2 or DB failure rolls back the upload.
+    try {
+      await getDb(c.env.DB).delete(invoiceUploads).where(eq(invoiceUploads.id, uploadId)).run();
+    } catch {
+      /* ignore secondary failure */
+    }
+    throw err;
+  }
   await queueSend(c.env, 'invoices', { uploadId });
 
   return c.json({ uploadId, status: 'pending' });
@@ -66,7 +76,7 @@ router.get('/', async (c) => {
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = ctx.businesses[0]?.businessId;
   if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
-  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'purchasing', 'accountant']);
   const rows = await listUploads(c.env, businessId);
   const safe = rows.map((r) => {
     const { rawExtractionJson: _r, errorMessage: _e, ...rest } = r;
@@ -82,7 +92,7 @@ router.get('/:id', async (c) => {
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = ctx.businesses[0]?.businessId;
   if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
-  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'purchasing', 'accountant']);
   const id = c.req.param('id');
   const row = await getUpload(c.env, businessId, id);
   if (!row) throw httpError(404, 'NOT_FOUND', 'Upload not found');
@@ -120,7 +130,7 @@ router.post('/:id/review', async (c) => {
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = ctx.businesses[0]?.businessId;
   if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
-  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'purchasing', 'accountant']);
   const id = c.req.param('id');
   const parsed = reviewSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid body', parsed.error.flatten());

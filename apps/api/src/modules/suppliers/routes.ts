@@ -19,7 +19,10 @@ router.get('/types', async (c) => {
   return c.json({ types });
 });
 
-// List all active verified suppliers with catalog metrics
+// List all active verified suppliers with catalog metrics.
+// Public: contact PII (contactPerson/phone/email/address) is stripped —
+// consistent with GET /:id. Authenticated buyers see full contact details
+// through the search/compare endpoints, which enforce membership.
 router.get('/', async (c) => {
   const db = getDb(c.env.DB);
   const rows = await db
@@ -27,10 +30,6 @@ router.get('/', async (c) => {
       id: suppliers.id,
       name: suppliers.name,
       businessTypeId: suppliers.businessTypeId,
-      contactPerson: suppliers.contactPerson,
-      phone: suppliers.phone,
-      email: suppliers.email,
-      address: suppliers.address,
       city: suppliers.city,
       district: suppliers.district,
       description: suppliers.description,

@@ -333,7 +333,7 @@ function HealthTab() {
           </div>
           <div className="mt-3 pt-3 border-t border-ink/5 flex items-center justify-between text-[11px]">
             <span className="text-ink-4">Disputes & escrow</span>
-            <Link to="/admin/disputes" className="text-ink font-semibold hover:underline">
+            <Link to="/admin/disputed" className="text-ink font-semibold hover:underline">
               Disputes Portal &rarr;
             </Link>
           </div>

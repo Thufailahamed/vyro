@@ -31,7 +31,7 @@ export async function allocateInvoiceNumber(
   const db = getDb(d1);
   const year = new Date().getUTCFullYear();
   // Ensure sequence row exists
-  db.insert(invoiceSequences)
+  await db.insert(invoiceSequences)
     .values({ supplierId, year, type, lastNumber: 0 })
     .onConflictDoNothing({ target: [invoiceSequences.supplierId, invoiceSequences.year, invoiceSequences.type] })
     .run();
@@ -104,8 +104,8 @@ export async function createInvoice(
     unitCents: it.unitCents,
     lineTotalCents: it.lineTotalCents,
   }));
-  db.insert(invoicesTable).values(invoiceRow).run();
-  if (itemRows.length > 0) db.insert(invoiceItemsTable).values(itemRows).run();
+  await db.insert(invoicesTable).values(invoiceRow).run();
+  if (itemRows.length > 0) await db.insert(invoiceItemsTable).values(itemRows).run();
   return { invoice: invoiceRow as Invoice, items: itemRows as InvoiceItem[] };
 }
 
@@ -140,9 +140,9 @@ export async function buildLineItemsFromPo(d1: D1Database, poId: string): Promis
   const db = getDb(d1);
   const rows = ((await db
     .select({
-      productName: sql<string>`(SELECT name FROM products WHERE id = ${(purchaseOrderItems as any).productId})`,
+      productName: purchaseOrderItems.productNameSnapshot,
       quantity: purchaseOrderItems.quantity,
-      unitPriceCents: purchaseOrderItems.unitPriceCents,
+      unitPriceCents: purchaseOrderItems.unitPriceCentsSnapshot,
       lineTotalCents: purchaseOrderItems.lineTotalCents,
     })
     .from(purchaseOrderItems)

@@ -160,6 +160,9 @@ router.get('/:id/images', async (c) => {
 });
 
 router.delete('/:id/images/:imageId', session(), requireRole({ admin: true }), async (c) => {
+  const db = getDb(c.env.DB);
+  const img = (await db.select().from(productImages).where(sql`${productImages.id} = ${c.req.param('imageId')}`).get()) as any;
+  if (!img || img.productId !== c.req.param('id')) throw httpError(404, 'NOT_FOUND', 'Image not found');
   await removeProductImage(c.env.DB, c.req.param('imageId'));
   return c.json({ ok: true });
 });

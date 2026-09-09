@@ -24,9 +24,9 @@ async function roleFor(d1: D1Database, poId: string, userId: string, isAdmin: bo
   const po = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, poId)).get();
   if (!po) return null;
   if (isAdmin) return 'admin';
-  const inBiz = await db.select().from(businessMembers).where(and(eq(businessMembers.businessId, po.businessId), eq(businessMembers.userId, userId))).get();
+  const inBiz = await db.select().from(businessMembers).where(and(eq(businessMembers.businessId, po.businessId), eq(businessMembers.userId, userId), eq(businessMembers.status, 'active'))).get();
   if (inBiz) return 'business';
-  const inSup = await db.select().from(supplierMembers).where(and(eq(supplierMembers.supplierId, po.supplierId), eq(supplierMembers.userId, userId))).get();
+  const inSup = await db.select().from(supplierMembers).where(and(eq(supplierMembers.supplierId, po.supplierId), eq(supplierMembers.userId, userId), eq(supplierMembers.status, 'active'))).get();
   if (inSup) return 'supplier';
   return null;
 }

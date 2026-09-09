@@ -54,6 +54,14 @@ const JOURNEY = ['pending', 'accepted', 'preparing', 'in_transit', 'delivered', 
 
 function journeyState(status: string): Array<{ label: string; state: 'done' | 'active' | 'idle' }> {
   const labels = ['Order', 'Supplier', 'Preparation', 'Delivery', 'Business'];
+  // Terminal failure states: mark the journey stopped at Order with clear context.
+  // The status badge (StatusDots) carries the actual rejected/cancelled/disputed/failed value.
+  if (status === 'rejected' || status === 'cancelled' || status === 'disputed' || status === 'failed') {
+    return labels.map((label, i) => ({
+      label,
+      state: (i === 0 ? 'active' : 'idle') as 'done' | 'active' | 'idle',
+    }));
+  }
   const idx = JOURNEY.indexOf(status as (typeof JOURNEY)[number]);
   const mapped = status === 'accepted' ? 1 : status === 'preparing' ? 2 : status === 'in_transit' ? 3 : status === 'delivered' || status === 'completed' ? 4 : 0;
   const active = idx === -1 ? 0 : mapped;

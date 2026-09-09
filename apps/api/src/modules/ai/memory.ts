@@ -27,7 +27,7 @@ export interface PreferenceRepo {
     createdAt: number;
     updatedAt: number;
   }): Promise<PreferenceRow>;
-  delete(id: string): Promise<void>;
+  delete(id: string, businessId?: string): Promise<void>;
 }
 
 export interface SetPreferenceInput {

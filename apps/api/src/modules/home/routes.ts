@@ -20,9 +20,14 @@ router.get('/feed', async (c) => {
     .where(sql`${suppliers.status} = 'active'`)
     .limit(8)
     .all();
+  const publicSuppliers = verified.map((s) => {
+    const { contactPerson: _c, phone: _p, email: _e, address: _a, ...rest } = s;
+    void _c; void _p; void _e; void _a;
+    return rest;
+  });
   return c.json({
     featuredProducts: featured,
-    verifiedSuppliers: verified,
+    verifiedSuppliers: publicSuppliers,
     trustStats: {
       districtsCovered: 25,
       lifetimeGmvCents: 10_000_000_00,

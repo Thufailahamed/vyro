@@ -4,7 +4,7 @@ import type { Ctx } from '../../middleware/session';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
-import { payments as paymentsTable, purchaseOrders } from '@vyro/db/schema';
+import { payments as paymentsTable, purchaseOrders, businessMembers } from '@vyro/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { createRefundSchema } from '@vyro/validation/payment';
 import { NotificationType } from '@vyro/shared';
@@ -41,7 +41,20 @@ async function canReadPayment(
   po: typeof purchaseOrders.$inferSelect,
 ): Promise<boolean> {
   if (ctx.isAdmin) return true;
-  return isSupplierMember(d1, po.supplierId, ctx.userId);
+  if (await isSupplierMember(d1, po.supplierId, ctx.userId)) return true;
+  const db = getDb(d1);
+  const m = await db
+    .select()
+    .from(businessMembers)
+    .where(
+      and(
+        eq(businessMembers.businessId, po.businessId),
+        eq(businessMembers.userId, ctx.userId),
+        eq(businessMembers.status, 'active'),
+      ),
+    )
+    .get();
+  return !!m;
 }
 
 router.post('/:paymentId/refund', session(), async (c) => {
@@ -166,13 +179,15 @@ router.post('/:paymentId/refund', session(), async (c) => {
     return refundRow;
   });
 
+  const fresh = (await findRefund(c.env.DB, refund.id)) ?? refund;
+
   await recordAudit(c.env.DB, {
     actorUserId: ctx.userId,
     action: 'refund.create',
     resourceType: 'purchase_order',
     resourceId: po.id,
     metadata: {
-      refundId: refund.id,
+      refundId: fresh.id,
       paymentId: payment.id,
       amountCents: refundCents,
       feeRefundCents,
@@ -181,7 +196,7 @@ router.post('/:paymentId/refund', session(), async (c) => {
 
   // Best-effort buyer + supplier notifications.
   try {
-    const initiated = refund.status === 'requested' || refund.status === 'processing';
+    const initiated = fresh.status === 'requested' || fresh.status === 'processing';
     await notifyOrderParties(
       c.env.DB,
       c.env.NOTIFICATIONS_QUEUE,
@@ -203,7 +218,7 @@ router.post('/:paymentId/refund', session(), async (c) => {
     console.error('[refunds.create] notify failed', err);
   }
 
-  return c.json({ id: refund.id, status: refund.status, amountCents: refund.amountCents }, 201);
+  return c.json({ id: fresh.id, status: fresh.status, amountCents: fresh.amountCents }, 201);
 });
 
 router.get('/:paymentId/refunds', session(), async (c) => {

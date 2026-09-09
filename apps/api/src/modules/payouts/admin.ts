@@ -9,6 +9,8 @@ import {
   payoutMarkFailedSchema,
 } from '@vyro/validation/payment';
 import { getDb } from '@vyro/db';
+import { payouts as payoutsTable } from '@vyro/db/schema';
+import { eq } from 'drizzle-orm';
 import { recordAudit } from '../supplierProducts/repository';
 import { auditAdmin } from '../admin/lib/audit';
 import { writeLedgerEntry } from '../ledger';
@@ -101,13 +103,18 @@ adminRouter.post('/:id/mark-paid', requirePermission('payout:approve'), async (c
   }
 
   const now = Date.now();
-  await getDb(c.env.DB).transaction(async (tx) => {
-    updatePayoutStatus(c.env.DB, payout.id, {
-      status: 'paid',
-      paidAt: now,
-      paidByUserId: ctx.userId,
-      reference: parsed.data.reference ?? null,
-    });
+  const db = getDb(c.env.DB);
+  await db.transaction(async (tx) => {
+    await tx.update(payoutsTable)
+      .set({
+        status: 'paid',
+        paidAt: now,
+        paidByUserId: ctx.userId,
+        reference: parsed.data.reference ?? null,
+        updatedAt: now,
+      })
+      .where(eq(payoutsTable.id, payout.id))
+      .run();
     writeLedgerEntry(tx as any, {
       accountType: 'supplier',
       accountId: payout.supplierId,

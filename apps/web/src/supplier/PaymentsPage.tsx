@@ -640,7 +640,7 @@ export function SupplierPaymentsPage() {
                     link.remove();
                     URL.revokeObjectURL(url);
                   } catch (err) {
-                    alert(err instanceof Error ? err.message : 'Could not export statement.');
+                    toast.error(err instanceof Error ? err.message : 'Could not export statement.');
                   }
                 }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium border border-ink/20 bg-paper text-ink hover:bg-ink hover:text-paper transition-colors rounded shadow-xs shrink-0"

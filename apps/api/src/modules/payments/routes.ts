@@ -63,13 +63,13 @@ async function rolesForPo(
   const inBiz = await db
     .select()
     .from(businessMembers)
-    .where(and(eq(businessMembers.businessId, po.businessId), eq(businessMembers.userId, userId)))
+    .where(and(eq(businessMembers.businessId, po.businessId), eq(businessMembers.userId, userId), eq(businessMembers.status, 'active')))
     .get();
   if (inBiz) return { role: 'business', po };
   const inSup = await db
     .select()
     .from(supplierMembers)
-    .where(and(eq(supplierMembers.supplierId, po.supplierId), eq(supplierMembers.userId, userId)))
+    .where(and(eq(supplierMembers.supplierId, po.supplierId), eq(supplierMembers.userId, userId), eq(supplierMembers.status, 'active')))
     .get();
   if (inSup) return { role: 'supplier', po };
   return { role: null, po };
@@ -345,7 +345,7 @@ router.post('/:id/checkout', session(), async (c) => {
     notifyUrl,
   });
 
-  db.update(payments)
+  await db.update(payments)
     .set({
       gatewayRef: result.gatewayRef,
       updatedAt: Date.now(),

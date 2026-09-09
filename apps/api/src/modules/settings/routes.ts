@@ -119,7 +119,10 @@ router.post('/me/avatar', async (c) => {
 });
 
 router.get('/avatars/:key{.*}', async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const key = c.req.param('key');
+  if (!key.startsWith('avatars/')) throw httpError(404, 'NOT_FOUND', 'Not found');
   const object = await c.env.PRODUCTS.get(key);
   if (!object) return c.text('Not found', 404);
   const headers = new Headers();

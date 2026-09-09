@@ -13,9 +13,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc",
-    "migrate": "echo 'migrate stub'",
-    "seed": "echo 'seed stub'",
-    "studio": "echo 'studio stub'",
+    "migrate": "wrangler d1 migrations apply vyro --local --config ../../apps/api/wrangler.toml",
+    "seed": "tsx ../../scripts/seed.ts",
+    "studio": "drizzle-kit studio --config ./drizzle.config.ts",
     "lint": "tsc --noEmit",
     "test": "vitest run"
   },

@@ -34,7 +34,7 @@ export function ConfirmationPanel({ card }: ConfirmationCardProps) {
     setState('submitting');
     setError(null);
     try {
-      const res = await fetch('/api/ai/confirm', {
+      const res = await fetch((import.meta.env.VITE_API_URL?.replace(/\/$/,'') || '') + '/api/ai/confirm', {
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json', 'idempotency-key': card.data.idempotencyKey },

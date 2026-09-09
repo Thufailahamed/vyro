@@ -101,7 +101,7 @@ router.post('/feedback', session(), async (c) => {
   const businessId = ctx.businesses[0]?.businessId;
   if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
   // Read-only role check: feedback is observational, no write side effects.
-  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'purchasing', 'accountant']);
 
   await writeFeedbackAudit(c.env, {
     userId: ctx.userId,
@@ -123,13 +123,13 @@ router.post('/ask', session(), async (c) => {
 
   const businessId = parsed.data.businessId ?? ctx.businesses[0]?.businessId;
   if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
-  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'purchasing', 'accountant']);
 
   const businessName =
     ctx.businesses.find((b) => b.businessId === businessId)?.businessName ?? 'Your business';
 
   // Map business role to AI intent-allowlist role. owner/manager = admin,
-  // staff/purchasing = member, everything else (including missing) = viewer.
+  // purchasing/accountant = member, everything else (including missing) = viewer.
   const businessRole = getBusinessRole(ctx, businessId);
   const aiRole: Role =
     businessRole === 'owner' || businessRole === 'manager'
@@ -189,7 +189,7 @@ router.post('/confirm', session(), rateLimit({ key: 'ai-confirm', limit: 30, win
 
   const businessId = parsed.data.businessId ?? ctx.businesses[0]?.businessId;
   if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
-  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'purchasing', 'accountant']);
 
   const idempotencyKey = c.req.header('idempotency-key') ?? newId();
 
@@ -227,7 +227,7 @@ router.get('/home', session(), async (c) => {
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = c.req.query('businessId') ?? ctx.businesses[0]?.businessId;
   if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
-  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'purchasing', 'accountant']);
   const { drizzleRepos } = await import('./intents/drizzleRepos');
   const { buildHomePayload } = await import('./home');
   return c.json(await buildHomePayload(drizzleRepos(c.env), businessId));
@@ -238,7 +238,7 @@ router.get('/insights', session(), async (c) => {
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = c.req.query('businessId') ?? ctx.businesses[0]?.businessId;
   if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
-  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'purchasing', 'accountant']);
   const limit = Math.min(Number(c.req.query('limit') ?? 10), 20);
   const { drizzleRepos } = await import('./intents/drizzleRepos');
   const { buildInsightsPayload } = await import('./home');
@@ -250,8 +250,8 @@ router.get('/cart-hints', session(), async (c) => {
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = c.req.query('businessId') ?? ctx.businesses[0]?.businessId;
   if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
-  // Viewer can read; only owner/manager/staff/purchasing can mutate cart.
-  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  // Viewer can read; only owner/manager/purchasing/accountant can mutate cart.
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'purchasing', 'accountant']);
   const { loadCartHintInputs, loadAvgWeeklySpendCents, buildCartHints } = await import('./cartHints');
   const { drizzleRepos } = await import('./intents/drizzleRepos');
   const lines = await loadCartHintInputs(c.env, businessId).catch(() => []);
@@ -265,7 +265,7 @@ router.get('/cart-line-hints', session(), async (c) => {
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = c.req.query('businessId') ?? ctx.businesses[0]?.businessId;
   if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
-  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'purchasing', 'accountant']);
   const { loadCartHintInputs, buildCartLineHints } = await import('./cartHints');
   const { drizzleRepos } = await import('./intents/drizzleRepos');
   const lines = await loadCartHintInputs(c.env, businessId).catch(() => []);
@@ -294,7 +294,7 @@ router.get('/preferences', session(), async (c) => {
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = c.req.query('businessId') ?? ctx.businesses[0]?.businessId;
   if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
-  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'purchasing', 'accountant']);
   const { drizzlePreferenceRepo } = await import('./memoryRepo');
   const { getMemory } = await import('./memory');
   const prefs = await getMemory(drizzlePreferenceRepo(c.env.DB), { businessId }).list();
@@ -306,7 +306,7 @@ router.post('/preferences', session(), async (c) => {
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = c.req.query('businessId') ?? ctx.businesses[0]?.businessId;
   if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
-  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'staff', 'purchasing']);
+  requireBusinessRole(ctx, businessId, ['owner', 'manager', 'purchasing', 'accountant']);
   const parsed = prefSetSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
   const { drizzlePreferenceRepo } = await import('./memoryRepo');
@@ -344,7 +344,7 @@ router.post('/preferences/:id/delete', session(), async (c) => {
   if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business membership');
   requireBusinessRole(ctx, businessId, ['owner', 'manager']);
   const { drizzlePreferenceRepo } = await import('./memoryRepo');
-  await drizzlePreferenceRepo(c.env.DB).delete(c.req.param('id'));
+  await drizzlePreferenceRepo(c.env.DB).delete(c.req.param('id'), businessId);
   return c.json({ ok: true });
 });
 

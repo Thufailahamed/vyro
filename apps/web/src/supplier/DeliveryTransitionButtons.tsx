@@ -12,6 +12,8 @@ const NEXT_BY_STATUS: Record<string, string | null> = {
   assigned: 'picked_up',
   picked_up: 'in_transit',
   in_transit: 'delivered',
+  failed: 'assigned',
+  delivered: null,
 };
 
 const LABEL: Record<string, string> = {
@@ -131,7 +133,13 @@ export function DeliveryTransitionButtons({
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => mut.mutate({ driverName, driverPhone })}
+                onClick={() => {
+                  if (!driverName.trim() || !driverPhone.trim()) {
+                    toast.error('Driver name and phone are required');
+                    return;
+                  }
+                  mut.mutate({ driverName: driverName.trim(), driverPhone: driverPhone.trim() });
+                }}
                 loading={mut.isPending}
               >
                 Assign & Dispatch

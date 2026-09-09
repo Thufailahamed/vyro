@@ -14,9 +14,10 @@ router.get('/monthly-spend', async (c) => {
   const ctx = c.get('ctx') as { userId: string; businesses: Array<{ businessId?: string }> } | undefined;
   if (!ctx?.businesses?.length) throw httpError(403, 'FORBIDDEN', 'No business membership');
   const requested = c.req.query('businessId');
-  const businessId =
-    (requested && ctx.businesses.find((b) => b.businessId === requested)?.businessId) ??
-    ctx.businesses[0]!.businessId;
+  if (requested && !ctx.businesses.find((b) => b.businessId === requested)?.businessId) {
+    throw httpError(403, 'FORBIDDEN', 'No access to requested business');
+  }
+  const businessId = requested ?? ctx.businesses[0]!.businessId;
   if (!businessId) throw httpError(403, 'FORBIDDEN', 'No business');
   const months = Math.min(Math.max(Number(c.req.query('months') ?? 12), 1), 24);
   const since = Date.now() - months * 30 * 24 * 60 * 60 * 1000;

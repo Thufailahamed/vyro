@@ -41,10 +41,13 @@ type OrderDetail = {
   order: Order;
   items: Array<{
     id: string;
-    productName: string;
+    productName?: string;
+    productNameSnapshot?: string;
     quantity: number;
-    unitPriceCents: number;
-    totalCents: number;
+    unitPriceCents?: number;
+    unitPriceCentsSnapshot?: number;
+    totalCents?: number;
+    lineTotalCents?: number;
     unit?: string;
   }>;
   events: Array<{
@@ -630,17 +633,22 @@ export function SupplierOrdersPage() {
                 <div className="space-y-3">
                   <div className="text-xs font-semibold uppercase tracking-wider text-ink">Ordered Line Items</div>
                   <div className="border border-line rounded-md overflow-hidden divide-y divide-line">
-                    {drawerQuery.data.items.map((item) => (
+                    {drawerQuery.data.items.map((item) => {
+                      const name = item.productNameSnapshot ?? item.productName ?? 'Line item';
+                      const unitCents = item.unitPriceCentsSnapshot ?? item.unitPriceCents ?? 0;
+                      const total = item.lineTotalCents ?? item.totalCents ?? 0;
+                      return (
                       <div key={item.id} className="p-3.5 flex items-center justify-between bg-paper hover:bg-mist/20 text-xs">
                         <div>
-                          <div className="font-semibold text-ink text-sm">{item.productName}</div>
+                          <div className="font-semibold text-ink text-sm">{name}</div>
                           <div className="text-ink-4 mt-0.5">
-                            {item.quantity} {item.unit ?? 'units'} @ {formatLKR(item.unitPriceCents)}
+                            {item.quantity} {item.unit ?? 'units'} @ {formatLKR(unitCents)}
                           </div>
                         </div>
-                        <div className="font-mono font-bold text-ink text-sm">{formatLKR(item.totalCents)}</div>
+                        <div className="font-mono font-bold text-ink text-sm">{formatLKR(total)}</div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <div className="flex justify-between items-center p-4 bg-bone rounded-md border border-line">

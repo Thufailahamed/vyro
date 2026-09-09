@@ -128,7 +128,7 @@ router.post('/disputes/:poId/resolve', async (c) => {
       }
 
       // Mark payment as refunded
-      db.update((await import('@vyro/db/schema')).payments)
+      await db.update((await import('@vyro/db/schema')).payments)
         .set({ status: 'refunded', statusReason: parsed.data.note ?? null, updatedAt: Date.now() })
         .where(eq((await import('@vyro/db/schema')).payments.id, payment.id))
         .run();
@@ -142,9 +142,9 @@ router.post('/disputes/:poId/resolve', async (c) => {
       });
     }
 
-    await setPoStatus(c.env.DB, poId, 'cancelled');
+    await setPoStatus(c.env.DB, poId, 'cancelled', ctx.userId, parsed.data.note ?? 'dispute resolved: refund_business');
   } else {
-    await setPoStatus(c.env.DB, poId, 'delivered');
+    await setPoStatus(c.env.DB, poId, 'delivered', ctx.userId, parsed.data.note ?? 'dispute resolved: release_supplier');
   }
 
   const now = Date.now();

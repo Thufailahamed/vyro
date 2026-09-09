@@ -57,7 +57,7 @@ export function AskPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch('/api/ai/suggestions', { credentials: 'include' })
+    fetch((import.meta.env.VITE_API_URL?.replace(/\/$/,'') || '') + '/api/ai/suggestions', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const list = (d as { prompts?: Array<{ kind: 'product' | 'intent'; label: string; payload: string }> } | null)?.prompts;
@@ -144,7 +144,7 @@ export function AskPage() {
             </button>
           ) : (
             <Link
-              to="/marketplace"
+              to="/search"
               className="hidden sm:inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-mono font-bold bg-paper border border-ink/15 hover:border-ink text-ink transition-colors shadow-xs"
             >
               <StoreIcon size={13} className="text-copper" />

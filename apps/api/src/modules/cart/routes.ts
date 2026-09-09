@@ -23,7 +23,7 @@ import { availableQty, checkPurchasable, deriveAvailability } from '@vyro/shared
 
 const router = new Hono<{ Bindings: Env }>();
 
-const CART_ROLES = ['owner', 'manager', 'staff'] as const;
+const CART_ROLES = ['owner', 'manager', 'purchasing'] as const;
 
 /**
  * Server-side purchasability gate. The buyer UI mirrors this with

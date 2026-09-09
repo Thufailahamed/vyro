@@ -1,4 +1,7 @@
 import type { Context } from 'hono';
+import { eq } from 'drizzle-orm';
+import { getDb } from '@vyro/db';
+import { users } from '@vyro/db/schema';
 import { httpError } from '../../../lib/errors';
 import { auditAdmin } from '../../admin/lib/audit';
 import * as repo from './impersonationRepository';
@@ -13,6 +16,12 @@ export async function start(
     throw httpError(400, 'VALIDATION_ERROR', 'Cannot impersonate self');
   }
   const d1 = ctx.env.DB as D1Database;
+  const db = getDb(d1);
+  const target = (await db.select().from(users).where(eq(users.id, targetUserId)).get()) as any;
+  if (!target) throw httpError(404, 'NOT_FOUND', 'Target user not found');
+  if (target.deletedAt) throw httpError(409, 'CONFLICT', 'Target user is deleted');
+  if (target.status && target.status !== 'active') throw httpError(409, 'CONFLICT', 'Target user is not active');
+  if (target.adminRole) throw httpError(403, 'FORBIDDEN', 'Cannot impersonate platform admins');
   const existing = await repo.findActive(d1, adminUserId);
   if (existing) {
     throw httpError(409, 'CONFLICT', 'Already impersonating — end current session first');
@@ -21,8 +30,8 @@ export async function start(
     adminUserId,
     targetUserId,
     reason,
-    ip: null,
-    userAgent: null,
+    ip: ctx.req.header('cf-connecting-ip') ?? null,
+    userAgent: ctx.req.header('user-agent') ?? null,
   });
   await auditAdmin({
     ctx,

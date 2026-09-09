@@ -61,6 +61,29 @@ router.post('/payhere', async (c) => {
     return c.json({ ok: true, ignored: 'po-missing' });
   }
 
+  // Amount binding: reject webhooks whose amount/currency don't match the payment.
+  // Prevents a captured success webhook for a small amount confirming a large payment.
+  if (event.amountCents != null && event.amountCents !== payment.amountCents) {
+    await recordAudit(env.DB, {
+      actorUserId: null,
+      action: 'webhook.amount_mismatch',
+      resourceType: 'payment',
+      resourceId: payment.id,
+      metadata: { expected: payment.amountCents, got: event.amountCents, provider },
+    });
+    throw httpError(400, 'VALIDATION_ERROR', 'Webhook amount mismatch');
+  }
+  if (event.currency && payment.currency && event.currency !== payment.currency) {
+    await recordAudit(env.DB, {
+      actorUserId: null,
+      action: 'webhook.currency_mismatch',
+      resourceType: 'payment',
+      resourceId: payment.id,
+      metadata: { expected: payment.currency, got: event.currency, provider },
+    });
+    throw httpError(400, 'VALIDATION_ERROR', 'Webhook currency mismatch');
+  }
+
   if (event.type === 'payment.success') {
     const now = Date.now();
     await db.transaction(async (tx) => {
@@ -126,7 +149,7 @@ router.post('/payhere', async (c) => {
     }
   } else if (event.type === 'payment.failed' || event.type === 'payment.cancelled') {
     const now = Date.now();
-    db.update(paymentsTable)
+    await db.update(paymentsTable)
       .set({
         status: 'failed',
         statusReason: `gateway:${event.type}`,

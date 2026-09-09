@@ -17,7 +17,7 @@ export function AiHomePage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/ai/home', { credentials: 'include' })
+    fetch((import.meta.env.VITE_API_URL?.replace(/\/$/,'') || '') + '/api/ai/home', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((d) => {
         if (!cancelled) {
@@ -70,12 +70,12 @@ export function AiHomePage() {
           <div className="p-4 bg-paper border border-ink/15 shadow-xs space-y-2">
             <div className="text-[10px] font-mono uppercase tracking-wider font-bold text-ink-3">Potential savings</div>
             <div className="font-display text-lg font-semibold text-ink">{savingsHeadline(data.savingsTotal)}</div>
-            <Link to="/analytics" className="text-xs font-mono font-bold text-copper hover:underline">Explore savings →</Link>
+            <Link to="/dashboard" className="text-xs font-mono font-bold text-copper hover:underline">Explore savings →</Link>
           </div>
           <div className="p-4 bg-paper border border-ink/15 shadow-xs space-y-2">
             <div className="text-[10px] font-mono uppercase tracking-wider font-bold text-ink-3">Price moves</div>
             <div className="font-display text-lg font-semibold text-ink">{moveHeadline(data.topMoves)}</div>
-            <Link to="/analytics" className="text-xs font-mono font-bold text-copper hover:underline">View changes →</Link>
+            <Link to="/dashboard" className="text-xs font-mono font-bold text-copper hover:underline">View changes →</Link>
           </div>
           <div className="p-4 bg-paper border border-ink/15 shadow-xs space-y-2">
             <div className="text-[10px] font-mono uppercase tracking-wider font-bold text-ink-3">Supplier concentration</div>

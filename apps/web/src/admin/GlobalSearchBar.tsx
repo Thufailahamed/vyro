@@ -79,7 +79,7 @@ function SearchResultsView({ data, onGo }: { data: SearchResults; onGo: (path: s
       {data.suppliers && data.suppliers.length ? (
         <Group label="Suppliers">
           {data.suppliers.map((s) => (
-            <Row key={s.id} onClick={() => onGo(`/admin/suppliers`)}>
+            <Row key={s.id} onClick={() => onGo(`/admin/suppliers/${s.id}`)}>
               <span>{s.name}</span>
             </Row>
           ))}
@@ -88,7 +88,7 @@ function SearchResultsView({ data, onGo }: { data: SearchResults; onGo: (path: s
       {data.businesses && data.businesses.length ? (
         <Group label="Businesses">
           {data.businesses.map((b) => (
-            <Row key={b.id} onClick={() => onGo(`/admin/businesses`)}>
+            <Row key={b.id} onClick={() => onGo(`/admin/businesses/${b.id}`)}>
               <span>{b.name}</span>
             </Row>
           ))}
@@ -97,7 +97,7 @@ function SearchResultsView({ data, onGo }: { data: SearchResults; onGo: (path: s
       {data.products && data.products.length ? (
         <Group label="Products">
           {data.products.map((p) => (
-            <Row key={p.id} onClick={() => onGo(`/admin/catalog`)}>
+            <Row key={p.id} onClick={() => onGo(`/admin/catalog/products/${p.id}`)}>
               <span>{p.name}</span>
             </Row>
           ))}

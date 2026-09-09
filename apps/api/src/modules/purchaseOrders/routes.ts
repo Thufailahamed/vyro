@@ -26,7 +26,7 @@ const ORDER_STATUS_VALUES = Object.values(OrderStatus) as [string, ...string[]];
 
 const router = new Hono<{ Bindings: Env }>();
 
-const PO_BUSINESS_ROLES = ['owner', 'manager', 'staff'] as const;
+const PO_BUSINESS_ROLES = ['owner', 'manager', 'purchasing'] as const;
 const PO_SUPPLIER_ROLES = ['owner', 'sales', 'operations'] as const;
 
 const transitionSchema = z

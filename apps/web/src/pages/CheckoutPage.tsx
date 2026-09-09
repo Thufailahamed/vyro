@@ -23,22 +23,24 @@ interface CartItem {
 export function CheckoutPage() {
   usePageTitle('Checkout');
   const { user } = useAuth();
-  const businessId = user?.memberships?.[0]?.businessId;
+  const memberships = user?.memberships ?? [];
+  const [businessId, setBusinessId] = useState<string | undefined>(memberships[0]?.businessId);
+  const activeBusinessId = businessId ?? memberships[0]?.businessId;
   const [notes, setNotes] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const cart = useQuery({
-    queryKey: ['cart', businessId],
+    queryKey: ['cart', activeBusinessId],
     queryFn: () =>
       api.get<{
         cart: { id: string };
         items: CartItem[];
         subtotalCents: number;
         supplierCount: number;
-      }>(`/cart?businessId=${businessId}`),
-    enabled: !!businessId,
+      }>(`/cart?businessId=${activeBusinessId}`),
+    enabled: !!activeBusinessId,
   });
 
   const grouped = useMemo(() => {
@@ -52,7 +54,7 @@ export function CheckoutPage() {
     return Array.from(map.entries());
   }, [cart.data?.items]);
 
-  if (!businessId) {
+  if (!activeBusinessId) {
     return (
       <div className="py-12">
         <h2 className="vyro-display text-3xl">No business profile found</h2>
@@ -71,12 +73,13 @@ export function CheckoutPage() {
     setLoading(true);
     try {
       const res = await api.post<{ poIds: string[]; count: number }>('/purchase-orders/checkout', {
-        businessId,
+        businessId: activeBusinessId,
         notes,
       });
-      if (res.poIds && res.poIds.length > 0) {
+      if (res.poIds && res.poIds.length === 1) {
         navigate(`/orders/${res.poIds[0]}`);
       } else {
+        // Multi-supplier split: land on the orders list so no PO is lost.
         navigate('/orders');
       }
     } catch (e) {
@@ -113,6 +116,26 @@ export function CheckoutPage() {
         }
       />
       <ErrorBanner message={err} />
+
+      {memberships.length > 1 && (
+        <Surface className="p-4 flex items-center gap-3">
+          <label htmlFor="checkout-business" className="text-xs text-ink-4 whitespace-nowrap">
+            Ordering as
+          </label>
+          <select
+            id="checkout-business"
+            className="text-sm border border-ink/15 rounded-md px-2 py-1.5 bg-paper"
+            value={activeBusinessId}
+            onChange={(e) => setBusinessId(e.target.value)}
+          >
+            {memberships.map((m) => (
+              <option key={m.businessId} value={m.businessId}>
+                {(m as { businessName?: string }).businessName ?? m.businessId}
+              </option>
+            ))}
+          </select>
+        </Surface>
+      )}
 
       {empty ? (
         <Surface className="p-10 text-center text-ink-4">

@@ -137,13 +137,16 @@ describe('POST /api/admin/disputes/:poId/resolve', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.status).toBe('cancelled');
-    expect(state.resolved).toEqual({ status: 'cancelled' });
+    expect(state.resolved).toMatchObject({ status: 'cancelled' });
     expect(state.audit[0].action).toBe('dispute.resolved');
     // Both parties notified via dispatcher, never raw insert.
     expect(state.notify.length).toBe(1);
     expect(state.notify[0].type).toBe('dispute.resolved');
     expect(state.notify[0].audience).toBe('both');
-    expect(state.notifications).toHaveLength(0);
+    // Order timeline carries the dispute resolution (fromStatus disputed).
+    expect(state.notifications).toHaveLength(1);
+    expect(state.notifications[0].purchaseOrderId).toBe('po-1');
+    expect(state.notifications[0].toStatus).toBe('cancelled');
   });
 
   it('release_supplier → delivered', async () => {
@@ -161,7 +164,8 @@ describe('POST /api/admin/disputes/:poId/resolve', () => {
     expect(body.status).toBe('delivered');
     expect(state.notify.length).toBe(1);
     expect(state.notify[0].audience).toBe('both');
-    expect(state.notifications).toHaveLength(0);
+    expect(state.notifications).toHaveLength(1);
+    expect(state.notifications[0].toStatus).toBe('delivered');
   });
 
   it('409 when PO not in disputed state', async () => {
