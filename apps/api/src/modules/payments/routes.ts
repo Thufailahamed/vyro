@@ -326,9 +326,13 @@ router.post('/:id/checkout', session(), async (c) => {
   if (!biz || !sup) throw httpError(404, 'NOT_FOUND', 'Business or supplier not found');
 
   const env = c.env as Env;
-  const { adapter } = resolveGateway(env);
+  const { adapter, provider } = resolveGateway(env);
   const origin = env.WEB_ORIGIN;
   const notifyUrl = env.PAYHERE_NOTIFY_URL ?? `${origin}/api/webhooks/payhere`;
+  const returnUrl =
+    env.PAYHERE_RETURN_URL ?? `${origin}/orders/${po.id}/payment-success?paymentId=${payment.id}`;
+  const cancelUrl =
+    env.PAYHERE_CANCEL_URL ?? `${origin}/orders/${po.id}/payment-cancel?paymentId=${payment.id}`;
 
   const result = await adapter.startCheckout({
     paymentId: payment.id,
@@ -340,25 +344,34 @@ router.post('/:id/checkout', session(), async (c) => {
     businessPhone: biz.phone,
     supplierName: sup.name,
     description: `PO ${po.poNumber}`,
-    returnUrl: `${origin}/orders/${po.id}/payment-success?paymentId=${payment.id}`,
-    cancelUrl: `${origin}/orders/${po.id}/payment-cancel?paymentId=${payment.id}`,
+    returnUrl,
+    cancelUrl,
     notifyUrl,
   });
 
   await db.update(payments)
     .set({
       gatewayRef: result.gatewayRef,
+      gatewayPayload: JSON.stringify({ provider, orderId: payment.id }),
       updatedAt: Date.now(),
     })
     .where(eq(payments.id, payment.id))
     .run();
 
+  const auditMeta = { paymentId: payment.id, gatewayRef: result.gatewayRef, provider };
+  await recordAudit(c.env.DB, {
+    actorUserId: ctx.userId,
+    action: 'PAYMENT_REDIRECTED',
+    resourceType: 'purchase_order',
+    resourceId: po.id,
+    metadata: auditMeta,
+  });
   await recordAudit(c.env.DB, {
     actorUserId: ctx.userId,
     action: 'payment.checkout',
     resourceType: 'purchase_order',
     resourceId: po.id,
-    metadata: { paymentId: payment.id, gatewayRef: result.gatewayRef, provider: adapter.provider },
+    metadata: auditMeta,
   });
 
   return c.json({
