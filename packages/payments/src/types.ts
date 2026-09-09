@@ -25,8 +25,10 @@ export interface StartCheckoutResult {
 
 export type WebhookEventType =
   | 'payment.success'
+  | 'payment.pending'
   | 'payment.failed'
   | 'payment.cancelled'
+  | 'payment.chargeback'
   | 'refund.completed';
 
 export interface WebhookEvent {

@@ -63,13 +63,13 @@ function statusCodeToEventType(code: string | undefined): WebhookEventType {
     case '2':
       return 'payment.success';
     case '0':
-      return 'payment.success'; // treat pending as success-ish (still informational)
+      return 'payment.pending';
     case '-1':
       return 'payment.cancelled';
     case '-2':
       return 'payment.failed';
     case '-3':
-      return 'payment.failed';
+      return 'payment.chargeback';
     default:
       return 'payment.failed';
   }
@@ -83,7 +83,7 @@ export class PayHereGateway implements GatewayAdapter {
     const amountStr = formatPayHereAmount(input.amountCents);
     const hash = hashCheckoutRequest(
       this.cfg.merchantId,
-      input.purchaseOrderId,
+      input.paymentId,
       amountStr,
       input.currency,
       this.cfg.merchantSecret,
@@ -94,7 +94,7 @@ export class PayHereGateway implements GatewayAdapter {
       return_url: input.returnUrl,
       cancel_url: input.cancelUrl,
       notify_url: input.notifyUrl,
-      order_id: input.purchaseOrderId,
+      order_id: input.paymentId,
       items: input.description.slice(0, 250),
       currency: input.currency,
       amount: amountStr,
@@ -109,7 +109,7 @@ export class PayHereGateway implements GatewayAdapter {
     });
 
     const redirectUrl = `${checkoutUrl(this.cfg.sandbox)}?${params.toString()}`;
-    const gatewayRef = `${this.cfg.merchantId}-${input.purchaseOrderId}-${Date.now()}`;
+    const gatewayRef = input.paymentId;
     const expiresAt = Date.now() + 30 * 60 * 1000; // 30 min
     return { redirectUrl, gatewayRef, expiresAt };
   }

@@ -10,7 +10,11 @@ export { md5, hmacSha256Hex } from './hash';
 export interface GatewayEnv {
   PAYHERE_MERCHANT_ID?: string;
   PAYHERE_MERCHANT_SECRET?: string;
+  PAYHERE_ENV?: string;
   PAYHERE_SANDBOX?: string;
+  PAYHERE_RETURN_URL?: string;
+  PAYHERE_CANCEL_URL?: string;
+  PAYHERE_NOTIFY_URL?: string;
   PAYHERE_REFUND_API_URL?: string;
   PAYHERE_MOCK?: string;
   PAYHERE_MOCK_FORCE_FAILURE?: string;
@@ -65,10 +69,13 @@ export function resolveGateway(env: GatewayEnv | undefined): ResolvedGateway {
       isMock: true,
     };
   }
+  const envName = (e.PAYHERE_ENV ?? '').toLowerCase();
+  const sandbox =
+    envName === 'production' ? false : envName === 'sandbox' ? true : e.PAYHERE_SANDBOX === '0' ? false : true;
   const cfg: PayHereConfig = {
     merchantId: e.PAYHERE_MERCHANT_ID!,
     merchantSecret: e.PAYHERE_MERCHANT_SECRET!,
-    sandbox: e.PAYHERE_SANDBOX === '1',
+    sandbox,
     refundApiUrl: e.PAYHERE_REFUND_API_URL,
   };
   return {

@@ -17,7 +17,10 @@ export interface Env {
   DEPLOYED_AT?: string;
   PAYHERE_MERCHANT_ID?: string;
   PAYHERE_MERCHANT_SECRET?: string;
+  PAYHERE_ENV?: string;
   PAYHERE_SANDBOX?: string;
+  PAYHERE_RETURN_URL?: string;
+  PAYHERE_CANCEL_URL?: string;
   PAYHERE_NOTIFY_URL?: string;
   PAYHERE_REFUND_API_URL?: string;
   PAYHERE_MOCK?: string;

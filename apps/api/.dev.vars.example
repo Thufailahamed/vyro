@@ -19,8 +19,11 @@ ENVIRONMENT="local"
 # (which always succeeds for local dev).
 # PAYHERE_MERCHANT_ID=""
 # PAYHERE_MERCHANT_SECRET=""
+# PAYHERE_ENV="sandbox"
 # PAYHERE_SANDBOX="1"
-# PAYHERE_NOTIFY_URL="http://localhost:8787/api/payments/payhere/notify"
+# PAYHERE_RETURN_URL=""
+# PAYHERE_CANCEL_URL=""
+# PAYHERE_NOTIFY_URL="http://localhost:8787/api/webhooks/payhere"
 
 # Optional: enables the PayHere mock even when merchant creds are set.
 # "1" forces the mock; "force_failure" makes it always error (negative tests).
