@@ -1,8 +1,15 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
-export type PaymentStatus = 'pending' | 'confirmed' | 'failed' | 'refunded';
+export type PaymentStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'failed'
+  | 'cancelled'
+  | 'chargeback'
+  | 'refunded';
 export type PaymentMethod = 'cash' | 'bank_transfer' | 'online';
+export type PaymentProvider = 'payhere' | 'mock';
 
 export type PaymentRow = {
   id: string;
@@ -29,6 +36,7 @@ export type PaymentSearchFilters = {
   q?: string;
   status?: PaymentStatus[];
   method?: PaymentMethod;
+  provider?: PaymentProvider;
   businessId?: string;
   supplierId?: string;
   minCents?: number;
@@ -43,6 +51,7 @@ function buildQuery(filters: PaymentSearchFilters, cursor?: string): string {
   if (filters.q) qs.set('q', filters.q);
   if (filters.status?.length) qs.set('status', filters.status.join(','));
   if (filters.method) qs.set('method', filters.method);
+  if (filters.provider) qs.set('provider', filters.provider);
   if (filters.businessId) qs.set('businessId', filters.businessId);
   if (filters.supplierId) qs.set('supplierId', filters.supplierId);
   if (typeof filters.minCents === 'number') qs.set('minCents', String(filters.minCents));

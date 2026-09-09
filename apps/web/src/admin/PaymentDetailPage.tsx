@@ -135,6 +135,30 @@ export function PaymentDetailPage() {
       </Surface>
 
       <Surface className="p-4">
+        <h3 className="text-xs text-ink-500 uppercase mb-2">
+          Notification history ({(b.events ?? []).length})
+        </h3>
+        <table className="w-full text-sm">
+          <thead><tr className="text-left text-ink-500">
+            <th>Received</th><th>Provider</th><th>Event</th><th>Code</th><th>Gateway payment</th><th>Status</th>
+          </tr></thead>
+          <tbody>
+            {(b.events ?? []).map((e) => (
+              <tr key={e.id} className="border-t border-ink/10">
+                <td className="text-xs">{fmtTs(e.receivedAt)}</td>
+                <td className="font-mono text-xs">{e.provider}</td>
+                <td className="font-mono text-xs">{e.eventType}</td>
+                <td className="text-xs">{e.statusCode ?? '—'}</td>
+                <td className="font-mono text-xs">{e.providerPaymentId ?? '—'}</td>
+                <td className="text-xs">{e.processingStatus}</td>
+              </tr>
+            ))}
+            {!(b.events ?? []).length ? <tr><td colSpan={6} className="py-3 text-center text-ink-500">No notifications received</td></tr> : null}
+          </tbody>
+        </table>
+      </Surface>
+
+      <Surface className="p-4">
         <h3 className="text-xs text-ink-500 uppercase mb-2">Ledger entries ({b.ledger.length})</h3>
         <table className="w-full text-sm">
           <thead><tr className="text-left text-ink-500">

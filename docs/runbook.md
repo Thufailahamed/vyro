@@ -152,13 +152,46 @@ npx wrangler secret put CF_API_TOKEN --config apps/api/wrangler.toml
 
 Admin can search every payment across the platform from
 `/admin/payments`. Filters compose: free-text (id / transaction ref /
-gateway ref), method, business, supplier, amount range, status chips,
+gateway ref), method, provider (payhere/mock), business, supplier,
+amount range, date range, status chips
+(pending/confirmed/failed/cancelled/chargeback/refunded),
 sort, cursor pagination. Detail at `/admin/payments/:id` shows the
 payment row, linked PO, parties (business/supplier with email), all
-refunds, all chargebacks, and every ledger entry linked by
+refunds, all chargebacks, notification history (`payment_events`),
+and every ledger entry linked by
 `refType='payment'`. Every detail load emits an audit log entry
 (`action=payment.view`, `target.type=payment`). Permission:
 `payment:read`. No new secrets required.
+
+## PayHere sandbox + notify URL + reconciliation
+
+Env: `PAYHERE_ENV=sandbox|production` (`PAYHERE_SANDBOX=1` legacy
+fallback), `PAYHERE_MERCHANT_ID`, `PAYHERE_MERCHANT_SECRET` (Worker
+secret, never in git/React), optional `PAYHERE_RETURN_URL`,
+`PAYHERE_CANCEL_URL`, `PAYHERE_NOTIFY_URL`. Production:
+
+```bash
+npx wrangler secret put PAYHERE_MERCHANT_ID --config apps/api/wrangler.toml --env production
+npx wrangler secret put PAYHERE_MERCHANT_SECRET --config apps/api/wrangler.toml --env production
+```
+
+Notify endpoints: `POST /api/webhooks/payhere` and alias
+`POST /api/payments/payhere/notify` (both public, CSRF-exempt,
+rate-limited 30/min, form-encoded, double-md5 `md5sig` verified).
+PayHere cannot reach `localhost`, so local notify testing needs a
+public URL:
+
+```bash
+ngrok http 8787
+# .dev.vars:
+PAYHERE_NOTIFY_URL=https://<ngrok-id>.ngrok-free.app/api/webhooks/payhere
+```
+
+Reconciliation: `GET /api/admin/payments/reconcile`
+(`payment:read`) returns `{ confirmedOnline, pendingOnline, failed,
+cancelled, chargebacks, paymentsWithMultipleEvents }` for ops triage
+of missing order updates, unpaid orders, duplicate notifications,
+failures and chargebacks.
 
 The token needs `Account > Analytics Engine > Read` permission. Local
 dev: set the same keys in `.dev.vars` (gitignored). Retention of

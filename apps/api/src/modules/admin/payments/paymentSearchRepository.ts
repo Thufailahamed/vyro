@@ -19,10 +19,18 @@ import {
   refunds,
   chargebacks,
   ledgerEntries,
+  paymentEvents,
 } from '@vyro/db/schema';
 
-export type PaymentStatus = 'pending' | 'confirmed' | 'failed' | 'refunded';
+export type PaymentStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'failed'
+  | 'cancelled'
+  | 'chargeback'
+  | 'refunded';
 export type PaymentMethod = 'cash' | 'bank_transfer' | 'online';
+export type PaymentProvider = 'payhere' | 'mock';
 export type PaymentRow = {
   id: string;
   purchaseOrderId: string;
@@ -48,6 +56,7 @@ export type PaymentSearchFilters = {
   q?: string;
   status?: PaymentStatus[];
   method?: PaymentMethod;
+  provider?: PaymentProvider;
   businessId?: string;
   supplierId?: string;
   minCents?: number;
@@ -110,6 +119,11 @@ export async function searchPayments(
   }
   if (filters.method) {
     conds.push(eq(payments.method, filters.method));
+  }
+  if (filters.provider) {
+    // Provider is recorded in gatewayPayload JSON by the checkout route
+    // ({provider, orderId}); LIKE keeps this index-friendly enough for ops use.
+    conds.push(like(payments.gatewayPayload, `%"provider":"${filters.provider}"%`));
   }
   if (filters.businessId) {
     conds.push(eq(purchaseOrders.businessId, filters.businessId));
@@ -239,6 +253,16 @@ export type DetailBundle = {
     description: string;
     createdAt: number;
   }>;
+  events: Array<{
+    id: string;
+    provider: string;
+    eventType: string;
+    providerPaymentId: string | null;
+    statusCode: number | null;
+    processingStatus: string;
+    receivedAt: number;
+    processedAt: number | null;
+  }>;
 };
 
 export async function getPaymentDetailBundle(db: any, paymentId: string): Promise<DetailBundle | null> {
@@ -307,7 +331,7 @@ export async function getPaymentDetailBundle(db: any, paymentId: string): Promis
         .where(and(eq(ledgerEntries.refType, 'payment'), eq(ledgerEntries.refId, paymentId)))
         .orderBy(desc(ledgerEntries.createdAt));
 
-  const [poRow, bizRow, supRow, refundRows, cbRows, ledgerRows] = await Promise.all([
+  const [poRow, bizRow, supRow, refundRows, cbRows, ledgerRows, eventRows] = await Promise.all([
     db
       .select({
         id: purchaseOrders.id,
@@ -362,6 +386,21 @@ export async function getPaymentDetailBundle(db: any, paymentId: string): Promis
       .orderBy(desc(chargebacks.createdAt))
       .all(),
     ledgerQuery.all(),
+    db
+      .select({
+        id: paymentEvents.id,
+        provider: paymentEvents.provider,
+        eventType: paymentEvents.eventType,
+        providerPaymentId: paymentEvents.providerPaymentId,
+        statusCode: paymentEvents.statusCode,
+        processingStatus: paymentEvents.processingStatus,
+        receivedAt: paymentEvents.receivedAt,
+        processedAt: paymentEvents.processedAt,
+      })
+      .from(paymentEvents)
+      .where(eq(paymentEvents.paymentId, paymentId))
+      .orderBy(desc(paymentEvents.receivedAt))
+      .all(),
   ]);
 
   return {
@@ -372,6 +411,7 @@ export async function getPaymentDetailBundle(db: any, paymentId: string): Promis
     refunds: refundRows ?? [],
     chargebacks: cbRows ?? [],
     ledger: ledgerRows ?? [],
+    events: eventRows ?? [],
   };
 }
 

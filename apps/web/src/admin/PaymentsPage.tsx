@@ -10,7 +10,14 @@ import {
 } from './useAdminPaymentSearch';
 import { useAdminPaymentOptions, type PaymentOptions } from './useAdminPaymentOptions';
 
-const ALL_STATUSES: PaymentStatus[] = ['pending', 'confirmed', 'failed', 'refunded'];
+const ALL_STATUSES: PaymentStatus[] = [
+  'pending',
+  'confirmed',
+  'failed',
+  'cancelled',
+  'chargeback',
+  'refunded',
+];
 
 function fmtCents(c: number, currency: string) {
   return `${(c / 100).toFixed(2)} ${currency}`;
@@ -19,9 +26,9 @@ function fmtCents(c: number, currency: string) {
 function statusBadge(status: PaymentRow['status']) {
   const cls = status === 'confirmed'
     ? 'bg-mint/15 text-mint border-mint/25'
-    : status === 'failed'
+    : status === 'failed' || status === 'cancelled'
       ? 'bg-rose/15 text-rose border-rose/30'
-      : status === 'refunded'
+      : status === 'refunded' || status === 'chargeback'
         ? 'bg-amber/15 text-amber border-amber/25'
         : 'bg-mist text-ink-3 border-line';
   return `inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-bold uppercase border ${cls}`;
@@ -42,6 +49,8 @@ export function PaymentsPage() {
     const status = params.get('status'); if (status) f.status = status.split(',') as PaymentStatus[];
     const method = params.get('method') as PaymentMethod | null;
     if (method) f.method = method;
+    const provider = params.get('provider') as 'payhere' | 'mock' | null;
+    if (provider === 'payhere' || provider === 'mock') f.provider = provider;
     const businessId = params.get('businessId'); if (businessId) f.businessId = businessId;
     const supplierId = params.get('supplierId'); if (supplierId) f.supplierId = supplierId;
     const minCents = params.get('minCents'); if (minCents) f.minCents = Number(minCents);
@@ -99,6 +108,18 @@ export function PaymentsPage() {
               <option value="cash">Cash</option>
               <option value="bank_transfer">Bank transfer</option>
               <option value="online">Online</option>
+            </select>
+          </label>
+          <label className="flex flex-col text-xs">
+            <span className="text-ink-500">Provider</span>
+            <select
+              value={params.get('provider') ?? ''}
+              onChange={(e) => updateParam('provider', e.currentTarget.value || null)}
+              className="border border-ink/20 rounded px-2 py-1 text-sm bg-paper"
+            >
+              <option value="">Any</option>
+              <option value="payhere">PayHere</option>
+              <option value="mock">Mock</option>
             </select>
           </label>
           <label className="flex flex-col text-xs">

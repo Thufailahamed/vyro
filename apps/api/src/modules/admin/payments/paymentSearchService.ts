@@ -11,8 +11,16 @@ import {
 
 export type { PaymentRow, PaymentSearchFilters, DetailBundle } from './paymentSearchRepository';
 
-const ALL_STATUSES = ['pending', 'confirmed', 'failed', 'refunded'] as const;
+const ALL_STATUSES = [
+  'pending',
+  'confirmed',
+  'failed',
+  'cancelled',
+  'chargeback',
+  'refunded',
+] as const;
 const ALL_METHODS = ['cash', 'bank_transfer', 'online'] as const;
+const ALL_PROVIDERS = ['payhere', 'mock'] as const;
 
 function parseCsv<T extends string>(raw: unknown, allowed: readonly T[]): T[] | undefined {
   if (typeof raw !== 'string' || !raw.length) return undefined;
@@ -47,6 +55,7 @@ export type ListInput = {
   q?: unknown;
   status?: unknown;
   method?: unknown;
+  provider?: unknown;
   businessId?: unknown;
   supplierId?: unknown;
   minCents?: unknown;
@@ -86,6 +95,9 @@ export async function listPayments(
     ...(typeof raw.method === 'string' && (ALL_METHODS as readonly string[]).includes(raw.method)
       ? { method: raw.method as PaymentMethod }
       : {}),
+    ...(typeof raw.provider === 'string' && (ALL_PROVIDERS as readonly string[]).includes(raw.provider)
+      ? { provider: raw.provider as PaymentSearchFilters['provider'] }
+      : {}),
   } as PaymentSearchFilters;
 
   return repoSearch(getDb(d1), filters);
@@ -93,6 +105,39 @@ export async function listPayments(
 
 export async function getPaymentDetail(d1: D1Database, id: string): Promise<DetailBundle | null> {
   return repoDetail(getDb(d1), id);
+}
+
+export async function getReconciliation(d1: D1Database): Promise<{
+  confirmedOnline: number;
+  pendingOnline: number;
+  failed: number;
+  cancelled: number;
+  chargebacks: number;
+  paymentsWithMultipleEvents: number;
+}> {
+  const db = getDb(d1) as any;
+  const { sql } = await import('drizzle-orm');
+  const count = async (where: string): Promise<number> => {
+    const row = (await db
+      .select({ n: sql`COUNT(*)` })
+      .from(sql`payments`)
+      .where(sql.raw(where))
+      .get()) as any;
+    return Number(row?.n ?? 0);
+  };
+  const multi = (await db
+    .select({ n: sql`COUNT(*)` })
+    .from(sql`(SELECT payment_id FROM payment_events GROUP BY payment_id HAVING COUNT(*) > 1)`)
+    .get()) as any;
+  const cb = (await db.select({ n: sql`COUNT(*)` }).from(sql`chargebacks`).get()) as any;
+  return {
+    confirmedOnline: await count(`status='confirmed' AND method='online'`),
+    pendingOnline: await count(`status='pending' AND method='online'`),
+    failed: await count(`status='failed'`),
+    cancelled: await count(`status='cancelled'`),
+    chargebacks: Number(cb?.n ?? 0),
+    paymentsWithMultipleEvents: Number(multi?.n ?? 0),
+  };
 }
 
 export async function getPaymentOptions(d1: D1Database) {

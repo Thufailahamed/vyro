@@ -54,6 +54,16 @@ export type DetailBundle = {
     description: string;
     createdAt: number;
   }>;
+  events: Array<{
+    id: string;
+    provider: string;
+    eventType: string;
+    providerPaymentId: string | null;
+    statusCode: number | null;
+    processingStatus: string;
+    receivedAt: number;
+    processedAt: number | null;
+  }>;
 };
 
 export function useAdminPaymentDetail(id: string): UseQueryResult<DetailBundle> {

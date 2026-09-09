@@ -8,6 +8,7 @@ import {
   listPayments,
   getPaymentDetail,
   getPaymentOptions,
+  getReconciliation,
 } from './paymentSearchService';
 
 const router = new Hono<{ Bindings: Env }>();
@@ -23,6 +24,11 @@ router.get('/', requirePermission('payment:read'), async (c) => {
 
 router.get('/options', requirePermission('payment:read'), async (c) => {
   const out = await getPaymentOptions(c.env.DB);
+  return c.json(out);
+});
+
+router.get('/reconcile', requirePermission('payment:read'), async (c) => {
+  const out = await getReconciliation(c.env.DB);
   return c.json(out);
 });
 
