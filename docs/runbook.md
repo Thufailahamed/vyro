@@ -148,6 +148,18 @@ npx wrangler secret put CF_ACCOUNT_ID --config apps/api/wrangler.toml
 npx wrangler secret put CF_API_TOKEN --config apps/api/wrangler.toml
 ```
 
+## Admin payment search + detail
+
+Admin can search every payment across the platform from
+`/admin/payments`. Filters compose: free-text (id / transaction ref /
+gateway ref), method, business, supplier, amount range, status chips,
+sort, cursor pagination. Detail at `/admin/payments/:id` shows the
+payment row, linked PO, parties (business/supplier with email), all
+refunds, all chargebacks, and every ledger entry linked by
+`refType='payment'`. Every detail load emits an audit log entry
+(`action=payment.view`, `target.type=payment`). Permission:
+`payment:read`. No new secrets required.
+
 The token needs `Account > Analytics Engine > Read` permission. Local
 dev: set the same keys in `.dev.vars` (gitignored). Retention of
 `queue_events` rows defaults to 7 days; override with
