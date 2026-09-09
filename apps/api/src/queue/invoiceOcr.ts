@@ -4,6 +4,7 @@ import { invoiceUploads, suppliers } from '@vyro/db/schema';
 import { eq } from 'drizzle-orm';
 import { runOcr } from '../modules/documents/ocrWorker';
 import type { Env } from '../env';
+import { recordQueueMetric, recordQueueEvent } from '../lib/queueInstrument';
 
 /**
  * INVOICES_QUEUE consumer. Marks row 'processing', reads from R2, calls the
@@ -16,15 +17,22 @@ export async function handleInvoicesBatch(
   env: Env,
 ): Promise<void> {
   for (const msg of batch.messages) {
+    const t0 = Date.now();
+    recordQueueMetric(env, 'queue.consume.start', 'invoices', 0);
     const body = msg.body as { uploadId?: string } | null;
     if (!body?.uploadId) {
+      recordQueueMetric(env, 'queue.ack', 'invoices', Date.now() - t0);
       msg.ack();
       continue;
     }
     try {
       await processUpload(env, body.uploadId);
+      recordQueueMetric(env, 'queue.ack', 'invoices', Date.now() - t0);
     } catch (err) {
-      await markFailed(env, body.uploadId, err instanceof Error ? err.message : 'ocr failed');
+      const message = err instanceof Error ? err.message : 'ocr failed';
+      await recordQueueEvent(env, 'invoices', 'retry', msg.id, body, message);
+      recordQueueMetric(env, 'queue.retry', 'invoices', Date.now() - t0);
+      await markFailed(env, body.uploadId, message);
     }
     msg.ack();
   }

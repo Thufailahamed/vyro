@@ -2,6 +2,7 @@ import type { MessageBatch } from '@cloudflare/workers-types';
 import { getDb } from '@vyro/db';
 import { auditLogs } from '@vyro/db/schema';
 import type { Env } from '../env';
+import { recordQueueMetric, recordQueueEvent } from '../lib/queueInstrument';
 
 /**
  * AUDIT_QUEUE consumer.
@@ -17,6 +18,8 @@ export async function handleAuditBatch(
 ): Promise<void> {
   const db = getDb(env.DB);
   for (const msg of batch.messages) {
+    const t0 = Date.now();
+    recordQueueMetric(env, 'queue.consume.start', 'audit', 0);
     const body = msg.body as Partial<{
       id: string;
       action: string;
@@ -56,9 +59,12 @@ export async function handleAuditBatch(
           createdAt: body.createdAt ?? Date.now(),
         })
         .onConflictDoNothing({ target: auditLogs.id });
+      recordQueueMetric(env, 'queue.ack', 'audit', Date.now() - t0);
       msg.ack();
     } catch (err) {
       // Retry by leaving un-acked; Cloudflare will re-deliver.
+      await recordQueueEvent(env, 'audit', 'retry', msg.id, body, err instanceof Error ? err.message : String(err));
+      recordQueueMetric(env, 'queue.retry', 'audit', Date.now() - t0);
       msg.retry({ delaySeconds: 30 });
       // eslint-disable-next-line no-console
       console.error('[queue:audit] persist failed', { id, err });

@@ -4,6 +4,7 @@ import { notifications, users } from '@vyro/db/schema';
 import { eq } from 'drizzle-orm';
 import type { Env } from '../env';
 import { renderSupplierVerification, sendEmail } from '../lib/email';
+import { recordQueueMetric, recordQueueEvent } from '../lib/queueInstrument';
 
 /**
  * NOTIFICATIONS_QUEUE consumer.
@@ -24,6 +25,8 @@ export async function handleNotificationsBatch(
 ): Promise<void> {
   const db = getDb(env.DB);
   for (const msg of batch.messages) {
+    const t0 = Date.now();
+    recordQueueMetric(env, 'queue.consume.start', 'notifications', 0);
     const body = msg.body as Partial<{
       notificationId: string;
       userId: string;
@@ -64,7 +67,10 @@ export async function handleNotificationsBatch(
         }
       }
       msg.ack();
+      recordQueueMetric(env, 'queue.ack', 'notifications', Date.now() - t0);
     } catch (err) {
+      await recordQueueEvent(env, 'notifications', 'retry', msg.id, body, err instanceof Error ? err.message : String(err));
+      recordQueueMetric(env, 'queue.retry', 'notifications', Date.now() - t0);
       msg.retry({ delaySeconds: 30 });
       // eslint-disable-next-line no-console
       console.error('[queue:notifications] handle failed', {
