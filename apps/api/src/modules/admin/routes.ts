@@ -20,6 +20,7 @@ import { queuesRoutes } from './queues/queuesRoutes';
 import paymentSearchRoutes from './payments/paymentSearchRoutes';
 import adminNotificationsRoutes from './notifications/routes';
 import adminBulkRoutes from './bulk/routes';
+import commandCenterRoutes from './commandCenter';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -54,6 +55,7 @@ router.route('/queues', queuesRoutes);
 router.route('/payments', paymentSearchRoutes);
 router.route('/notifications', adminNotificationsRoutes);
 router.route('/bulk', adminBulkRoutes);
+router.route('/command-center', commandCenterRoutes);
 
 router.get('/suppliers', async (c) => {
   const parsed = listQuery.safeParse(c.req.query());
