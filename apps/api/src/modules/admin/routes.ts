@@ -17,6 +17,7 @@ import { notifySupplierOrg } from '../notifications/dispatcher';
 import { auditAdmin } from './lib/audit';
 import { dispatch as dispatchWebhook } from '../../lib/webhooks';
 import { queuesRoutes } from './queues/queuesRoutes';
+import paymentSearchRoutes from './payments/paymentSearchRoutes';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -48,6 +49,7 @@ const DEFAULT_LIMIT = 50;
 router.use('*', session(), requireRole({ admin: true }));
 
 router.route('/queues', queuesRoutes);
+router.route('/payments', paymentSearchRoutes);
 
 router.get('/suppliers', async (c) => {
   const parsed = listQuery.safeParse(c.req.query());
