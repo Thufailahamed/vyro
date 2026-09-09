@@ -47,6 +47,7 @@ const UsersPage = lazy(() => import('./admin/UsersPage').then((m) => ({ default:
 const DisputedPage = lazy(() => import('./admin/DisputedAndAudit').then((m) => ({ default: m.DisputedPage })));
 const AdminOrdersPage = lazy(() => import('./admin/OrdersPage').then((m) => ({ default: m.OrdersPage })));
 const AdminOrderDetailPage = lazy(() => import('./admin/OrderDetailPage').then((m) => ({ default: m.OrderDetailPage })));
+const AdminDeliveriesPage = lazy(() => import('./admin/DeliveriesPage').then((m) => ({ default: m.DeliveriesPage })));
 const RolesPage = lazy(() => import('./admin/RolesPage').then((m) => ({ default: m.RolesPage })));
 const AdminActivityPage = lazy(() => import('./admin/AdminActivityPage').then((m) => ({ default: m.AdminActivityPage })));
 const InviteAcceptPage = lazy(() => import('./admin/InviteAcceptPage').then((m) => ({ default: m.InviteAcceptPage })));
@@ -148,6 +149,7 @@ export default function App() {
           <Route path="disputed" element={<RequireAdmin><DisputedPage /></RequireAdmin>} />
           <Route path="orders" element={<RequireAdmin><AdminOrdersPage /></RequireAdmin>} />
           <Route path="orders/:id" element={<RequireAdmin><AdminOrderDetailPage /></RequireAdmin>} />
+          <Route path="deliveries" element={<RequireAdmin><AdminDeliveriesPage /></RequireAdmin>} />
           <Route path="audit" element={<Navigate to="/admin/activity" replace />} />
           <Route path="users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
           <Route path="activity" element={<RequireAdmin><AdminActivityPage /></RequireAdmin>} />
