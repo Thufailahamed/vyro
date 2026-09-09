@@ -1,21 +1,22 @@
 import type { MessageBatch } from '@cloudflare/workers-types';
 import { getDb } from '@vyro/db';
-import { notifications, users } from '@vyro/db/schema';
+import { notifications, users, userSettings } from '@vyro/db/schema';
 import { eq } from 'drizzle-orm';
 import type { Env } from '../env';
-import { renderSupplierVerification, sendEmail } from '../lib/email';
+import { renderSupplierVerification, sendEmail, sendEmailOrThrow } from '../lib/email';
+import { renderAdminAlertEmail } from '../lib/emailTemplates/adminAlert';
 import { recordQueueMetric, recordQueueEvent } from '../lib/queueInstrument';
 
 /**
  * NOTIFICATIONS_QUEUE consumer.
  *
- * Producers (see apps/api/src/modules/notifications/routes.ts) send
- * `{ notificationId, userId, type }`. This is the fan-out hub where future
- * channels (email, push, SMS) hook in. For now we:
- *   1. Verify the referenced notification row exists.
- *   2. Email the recipient when the notification type warrants it
- *      (e.g. supplier verification decisions, invites).
- *   3. Increment the analytics engine metric.
+ * Two message shapes:
+ *   A. `{ notificationId, userId, type, title, body, link }` — normal
+ *      buyer/supplier notifications. Email is sent when the type maps to a
+ *      transactional event (e.g. supplier verification decisions).
+ *   B. `{ kind: 'admin_alert_email', recipientUserId, recipientEmail, title,
+ *      body, link, severity }` — fan-out from notifyAdmins for critical
+ *      admin alerts. Honors userSettings.notifyAdminAlerts opt-out.
  *
  * Idempotent on `notificationId`.
  */
@@ -23,44 +24,52 @@ export async function handleNotificationsBatch(
   batch: MessageBatch<unknown>,
   env: Env,
 ): Promise<void> {
-  const db = getDb(env.DB);
   for (const msg of batch.messages) {
     const t0 = Date.now();
     recordQueueMetric(env, 'queue.consume.start', 'notifications', 0);
-    const body = msg.body as Partial<{
-      notificationId: string;
-      userId: string;
-      type: string;
-      title?: string;
-      body?: string | null;
-      link?: string | null;
-    }> | null;
-    if (
-      !body ||
-      typeof body.notificationId !== 'string' ||
-      typeof body.userId !== 'string'
-    ) {
+    const body = msg.body as Record<string, unknown> | null;
+    if (!body || typeof body !== 'object') {
       msg.ack();
       continue;
     }
     try {
-      const row = await db
-        .select({ id: notifications.id })
-        .from(notifications)
-        .where(eq(notifications.id, body.notificationId))
-        .get();
-      if (!row) {
-        // Notification deleted between send and drain — drop the message.
+      if (body.kind === 'admin_alert_email') {
+        await handleAdminAlertEmail(env, body);
+        msg.ack();
+        recordQueueMetric(env, 'queue.ack', 'notifications', Date.now() - t0);
+        continue;
+      }
+      // Shape A: buyer/supplier notification
+      const notificationId = body.notificationId;
+      const userId = body.userId;
+      if (typeof notificationId !== 'string' || typeof userId !== 'string') {
         msg.ack();
         continue;
       }
-      await maybeEmailNotification(env, body.type ?? '', body.userId, body.title, body.body, body.link);
+      const db = getDb(env.DB);
+      const row = await db
+        .select({ id: notifications.id })
+        .from(notifications)
+        .where(eq(notifications.id, notificationId))
+        .get();
+      if (!row) {
+        msg.ack();
+        continue;
+      }
+      await maybeEmailNotification(
+        env,
+        typeof body.type === 'string' ? body.type : '',
+        userId,
+        typeof body.title === 'string' ? body.title : undefined,
+        typeof body.body === 'string' ? body.body : null,
+        typeof body.link === 'string' ? body.link : null,
+      );
       if (env.METRICS) {
         try {
           env.METRICS.writeDataPoint({
-            blobs: ['notification', body.type ?? 'unknown'],
+            blobs: ['notification', typeof body.type === 'string' ? body.type : 'unknown'],
             doubles: [1],
-            indexes: [body.userId ?? 'unknown'],
+            indexes: [userId],
           });
         } catch {
           // metrics is best-effort
@@ -73,12 +82,47 @@ export async function handleNotificationsBatch(
       recordQueueMetric(env, 'queue.retry', 'notifications', Date.now() - t0);
       msg.retry({ delaySeconds: 30 });
       // eslint-disable-next-line no-console
-      console.error('[queue:notifications] handle failed', {
-        id: body.notificationId,
-        err,
-      });
+      console.error('[queue:notifications] handle failed', { body, err });
     }
   }
+}
+
+/**
+ * Send an admin-targeted alert email to a single admin recipient.
+ * Honors userSettings.notifyAdminAlerts (default on).
+ */
+async function handleAdminAlertEmail(env: Env, body: Record<string, unknown>): Promise<void> {
+  const recipientUserId = body.recipientUserId;
+  const recipientEmail = body.recipientEmail;
+  const title = body.title;
+  const text = body.body;
+  const link = body.link;
+  const severity = body.severity;
+  if (
+    typeof recipientUserId !== 'string' ||
+    typeof recipientEmail !== 'string' ||
+    typeof title !== 'string' ||
+    typeof text !== 'string'
+  ) {
+    return;
+  }
+  const sev = severity === 'critical' || severity === 'warning' ? severity : 'info';
+
+  const db = getDb(env.DB);
+  const settings = await db
+    .select({ notifyAdminAlerts: userSettings.notifyAdminAlerts })
+    .from(userSettings)
+    .where(eq(userSettings.userId, recipientUserId))
+    .get();
+  if (settings && settings.notifyAdminAlerts === 0) return;
+
+  const { subject, html } = renderAdminAlertEmail({
+    title,
+    body: text,
+    link: typeof link === 'string' ? link : null,
+    severity: sev,
+  });
+  await sendEmailOrThrow(env, { to: recipientEmail, subject, html });
 }
 
 /**
