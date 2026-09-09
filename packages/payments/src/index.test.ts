@@ -52,7 +52,7 @@ describe('MockGateway.verifySignature', () => {
     const g = new MockGateway({ secret });
     const body =
       'merchant_id=1&order_id=PO-1&payhere_amount=100.00&payhere_currency=LKR&type=payment.success';
-    const sig = md5(`1PO-1100.00LKRpayment.success${secret.toUpperCase()}`);
+    const sig = md5(`1PO-1100.00LKRpayment.success${md5(secret).toUpperCase()}`);
     expect(g.verifySignature(body, sig)).toBe(true);
     expect(g.verifySignature(body, 'WRONG')).toBe(false);
     expect(g.verifySignature(body, null)).toBe(false);

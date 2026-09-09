@@ -3,7 +3,7 @@ import { MockGateway, type MockConfig } from './mock';
 import type { GatewayAdapter, GatewayProvider } from './types';
 
 export * from './types';
-export { PayHereGateway, type PayHereConfig } from './payhere';
+export { PayHereGateway, type PayHereConfig, formatPayHereAmount, hashCheckoutRequest, verifyPayHereMd5sig, type PayHereNotifyParams } from './payhere';
 export { MockGateway, type MockConfig } from './mock';
 export { md5, hmacSha256Hex } from './hash';
 

@@ -43,7 +43,7 @@ export class MockGateway implements GatewayAdapter {
       const currency = raw.payhere_currency ?? '';
       const status = raw.type ?? 'payment.success';
       const expected = md5(
-        `${merchantId}${orderId}${amount}${currency}${status}${(this.cfg.secret ?? '').toUpperCase()}`,
+        `${merchantId}${orderId}${amount}${currency}${status}${md5(this.cfg.secret ?? '').toUpperCase()}`,
       );
       if (signature.toUpperCase() !== expected.toUpperCase()) {
         throw new Error('mock webhook signature mismatch');
@@ -96,7 +96,7 @@ export class MockGateway implements GatewayAdapter {
     const currency = params.get('payhere_currency') ?? '';
     const status = params.get('type') ?? 'payment.success';
     const expected = md5(
-      `${merchantId}${orderId}${amount}${currency}${status}${this.cfg.secret.toUpperCase()}`,
+      `${merchantId}${orderId}${amount}${currency}${status}${md5(this.cfg.secret).toUpperCase()}`,
     );
     return signature.toUpperCase() === expected.toUpperCase();
   }

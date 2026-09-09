@@ -25,6 +25,39 @@ function checkoutUrl(sandbox: boolean): string {
   return `${baseUrl(sandbox)}/pay/checkout`;
 }
 
+export function formatPayHereAmount(amountCents: number): string {
+  if (!Number.isInteger(amountCents) || amountCents <= 0) throw new Error('invalid amountCents');
+  return (amountCents / 100).toFixed(2);
+}
+
+export function hashCheckoutRequest(
+  merchantId: string,
+  orderId: string,
+  amount: string,
+  currency: string,
+  merchantSecret: string,
+): string {
+  const hashedSecret = md5(merchantSecret).toUpperCase();
+  return md5(`${merchantId}${orderId}${amount}${currency}${hashedSecret}`).toUpperCase();
+}
+
+export interface PayHereNotifyParams {
+  merchant_id: string;
+  order_id: string;
+  payhere_amount: string;
+  payhere_currency: string;
+  status_code: string;
+  md5sig: string;
+}
+
+export function verifyPayHereMd5sig(p: PayHereNotifyParams, secret: string): boolean {
+  const hashedSecret = md5(secret).toUpperCase();
+  const expected = md5(
+    `${p.merchant_id}${p.order_id}${p.payhere_amount}${p.payhere_currency}${p.status_code}${hashedSecret}`,
+  ).toUpperCase();
+  return p.md5sig.toUpperCase() === expected;
+}
+
 function statusCodeToEventType(code: string | undefined): WebhookEventType {
   switch (code) {
     case '2':
@@ -47,10 +80,13 @@ export class PayHereGateway implements GatewayAdapter {
   constructor(private readonly cfg: PayHereConfig) {}
 
   async startCheckout(input: StartCheckoutInput): Promise<StartCheckoutResult> {
-    const amountStr = (input.amountCents / 100).toFixed(2);
-    const secret = this.cfg.merchantSecret.toUpperCase();
-    const hash = md5(
-      `${this.cfg.merchantId}${input.purchaseOrderId}${amountStr}${input.currency}${secret}`,
+    const amountStr = formatPayHereAmount(input.amountCents);
+    const hash = hashCheckoutRequest(
+      this.cfg.merchantId,
+      input.purchaseOrderId,
+      amountStr,
+      input.currency,
+      this.cfg.merchantSecret,
     );
 
     const params = new URLSearchParams({
@@ -90,11 +126,19 @@ export class PayHereGateway implements GatewayAdapter {
     const statusCode = raw.status_code ?? '';
     const md5sig = raw.md5sig ?? '';
 
-    const expected = md5(
-      `${merchantId}${orderId}${payhereAmount}${payhereCurrency}${statusCode}${this.cfg.merchantSecret.toUpperCase()}`,
+    const ok = verifyPayHereMd5sig(
+      {
+        merchant_id: merchantId,
+        order_id: orderId,
+        payhere_amount: payhereAmount,
+        payhere_currency: payhereCurrency,
+        status_code: statusCode,
+        md5sig,
+      },
+      this.cfg.merchantSecret,
     );
 
-    if (md5sig.toUpperCase() !== expected.toUpperCase()) {
+    if (!ok) {
       throw new Error('PayHere webhook signature mismatch');
     }
 
@@ -136,10 +180,17 @@ export class PayHereGateway implements GatewayAdapter {
       const currency = params.get('payhere_currency') ?? '';
       const status = params.get('status_code') ?? '';
       const md5sig = params.get('md5sig') ?? '';
-      const expected = md5(
-        `${merchantId}${orderId}${amount}${currency}${status}${this.cfg.merchantSecret.toUpperCase()}`,
+      return verifyPayHereMd5sig(
+        {
+          merchant_id: merchantId,
+          order_id: orderId,
+          payhere_amount: amount,
+          payhere_currency: currency,
+          status_code: status,
+          md5sig,
+        },
+        this.cfg.merchantSecret,
       );
-      return md5sig.toUpperCase() === expected.toUpperCase();
     } catch {
       return false;
     }
