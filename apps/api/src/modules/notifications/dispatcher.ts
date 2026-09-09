@@ -8,12 +8,17 @@ import {
   supplierSettings,
   userSettings,
   aiInsightEvents,
+  users,
 } from '@vyro/db/schema';
 import { newId } from '@vyro/shared';
 import {
   NotificationCategory,
   categoryForNotificationType,
 } from '@vyro/shared';
+import type { AdminRole } from '@vyro/auth';
+import { queueSend } from '../../lib/queue';
+import { auditAdminFromDb } from '../admin/lib/audit';
+import type { Env } from '../../env';
 
 /**
  * Central in-app notification dispatcher.
@@ -403,5 +408,92 @@ export async function recordInsightEvent(
     });
   } catch {
     /* duplicate (unique index on businessId, kind, payloadHash) */
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Admin-targeted notifications                                                */
+/* -------------------------------------------------------------------------- */
+
+export type AdminAlertSeverity = 'info' | 'warning' | 'critical';
+
+export interface AdminAlertInput {
+  role: AdminRole;
+  severity: AdminAlertSeverity;
+  category: 'admin_alert';
+  title: string;
+  body: string;
+  link?: string | null;
+  sourceRef?: string | null;
+  actorUserId?: string | null;
+}
+
+/**
+ * Fan out an admin-targeted alert to every active admin user with the given
+ * role. Inserts one row per recipient into `notifications` (with that user's
+ * userId + the shared recipientRole for grouping). Severity=critical also
+ * enqueues one email job per recipient onto NOTIFICATIONS_QUEUE for the
+ * admin_alert_email consumer in queue/notifications.ts.
+ *
+ * Always emits an audit log entry (action=notification.broadcast). Best-effort:
+ * a failure inside this function never breaks the business transaction that
+ * triggered it — callers do not need try/catch around us.
+ */
+export async function notifyAdmins(
+  env: Env,
+  input: AdminAlertInput,
+): Promise<{ recipients: number }> {
+  try {
+    const db = getDb(env.DB as D1Database);
+    const recipients = await db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(and(eq(users.adminRole, input.role), eq(users.status, 'active')))
+      .all();
+
+    for (const r of recipients) {
+      await db
+        .insert(notifications)
+        .values({
+          id: newId(),
+          userId: r.id,
+          recipientRole: input.role,
+          type: input.category,
+          title: input.title,
+          body: input.body,
+          link: input.link ?? null,
+          readAt: null,
+          source: 'admin',
+          sourceRef: input.sourceRef ?? null,
+          severity: input.severity,
+          createdAt: Date.now(),
+        })
+        .run();
+
+      if (input.severity === 'critical') {
+        await queueSend(env, 'notifications', {
+          kind: 'admin_alert_email',
+          recipientUserId: r.id,
+          recipientEmail: r.email,
+          title: input.title,
+          body: input.body,
+          link: input.link ?? null,
+          severity: input.severity,
+        });
+      }
+    }
+
+    await auditAdminFromDb({
+      db,
+      actorUserId: input.actorUserId ?? null,
+      action: 'notification.broadcast',
+      target: { type: 'admin_notification', id: input.sourceRef ?? 'ad-hoc' },
+      metadata: { role: input.role, severity: input.severity, recipients: recipients.length },
+    });
+
+    return { recipients: recipients.length };
+  } catch (err) {
+    console.error('[notifyAdmins] failed', err);
+    return { recipients: 0 };
   }
 }

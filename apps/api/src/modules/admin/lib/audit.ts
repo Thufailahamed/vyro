@@ -40,3 +40,38 @@ export async function auditAdmin(opts: {
     console.error('[auditAdmin] failed', err);
   }
 }
+
+/**
+ * Context-free audit for triggers fired outside an HTTP request
+ * (cron jobs, queue DLQ hooks, dispatcher). Uses the same admin_audit_logs
+ * table — actorId is the admin who caused the trigger, or null for system.
+ */
+export async function auditAdminFromDb(opts: {
+  db: ReturnType<typeof getDb>;
+  actorUserId?: string | null;
+  action: string;
+  target: AuditTarget;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    await opts.db
+      .insert(adminAuditLogs)
+      .values({
+        id: randomUUID(),
+        actorId: opts.actorUserId ?? null,
+        action: opts.action,
+        targetType: opts.target.type,
+        targetId: opts.target.id,
+        before: null,
+        after: opts.metadata === undefined ? null : JSON.stringify(opts.metadata),
+        requestId: null,
+        ip: null,
+        userAgent: null,
+        createdAt: Date.now(),
+      })
+      .run();
+  } catch (err) {
+    console.error('[auditAdminFromDb] failed', err);
+  }
+}
+
