@@ -24,6 +24,9 @@ export function ObservabilityPage() {
         <TabBtn active={tab === 'health'} onClick={() => switchTab('health')}>Health</TabBtn>
         <TabBtn active={tab === 'cron'} onClick={() => switchTab('cron')}>Cron</TabBtn>
       </nav>
+      <div className="text-xs">
+        <a className="text-volt underline" href="/admin/observability/queues">Queues & Jobs →</a>
+      </div>
       {tab === 'health' ? <HealthTab /> : null}
       {tab === 'cron' ? <CronTab /> : null}
     </div>
