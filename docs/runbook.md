@@ -175,3 +175,70 @@ npx wrangler secret put CF_API_TOKEN --config apps/api/wrangler.toml --env produ
 ```
 
 Then visit `/admin/observability/queues` to confirm tiles render.
+
+## Admin Notifications
+
+In-app admin alerts live in the existing `notifications` table. Each row
+carries a `recipient_role` + `userId`, plus `severity` (`info`/`warning`/
+`critical`), `source_ref`, and `source='admin'`. Severity=critical fans out
+a `notifications` queue message (`kind: admin_alert_email`) that sends one
+email per recipient, honoring `user_settings.notify_admin_alerts` opt-out.
+
+### How to send
+
+From API code:
+
+```ts
+import { notifyAdmins } from './modules/notifications/dispatcher';
+await notifyAdmins(env, {
+  role: 'finance',           // super_admin | ops | finance | support
+  severity: 'critical',      // info | warning | critical
+  category: 'admin_alert',
+  title: 'Payout 123 failed',
+  body: 'Reason: insufficient funds',
+  link: '/admin/money',
+  sourceRef: 'payout:123',
+  actorUserId: ctx.userId,   // omit for system-triggered alerts
+});
+```
+
+The helper always emits `auditAdminFromDb(action: 'notification.broadcast')`,
+returns `{ recipients: number }`, and is best-effort — failures never bubble
+up.
+
+### Trigger sources
+
+| Trigger                      | Role    | Severity | Source              |
+|------------------------------|---------|----------|---------------------|
+| Payout marked failed         | finance | critical | payouts/admin.ts    |
+| KYC review created           | support | info     | kycService.create   |
+| Refund stuck >24h (hourly)   | finance | warning  | cron:handleRefundStuckChecker |
+| Queue DLQ events (hourly)    | ops     | warning  | cron:handleQueueDlqScan |
+
+### Where it shows up
+
+- `/admin/notifications` — full inbox with severity/category filters,
+  Mark-all-read, and Broadcast modal (requires `notification:write`).
+- Header bell — unread badge with 30s refetch + visibility refetch.
+  Hidden when the actor lacks `notification:read`.
+
+### RBAC matrix
+
+| Role        | notification:read | notification:dismiss | notification:write |
+|-------------|-------------------|----------------------|--------------------|
+| super_admin | yes               | yes                  | yes                |
+| ops         | yes               | yes                  | no                 |
+| finance     | yes               | yes                  | no                 |
+| support     | yes               | yes                  | no                 |
+
+### Deploying
+
+Run the migration first:
+
+```bash
+pnpm --filter @vyro/db migrate -- 0022_admin_notifications
+```
+
+No new secrets. After deploy, mark a payout failed from `/admin/money` and
+confirm a critical-severity row lands in `/admin/notifications` for an
+ops/finance admin.
