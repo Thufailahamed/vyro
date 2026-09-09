@@ -5,6 +5,8 @@ import {
   handleSessionCleanup,
   handleWebhookRetry,
   handleAuditExportRunner,
+  handleRefundStuckChecker,
+  handleQueueDlqScan,
 } from './cron/handlers';
 import { handleQueueEventsPrune } from './cron/queue-events-prune';
 import { handleAuditBatch } from './queue/audit';
@@ -35,6 +37,8 @@ export default {
         break;
       case '0 * * * *':
         ctx.waitUntil(handleSessionCleanup(env));
+        ctx.waitUntil(handleRefundStuckChecker(env));
+        ctx.waitUntil(handleQueueDlqScan(env));
         break;
       case '0 4 * * *':
         ctx.waitUntil(handleAuditExportRunner(env));

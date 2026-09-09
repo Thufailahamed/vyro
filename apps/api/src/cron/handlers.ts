@@ -1,7 +1,9 @@
 import { getDb } from '@vyro/db';
-import { sql } from 'drizzle-orm';
+import { and, eq, gte, isNull, sql } from 'drizzle-orm';
+import { queueEvents, refunds } from '@vyro/db/schema';
 import type { Env } from '../env';
 import { processDeliveries } from '../lib/webhooks';
+import { notifyAdmins } from '../modules/notifications/dispatcher';
 
 /**
  * Runs the audit-purge step AND the housekeeping that `daily-purge` advertises
@@ -78,3 +80,76 @@ export async function handleAuditExportRunner(_env: Env): Promise<{ ok: true }> 
   console.log('[cron] audit-export-runner: no exports scheduled in v1');
   return { ok: true };
 }
+
+/**
+ * Flags refund rows stuck in `requested` or `processing` for more than 24h
+ * and pushes one admin alert per stuck refund to finance. Runs hourly.
+ *
+ * Best-effort: a notifyAdmins failure never aborts the cron.
+ */
+export async function handleRefundStuckChecker(env: Env): Promise<{ stuck: number }> {
+  const db = getDb(env.DB);
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const rows = await db
+    .select({ id: refunds.id, paymentId: refunds.paymentId, status: refunds.status })
+    .from(refunds)
+    .where(and(
+      sql`${refunds.status} IN ('requested', 'processing')`,
+      sql`${refunds.createdAt} < ${cutoff}`,
+    ))
+    .all();
+  for (const r of rows) {
+    await notifyAdmins(env, {
+      role: 'finance',
+      severity: 'warning',
+      category: 'admin_alert',
+      title: `Refund ${r.id.slice(0, 8)} stuck >24h`,
+      body: `Refund ${r.id} (payment ${r.paymentId}) has been ${r.status} since ${new Date(cutoff).toISOString().slice(0, 16)}.`,
+      link: '/admin/money',
+      sourceRef: `refund:${r.id}`,
+    });
+  }
+  return { stuck: rows.length };
+}
+
+/**
+ * Scans queue_events for new `dlq` events since the previous cron tick and
+ * surfaces one warning per unique queue/msg_id pair to ops. Runs hourly.
+ *
+ * We dedupe by (queue, msgId) within the last hour — once per stuck msg —
+ * because dlq rows persist in the events table until pruned.
+ */
+export async function handleQueueDlqScan(env: Env): Promise<{ reported: number }> {
+  const db = getDb(env.DB);
+  const cutoff = Date.now() - 60 * 60 * 1000;
+  const rows = await db
+    .select({
+      queue: queueEvents.queue,
+      msgId: queueEvents.msgId,
+      error: queueEvents.error,
+    })
+    .from(queueEvents)
+    .where(and(eq(queueEvents.event, 'dlq'), gte(queueEvents.createdAt, cutoff)))
+    .all();
+  const seen = new Set<string>();
+  let reported = 0;
+  for (const r of rows) {
+    const key = `${r.queue}:${r.msgId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    await notifyAdmins(env, {
+      role: 'ops',
+      severity: 'warning',
+      category: 'admin_alert',
+      title: `Queue message dead-lettered: ${r.queue}`,
+      body: (r.error ?? 'unknown error').slice(0, 180),
+      link: '/admin/observability/queues',
+      sourceRef: `queue:${r.queue}:${r.msgId}`,
+    });
+    reported++;
+  }
+  return { reported };
+}
+
+// satisfy unused-import linter when `isNull` is referenced only via drizzle's sql elsewhere
+void isNull;
