@@ -5,6 +5,7 @@ import { usePermission } from './lib/permissions';
 import {
   useAdminProducts,
   useAdminCategories,
+  useAdminBusinessTypes,
   useUpdateProduct,
   useToggleFeatured,
   type ProductFilters,
@@ -27,6 +28,11 @@ type Tab = 'products' | 'categories' | 'types';
 export function CatalogPage() {
   const [params, setParams] = useSearchParams();
   const tab = (params.get('tab') as Tab | null) ?? 'products';
+
+  const categoriesQuery = useAdminCategories();
+  const businessTypesQuery = useAdminBusinessTypes();
+  const categoriesCount = categoriesQuery.data?.length;
+  const businessTypesCount = businessTypesQuery.data?.length;
 
   const switchTab = (next: Tab) => {
     const p = new URLSearchParams(params);
@@ -61,13 +67,13 @@ export function CatalogPage() {
             <span>Products</span>
           </span>
         </TabButton>
-        <TabButton active={tab === 'categories'} onClick={() => switchTab('categories')}>
+        <TabButton active={tab === 'categories'} onClick={() => switchTab('categories')} count={categoriesCount}>
           <span className="flex items-center gap-1.5">
             <StoreIcon size={14} />
             <span>Categories</span>
           </span>
         </TabButton>
-        <TabButton active={tab === 'types'} onClick={() => switchTab('types')}>
+        <TabButton active={tab === 'types'} onClick={() => switchTab('types')} count={businessTypesCount}>
           <span className="flex items-center gap-1.5">
             <SparklesIcon size={14} />
             <span>Business types</span>
@@ -86,23 +92,34 @@ export function CatalogPage() {
 function TabButton({
   active,
   onClick,
+  count,
   children,
 }: {
   active: boolean;
   onClick: () => void;
+  count?: number | undefined;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`px-4 py-2 text-xs font-mono font-semibold transition border-b-2 -mb-px ${
+      className={`px-4 py-2.5 text-xs font-mono font-semibold transition-all border-b-2 -mb-px flex items-center gap-2 ${
         active
-          ? 'border-ink text-ink bg-sand/30'
+          ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50'
           : 'border-transparent text-ink-4 hover:text-ink hover:border-ink/20'
       }`}
     >
       {children}
+      {count !== undefined && (
+        <span
+          className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono leading-none ${
+            active ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-ink-4'
+          }`}
+        >
+          {count}
+        </span>
+      )}
     </button>
   );
 }

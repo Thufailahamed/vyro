@@ -96,7 +96,12 @@ router.get('/:id', async (c) => {
   });
 });
 
-router.post('/', session(), requireRole({ admin: true }), async (c) => {
+router.post('/', session(), async (c) => {
+  const ctx = (c.get('ctx') || c.get('session' as any)) as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const isAuthorized = ctx.isAdmin || (ctx.supplierMemberships && ctx.supplierMemberships.length > 0);
+  if (!isAuthorized) throw httpError(403, 'FORBIDDEN', 'Supplier or Admin role required');
+
   const parsed = createProductSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
   const cat = await findCategoryById(c.env.DB, parsed.data.categoryId);
@@ -105,7 +110,11 @@ router.post('/', session(), requireRole({ admin: true }), async (c) => {
   return c.json({ id }, 201);
 });
 
-router.patch('/:id', session(), requireRole({ admin: true }), async (c) => {
+router.patch('/:id', session(), async (c) => {
+  const ctx = (c.get('ctx') || c.get('session' as any)) as Ctx | undefined;
+  if (!ctx || (!ctx.isAdmin && (!ctx.supplierMemberships || ctx.supplierMemberships.length === 0))) {
+    throw httpError(403, 'Supplier or Admin role required');
+  }
   const parsed = updateProductSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
   if (parsed.data.categoryId) {
@@ -126,7 +135,12 @@ router.delete('/:id', session(), requireRole({ admin: true }), async (c) => {
 });
 
 // Image upload to R2: receive JSON {filename,contentType,base64}, store under products/{productId}/{uuid}-{filename}.
-router.post('/:id/images', session(), requireRole({ admin: true }), async (c) => {
+router.post('/:id/images', session(), async (c) => {
+  const ctx = (c.get('ctx') || c.get('session' as any)) as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const isAuthorized = ctx.isAdmin || (ctx.supplierMemberships && ctx.supplierMemberships.length > 0);
+  if (!isAuthorized) throw httpError(403, 'FORBIDDEN', 'Supplier or Admin role required');
+
   const parsed = addImageSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
 
@@ -144,10 +158,10 @@ router.post('/:id/images', session(), requireRole({ admin: true }), async (c) =>
 
   const imageId = await addProductImage(c.env.DB, product.id, {
     r2Key,
-    sortOrder: parsed.data.sortOrder,
+    sortOrder: parsed.data.sortOrder ?? 0,
     altText: parsed.data.altText,
   });
-  return c.json({ id: imageId, r2Key }, 201);
+  return c.json({ id: imageId, r2Key, url: resolveImageUrl(r2Key) }, 201);
 });
 
 router.get('/:id/images', async (c) => {

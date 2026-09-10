@@ -1,12 +1,16 @@
 -- Categories
 INSERT OR IGNORE INTO categories (id, slug, name, parent_id, sort_order, active) VALUES
   ('cat-staples',   'staples',   'Staples & Grains',   NULL, 1, 1),
+  ('cat-food',      'food',      'Food, Groceries & Provisions', NULL, 1, 1),
   ('cat-beverages', 'beverages', 'Tea & Beverages',   NULL, 2, 1),
   ('cat-dairy',     'dairy',     'Dairy Products',     NULL, 3, 1),
   ('cat-commodities','commodities','Sugar & Commodities', NULL, 4, 1),
-  ('cat-building',  'building',  'Cement & Building',  NULL, 5, 1),
-  ('cat-packaging', 'packaging', 'Packaging Materials',NULL, 6, 1),
-  ('cat-spices',    'spices',    'Spices & Agri',      NULL, 7, 1);
+  ('cat-furniture', 'furniture', 'Commercial Furniture & Fitouts', NULL, 5, 1),
+  ('cat-building',  'building',  'Cement & Building',  NULL, 6, 1),
+  ('cat-packaging', 'packaging', 'Packaging Materials',NULL, 7, 1),
+  ('cat-equipment', 'equipment', 'Kitchen Equipment & Appliances', NULL, 8, 1),
+  ('cat-hardware',  'hardware',  'Hardware, Tools & Industrial', NULL, 9, 1),
+  ('cat-spices',    'spices',    'Spices & Agri',      NULL, 10, 1);
 
 -- Products
 INSERT OR REPLACE INTO products (id, name, description, category_id, brand, unit, pack_size, active, created_at, updated_at) VALUES
@@ -68,10 +72,35 @@ INSERT OR REPLACE INTO products (id, name, description, category_id, brand, unit
   ('p-oil-coconut-1l',
    'Pure White Coconut Oil 1L',
    'Expeller cold-pressed white coconut oil, unrefined and certified for commercial kitchens.',
-   'cat-staples', 'Marina', 'bottle', '1L', 1, 1725450000000, 1725450000000);
+   'cat-staples', 'Marina', 'bottle', '1L', 1, 1725450000000, 1725450000000),
+
+  ('p-furn-steel-table',
+   'Stainless Steel Commercial Prep Table',
+   'Commercial grade 304 stainless steel kitchen preparation table with undershelf (150x60x85cm).',
+   'cat-furniture', 'MasterSteel', 'unit', '1 unit', 1, 1725450000000, 1725450000000),
+
+  ('p-furn-banquet-chair',
+   'Stackable Banquet Dining Chairs (Set of 10)',
+   'Heavy-duty commercial steel frame banquet chairs with high-density foam upholstery for hotels and event venues.',
+   'cat-furniture', 'RegalFit', 'set', '10 chairs', 1, 1725450000000, 1725450000000),
+
+  ('p-furn-warehouse-rack',
+   'Heavy-Duty Industrial Storage Shelving Rack',
+   'Modular boltless powder-coated steel warehouse racking unit (4-tier, 500kg per shelf capacity).',
+   'cat-furniture', 'RaxStore', 'unit', '1 unit', 1, 1725450000000, 1725450000000),
+
+  ('p-food-dhal-25kg',
+   'Mysore Red Dhal 25kg',
+   'Top grade unpolished red split lentils, cleaned and sorted for wholesale hotel and institutional catering.',
+   'cat-food', 'Araliya', 'bag', '25kg', 1, 1725450000000, 1725450000000);
 
 -- Product Images
 INSERT OR REPLACE INTO product_images (id, product_id, r2_key, sort_order, alt_text) VALUES
+  ('img-table-1', 'p-furn-steel-table', 'https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&w=800&q=80', 1, 'Commercial stainless steel prep table'),
+  ('img-chair-1', 'p-furn-banquet-chair', 'https://images.unsplash.com/photo-1580481077167-33a466471809?auto=format&fit=crop&w=800&q=80', 1, 'Commercial banquet dining chairs'),
+  ('img-rack-1', 'p-furn-warehouse-rack', 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80', 1, 'Industrial warehouse shelving rack'),
+  ('img-dhal-1', 'p-food-dhal-25kg', 'https://images.unsplash.com/photo-1585996746979-37f2fe9a3a91?auto=format&fit=crop&w=800&q=80', 1, 'Red split lentils wholesale bag'),
+
   ('img-rice-1', 'p-rice-5kg', 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80', 1, 'White rice grains in bowl'),
   ('img-rice-2', 'p-rice-5kg', 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?auto=format&fit=crop&w=800&q=80', 2, 'Burlap sack with raw rice'),
 

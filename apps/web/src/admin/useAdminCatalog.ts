@@ -108,7 +108,7 @@ export function useAdminCategories() {
 export function useCreateCategory() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { slug: string; name: string; parentId?: string | null }) =>
+    mutationFn: async (body: { slug: string; name: string; parentId?: string | null; sortOrder?: number }) =>
       api.post<CategoryRow>('/admin/categories', body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-categories'] }),
   });
