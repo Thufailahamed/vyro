@@ -17,6 +17,7 @@ import {
   findRfq, listRfqItems, listRfqInvites, listQuotesForRfq, listQuoteItems, listTiersForItems,
   findQuote, listRfqEvents, listRfqsForBusiness, listRfqsForSupplier, listCounters,
   listVersions, listMessages, messagesSince, listDocuments, listTemplates, listTemplateItems, insertRfqEvent,
+  pageFromQuery,
 } from './repository';
 
 const router = new Hono<{ Bindings: Env }>();
@@ -72,7 +73,8 @@ router.get('/', session(), async (c) => {
   const businessId = c.req.query('businessId');
   if (!businessId) throw httpError(400, 'VALIDATION_ERROR', 'businessId required');
   requireBusinessRole(ctx, businessId, B_ROLES);
-  return c.json({ rfqs: await listRfqsForBusiness(c.env.DB, businessId) });
+  const opts = pageFromQuery((n) => c.req.query(n));
+  return c.json({ rfqs: await listRfqsForBusiness(c.env.DB, businessId, opts), ...opts });
 });
 
 router.get('/:id', session(), async (c) => {
@@ -120,6 +122,7 @@ router.patch('/:id', session(), async (c) => {
   for (const [k, v] of Object.entries(parsed.data)) if (v !== undefined) patch[k] = v;
   if (patch.deadline && (patch.deadline as number) <= Date.now()) throw httpError(400, 'VALIDATION_ERROR', 'Deadline must be in the future');
   await db.update(rfqs).set(patch).where(eq(rfqs.id, rfq.id));
+  await insertRfqEvent(c.env.DB, { rfqId: rfq.id, actorUserId: ctx.userId, action: 'RFQ_UPDATED', fromStatus: rfq.status, metadata: { fields: Object.keys(patch).filter((k) => k !== 'updatedAt') } });
   return c.json({ ok: true });
 });
 
@@ -179,7 +182,7 @@ router.post('/:id/award', session(), async (c) => {
   await assertBusinessRfq(ctx, rfq.businessId, rfq.businessId);
   const parsed = awardQuoteSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
-  return c.json(await rfqService.award(c.env.DB, ctx.userId, rfq.id, parsed.data.quoteId, parsed.data.acceptedAlternativeItemIds ?? [], c.env.NOTIFICATIONS_QUEUE));
+  return c.json(await rfqService.award(c.env.DB, ctx.userId, rfq.id, parsed.data.quoteId, parsed.data.acceptedAlternativeItemIds ?? [], parsed.data.expectedVersion, c.env.NOTIFICATIONS_QUEUE));
 });
 
 router.post('/:id/convert', session(), async (c) => {
@@ -207,11 +210,12 @@ router.get('/:id/quotes', session(), async (c) => {
   const rfq = await findRfq(c.env.DB, c.req.param('id'));
   if (!rfq) throw httpError(404, 'NOT_FOUND', 'RFQ not found');
   const isBiz = hasBusinessAccess(ctx, rfq.businessId);
+  const opts = pageFromQuery((n) => c.req.query(n));
   if (!isBiz && !ctx.isAdmin) {
     // Supplier: only their own quotes — never competitors'.
     const supplierId = c.req.query('supplierId');
     if (!supplierId || !hasSupplierAccess(ctx, supplierId)) throw httpError(403, 'FORBIDDEN', 'No access');
-    const all = await listQuotesForRfq(c.env.DB, rfq.id);
+    const all = await listQuotesForRfq(c.env.DB, rfq.id, opts);
     const mine = all.filter((q) => q.supplierId === supplierId);
     const enriched = [];
     for (const q of mine) {
@@ -220,13 +224,13 @@ router.get('/:id/quotes', session(), async (c) => {
     }
     return c.json({ quotes: enriched });
   }
-  const all = await listQuotesForRfq(c.env.DB, rfq.id);
+  const all = await listQuotesForRfq(c.env.DB, rfq.id, opts);
   const enriched = [];
   for (const q of all) {
     const items = await listQuoteItems(c.env.DB, q.id);
     enriched.push({ quote: q, items, tiers: await listTiersForItems(c.env.DB, items.map((i) => i.id)) });
   }
-  return c.json({ quotes: enriched });
+  return c.json({ quotes: enriched, ...opts });
 });
 
 router.get('/:id/suppliers/discover', session(), async (c) => {
@@ -274,17 +278,71 @@ router.get('/:id/documents', session(), async (c) => {
   if (!rfq) throw httpError(404, 'NOT_FOUND', 'RFQ not found');
   const isBiz = hasBusinessAccess(ctx, rfq.businessId);
   if (!isBiz && !ctx.isAdmin && !(await isInvitedOrOpen(c.env.DB, rfq.id, ctx))) throw httpError(403, 'FORBIDDEN', 'No access');
-  return c.json({ documents: await listDocuments(c.env.DB, rfq.id) });
+  const docs = await listDocuments(c.env.DB, rfq.id);
+  return c.json({ documents: docs.map((d) => ({ ...d, downloadUrl: `/api/rfqs/${rfq.id}/attachments/${d.id}` })) });
 });
 
-router.post('/:id/documents', session(), async (c) => {
+const RFQ_ATTACH_MIME = new Set([
+  'application/pdf', 'image/png', 'image/jpeg', 'image/webp',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel', 'text/csv',
+]);
+const RFQ_ATTACH_MAX = 10 * 1024 * 1024;
+
+/** Real R2 upload: server writes the bytes, stores only metadata in D1. */
+router.post('/:id/attachments', session(), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const rfq = await findRfq(c.env.DB, c.req.param('id'));
   if (!rfq) throw httpError(404, 'NOT_FOUND', 'RFQ not found');
-  const body = z.object({ quoteId: z.string().optional(), r2Key: z.string().min(1).max(500), fileName: z.string().min(1).max(255), mimeType: z.string().max(100).optional(), sizeBytes: z.number().int().nonnegative().optional(), kind: z.string().max(50).optional() }).strict().safeParse(await c.req.json().catch(() => null));
-  if (!body.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', body.error.flatten());
-  return c.json(await rfqService.addDocument(c.env.DB, ctx.userId, rfq.id, body.data), 201);
+  const isBiz = hasBusinessAccess(ctx, rfq.businessId);
+  let quoteId: string | undefined;
+  if (isBiz) requireBusinessRole(ctx, rfq.businessId, B_ROLES);
+  else if (!ctx.isAdmin) {
+    // Supplier must attach against their own quote.
+    const myIds = ctx.suppliers.map((m) => m.supplierId).filter(Boolean) as string[];
+    const db = getDb(c.env.DB);
+    const { supplierQuotes: sq } = await import('@vyro/db/schema');
+    const mine = await db.select().from(sq).where(eq(sq.rfqId, rfq.id)).all().then((rows) => rows.filter((r) => myIds.includes(r.supplierId)));
+    if (!mine.length) throw httpError(403, 'FORBIDDEN', 'No access');
+    quoteId = mine[0]!.id;
+  }
+  const form = await c.req.formData().catch(() => null);
+  const file = form?.get('file');
+  const kindRaw = form?.get('kind');
+  if (!(file instanceof File)) throw httpError(400, 'VALIDATION_ERROR', 'file field required');
+  if (!RFQ_ATTACH_MIME.has(file.type)) throw httpError(400, 'VALIDATION_ERROR', `Unsupported type ${file.type}`);
+  if (file.size > RFQ_ATTACH_MAX) throw httpError(413, 'PAYLOAD_TOO_LARGE', 'Max 10MB');
+  if (file.size <= 0) throw httpError(400, 'VALIDATION_ERROR', 'Empty file');
+  const kind = typeof kindRaw === 'string' && kindRaw.length <= 50 ? kindRaw : 'specification';
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const { newId } = await import('@vyro/shared');
+  const docId = newId();
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'file';
+  const r2Key = `rfq/${rfq.id}/${docId}-${safeName}`;
+  await c.env.PRODUCTS.put(r2Key, buf, { httpMetadata: { contentType: file.type } });
+  const out = await rfqService.addDocument(c.env.DB, ctx.userId, rfq.id, {
+    ...(quoteId ? { quoteId } : {}), r2Key, fileName: file.name.slice(0, 255), mimeType: file.type, sizeBytes: file.size, kind,
+  });
+  return c.json({ ...out, downloadUrl: `/api/rfqs/${rfq.id}/attachments/${out.id}` }, 201);
+});
+
+router.get('/:id/attachments/:docId', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const rfq = await findRfq(c.env.DB, c.req.param('id'));
+  if (!rfq) throw httpError(404, 'NOT_FOUND', 'RFQ not found');
+  const isBiz = hasBusinessAccess(ctx, rfq.businessId);
+  if (!isBiz && !ctx.isAdmin && !(await isInvitedOrOpen(c.env.DB, rfq.id, ctx))) throw httpError(403, 'FORBIDDEN', 'No access');
+  const docs = await listDocuments(c.env.DB, rfq.id);
+  const doc = docs.find((d) => d.id === c.req.param('docId'));
+  if (!doc) throw httpError(404, 'NOT_FOUND', 'Attachment not found');
+  const obj = await c.env.PRODUCTS.get(doc.r2Key);
+  if (!obj) throw httpError(404, 'NOT_FOUND', 'File missing from storage');
+  const headers: Record<string, string> = { 'Cache-Control': 'private, max-age=300' };
+  if (doc.mimeType) headers['Content-Type'] = doc.mimeType;
+  headers['Content-Disposition'] = `attachment; filename="${doc.fileName.replace(/"/g, '')}"`;
+  return new Response(obj.body, { headers });
 });
 
 // ---------- Messaging ----------
@@ -349,7 +407,8 @@ router.get('/supplier/list', session(), async (c) => {
   const supplierId = c.req.query('supplierId');
   if (!supplierId) throw httpError(400, 'VALIDATION_ERROR', 'supplierId required');
   requireSupplierRole(ctx, supplierId, S_ROLES);
-  const { rows, invites } = await listRfqsForSupplier(c.env.DB, supplierId, true);
+  const opts = pageFromQuery((n) => c.req.query(n));
+  const { rows, invites } = await listRfqsForSupplier(c.env.DB, supplierId, true, opts);
   const now = Date.now();
   const withMeta = await Promise.all(rows.map(async (r) => {
     const items = await listRfqItems(c.env.DB, r.id);
@@ -361,7 +420,7 @@ router.get('/supplier/list', session(), async (c) => {
       expiringSoon: r.deadline != null && r.deadline > now && r.deadline - now < 72 * 3600 * 1000,
     };
   }));
-  return c.json({ rfqs: withMeta });
+  return c.json({ rfqs: withMeta, ...opts });
 });
 
 router.post('/supplier/view', session(), async (c) => {
@@ -372,7 +431,12 @@ router.post('/supplier/view', session(), async (c) => {
   requireSupplierRole(ctx, body.data.supplierId, S_ROLES);
   await rfqService.markViewed(c.env.DB, body.data.rfqId, body.data.supplierId, c.env.NOTIFICATIONS_QUEUE);
   const rfq = await findRfq(c.env.DB, body.data.rfqId);
-  return c.json({ rfq, items: await listRfqItems(c.env.DB, body.data.rfqId) });
+  const items = await listRfqItems(c.env.DB, body.data.rfqId);
+  // Buyer context the supplier needs to quote professionally (no competitor data).
+  const db = getDb(c.env.DB);
+  const { businesses: bizTable } = await import('@vyro/db/schema');
+  const biz = rfq ? await db.select({ id: bizTable.id, name: bizTable.name, city: bizTable.city, district: bizTable.district }).from(bizTable).where(eq(bizTable.id, rfq.businessId)).get() : null;
+  return c.json({ rfq, items, business: biz ?? null });
 });
 
 // ---------- Quote detail / history / negotiation ----------
@@ -439,10 +503,10 @@ router.post('/quotes/:quoteId/counter', session(), async (c) => {
   const isBiz = hasBusinessAccess(ctx, rfq.businessId);
   if (isBiz) {
     requireBusinessRole(ctx, rfq.businessId, B_ROLES);
-    return c.json(await rfqService.counter(c.env.DB, ctx.userId, q.id, 'business', { proposedTotalCents: parsed.data.proposedTotalCents, proposedUnitPrices: parsed.data.proposedUnitPrices, message: parsed.data.message }, c.env.NOTIFICATIONS_QUEUE));
+    return c.json(await rfqService.counter(c.env.DB, ctx.userId, q.id, 'business', { proposedTotalCents: parsed.data.proposedTotalCents, proposedUnitPrices: parsed.data.proposedUnitPrices, proposedDeliveryFeeCents: parsed.data.proposedDeliveryFeeCents, proposedPaymentTerms: parsed.data.proposedPaymentTerms, proposedDeliveryDate: parsed.data.proposedDeliveryDate, message: parsed.data.message }, c.env.NOTIFICATIONS_QUEUE));
   }
   requireSupplierRole(ctx, q.supplierId, S_ROLES);
-  return c.json(await rfqService.counter(c.env.DB, ctx.userId, q.id, 'supplier', { proposedTotalCents: parsed.data.proposedTotalCents, proposedUnitPrices: parsed.data.proposedUnitPrices, message: parsed.data.message }, c.env.NOTIFICATIONS_QUEUE));
+  return c.json(await rfqService.counter(c.env.DB, ctx.userId, q.id, 'supplier', { proposedTotalCents: parsed.data.proposedTotalCents, proposedUnitPrices: parsed.data.proposedUnitPrices, proposedDeliveryFeeCents: parsed.data.proposedDeliveryFeeCents, proposedPaymentTerms: parsed.data.proposedPaymentTerms, proposedDeliveryDate: parsed.data.proposedDeliveryDate, message: parsed.data.message }, c.env.NOTIFICATIONS_QUEUE));
 });
 
 router.post('/counters/:counterId/respond', session(), async (c) => {
@@ -460,10 +524,24 @@ router.post('/quotes/:quoteId/request-revision', session(), async (c) => {
   if (!q) throw httpError(404, 'NOT_FOUND', 'Quote not found');
   const rfq = await findRfq(c.env.DB, q.rfqId);
   if (!rfq) throw httpError(404, 'NOT_FOUND', 'RFQ not found');
+  if (q.rfqId !== rfq.id) throw httpError(404, 'NOT_FOUND', 'Quote not found');
   requireBusinessRole(ctx, rfq.businessId, B_ROLES);
   const body = z.object({ message: z.string().min(1).max(2000) }).strict().safeParse(await c.req.json().catch(() => null));
   if (!body.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', body.error.flatten());
   return c.json(await rfqService.requestRevision(c.env.DB, ctx.userId, q.id, body.data.message, c.env.NOTIFICATIONS_QUEUE));
+});
+
+router.post('/quotes/:quoteId/reject', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const q = await findQuote(c.env.DB, c.req.param('quoteId'));
+  if (!q) throw httpError(404, 'NOT_FOUND', 'Quote not found');
+  const rfq = await findRfq(c.env.DB, q.rfqId);
+  if (!rfq) throw httpError(404, 'NOT_FOUND', 'RFQ not found');
+  requireBusinessRole(ctx, rfq.businessId, B_ROLES);
+  const body = z.object({ reason: z.string().max(1000).optional() }).strict().safeParse(await c.req.json().catch(() => ({})));
+  if (!body.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', body.error.flatten());
+  return c.json(await rfqService.rejectQuote(c.env.DB, ctx.userId, q.id, body.data.reason, c.env.NOTIFICATIONS_QUEUE));
 });
 
 router.post('/quotes/:quoteId/withdraw', session(), async (c) => {
@@ -521,9 +599,7 @@ router.get('/dashboard/business', session(), async (c) => {
   if (!businessId) throw httpError(400, 'VALIDATION_ERROR', 'businessId required');
   requireBusinessRole(ctx, businessId, B_ROLES);
   const analytics = await rfqService.analyticsBusiness(c.env.DB, businessId);
-  const all = await listRfqsForBusiness(c.env.DB, businessId);
-  const now = Date.now();
-  return c.json({ ...analytics, expiringSoon: all.filter((r) => r.deadline != null && r.deadline > now && r.deadline - now < 72 * 3600 * 1000).length, recent: all.slice(0, 10) });
+  return c.json({ ...analytics, expiringSoon: (analytics.recent as Array<{ expiringSoon: boolean }>).filter((r) => r.expiringSoon).length });
 });
 
 router.get('/dashboard/supplier', session(), async (c) => {

@@ -11,20 +11,23 @@ import { StatusPill } from '@/pages/RfqsPage';
 export function QuoteRequestsPage() {
   usePageTitle('Quote requests');
   const supplierId = useSupplierId();
-  const [filter, setFilter] = useState<'all' | 'new' | 'responded' | 'expiring' | 'expired' | 'won' | 'lost'>('all');
+  const [filter, setFilter] = useState<'all' | 'new' | 'viewed' | 'in_progress' | 'submitted' | 'expiring' | 'expired' | 'awarded' | 'not_selected'>('all');
   const { data, isLoading } = useQuery({
     queryKey: ['supplier-rfqs', supplierId],
     queryFn: () => api.get<{ rfqs: Array<{ rfq: { id: string; rfqNumber: string; title: string; status: string; deadline: number | null; deliveryLocation?: string; requiredDeliveryDate?: number }; itemCount: number; myQuotes: number; myStatus: string | null; inviteStatus: string | null; expiringSoon: boolean }> }>(`/rfqs/supplier/list?supplierId=${supplierId}`),
     enabled: !!supplierId,
   });
   const rows = (data?.rfqs ?? []).filter((r) => {
+    const openIsh = ['open', 'quoting', 'quotes_received', 'under_review'].includes(r.rfq.status);
     if (filter === 'all') return true;
-    if (filter === 'new') return (r.inviteStatus === 'invited' || r.inviteStatus === 'viewed' || r.inviteStatus === 'open') && r.myQuotes === 0;
-    if (filter === 'responded') return r.myQuotes > 0 && !['accepted', 'rejected'].includes(r.myStatus ?? '');
+    if (filter === 'new') return r.inviteStatus === 'invited' && r.myQuotes === 0;
+    if (filter === 'viewed') return r.inviteStatus === 'viewed' && r.myQuotes === 0;
+    if (filter === 'in_progress') return r.myQuotes > 0 && openIsh && !['accepted', 'rejected'].includes(r.myStatus ?? '');
+    if (filter === 'submitted') return r.myQuotes > 0;
     if (filter === 'expiring') return r.expiringSoon;
     if (filter === 'expired') return r.rfq.status === 'expired' || r.myStatus === 'expired';
-    if (filter === 'won') return r.myStatus === 'accepted';
-    if (filter === 'lost') return r.myStatus === 'rejected';
+    if (filter === 'awarded') return r.myStatus === 'accepted';
+    if (filter === 'not_selected') return r.myStatus === 'rejected';
     return true;
   });
   return (
@@ -32,8 +35,8 @@ export function QuoteRequestsPage() {
       <div className="text-xs uppercase tracking-[0.2em] text-ink-4">Supplier</div>
       <h1 className="mt-1 text-3xl font-bold">Quote requests</h1>
       <div className="mt-4 flex flex-wrap gap-2">
-        {(['all', 'new', 'responded', 'expiring', 'expired', 'won', 'lost'] as const).map((f) => (
-          <button key={f} onClick={() => setFilter(f)} className={`min-h-[44px] rounded-full border px-3 py-1 text-sm ${filter === f ? 'bg-ink text-white border-ink' : 'border-line'}`}>{f}</button>
+        {(['all', 'new', 'viewed', 'in_progress', 'submitted', 'expiring', 'expired', 'awarded', 'not_selected'] as const).map((f) => (
+          <button key={f} onClick={() => setFilter(f)} className={`rounded-full border px-3 py-1 text-sm ${filter === f ? 'bg-ink text-white border-ink' : 'border-line'}`}>{f.replace(/_/g, ' ')}</button>
         ))}
       </div>
       <div className="mt-6">

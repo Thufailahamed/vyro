@@ -30,6 +30,7 @@ import {
   ArrowLeftIcon,
   MenuIcon,
   XIcon,
+  FileTextIcon,
 } from '@/components/icons';
 
 export interface AdminUser {
@@ -135,6 +136,7 @@ export function AdminShell() {
       items: [
         { to: '/admin', label: 'Overview', icon: LayoutGridIcon, end: true },
         { to: '/admin/orders', label: 'Orders', icon: PackageIcon },
+        { to: '/admin/rfqs', label: 'RFQs', icon: FileTextIcon },
         { to: '/admin/deliveries', label: 'Deliveries', icon: TruckIcon },
         { to: '/admin/disputed', label: 'Disputes', icon: AlertTriangleIcon },
       ],

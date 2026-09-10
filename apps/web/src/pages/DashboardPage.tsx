@@ -563,6 +563,11 @@ export function DashboardPage() {
               )}
             </Button>
           </Link>
+          <Link to="/rfqs">
+            <Button variant="secondary" size="sm" className="text-xs font-semibold">
+              Bulk Quotes
+            </Button>
+          </Link>
           <Link to="/search">
             <Button variant="primary" size="sm" className="text-xs uppercase tracking-wider font-bold">
               Start Procurement

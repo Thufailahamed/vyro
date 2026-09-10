@@ -154,10 +154,14 @@ async function main() {
     deliveryFeeCents: 200000, validUntil: now + 14 * 86400000,
     items: [
       { description: 'Samba Rice', rfqItemId: byDesc.get('Samba Rice'), quantity: 1000, unitPriceCents: 39000, tiers: [{ minQty: 1000, unitPriceCents: 39000 }, { minQty: 2000, unitPriceCents: 37000 }] },
-      { description: 'Alt flour blend', quantity: 500, unitPriceCents: 15000, isAlternative: true, alternativeForRfqItemId: byDesc.get('Wheat Flour') },
+      { description: 'Alt flour blend', quantity: 500, unitPriceCents: 15000, tiers: [{ minQty: 100, unitPriceCents: 14000 }], isAlternative: true, alternativeForRfqItemId: byDesc.get('Wheat Flour') },
     ],
   } as never);
   assert(!qA.isPartial && !qB.isPartial && qC.isPartial, 'partial quote flagged (C), full quotes complete');
+  // Tier normalization: alt flour tier (100+ @140) beats quoted 150 at qty 500.
+  const cItems = await db.select().from(schema.supplierQuoteItems).all().then((rows) => rows.filter((r) => (r as unknown as { quoteId: string }).quoteId === qC.id));
+  const altLine = cItems.find((r) => (r as unknown as { description: string }).description === 'Alt flour blend') as unknown as { unitPriceCents: number };
+  assert(altLine.unitPriceCents === 14000, 'server applied quantity-break price (15000 -> 14000)');
   console.log(`  ok: quotes A=${qA.totalCents} B=${qB.totalCents} C=${qC.totalCents}(partial)`);
 
   // 3. Compare on landed cost: best complete = B (never partial C)
@@ -183,18 +187,25 @@ async function main() {
   assert(expiredBlocked, 'expired quote award blocked');
   await db.update(schema.supplierQuotes).set({ validUntil: now + 14 * 86400000 }).where(eq(schema.supplierQuotes.id, qA.id));
 
-  // 6. Award B; concurrent second award must fail
-  await rfqService.award(d1, buyer, rfqId, qB.id, []);
+  // 6. Reject the partial quote explicitly, then award B with version pin.
+  await rfqService.rejectQuote(d1, buyer, qC.id, 'Incomplete coverage');
+  const cAfterReject = await db.select().from(schema.supplierQuotes).where(eq(schema.supplierQuotes.id, qC.id)).get() as unknown as { status: string };
+  assert(cAfterReject.status === 'rejected', 'explicit quote rejection');
+  let staleBlocked = false;
+  try { await rfqService.award(d1, buyer, rfqId, qB.id, [], 1); } catch { staleBlocked = true; }
+  assert(staleBlocked, 'stale expectedVersion rejected (quote is v2)');
+  await rfqService.award(d1, buyer, rfqId, qB.id, [], 2);
   let doubleBlocked = false;
   try { await rfqService.award(d1, buyer, rfqId, qA.id, []); } catch { doubleBlocked = true; }
   assert(doubleBlocked, 'second award blocked (concurrency guard)');
   const losers = (await db.select().from(schema.supplierQuotes).all()).filter((r) => (r as unknown as { rfqId: string }).rfqId === rfqId && (r as unknown as { id: string }).id !== qB.id);
   assert(losers.every((l) => (l as unknown as { status: string }).status === 'rejected'), 'losing quotes rejected');
 
-  // 7. Convert to PO: locked prices + linkage, no duplicate PO
+  // 7. Convert to PO: locked prices + linkage + pinned version, no duplicate PO
   const { poId, poNumber } = await rfqService.convertToOrder(d1, buyer, rfqId);
-  const po = await db.select().from(schema.purchaseOrders).where(eq(schema.purchaseOrders.id, poId)).get() as unknown as { totalCents: number; rfqId: string; quoteId: string; status: string };
+  const po = await db.select().from(schema.purchaseOrders).where(eq(schema.purchaseOrders.id, poId)).get() as unknown as { totalCents: number; rfqId: string; quoteId: string; quoteVersion: number; status: string };
   assert(po.status === 'pending' && po.rfqId === rfqId && po.quoteId === qB.id, `PO ${poNumber} linked to RFQ+quote`);
+  assert(po.quoteVersion === 2, 'PO pins awarded quote version (v2)');
   assert(po.totalCents === bAfter.totalCents, 'PO total = agreed quote total (price lock)');
   const poItems = (await db.select().from(schema.purchaseOrderItems).all()).filter((r) => (r as unknown as { purchaseOrderId: string }).purchaseOrderId === poId);
   assert(poItems.length === 3, 'PO carries all agreed lines');
@@ -203,14 +214,23 @@ async function main() {
   try { await rfqService.convertToOrder(d1, buyer, rfqId); } catch { dupBlocked = true; }
   assert(dupBlocked, 'duplicate PO from same quote blocked');
 
-  // 8. Expiry sweep is quiet when nothing is due
+  // 8. Expiry sweep is quiet when nothing is due; reminders fire once.
   const sweep = await rfqService.expireDue(d1);
   assert(sweep.rfqsExpired === 0, 'no spurious expiry');
+  const { id: soonId } = await rfqService.create(d1, buyer, {
+    businessId: bizId, title: 'Urgent sugar', currency: 'LKR', deadline: now + 20 * 3600 * 1000,
+    items: [{ description: 'Sugar', quantity: 200, unit: 'kg' }], supplierIds: [supA], isOpen: false, fromCart: false,
+  } as never);
+  await rfqService.publish(d1, buyer, soonId, 'business');
+  const sweep2 = await rfqService.expireDue(d1);
+  assert(sweep2.reminders === 1, 'deadline-approaching reminder sent');
+  const sweep3 = await rfqService.expireDue(d1);
+  assert(sweep3.reminders === 0, 'reminders deduped (no spam)');
 
   // 9. Audit trail completeness
   const events = (await db.select().from(schema.rfqEvents).all()).filter((r) => (r as unknown as { rfqId: string }).rfqId === rfqId);
   const actions = new Set(events.map((e) => (e as unknown as { action: string }).action));
-  for (const a of ['RFQ_CREATED', 'RFQ_OPENED', 'SUPPLIER_INVITED', 'QUOTE_CREATED', 'QUOTE_SUBMITTED', 'COUNTER_OFFER_CREATED', 'COUNTER_OFFER_ACCEPTED', 'RFQ_AWARDED', 'QUOTE_ACCEPTED', 'QUOTE_REJECTED', 'ORDER_CREATED_FROM_QUOTE']) {
+  for (const a of ['RFQ_CREATED', 'RFQ_OPENED', 'SUPPLIER_INVITED', 'QUOTE_CREATED', 'QUOTE_SUBMITTED', 'COUNTER_OFFER_CREATED', 'COUNTER_OFFER_ACCEPTED', 'QUOTE_VERSION_CREATED', 'RFQ_AWARDED', 'QUOTE_ACCEPTED', 'QUOTE_REJECTED', 'ORDER_CREATED_FROM_QUOTE']) {
     assert(actions.has(a), `audit has ${a}`);
   }
   console.log(`\nE2E PASS: ${rfqNumber} -> 3 quotes (1 partial) -> negotiated -> awarded -> PO ${poNumber}`);

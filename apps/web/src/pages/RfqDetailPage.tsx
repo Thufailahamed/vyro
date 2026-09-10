@@ -1,15 +1,60 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { usePageTitle } from '@/lib/usePageTitle';
 import { api } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
 import { Button, ErrorBanner } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
 import { StatusPill } from './RfqsPage';
 import { useToast } from '@vyro/ui';
 import { RfqDocsUpload } from '@/components/RfqDocsUpload';
 import { RfqSupplierDiscovery } from '@/components/RfqSupplierDiscovery';
+import { usePageTitle } from '@/lib/usePageTitle';
+
+interface VersionRow { version: number; changedByUserId: string; previousTotalCents: number | null; newTotalCents: number; changesJson?: string | null; createdAt: number }
+interface CounterRow { id: string; offeredByType: string; proposedTotalCents: number; proposedDeliveryFeeCents?: number | null; proposedPaymentTerms?: string | null; message?: string | null; status: string; createdAt: number }
+
+function QuoteHistory({ quoteId, onChanged }: { quoteId: string; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ['quote-history', quoteId],
+    queryFn: () => api.get<{ versions: VersionRow[]; counters: CounterRow[] }>(`/rfqs/quotes/${quoteId}/history`),
+    enabled: open,
+  });
+  if (!open) return <button onClick={() => setOpen(true)} className="text-xs underline text-ink-3">Version history & negotiation →</button>;
+  const versions = data?.versions ?? [];
+  const counters = data?.counters ?? [];
+  return (
+    <div className="mt-3 rounded-xl border border-line bg-bone/40 p-3 text-xs">
+      <button onClick={() => setOpen(false)} className="underline text-ink-3">Hide history</button>
+      <h4 className="mt-2 font-semibold">Versions (never overwritten)</h4>
+      <ul className="mt-1 space-y-1">
+        {versions.map((v) => (
+          <li key={v.version}>v{v.version} · {new Date(v.createdAt).toLocaleString()} · {v.previousTotalCents != null ? `Rs. ${(v.previousTotalCents / 100).toLocaleString()} → ` : 'initial '}Rs. {(v.newTotalCents / 100).toLocaleString()}</li>
+        ))}
+        {versions.length === 0 && <li className="text-ink-4">Loading…</li>}
+      </ul>
+      <h4 className="mt-3 font-semibold">Counter-offers</h4>
+      <ul className="mt-1 space-y-2">
+        {counters.map((co) => (
+          <li key={co.id} className="rounded-lg border border-line bg-white p-2">
+            <div><span className="rounded bg-paper border border-line px-1.5">{co.offeredByType}</span> Rs. {(co.proposedTotalCents / 100).toLocaleString()} · <StatusPill status={co.status} /></div>
+            {co.proposedPaymentTerms && <div>Terms: {co.proposedPaymentTerms}</div>}
+            {co.message && <div className="text-ink-2">“{co.message}”</div>}
+            <div className="text-ink-4">{new Date(co.createdAt).toLocaleString()}</div>
+            {co.status === 'pending' && (
+              <div className="mt-1 flex gap-2">
+                <button onClick={() => void api.post(`/rfqs/counters/${co.id}/respond`, { accept: true }).then(() => { void qc.invalidateQueries({ queryKey: ['quote-history', quoteId] }); onChanged(); })} className="rounded bg-mint px-2 py-1 text-white">Accept</button>
+                <button onClick={() => void api.post(`/rfqs/counters/${co.id}/respond`, { accept: false }).then(() => { void qc.invalidateQueries({ queryKey: ['quote-history', quoteId] }); onChanged(); })} className="rounded border border-line px-2 py-1">Reject</button>
+              </div>
+            )}
+          </li>
+        ))}
+        {counters.length === 0 && <li className="text-ink-4">No counter-offers yet.</li>}
+      </ul>
+    </div>
+  );
+}
 
 export function RfqDetailPage() {
   const { id } = useParams();
@@ -93,33 +138,36 @@ export function RfqDetailPage() {
       )}
       <div className="mt-4 grid gap-4 sm:grid-cols-1 md:grid-cols-2">
         {(quotes.data?.quotes ?? []).map(({ quote, items }) => {
-          const q = quote as unknown as { id: string; quoteNumber: string; status: string; totalCents: number; currency: string; deliveryFeeCents: number; paymentTerms?: string; validUntil?: number; estimatedDeliveryDate?: number; notes?: string; isPartial: number | boolean; supplierId: string };
+          const q = quote as unknown as { id: string; quoteNumber: string; status: string; version: number; totalCents: number; currency: string; deliveryFeeCents: number; paymentTerms?: string; validUntil?: number; estimatedDeliveryDate?: number; notes?: string; isPartial: number | boolean; supplierId: string };
           const expired = q.validUntil != null && q.validUntil < Date.now();
+          const awardable = !['awarded', 'converted_to_order'].includes(rfq.status) && !expired && ['submitted', 'under_review', 'negotiating'].includes(q.status);
           return (
             <Surface key={q.id} className="p-5">
               <div className="flex items-center justify-between">
-                <span className="font-mono text-xs text-ink-4">{q.quoteNumber}</span>
+                <span className="font-mono text-xs text-ink-4">{q.quoteNumber} · v{q.version}</span>
                 <StatusPill status={expired ? 'expired' : q.status} />
               </div>
-              {!!q.isPartial && <div className="mt-1 text-xs font-semibold text-amber">PARTIAL QUOTE — covers only some items</div>}
+              {!!q.isPartial && <div className="mt-1 text-xs font-semibold text-amber">PARTIAL QUOTE — covers only some items (missing lines are unavailable, not Rs. 0)</div>}
               <div className="mt-2 text-3xl font-bold">Rs. {(q.totalCents / 100).toLocaleString()}</div>
               <div className="text-xs text-ink-3">landed total incl. delivery Rs. {(q.deliveryFeeCents / 100).toLocaleString()}{q.paymentTerms ? ` · ${q.paymentTerms}` : ''}{q.validUntil ? ` · valid until ${new Date(q.validUntil).toLocaleDateString()}` : ''}</div>
               <ul className="mt-3 space-y-1 text-sm">
                 {(items as Array<{ description: string; quantity: number; unitPriceCents: number; subtotalCents: number; isAlternative: number }>).map((it, i) => (
-                  <li key={i} className="flex justify-between"><span>{it.description}{it.isAlternative ? ' (alt)' : ''}</span><span className="font-mono">{it.quantity} × {(it.unitPriceCents / 100).toLocaleString()} = {(it.subtotalCents / 100).toLocaleString()}</span></li>
+                  <li key={i} className="flex justify-between"><span>{it.description}{it.isAlternative ? ' (alternative — needs explicit acceptance)' : ''}</span><span className="font-mono">{it.quantity} × {(it.unitPriceCents / 100).toLocaleString()} = {(it.subtotalCents / 100).toLocaleString()}</span></li>
                 ))}
               </ul>
               {q.notes && <p className="mt-2 text-xs text-ink-3">{q.notes}</p>}
+              <QuoteHistory quoteId={q.id} onChanged={refresh} />
               <div className="mt-4 flex flex-wrap gap-2">
-                {!['awarded', 'converted_to_order'].includes(rfq.status) && !expired && ['submitted', 'under_review', 'negotiating'].includes(q.status) && (
+                {awardable && (
                   confirmAward === q.id ? (
                     <>
-                      <span className="text-sm">Confirm award at Rs. {(q.totalCents / 100).toLocaleString()}?</span>
-                      <Button onClick={() => { setConfirmAward(null); void act(() => api.post(`/rfqs/${id}/award`, { quoteId: q.id }), 'Quote awarded'); }}>Confirm award</Button>
+                      <span className="text-sm">Award {q.quoteNumber} v{q.version} at Rs. {(q.totalCents / 100).toLocaleString()}?</span>
+                      <Button onClick={() => { setConfirmAward(null); void act(() => api.post(`/rfqs/${id}/award`, { quoteId: q.id, expectedVersion: q.version }), 'Quote awarded'); }}>Confirm award</Button>
                       <button onClick={() => setConfirmAward(null)} className="text-sm underline">Cancel</button>
                     </>
                   ) : <Button onClick={() => setConfirmAward(q.id)}>Award quote</Button>
                 )}
+                {awardable && <button onClick={() => { const r = window.prompt('Rejection reason (optional)'); if (r !== null) void act(() => api.post(`/rfqs/quotes/${q.id}/reject`, { reason: r || undefined }), 'Quote rejected'); }} className="text-sm underline">Reject</button>}
                 <button onClick={() => void act(() => api.post(`/rfqs/quotes/${q.id}/request-revision`, { message: 'Please revise your best price.' }), 'Revision requested')} className="text-sm underline">Request revision</button>
               </div>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">

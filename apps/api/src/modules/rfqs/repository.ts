@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gt, inArray, sql } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
+import { httpError } from '../../lib/errors';
 import {
   rfqs,
   rfqItems,
@@ -15,6 +16,23 @@ import {
   rfqTemplates,
   rfqTemplateItems,
 } from '@vyro/db/schema';
+
+export interface PageOpts { limit?: number | undefined; offset?: number | undefined; }
+
+export function page(o?: PageOpts): { limit: number; offset: number } {
+  const limit = Math.min(Math.max(o?.limit ?? 20, 1), 100);
+  const offset = Math.max(o?.offset ?? 0, 0);
+  return { limit, offset };
+}
+
+export function pageFromQuery(q: (name: string) => string | undefined): PageOpts {
+  const limit = q('limit') != null ? Number(q('limit')) : undefined;
+  const offset = q('offset') != null ? Number(q('offset')) : undefined;
+  if ((limit != null && !Number.isInteger(limit)) || (offset != null && !Number.isInteger(offset))) {
+    throw httpError(400, 'VALIDATION_ERROR', 'Invalid pagination');
+  }
+  return { limit, offset };
+}
 
 export async function nextRfqNumber(d1: D1Database): Promise<string> {
   const db = getDb(d1);
@@ -53,13 +71,16 @@ export async function listRfqInvites(d1: D1Database, rfqId: string) {
   return db.select().from(rfqSuppliers).where(eq(rfqSuppliers.rfqId, rfqId)).all();
 }
 
-export async function listQuotesForRfq(d1: D1Database, rfqId: string) {
+export async function listQuotesForRfq(d1: D1Database, rfqId: string, opts?: PageOpts) {
   const db = getDb(d1);
+  const { limit, offset } = page(opts);
   return db
     .select()
     .from(supplierQuotes)
     .where(eq(supplierQuotes.rfqId, rfqId))
     .orderBy(desc(supplierQuotes.updatedAt))
+    .limit(limit)
+    .offset(offset)
     .all();
 }
 
@@ -115,31 +136,34 @@ export async function listRfqEvents(d1: D1Database, rfqId: string) {
     .all();
 }
 
-export async function listRfqsForBusiness(d1: D1Database, businessId: string) {
+export async function listRfqsForBusiness(d1: D1Database, businessId: string, opts?: PageOpts) {
   const db = getDb(d1);
+  const { limit, offset } = page(opts);
   return db
     .select()
     .from(rfqs)
     .where(eq(rfqs.businessId, businessId))
     .orderBy(desc(rfqs.createdAt))
+    .limit(limit)
+    .offset(offset)
     .all();
 }
 
-export async function listRfqsForSupplier(d1: D1Database, supplierId: string, includeOpen = true) {
+export async function listRfqsForSupplier(d1: D1Database, supplierId: string, includeOpen = true, opts?: PageOpts) {
   const db = getDb(d1);
+  const { limit, offset } = page(opts);
   const invites = await db.select().from(rfqSuppliers).where(eq(rfqSuppliers.supplierId, supplierId)).all();
   const invitedIds = invites.map((i) => i.rfqId);
-  let open: typeof invites = [];
-  void open;
   let rows: Array<typeof rfqs.$inferSelect> = [];
   if (invitedIds.length) {
-    rows = await db.select().from(rfqs).where(inArray(rfqs.id, invitedIds)).all();
+    rows = await db.select().from(rfqs).where(inArray(rfqs.id, invitedIds)).limit(limit).offset(offset).all();
   }
   if (includeOpen) {
     const openRfqs = await db
       .select()
       .from(rfqs)
       .where(and(eq(rfqs.isOpen, 1), sql`${rfqs.status} IN ('open','quoting','quotes_received','under_review')`))
+      .limit(50)
       .all();
     const seen = new Set(rows.map((r) => r.id));
     for (const r of openRfqs) if (!seen.has(r.id)) rows.push(r);

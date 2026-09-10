@@ -11,7 +11,7 @@ vi.mock('../src/modules/notifications/dispatcher', () => ({
   listBusinessMemberIds: vi.fn(async () => []), listSupplierMemberIds: vi.fn(async () => []),
 }));
 
-import { computeQuoteTotals } from '../src/modules/rfqs/service';
+import { computeQuoteTotals, applyQuantityBreaks } from '../src/modules/rfqs/service';
 
 describe('rfq validation', () => {
   it('rejects RFQ without items', () => {
@@ -58,6 +58,49 @@ describe('landed cost math (server-side)', () => {
   it('line discounts reduce subtotal', () => {
     const out = computeQuoteTotals([{ quantity: 2, unitPriceCents: 1000, discountCents: 500 }], 0, 0, 0);
     expect(out.subtotalCents).toBe(1500);
+  });
+});
+
+describe('quantity-break pricing (server-authoritative)', () => {
+  it('applies the best qualifying tier', () => {
+    const tiers = [
+      { minQty: 100, unitPriceCents: 42000 },
+      { minQty: 500, unitPriceCents: 39500 },
+      { minQty: 1000, unitPriceCents: 37000 },
+    ];
+    expect(applyQuantityBreaks(42000, 50, tiers).unitPriceCents).toBe(42000);
+    expect(applyQuantityBreaks(42000, 100, tiers).unitPriceCents).toBe(42000);
+    expect(applyQuantityBreaks(42000, 500, tiers).unitPriceCents).toBe(39500);
+    expect(applyQuantityBreaks(42000, 1000, tiers).unitPriceCents).toBe(37000);
+    expect(applyQuantityBreaks(42000, 5000, tiers).unitPriceCents).toBe(37000);
+  });
+  it('tiers can never raise the quoted price', () => {
+    expect(applyQuantityBreaks(30000, 1000, [{ minQty: 10, unitPriceCents: 99999 }]).unitPriceCents).toBe(30000);
+  });
+  it('rejects duplicate breaks and invalid tiers', () => {
+    expect(() => applyQuantityBreaks(100, 10, [{ minQty: 5, unitPriceCents: 90 }, { minQty: 5, unitPriceCents: 80 }])).toThrow();
+    expect(() => applyQuantityBreaks(100, 10, [{ minQty: 0, unitPriceCents: 90 }])).toThrow();
+    expect(() => applyQuantityBreaks(100, 10, [{ minQty: 5, unitPriceCents: -1 }])).toThrow();
+  });
+});
+
+describe('counter-offer terms validation', () => {
+  it('accepts delivery/terms negotiation fields', () => {
+    const r = counterOfferSchema.safeParse({
+      proposedTotalCents: 100000, message: 'ok',
+      proposedDeliveryFeeCents: 5000, proposedPaymentTerms: 'Net 14', proposedDeliveryDate: Date.now() + 86400000,
+    });
+    expect(r.success).toBe(true);
+  });
+  it('rejects negative delivery fee', () => {
+    expect(counterOfferSchema.safeParse({ proposedTotalCents: 100, message: 'ok', proposedDeliveryFeeCents: -5 }).success).toBe(false);
+  });
+});
+
+describe('award version pinning validation', () => {
+  it('accepts optional expectedVersion', () => {
+    expect(awardQuoteSchema.safeParse({ quoteId: 'q1', expectedVersion: 2 }).success).toBe(true);
+    expect(awardQuoteSchema.safeParse({ quoteId: 'q1', expectedVersion: 0 }).success).toBe(false);
   });
 });
 

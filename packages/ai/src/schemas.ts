@@ -68,6 +68,10 @@ const Slots = z.object({
   fromSupplierName: z.string().min(1).max(120).optional(),
   toSupplierName: z.string().min(1).max(120).optional(),
   whyRequested: z.boolean().optional(),
+  // rfq flows
+  rfqId: z.string().min(1).max(120).optional(),
+  quoteId: z.string().min(1).max(120).optional(),
+  targetTotalCents: z.number().int().min(1).max(100000000).optional(),
 }).strict();
 
 export type SlotsByIntent = z.infer<typeof Slots>;

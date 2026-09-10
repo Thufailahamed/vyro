@@ -112,6 +112,9 @@ export const counterOfferSchema = z
   .object({
     proposedTotalCents: z.number().int().positive(),
     proposedUnitPrices: z.record(z.string(), z.number().int().nonnegative()).optional(),
+    proposedDeliveryFeeCents: z.number().int().nonnegative().optional(),
+    proposedPaymentTerms: z.string().max(2000).optional(),
+    proposedDeliveryDate: z.number().int().positive().optional(),
     message: z.string().min(1).max(2000),
   })
   .strict();
@@ -128,6 +131,7 @@ export const awardQuoteSchema = z
   .object({
     quoteId: z.string().min(1),
     acceptedAlternativeItemIds: z.array(z.string().min(1)).max(100).default([]),
+    expectedVersion: z.number().int().positive().optional(),
   })
   .strict();
 

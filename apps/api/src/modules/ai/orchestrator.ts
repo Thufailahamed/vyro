@@ -58,6 +58,10 @@ const STAGES: Record<string, [string, string]> = {
   simulate_supplier_switch: ['Reading your purchase history', 'Pricing the alternative'],
   create_rfq: ['Searching VYRO products', 'Preparing your RFQ'],
   compare_quotes: ['Reading your quotes', 'Comparing total costs'],
+  rfq_invite_suppliers: ['Reading your RFQ', 'Finding suitable suppliers'],
+  rfq_negotiate: ['Reading your quotes', 'Drafting your counter-offer'],
+  rfq_recommend_quote: ['Reading your quotes', 'Ranking best value'],
+  rfq_status: ['Reading your RFQ', 'Summarizing status'],
 };
 
 export async function* orchestrate(

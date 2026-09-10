@@ -112,7 +112,7 @@ export function RfqCreatePage() {
         </Surface>
       )}
 
-      <RfqTemplatesPanel onLoadItems={(loaded) => setItems(loaded)} />
+      <RfqTemplatesPanel items={items} onLoadItems={(loaded) => setItems(loaded)} />
 
       <Surface className="mt-4 p-6">
         <label className="text-sm font-medium">Invite suppliers (comma-separated IDs — or discover after creating)</label>

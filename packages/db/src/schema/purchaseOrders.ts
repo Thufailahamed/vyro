@@ -30,6 +30,7 @@ export const purchaseOrders = sqliteTable(
       .references(() => users.id),
     rfqId: text('rfq_id'),
     quoteId: text('quote_id'),
+    quoteVersion: integer('quote_version'),
     acceptedAt: integer('accepted_at'),
     rejectedAt: integer('rejected_at'),
     preparedAt: integer('prepared_at'),

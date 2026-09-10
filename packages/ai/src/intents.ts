@@ -79,8 +79,7 @@ function normalizeUnit(raw: string | undefined): string | undefined {
   return u;
 }
 
-function inferQuantity(text: string): { quantity?: number; unit?: string } {
-  const m = text.match(new RegExp(`(\\d+|${WORD_NUM_RX})\\s*(${UNIT_RX})?`, 'i'));
+function inferQuantity(text: string): { quantity?: number; unit?: string } {  const m = text.match(new RegExp(`(\\d+|${WORD_NUM_RX})\\s*(${UNIT_RX})?`, 'i'));
   if (!m) return {};
   const rawNum = m[1]!.toLowerCase();
   const quantity = /^\d+$/.test(rawNum) ? Number(rawNum) : WORD_NUMS[rawNum];
@@ -91,10 +90,26 @@ function inferQuantity(text: string): { quantity?: number; unit?: string } {
   return out;
 }
 
+/**
+ * Bulk-quantity signal: "1000kg", "2 tons", "1500 litres" at or above the
+ * default RFQ quantity threshold routes procurement phrasing to RFQ
+ * preparation instead of catalog cheapest-price search.
+ */
+const BULK_QTY_RX = /(\d[\d,]*)\s*(kgs?|kilos?|tons?|tonnes?|litres?|liters?|l)\b/i;
+export const RFQ_BULK_QTY_THRESHOLD = 500;
+
+function isBulkQuantity(text: string): boolean {
+  const m = text.match(BULK_QTY_RX);
+  if (!m?.[1]) return false;
+  const q = Number(m[1].replace(/,/g, ''));
+  return Number.isFinite(q) && q >= RFQ_BULK_QTY_THRESHOLD;
+}
+
 export function heuristicClassify(text: string, dict: AiDictionary): ClassifyResult {
   const productName = pickProduct(text, dict.products);
   const supplierName = pickSupplier(text, dict.suppliers);
   const qty = inferQuantity(text);
+  const extraSlots: Record<string, unknown> = {};
 
   let intent: ClassifyResult['intent'] = 'clarify';
   let confidence = 0.3;
@@ -126,8 +141,28 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
   } else if (/\b(insight|what changed|vyro insight|signal)\b/i.test(text)) {
     intent = 'insights_feed';
     confidence = 0.7;
-  } else if (/\b(ask .* (quote|best price)|request .*quote|bulk quote|rfq|negotiat|compare .*quote|which quote|lowest total cost|best quote)\b/i.test(text)) {
-    if (/\b(compare|which|best|lowest)\b/i.test(text)) {
+  } else if (/\b(ask .* (quote|best price)|request .*quote|bulk quote|rfq|negotiat|compare .*quote|which quote|lowest total cost|best quote|invite .*supplier|supplier .*invite|rfq status|status of .*rfq|counter(-|\s)?offer)\b/i.test(text) || isBulkQuantity(text)) {
+    // "I need 1000kg rice, get best price" is RFQ preparation, not quote review.
+    if (isBulkQuantity(text) && /\b(need|needs|want|get me|require|supply me|ask .* suppliers)\b/i.test(text) && !/\b(quote|rfq)\b/i.test(text)) {
+      intent = 'create_rfq';
+      confidence = 0.75;
+    } else if (/\binvite\b/i.test(text)) {
+      intent = 'rfq_invite_suppliers';
+      confidence = 0.75;
+    } else if (/\bnegotiat|\bcounter(-|\s)?offer\b/i.test(text)) {      intent = 'rfq_negotiate';
+      confidence = 0.75;
+      const amt = text.match(/rs\.?\s?([\d,]+)/i);
+      if (amt?.[1]) {
+        const cents = Number(amt[1].replace(/,/g, '')) * 100;
+        if (Number.isFinite(cents) && cents > 0) extraSlots.targetTotalCents = cents;
+      }
+    } else if (/\bstatus\b/i.test(text)) {
+      intent = 'rfq_status';
+      confidence = 0.75;
+    } else if (/\b(recommend|which|best)\b/i.test(text)) {
+      intent = 'rfq_recommend_quote';
+      confidence = 0.75;
+    } else if (/\b(compare|lowest)\b/i.test(text)) {
       intent = 'compare_quotes';
       confidence = 0.75;
     } else {
@@ -200,7 +235,7 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
     else if (/\b(reliab|trust|quality|consistent)/i.test(text)) optimizeFor = 'reliability';
   }
 
-  const slots: Record<string, unknown> = { ...qty };
+  const slots: Record<string, unknown> = { ...qty, ...extraSlots };
   if (productName) slots.productName = productName;
   if (supplierName) slots.supplierName = supplierName;
   if (optimizeFor && intent === 'supplier_recommend') slots.optimizeFor = optimizeFor;

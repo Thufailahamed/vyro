@@ -10,6 +10,7 @@ import {
   quoteVersions,
   quoteCounterOffers,
   quoteMessages,
+  rfqEvents,
   rfqDocuments,
   rfqTemplates,
   rfqTemplateItems,
@@ -100,6 +101,27 @@ export function computeQuoteTotals(items: Array<{ quantity: number; unitPriceCen
   if (subtotal < 0) subtotal = 0;
   const total = subtotal + deliveryFeeCents + taxCents - headerDiscountCents;
   return { subtotalCents: subtotal, totalCents: Math.max(0, total) };
+}
+
+export interface PriceTierInput { minQty: number; unitPriceCents: number; }
+
+/**
+ * Server-authoritative quantity-break evaluation. Tiers must arrive sorted
+ * ascending by minQty with unique breaks; the applicable unit price at `qty`
+ * is the lowest qualifying tier price that beats the base price (tiers can
+ * never raise the price above what was quoted).
+ */
+export function applyQuantityBreaks(baseUnitPriceCents: number, qty: number, tiers: PriceTierInput[]): { unitPriceCents: number; appliedTier: PriceTierInput | null } {
+  const sorted = [...tiers].sort((a, b) => a.minQty - b.minQty);
+  let best: PriceTierInput | null = null;
+  for (const t of sorted) {
+    if (!Number.isInteger(t.minQty) || t.minQty <= 0) throw httpError(400, 'VALIDATION_ERROR', 'Tier minQty must be a positive integer');
+    if (!Number.isInteger(t.unitPriceCents) || t.unitPriceCents < 0) throw httpError(400, 'VALIDATION_ERROR', 'Tier price must be non-negative');
+    if (best && t.minQty === best.minQty) throw httpError(400, 'VALIDATION_ERROR', 'Duplicate tier quantity break');
+    if (t.minQty <= qty && t.unitPriceCents < baseUnitPriceCents) best = t;
+  }
+  if (!best) return { unitPriceCents: baseUnitPriceCents, appliedTier: null };
+  return { unitPriceCents: best.unitPriceCents, appliedTier: best };
 }
 
 async function notifyRfqBusiness(d1: D1Database, queue: QueueLike | undefined, rfqId: string, businessId: string, type: string, title: string, body: string, excludeUserId?: string) {
@@ -274,8 +296,16 @@ export const rfqService = {
     const rfqItemIds = new Set(rfqItemList.map((i) => i.id));
     for (const it of input.items) {
       if (it.rfqItemId && !rfqItemIds.has(it.rfqItemId) && !it.isAlternative) throw httpError(400, 'VALIDATION_ERROR', `Unknown RFQ item ${it.rfqItemId}`);
-      if (it.discountCents > it.quantity * it.unitPriceCents) throw httpError(400, 'VALIDATION_ERROR', 'Item discount exceeds line value');
+      if ((it.discountCents ?? 0) > it.quantity * it.unitPriceCents) throw httpError(400, 'VALIDATION_ERROR', 'Item discount exceeds line value');
+      // Normalize quantity-break pricing server-side: a qualifying tier that
+      // beats the quoted unit price becomes the line price (recorded below).
+      const { unitPriceCents, appliedTier } = applyQuantityBreaks(it.unitPriceCents, it.quantity, (it.tiers ?? []) as PriceTierInput[]);
+      if (appliedTier) {
+        (it as { unitPriceCents: number }).unitPriceCents = unitPriceCents;
+        (it as { tierApplied?: unknown }).tierApplied = appliedTier;
+      }
     }
+    if ((input.validUntil ?? Infinity) <= Date.now()) throw httpError(400, 'VALIDATION_ERROR', 'Quote validity must be in the future');
     const { subtotalCents, totalCents } = computeQuoteTotals(input.items, input.deliveryFeeCents ?? 0, input.taxCents ?? 0, input.discountCents ?? 0);
     // Coverage: explicit rfqItemId wins; otherwise match by product or description
     // so quotes built without item linkage still count as complete.
@@ -311,6 +341,7 @@ export const rfqService = {
       }).where(eq(supplierQuotes.id, quoteId));
       await db.insert(quoteVersions).values({ id: newId(), quoteId, version, changedByUserId: userId, previousTotalCents: activeDraft.totalCents, newTotalCents: totalCents, changesJson: JSON.stringify({ action: 'resubmit' }), createdAt: now });
       await insertRfqEvent(d1, { rfqId, quoteId, actorUserId: userId, action: 'QUOTE_UPDATED', metadata: { totalCents, version } });
+      await insertRfqEvent(d1, { rfqId, quoteId, actorUserId: userId, action: 'QUOTE_VERSION_CREATED', metadata: { version, previousTotalCents: activeDraft.totalCents, newTotalCents: totalCents } });
     } else {
       quoteId = newId();
       const quoteNumber = await nextQuoteNumber(d1);
@@ -322,7 +353,7 @@ export const rfqService = {
         minimumQuantity: input.minimumQuantity ?? null, availability: input.availability ?? null, notes: input.notes ?? null,
         isPartial, version: 1, submittedAt: now, createdAt: now, updatedAt: now,
       });
-      await db.insert(quoteVersions).values({ id: newId(), quoteId, version: 1, changedByUserId: userId, previousTotalCents: null, newTotalCents: totalCents, changesJson: JSON.stringify({ action: 'create' }), createdAt: now });
+      await db.insert(quoteVersions).values({ id: newId(), quoteId, version: 1, changedByUserId: userId, previousTotalCents: null, newTotalCents: totalCents, changesJson: JSON.stringify({ action: 'create', tiersApplied: input.items.filter((i) => (i as { tierApplied?: unknown }).tierApplied).map((i) => ({ description: i.description, tier: (i as { tierApplied?: unknown }).tierApplied })) }), createdAt: now });
       await insertRfqEvent(d1, { rfqId, quoteId, actorUserId: userId, action: 'QUOTE_CREATED', metadata: { quoteNumber, totalCents } });
       await insertRfqEvent(d1, { rfqId, quoteId, actorUserId: userId, action: 'QUOTE_SUBMITTED', metadata: { totalCents } });
     }
@@ -359,6 +390,15 @@ export const rfqService = {
     if (['accepted', 'rejected', 'expired', 'superseded'].includes(q.status)) throw httpError(409, 'CONFLICT', `Cannot modify ${q.status} quote`);
     const rfq = await findRfq(d1, q.rfqId);
     if (!rfq || ['awarded', 'converted_to_order', 'cancelled', 'closed', 'expired'].includes(rfq.status)) throw httpError(409, 'CONFLICT', 'RFQ is closed for updates');
+    for (const it of input.items) {
+      if ((it.discountCents ?? 0) > it.quantity * it.unitPriceCents) throw httpError(400, 'VALIDATION_ERROR', 'Item discount exceeds line value');
+      const { unitPriceCents, appliedTier } = applyQuantityBreaks(it.unitPriceCents, it.quantity, (it.tiers ?? []) as PriceTierInput[]);
+      if (appliedTier) {
+        (it as { unitPriceCents: number }).unitPriceCents = unitPriceCents;
+        (it as { tierApplied?: unknown }).tierApplied = appliedTier;
+      }
+    }
+    if (input.validUntil != null && input.validUntil <= Date.now()) throw httpError(400, 'VALIDATION_ERROR', 'Quote validity must be in the future');
     const { subtotalCents, totalCents } = computeQuoteTotals(input.items, input.deliveryFeeCents ?? 0, input.taxCents ?? 0, input.discountCents ?? 0);
     const now = Date.now();
     const prev = q.totalCents;
@@ -384,6 +424,7 @@ export const rfqService = {
     }).where(eq(supplierQuotes.id, quoteId));
     await db.insert(quoteVersions).values({ id: newId(), quoteId, version, changedByUserId: userId, previousTotalCents: prev, newTotalCents: totalCents, changesJson: JSON.stringify({ action: 'update' }), createdAt: now });
     await insertRfqEvent(d1, { rfqId: q.rfqId, quoteId, actorUserId: userId, action: 'QUOTE_UPDATED', metadata: { previousTotalCents: prev, newTotalCents: totalCents, version } });
+    await insertRfqEvent(d1, { rfqId: q.rfqId, quoteId, actorUserId: userId, action: 'QUOTE_VERSION_CREATED', metadata: { version, previousTotalCents: prev, newTotalCents: totalCents } });
     return { ok: true, version, totalCents };
   },
 
@@ -399,6 +440,9 @@ export const rfqService = {
       id: newId(), quoteId, rfqId: q.rfqId, offeredByType: byType, offeredByUserId: userId,
       proposedTotalCents: input.proposedTotalCents, proposedUnitPricesJson: input.proposedUnitPrices ? JSON.stringify(input.proposedUnitPrices) : null,
       message: input.message, status: 'pending', createdAt: now,
+      proposedDeliveryFeeCents: input.proposedDeliveryFeeCents ?? null,
+      proposedPaymentTerms: input.proposedPaymentTerms ?? null,
+      proposedDeliveryDate: input.proposedDeliveryDate ?? null,
     });
     await db.update(supplierQuotes).set({ status: 'negotiating', updatedAt: now }).where(eq(supplierQuotes.id, quoteId));
     if (rfq.status !== 'under_review') await db.update(rfqs).set({ status: 'under_review', updatedAt: now }).where(eq(rfqs.id, rfq.id));
@@ -415,19 +459,31 @@ export const rfqService = {
     if (c.status !== 'pending') throw httpError(409, 'CONFLICT', 'Counter-offer already resolved');
     const q = await db.select().from(supplierQuotes).where(eq(supplierQuotes.id, c.quoteId)).get();
     if (!q) throw httpError(404, 'NOT_FOUND', 'Quote not found');
+    const rfqNow = await findRfq(d1, q.rfqId);
+    if (!rfqNow || ['awarded', 'converted_to_order', 'cancelled', 'closed', 'expired'].includes(rfqNow.status)) throw httpError(409, 'CONFLICT', 'Negotiation closed');
+    if (['accepted', 'rejected'].includes(q.status)) throw httpError(409, 'CONFLICT', `Cannot respond on ${q.status} quote`);
     const now = Date.now();
     await db.update(quoteCounterOffers).set({ status: accept ? 'accepted' : 'rejected', respondedAt: now }).where(eq(quoteCounterOffers.id, counterId));
     if (accept) {
       const prev = q.totalCents;
       const version = q.version + 1;
-      await db.update(supplierQuotes).set({ totalCents: c.proposedTotalCents, version, status: 'submitted', updatedAt: now }).where(eq(supplierQuotes.id, q.id));
-      await db.insert(quoteVersions).values({ id: newId(), quoteId: q.id, version, changedByUserId: userId, previousTotalCents: prev, newTotalCents: c.proposedTotalCents, changesJson: JSON.stringify({ action: 'counter_accepted', counterId }), createdAt: now });
+      // Accepted terms become the new quote version (price AND terms).
+      await db.update(supplierQuotes).set({
+        totalCents: c.proposedTotalCents, version, status: 'submitted', updatedAt: now,
+        ...(c.proposedDeliveryFeeCents != null ? { deliveryFeeCents: c.proposedDeliveryFeeCents } : {}),
+        ...(c.proposedPaymentTerms != null ? { paymentTerms: c.proposedPaymentTerms } : {}),
+        ...(c.proposedDeliveryDate != null ? { estimatedDeliveryDate: c.proposedDeliveryDate } : {}),
+      }).where(eq(supplierQuotes.id, q.id));
+      await db.insert(quoteVersions).values({ id: newId(), quoteId: q.id, version, changedByUserId: userId, previousTotalCents: prev, newTotalCents: c.proposedTotalCents, changesJson: JSON.stringify({ action: 'counter_accepted', counterId, terms: { deliveryFeeCents: c.proposedDeliveryFeeCents, paymentTerms: c.proposedPaymentTerms, deliveryDate: c.proposedDeliveryDate } }), createdAt: now });
       await insertRfqEvent(d1, { rfqId: q.rfqId, quoteId: q.id, actorUserId: userId, action: 'COUNTER_OFFER_ACCEPTED', metadata: { counterId, newTotalCents: c.proposedTotalCents } });
+      await insertRfqEvent(d1, { rfqId: q.rfqId, quoteId: q.id, actorUserId: userId, action: 'QUOTE_VERSION_CREATED', metadata: { version, via: 'counter_accepted' } });
       const rfq = await findRfq(d1, q.rfqId);
       if (rfq) {
         await notifyRfqBusiness(d1, queue, q.rfqId, rfq.businessId, NotificationType.QUOTE_COUNTERED, `Counter accepted on ${q.quoteNumber}`, `Agreed total ${c.proposedTotalCents / 100}.`, userId);
         await notifyRfqSupplier(d1, queue, q.supplierId, q.rfqId, NotificationType.QUOTE_COUNTERED, `Counter accepted on ${q.quoteNumber}`, `Agreed total ${c.proposedTotalCents / 100}.`, userId);
       }
+    } else {
+      await insertRfqEvent(d1, { rfqId: q.rfqId, quoteId: q.id, actorUserId: userId, action: 'COUNTER_OFFER_REJECTED', metadata: { counterId } });
     }
     return { ok: true, accepted: accept };
   },
@@ -443,7 +499,7 @@ export const rfqService = {
     return { ok: true };
   },
 
-  async award(d1: D1Database, userId: string, rfqId: string, quoteId: string, acceptedAlternativeItemIds: string[], queue?: QueueLike) {
+  async award(d1: D1Database, userId: string, rfqId: string, quoteId: string, acceptedAlternativeItemIds: string[], expectedVersion?: number | undefined, queue?: QueueLike) {
     const db = getDb(d1);
     const rfq = await findRfq(d1, rfqId);
     if (!rfq) throw httpError(404, 'NOT_FOUND', 'RFQ not found');
@@ -453,9 +509,13 @@ export const rfqService = {
     if (!q || q.rfqId !== rfqId) throw httpError(404, 'NOT_FOUND', 'Quote not found for this RFQ');
     if (!['submitted', 'under_review', 'negotiating'].includes(q.status)) throw httpError(409, 'CONFLICT', `Cannot award ${q.status} quote`);
     if (q.validUntil && q.validUntil < Date.now()) throw httpError(409, 'CONFLICT', 'Quote has expired');
+    // Pin the exact negotiated version the business reviewed.
+    if (expectedVersion != null && q.version !== expectedVersion) {
+      throw httpError(409, 'CONFLICT', `Quote was revised (now v${q.version}); review before awarding`, { expectedVersion, currentVersion: q.version });
+    }
     const now = Date.now();
     // Concurrency guard: only transition if still in a pre-award state.
-    const res = await db.run(sql`UPDATE rfqs SET status='awarded', awarded_quote_id=${quoteId}, awarded_at=${now}, updated_at=${now}, version=version+1 WHERE id=${rfqId} AND status IN ('open','quoting','quotes_received','under_review')`);
+    const res = await db.run(sql`UPDATE rfqs SET status='awarded', awarded_quote_id=${quoteId}, awarded_quote_version=${q.version}, awarded_at=${now}, updated_at=${now}, version=version+1 WHERE id=${rfqId} AND status IN ('open','quoting','quotes_received','under_review')`);
     const changes = Number((res as { meta?: { changes?: number } }).meta?.changes ?? 1);
     if (changes === 0) throw httpError(409, 'CONFLICT', 'RFQ was modified concurrently');
     if (acceptedAlternativeItemIds.length) {
@@ -468,11 +528,26 @@ export const rfqService = {
       await insertRfqEvent(d1, { rfqId, quoteId: l.id, actorUserId: userId, action: 'QUOTE_REJECTED', metadata: { awardedTo: quoteId } });
       await notifyRfqSupplier(d1, queue, l.supplierId, rfqId, NotificationType.QUOTE_REJECTED, `Quote ${l.quoteNumber} not selected`, `${rfq.rfqNumber} was awarded to another supplier.`);
     }
-    await insertRfqEvent(d1, { rfqId, quoteId, actorUserId: userId, action: 'RFQ_AWARDED', fromStatus: rfq.status, toStatus: 'awarded', metadata: { quoteId, totalCents: q.totalCents } });
+    await insertRfqEvent(d1, { rfqId, quoteId, actorUserId: userId, action: 'RFQ_AWARDED', fromStatus: rfq.status, toStatus: 'awarded', metadata: { quoteId, quoteVersion: q.version, totalCents: q.totalCents } });
     await insertRfqEvent(d1, { rfqId, quoteId, actorUserId: userId, action: 'QUOTE_ACCEPTED', metadata: { totalCents: q.totalCents } });
     await notifyRfqSupplier(d1, queue, q.supplierId, rfqId, NotificationType.QUOTE_ACCEPTED, `Your quote ${q.quoteNumber} was accepted`, `Total ${q.totalCents / 100} ${q.currency}. Awaiting purchase order.`, userId);
     await notifyRfqBusiness(d1, queue, rfqId, rfq.businessId, NotificationType.QUOTE_ACCEPTED, `Awarded ${q.quoteNumber}`, `PO can now be created from the accepted quote.`, userId);
     await recordAudit(d1, { actorUserId: userId, action: 'rfq.awarded', resourceType: 'rfq', resourceId: rfqId, metadata: { quoteId } });
+    return { ok: true };
+  },
+
+  async rejectQuote(d1: D1Database, userId: string, quoteId: string, reason: string | undefined, queue?: QueueLike) {
+    const db = getDb(d1);
+    const q = await db.select().from(supplierQuotes).where(eq(supplierQuotes.id, quoteId)).get();
+    if (!q) throw httpError(404, 'NOT_FOUND', 'Quote not found');
+    if (!['submitted', 'under_review', 'negotiating', 'draft'].includes(q.status)) throw httpError(409, 'CONFLICT', `Cannot reject ${q.status} quote`);
+    const rfq = await findRfq(d1, q.rfqId);
+    if (!rfq || ['awarded', 'converted_to_order', 'cancelled', 'closed'].includes(rfq.status)) throw httpError(409, 'CONFLICT', `RFQ is ${rfq?.status ?? 'missing'}`);
+    const now = Date.now();
+    await db.update(supplierQuotes).set({ status: 'rejected', rejectedAt: now, updatedAt: now }).where(eq(supplierQuotes.id, quoteId));
+    await insertRfqEvent(d1, { rfqId: q.rfqId, quoteId, actorUserId: userId, action: 'QUOTE_REJECTED', metadata: { reason: reason ?? null } });
+    await notifyRfqSupplier(d1, queue, q.supplierId, q.rfqId, NotificationType.QUOTE_REJECTED, `Quote ${q.quoteNumber} not selected`, (reason ?? `${rfq.rfqNumber} update`).slice(0, 200), userId);
+    await recordAudit(d1, { actorUserId: userId, action: 'rfq.quote_rejected', resourceType: 'supplier_quote', resourceId: quoteId, metadata: { rfqId: q.rfqId } });
     return { ok: true };
   },
 
@@ -500,7 +575,7 @@ export const rfqService = {
       deliveryDistrict: rfq.deliveryDistrict ?? biz.district,
       notes: `From RFQ ${rfq.rfqNumber} / quote ${q.quoteNumber}. ${rfq.notes ?? ''}`.slice(0, 2000),
       createdByUserId: userId, createdAt: now, updatedAt: now,
-      rfqId, quoteId: q.id,
+      rfqId, quoteId: q.id, quoteVersion: (rfq.awardedQuoteVersion ?? q.version) as number,
     } as never);
     for (const it of items) {
       // Every PO line needs a real supplier_products row (FK). Resolve:
@@ -518,7 +593,7 @@ export const rfqService = {
     }
     await db.insert(orderEvents).values({ id: newId(), purchaseOrderId: poId, actorUserId: userId, fromStatus: null, toStatus: 'pending', reason: `created from RFQ ${rfq.rfqNumber}`, metadata: JSON.stringify({ rfqId, quoteId: q.id }), createdAt: now });
     await db.update(rfqs).set({ status: 'converted_to_order', convertedPoId: poId, updatedAt: now, version: rfq.version + 1 }).where(eq(rfqs.id, rfqId));
-    await insertRfqEvent(d1, { rfqId, quoteId: q.id, actorUserId: userId, action: 'ORDER_CREATED_FROM_QUOTE', fromStatus: 'awarded', toStatus: 'converted_to_order', metadata: { poId, poNumber } });
+    await insertRfqEvent(d1, { rfqId, quoteId: q.id, actorUserId: userId, action: 'ORDER_CREATED_FROM_QUOTE', fromStatus: 'awarded', toStatus: 'converted_to_order', metadata: { poId, poNumber, quoteVersion: (rfq.awardedQuoteVersion ?? q.version) } });
     await recordAudit(d1, { actorUserId: userId, action: 'rfq.order_created', resourceType: 'purchase_order', resourceId: poId, metadata: { rfqId, quoteId: q.id } });
     try {
       const { notifyOrderParties } = await import('../notifications/dispatcher');
@@ -579,7 +654,30 @@ export const rfqService = {
     // Quote-level validity expiry
     const qDue = await db.select().from(supplierQuotes).where(and(sql`${supplierQuotes.validUntil} IS NOT NULL AND ${supplierQuotes.validUntil} < ${now}`, sql`${supplierQuotes.status} IN ('submitted','under_review','negotiating')`)).all();
     for (const qq of qDue) await db.update(supplierQuotes).set({ status: 'expired', updatedAt: now }).where(eq(supplierQuotes.id, qq.id));
-    return { rfqsExpired: due.length, quotesExpired: qDue.length };
+
+    // Reminders (idempotent via rfq_events dedupe): RFQ deadline <24h, quote validity <48h.
+    let reminders = 0;
+    const soon = await db.select().from(rfqs).where(and(sql`${rfqs.deadline} IS NOT NULL AND ${rfqs.deadline} >= ${now} AND ${rfqs.deadline} < ${now + 24 * 3600 * 1000}`, sql`${rfqs.status} IN ('open','quoting','quotes_received','under_review')`)).all();
+    for (const r of soon) {
+      const sent = await db.select().from(rfqEvents).where(and(eq(rfqEvents.rfqId, r.id), eq(rfqEvents.action, 'RFQ_DEADLINE_REMINDER'), sql`${rfqEvents.createdAt} > ${now - 20 * 3600 * 1000}`)).get();
+      if (sent) continue;
+      await insertRfqEvent(d1, { rfqId: r.id, action: 'RFQ_DEADLINE_REMINDER', metadata: { deadline: r.deadline } });
+      await notifyBusinessOrg(d1, queue, r.businessId, { type: NotificationType.RFQ_DEADLINE_SOON, title: `RFQ ${r.rfqNumber} closes soon`, body: `Quotation deadline: ${new Date(r.deadline as number).toLocaleString()}`, link: `/rfqs/${r.id}` });
+      const invs = await db.select().from(rfqSuppliers).where(eq(rfqSuppliers.rfqId, r.id)).all();
+      for (const inv of invs) await notifyRfqSupplier(d1, queue, inv.supplierId, r.id, NotificationType.RFQ_DEADLINE_SOON, `RFQ ${r.rfqNumber} closes soon`, `Submit before ${new Date(r.deadline as number).toLocaleString()}.`);
+      reminders++;
+    }
+    const qSoon = await db.select().from(supplierQuotes).where(and(sql`${supplierQuotes.validUntil} IS NOT NULL AND ${supplierQuotes.validUntil} >= ${now} AND ${supplierQuotes.validUntil} < ${now + 48 * 3600 * 1000}`, sql`${supplierQuotes.status} IN ('submitted','under_review','negotiating')`)).all();
+    for (const qq of qSoon) {
+      const rfq = await findRfq(d1, qq.rfqId);
+      if (!rfq) continue;
+      const sent = await db.select().from(rfqEvents).where(and(eq(rfqEvents.quoteId, qq.id), eq(rfqEvents.action, 'QUOTE_EXPIRY_REMINDER'), sql`${rfqEvents.createdAt} > ${now - 40 * 3600 * 1000}`)).get();
+      if (sent) continue;
+      await insertRfqEvent(d1, { rfqId: qq.rfqId, quoteId: qq.id, action: 'QUOTE_EXPIRY_REMINDER', metadata: { validUntil: qq.validUntil } });
+      await notifyRfqBusiness(d1, queue, qq.rfqId, rfq.businessId, NotificationType.QUOTE_EXPIRING, `Quote ${qq.quoteNumber} expiring`, `Valid until ${new Date(qq.validUntil as number).toLocaleDateString()} — award or request an update.`, undefined);
+      reminders++;
+    }
+    return { rfqsExpired: due.length, quotesExpired: qDue.length, reminders };
   },
 
   async compare(d1: D1Database, rfqId: string) {
@@ -593,9 +691,11 @@ export const rfqService = {
       const qi = await db.select().from(supplierQuoteItems).where(eq(supplierQuoteItems.quoteId, q.id)).all();
       const tiers = qi.length ? await db.select().from(quotePriceTiers).where(inArray(quotePriceTiers.quoteItemId, qi.map((i) => i.id))).all() : [];
       const sup = await db.select().from(suppliers).where(eq(suppliers.id, q.supplierId)).get();
+      // Historical performance with THIS business (real PO data, tenant-scoped).
+      const pastPos = await db.select({ status: purchaseOrders.status }).from(purchaseOrders).where(and(eq(purchaseOrders.businessId, rfq.businessId), eq(purchaseOrders.supplierId, q.supplierId))).all();
       const landed = q.subtotalCents + q.deliveryFeeCents + q.taxCents - q.discountCents;
       out.push({
-        quote: q, items: qi, tiers, supplier: sup ? { id: sup.id, name: sup.name, district: sup.district, city: sup.city, rating: (sup as { ratingAvg?: number }).ratingAvg ?? null } : null,
+        quote: q, items: qi, tiers, supplier: sup ? { id: sup.id, name: sup.name, district: sup.district, city: sup.city, pastOrders: pastPos.length, pastCompleted: pastPos.filter((p) => p.status === 'completed').length } : null,
         landedCents: landed, coverage: `${qi.filter((i) => !i.isAlternative).length}/${items.length}`,
         isPartial: Boolean(q.isPartial),
         valid: !q.validUntil || q.validUntil >= Date.now(),
@@ -615,14 +715,25 @@ export const rfqService = {
       if (best) perItemBest.push({ rfqItemId: ri.id, ...best });
     }
     const splitTotal = perItemBest.reduce((s, b) => s + b.subtotalCents, 0);
-    const splitSuppliers = [...new Set(perItemBest.map((b) => b.quoteId))].length;
+    const splitQuoteIds = [...new Set(perItemBest.map((b) => b.quoteId))];
+    // Delivery impact: each involved supplier ships separately.
+    const splitDeliveryCents = splitQuoteIds.reduce((s, qid) => {
+      const o = out.find((x) => (x.quote as { id: string }).id === qid);
+      return s + ((o?.quote as { deliveryFeeCents?: number }).deliveryFeeCents ?? 0);
+    }, 0);
+    const splitSuppliers = splitQuoteIds.length;
+    const latestSplitEta = splitQuoteIds.reduce((m, qid) => {
+      const o = out.find((x) => (x.quote as { id: string }).id === qid);
+      const eta = (o?.quote as { estimatedDeliveryDate?: number | null }).estimatedDeliveryDate ?? null;
+      return eta != null ? Math.max(m ?? 0, eta) : m;
+    }, null as number | null);
     return {
       rfq: { id: rfq.id, rfqNumber: rfq.rfqNumber, title: rfq.title, currency: rfq.currency, status: rfq.status },
       items,
       quotes: out,
       bestPriceQuoteId: sorted[0] ? ((sorted[0].quote as { id: string }).id) : null,
       fastestQuoteId: fastest[0] ? ((fastest[0].quote as { id: string }).id) : null,
-      splitOptimization: { perItemBest, splitItemsTotalCents: splitTotal, supplierCount: splitSuppliers },
+      splitOptimization: { perItemBest, splitItemsTotalCents: splitTotal, splitDeliveryCents, splitLandedEstimateCents: splitTotal + splitDeliveryCents, latestSplitEta, supplierCount: splitSuppliers },
     };
   },
 
@@ -641,11 +752,43 @@ export const rfqService = {
         negotiationSavings += Math.max(0, first.newTotalCents - last.newTotalCents);
       }
     }
+    // Time-to-first-quote / time-to-award + conversion (tenant-aware).
+    const quoteByRfq = new Map<string, typeof quotes>();
+    for (const q of quotes) {
+      const l = quoteByRfq.get(q.rfqId) ?? [];
+      l.push(q); quoteByRfq.set(q.rfqId, l);
+    }
+    let firstQuoteMsTotal = 0; let firstQuoteN = 0;
+    let awardMsTotal = 0; let awardN = 0;
+    for (const r of all) {
+      const qs = (quoteByRfq.get(r.id) ?? []).filter((q) => q.submittedAt != null).sort((a, b) => (a.submittedAt as number) - (b.submittedAt as number));
+      if (qs.length && r.createdAt) { firstQuoteMsTotal += (qs[0] as { submittedAt: number }).submittedAt - r.createdAt; firstQuoteN++; }
+      if (r.awardedAt && r.createdAt) { awardMsTotal += r.awardedAt - r.createdAt; awardN++; }
+    }
+    const converted = all.filter((r) => r.status === 'converted_to_order').length;
+    const awardedCount = all.filter((r) => ['awarded', 'converted_to_order'].includes(r.status)).length;
+    const now = Date.now();
+    const recent = all.slice(0, 20).map((r) => {
+      const qs = quoteByRfq.get(r.id) ?? [];
+      const validTotals = qs.filter((q) => !q.validUntil || (q.validUntil as number) >= now).map((q) => q.totalCents);
+      return {
+        id: r.id, rfqNumber: r.rfqNumber, title: r.title, status: r.status,
+        deadline: r.deadline, createdAt: r.createdAt, awardedQuoteId: r.awardedQuoteId,
+        quoteCount: qs.length,
+        lowestLandedCents: validTotals.length ? Math.min(...validTotals) : null,
+        expiringSoon: r.deadline != null && r.deadline > now && r.deadline - now < 72 * 3600 * 1000,
+      };
+    });
     return {
       activeRfqs: active.length, totalRfqs: all.length, quotesReceived: quotes.length,
-      awarded: all.filter((r) => ['awarded', 'converted_to_order'].includes(r.status)).length,
+      awarded: awardedCount,
+      avgQuotesPerRfq: all.length ? quotes.length / all.length : 0,
+      avgMsToFirstQuote: firstQuoteN ? Math.round(firstQuoteMsTotal / firstQuoteN) : null,
+      avgMsToAward: awardN ? Math.round(awardMsTotal / awardN) : null,
+      rfqToPoConversion: all.length ? converted / all.length : 0,
       negotiationSavingsCents: negotiationSavings,
-      acceptanceRate: quotes.length ? all.filter((r) => ['awarded', 'converted_to_order'].includes(r.status)).length / Math.max(1, all.length) : 0,
+      acceptanceRate: all.length ? awardedCount / all.length : 0,
+      recent,
     };
   },
 
@@ -654,11 +797,18 @@ export const rfqService = {
     const invites = await db.select().from(rfqSuppliers).where(eq(rfqSuppliers.supplierId, supplierId)).all();
     const quotes = await db.select().from(supplierQuotes).where(eq(supplierQuotes.supplierId, supplierId)).all();
     const won = quotes.filter((q) => q.status === 'accepted').length;
+    // Avg response time: invite -> first quote per RFQ.
+    let respTotal = 0; let respN = 0;
+    for (const inv of invites) {
+      const qs = quotes.filter((q) => q.rfqId === inv.rfqId && q.submittedAt != null).sort((a, b) => (a.submittedAt as number) - (b.submittedAt as number));
+      if (qs.length && inv.invitedAt) { respTotal += (qs[0] as { submittedAt: number }).submittedAt - inv.invitedAt; respN++; }
+    }
     return {
       rfqsReceived: invites.length, quotesSubmitted: quotes.length,
       won, lost: quotes.filter((q) => q.status === 'rejected').length,
       winRate: quotes.length ? won / quotes.length : 0,
       responseRate: invites.length ? quotes.length / invites.length : 0,
+      avgMsToRespond: respN ? Math.round(respTotal / respN) : null,
     };
   },
 

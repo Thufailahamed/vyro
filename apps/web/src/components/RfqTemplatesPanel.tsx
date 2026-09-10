@@ -7,15 +7,14 @@ import { Surface } from '@/components/brand/Surface';
 import { useToast } from '@vyro/ui';
 
 export interface RfqItem { description: string; quantity: string; unit: string; targetPrice: string; specifications: string; productId?: string }
-interface Template { id: string; name: string; description?: string; recurrenceRule?: string | null }
+interface Template { id: string; name: string; description?: string | null }
 
-export function RfqTemplatesPanel({ onLoadItems }: { onLoadItems: (items: RfqItem[]) => void }) {
+export function RfqTemplatesPanel({ items, onLoadItems }: { items: RfqItem[]; onLoadItems: (items: RfqItem[]) => void }) {
   const { user } = useAuth();
   const businessId = (user as { memberships?: Array<{ businessId: string }> })?.memberships?.[0]?.businessId;
   const toast = useToast();
   const [saveName, setSaveName] = useState('');
-  const [saveRecurrence, setSaveRecurrence] = useState<'none' | 'monthly' | 'custom'>('none');
-  const [saveCustom, setSaveCustom] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const { data, refetch } = useQuery({
     queryKey: ['rfq-templates', businessId],
     queryFn: () => api.get<{ templates: Template[] }>(`/rfqs/templates/list?businessId=${businessId}`),
@@ -36,15 +35,27 @@ export function RfqTemplatesPanel({ onLoadItems }: { onLoadItems: (items: RfqIte
   }
 
   async function save() {
+    setSaveError(null);
     if (!saveName.trim() || !businessId) return;
-    await api.post('/rfqs/templates', {
-      businessId,
-      name: saveName,
-      recurrenceRule: saveRecurrence === 'custom' ? saveCustom : saveRecurrence === 'none' ? undefined : saveRecurrence,
-    });
-    setSaveName('');
-    void refetch();
-    toast.show(toast.success('Template saved'));
+    const valid = items.filter((i) => i.description.trim() && Number(i.quantity) > 0);
+    if (!valid.length) { setSaveError('Add at least one item before saving a template'); return; }
+    try {
+      await api.post('/rfqs/templates', {
+        businessId,
+        name: saveName,
+        items: valid.map((i) => ({
+          description: i.description, quantity: Number(i.quantity), unit: i.unit || 'kg',
+          ...(i.targetPrice ? { targetPriceCents: Math.round(Number(i.targetPrice) * 100) } : {}),
+          ...(i.specifications ? { specifications: i.specifications } : {}),
+          ...(i.productId ? { productId: i.productId } : {}),
+        })),
+      });
+      setSaveName('');
+      void refetch();
+      toast.show(toast.success('Template saved'));
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Save failed');
+    }
   }
 
   async function createNext(id: string) {
@@ -62,7 +73,7 @@ export function RfqTemplatesPanel({ onLoadItems }: { onLoadItems: (items: RfqIte
             <ul className="mt-2 space-y-1">
               {(data?.templates ?? []).map((t) => (
                 <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <span>{t.name}{t.recurrenceRule ? ` · ${t.recurrenceRule}` : ''}</span>
+                  <span>{t.name}</span>
                   <span className="flex gap-2">
                     <button onClick={() => void load(t.id)} className="min-h-[44px] rounded-lg border border-line px-2 py-1 text-xs">Load</button>
                     <button onClick={() => void createNext(t.id)} className="min-h-[44px] rounded-lg border border-line px-2 py-1 text-xs">Create next</button>
@@ -74,14 +85,9 @@ export function RfqTemplatesPanel({ onLoadItems }: { onLoadItems: (items: RfqIte
           </div>
           <div>
             <h3 className="text-xs uppercase tracking-widest text-ink-4">Save current as template</h3>
-            <input value={saveName} onChange={(e) => setSaveName(e.target.value)} placeholder="Template name" className="mt-2 w-full rounded-lg border border-line px-2 py-1 text-sm" />
-            <select value={saveRecurrence} onChange={(e) => setSaveRecurrence(e.target.value as 'none' | 'monthly' | 'custom')} className="mt-1 w-full rounded-lg border border-line px-2 py-1 text-sm">
-              <option value="none">No recurrence</option>
-              <option value="monthly">Monthly</option>
-              <option value="custom">Custom cron</option>
-            </select>
-            {saveRecurrence === 'custom' && <input value={saveCustom} onChange={(e) => setSaveCustom(e.target.value)} placeholder="cron expr" className="mt-1 w-full rounded-lg border border-line px-2 py-1 text-sm" />}
-            <Button onClick={() => void save()} className="mt-2 w-full">Save</Button>
+            {saveError && <div className="mt-1 text-xs text-rose">{saveError}</div>}
+            <input value={saveName} onChange={(e) => setSaveName(e.target.value)} placeholder="e.g. Monthly restaurant supplies" className="mt-2 w-full rounded-lg border border-line px-2 py-1 text-sm" />
+            <Button onClick={() => void save()} className="mt-2 w-full">Save {items.filter((i) => i.description.trim()).length} items</Button>
           </div>
         </div>
       </details>

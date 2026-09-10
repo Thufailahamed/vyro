@@ -6,10 +6,35 @@ import { api } from '@/lib/api';
 import { useSupplierId } from './useSupplierId';
 import { Button, ErrorBanner } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
+import { StatusPill } from '@/pages/RfqsPage';
 import { useToast } from '@vyro/ui';
 import { RfqDocsUpload } from '@/components/RfqDocsUpload';
 
 interface QuoteLine { rfqItemId?: string; productId?: string; description: string; quantity: string; unitPrice: string; discount: string; isAlternative?: boolean; alternativeFor?: string; notes?: string; tierQty?: string; tierPrice?: string }
+interface CounterRow { id: string; offeredByType: string; proposedTotalCents: number; message?: string | null; status: string; createdAt: number }
+
+function SupplierCounters({ quoteId, onChanged }: { quoteId: string; onChanged: () => void }) {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ['sup-counters', quoteId],
+    queryFn: () => api.get<{ counters: CounterRow[] }>(`/rfqs/quotes/${quoteId}/history`).then((r) => ({ counters: r.counters })),
+  });
+  const pending = (data?.counters ?? []).filter((c) => c.status === 'pending');
+  if (!pending.length) return null;
+  return (
+    <div className="mt-2 rounded-xl border border-copper/40 bg-copper/5 p-3 text-sm">
+      <div className="font-semibold">Buyer counter-offers awaiting your response</div>
+      {pending.map((c) => (
+        <div key={c.id} className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="font-mono">Rs. {(c.proposedTotalCents / 100).toLocaleString()}</span>
+          {c.message && <span className="text-ink-3">“{c.message}”</span>}
+          <button onClick={() => void api.post(`/rfqs/counters/${c.id}/respond`, { accept: true }).then(() => { void qc.invalidateQueries({ queryKey: ['sup-counters', quoteId] }); onChanged(); })} className="rounded bg-mint px-3 py-1 text-sm text-white">Accept</button>
+          <button onClick={() => void api.post(`/rfqs/counters/${c.id}/respond`, { accept: false }).then(() => { void qc.invalidateQueries({ queryKey: ['sup-counters', quoteId] }); onChanged(); })} className="rounded border border-line px-3 py-1 text-sm">Reject</button>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function SupplierQuoteDetailPage() {
   const { rfqId } = useParams();
@@ -22,10 +47,16 @@ export function SupplierQuoteDetailPage() {
   const [validDays, setValidDays] = useState('14');
   const [paymentTerms, setPaymentTerms] = useState('');
   const [notes, setNotes] = useState('');
+  const [msg, setMsg] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const detail = useQuery({ queryKey: ['sup-rfq', rfqId], queryFn: () => api.post<{ rfq: Record<string, unknown>; items: Array<{ id: string; productId?: string; description: string; quantity: number; unit: string; targetPriceCents?: number; specifications?: string }> }>('/rfqs/supplier/view', { rfqId, supplierId }), enabled: !!rfqId && !!supplierId });
-  const mine = useQuery({ queryKey: ['sup-quotes', rfqId, supplierId], queryFn: () => api.get<{ quotes: Array<{ quote: { id: string; status: string; totalCents: number; quoteNumber: string }; items: unknown[] }> }>(`/rfqs/${rfqId}/quotes?supplierId=${supplierId}`), enabled: !!rfqId && !!supplierId });
+  const detail = useQuery({ queryKey: ['sup-rfq', rfqId], queryFn: () => api.post<{ rfq: Record<string, unknown>; business: { name: string; city?: string; district?: string } | null; items: Array<{ id: string; productId?: string; description: string; quantity: number; unit: string; targetPriceCents?: number; specifications?: string }> }>('/rfqs/supplier/view', { rfqId, supplierId }), enabled: !!rfqId && !!supplierId });
+  const mine = useQuery({ queryKey: ['sup-quotes', rfqId, supplierId], queryFn: () => api.get<{ quotes: Array<{ quote: { id: string; status: string; version: number; totalCents: number; quoteNumber: string }; items: unknown[] }> }>(`/rfqs/${rfqId}/quotes?supplierId=${supplierId}`), enabled: !!rfqId && !!supplierId });
+  const thread = useQuery({
+    queryKey: ['sup-thread', rfqId, mine.data?.quotes[0]?.quote.id],
+    queryFn: () => api.get<{ messages: Array<{ id: string; senderType: string; message: string; createdAt: number }> }>(`/rfqs/${rfqId}/messages?quoteId=${mine.data!.quotes[0]!.quote.id}`),
+    enabled: !!rfqId && !!mine.data?.quotes[0],
+  });
 
   const items = detail.data?.items ?? [];
   if (lines.length === 0 && items.length > 0) {
@@ -54,13 +85,38 @@ export function SupplierQuoteDetailPage() {
     } catch (e) { setError(e instanceof Error ? e.message : 'Submit failed'); }
   }
 
-  const rfq = detail.data?.rfq as unknown as { title: string; rfqNumber: string; deliveryLocation?: string; requiredDeliveryDate?: number; deadline?: number } | undefined;
+  const rfq = detail.data?.rfq as unknown as { title: string; rfqNumber: string; status: string; deliveryLocation?: string; deliveryCity?: string; deliveryDistrict?: string; requiredDeliveryDate?: number; deadline?: number; paymentTerms?: string; paymentMethod?: string; specifications?: string; packagingRequirements?: string; qualityRequirements?: string } | undefined;
+  const buyer = detail.data?.business;
+  const refreshMine = () => { void qc.invalidateQueries({ queryKey: ['sup-quotes', rfqId] }); void qc.invalidateQueries({ queryKey: ['sup-thread', rfqId] }); };
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
       <Link to="/supplier/quotes" className="text-sm underline text-ink-3">← Quote requests</Link>
-      <h1 className="mt-2 text-3xl font-bold">{rfq?.title ?? 'RFQ'}</h1>
-      <div className="text-sm text-ink-3">{rfq?.rfqNumber} · {rfq?.deliveryLocation ?? ''} {rfq?.deadline ? `· due ${new Date(rfq.deadline).toLocaleDateString()}` : ''}</div>
+      <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold">{rfq?.title ?? 'RFQ'}</h1>
+          <div className="text-sm text-ink-3">{rfq?.rfqNumber}{buyer ? ` · Buyer: ${buyer.name}${buyer.district ? `, ${buyer.district}` : ''}` : ''} {rfq?.deadline ? `· quote by ${new Date(rfq.deadline).toLocaleDateString()}` : ''}</div>
+        </div>
+        {rfq && <StatusPill status={rfq.status} />}
+      </div>
       {error && <div className="mt-4"><ErrorBanner message={error} /></div>}
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <Surface className="p-5">
+          <h2 className="font-semibold">Delivery & terms</h2>
+          <ul className="mt-2 space-y-1 text-sm text-ink-2">
+            <li>Location: {[rfq?.deliveryLocation, rfq?.deliveryCity, rfq?.deliveryDistrict].filter(Boolean).join(', ') || '—'}</li>
+            <li>Required by: {rfq?.requiredDeliveryDate ? new Date(rfq.requiredDeliveryDate).toLocaleDateString() : '—'}</li>
+            <li>Payment: {[rfq?.paymentMethod, rfq?.paymentTerms].filter(Boolean).join(' · ') || '—'}</li>
+            {rfq?.specifications && <li>Specs: {rfq.specifications}</li>}
+            {rfq?.packagingRequirements && <li>Packaging: {rfq.packagingRequirements}</li>}
+            {rfq?.qualityRequirements && <li>Quality: {rfq.qualityRequirements}</li>}
+          </ul>
+        </Surface>
+        <Surface className="p-5">
+          <h2 className="font-semibold">Attachments</h2>
+          <RfqDocsUpload rfqId={rfqId!} />
+        </Surface>
+      </div>
 
       <Surface className="mt-4 p-5">
         <h2 className="font-semibold">Requested ({items.length})</h2>
@@ -69,9 +125,18 @@ export function SupplierQuoteDetailPage() {
 
       {(mine.data?.quotes.length ?? 0) > 0 && (
         <Surface className="mt-4 p-5">
-          <h2 className="font-semibold">My quotes</h2>
-          <ul className="mt-2 text-sm">{mine.data!.quotes.map((q) => <li key={q.quote.id} className="flex flex-col gap-2 sm:flex-row sm:justify-between"><span>{q.quote.quoteNumber} — {q.quote.status}</span><span className="font-mono">Rs. {(q.quote.totalCents / 100).toLocaleString()}</span></li>)}</ul>
-          {mine.data!.quotes.map((q) => <RfqDocsUpload key={q.quote.id} rfqId={rfqId!} quoteId={q.quote.id} />)}
+          <h2 className="font-semibold">My quotations</h2>
+          <ul className="mt-2 space-y-3 text-sm">
+            {mine.data!.quotes.map((q) => (
+              <li key={q.quote.id}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>{q.quote.quoteNumber} · v{q.quote.version} — <StatusPill status={q.quote.status} /></span>
+                  <span className="font-mono">Rs. {(q.quote.totalCents / 100).toLocaleString()}</span>
+                </div>
+                <SupplierCounters quoteId={q.quote.id} onChanged={refreshMine} />
+              </li>
+            ))}
+          </ul>
         </Surface>
       )}
 
@@ -95,6 +160,22 @@ export function SupplierQuoteDetailPage() {
         <label className="mt-2 block text-sm">Notes / conditions<textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-line px-2 py-1" /></label>
         <div className="mt-4"><Button onClick={() => void submit()}>Submit quote</Button></div>
       </Surface>
+
+      {mine.data?.quotes[0] && (
+        <Surface className="mt-4 p-5">
+          <h2 className="font-semibold">Clarifications with buyer</h2>
+          <ul className="mt-2 max-h-56 space-y-2 overflow-auto text-sm">
+            {(thread.data?.messages ?? []).map((m) => (
+              <li key={m.id}><span className="rounded bg-paper border border-line px-2 py-0.5 text-xs">{m.senderType}</span> {m.message} <span className="text-xs text-ink-4">{new Date(m.createdAt).toLocaleString()}</span></li>
+            ))}
+            {(thread.data?.messages ?? []).length === 0 && <li className="text-xs text-ink-4">No messages yet.</li>}
+          </ul>
+          <div className="mt-3 flex gap-2">
+            <input value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Ask about specs, delivery, terms…" className="flex-1 rounded-xl border border-line px-3 py-2 text-sm" />
+            <Button onClick={() => { if (!msg.trim()) return; const m = msg; setMsg(''); void api.post(`/rfqs/${rfqId}/messages`, { quoteId: mine.data!.quotes[0]!.quote.id, message: m }).then(refreshMine).catch((e) => setError(e instanceof Error ? e.message : 'Failed')); }}>Send</Button>
+          </div>
+        </Surface>
+      )}
     </div>
   );
 }

@@ -225,6 +225,15 @@ export function SupplierDashboardPage() {
                 )}
               </Button>
             </Link>
+            <Link to="/supplier/quotes">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="text-xs font-semibold border-paper/20 hover:border-volt/50 transition-colors"
+              >
+                Quote Requests
+              </Button>
+            </Link>
             <Link to="/supplier/products/new">
               <Button className="bg-volt text-ink hover:bg-volt-glow font-bold uppercase tracking-wider text-xs py-2.5 px-5 shadow-[0_0_24px_-4px_rgba(198,220,74,0.55)] transition-shadow hover:shadow-[0_0_32px_-2px_rgba(198,220,74,0.7)]">
                 + Add Wholesale Product →

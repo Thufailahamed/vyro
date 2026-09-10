@@ -52,6 +52,8 @@ export const NotificationType = {
   RFQ_EXPIRED: 'rfq.expired',
   RFQ_MESSAGE: 'rfq.message',
   RFQ_REVISION_REQUESTED: 'rfq.revision_requested',
+  RFQ_DEADLINE_SOON: 'rfq.deadline_soon',
+  QUOTE_EXPIRING: 'rfq.quote_expiring',
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 
@@ -87,6 +89,8 @@ export const NOTIFICATION_CATEGORY: Record<string, NotificationCategory> = {
   [NotificationType.RFQ_EXPIRED]: NotificationCategory.ORDER,
   [NotificationType.RFQ_MESSAGE]: NotificationCategory.MESSAGE,
   [NotificationType.RFQ_REVISION_REQUESTED]: NotificationCategory.ORDER,
+  [NotificationType.RFQ_DEADLINE_SOON]: NotificationCategory.ORDER,
+  [NotificationType.QUOTE_EXPIRING]: NotificationCategory.ORDER,
 };
 
 export function categoryForNotificationType(type: string): NotificationCategory {

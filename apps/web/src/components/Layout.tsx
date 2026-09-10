@@ -254,6 +254,7 @@ function WorkspaceShell() {
     { to: '/ask', label: 'Ask VYRO', icon: SparklesIcon, show: !!user, accent: true },
     { to: '/search', label: 'Marketplace', icon: SearchIcon, show: true },
     { to: '/orders', label: 'Purchase Orders', icon: PackageIcon, show: !!user },
+    { to: '/rfqs', label: 'Bulk Quotes', icon: FileTextIcon, show: !!businessId },
     { to: '/cart', label: 'Active Cart', icon: ShoppingCartIcon, show: true, badge: cartCount },
   ].filter((i) => i.show);
 
@@ -536,5 +537,4 @@ function MobileTab({
   );
 }
 
-void FileTextIcon;
 void TruckIcon;
