@@ -31,6 +31,7 @@ interface OrderDetail {
     productNameSnapshot: string;
     quantity: number;
     unitPriceCents: number;
+    discountPctSnapshot?: number | null;
     lineTotalCents: number;
   }>;
   events: Array<{
@@ -262,7 +263,12 @@ export function OrderDetailPage() {
             <tbody>
               {items.map((it) => (
                 <tr key={it.id} className="border-t border-ink/5">
-                  <td className="px-6 py-3">{it.productNameSnapshot}</td>
+                  <td className="px-6 py-3">
+                    {it.productNameSnapshot}
+                    {(it.discountPctSnapshot ?? 0) > 0 && (
+                      <span className="ml-2 text-[10px] font-semibold text-mint">−{it.discountPctSnapshot}% volume</span>
+                    )}
+                  </td>
                   <td className="px-3 py-3 vyro-metric">{it.quantity}</td>
                   <td className="px-3 py-3 text-right vyro-metric">{formatLKR(it.unitPriceCents)}</td>
                   <td className="px-6 py-3 text-right vyro-metric">{formatLKR(it.lineTotalCents)}</td>

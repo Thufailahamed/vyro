@@ -389,7 +389,7 @@ export function CartPage() {
                                   <SparklesIcon size={10} /> −{it.bestTier.discountPct}% Volume Discount Active
                                 </div>
                               )}
-                              {!it.bestTier && it.nextTier && (
+                              {it.nextTier && (
                                 <div className="inline-flex items-center gap-1 text-[11px] text-ink-3 bg-bone border border-line px-2 py-0.5 mt-1">
                                   <span>Add {it.nextTier.minQty - it.quantity} more units for </span>
                                   <span className="font-semibold text-copper">−{it.nextTier.discountPct}% off</span>
@@ -527,6 +527,10 @@ export function CartPage() {
                                 <div>
                                   <div className="vyro-metric text-base text-ink font-semibold">
                                     {formatLKR(it.lineTotalCents)}
+                                  </div>
+                                  <div className="text-[11px] text-mint font-medium">
+                                    You save {formatLKR(it.discountCents)}
+                                    {it.bestTier ? ` (${it.bestTier.discountPct}%)` : ''}
                                   </div>
                                   <div className="text-[11px] text-ink-4 line-through">
                                     {formatLKR(grossLineTotal)}

@@ -59,6 +59,8 @@ interface Offer {
     tier1DiscountPct?: number;
     tier2MinQty?: number;
     tier2DiscountPct?: number;
+    tier3MinQty?: number;
+    tier3DiscountPct?: number;
     trackInventory?: boolean;
     availableQty?: number | null;
     lowStockThreshold?: number;
@@ -624,6 +626,14 @@ export function ProductDetailPage() {
                 const avail = availabilityLabel(row.offer.availabilityStatus);
                 const priceDiffVsMax = maxPriceCents - row.offer.priceCents;
                 const savingsPct = maxPriceCents > 0 ? Math.round((priceDiffVsMax / maxPriceCents) * 100) : 0;
+                const volumeTiers = [
+                  { minQty: row.offer.tier1MinQty, pct: row.offer.tier1DiscountPct },
+                  { minQty: row.offer.tier2MinQty, pct: row.offer.tier2DiscountPct },
+                  { minQty: row.offer.tier3MinQty, pct: row.offer.tier3DiscountPct },
+                ].filter(
+                  (t): t is { minQty: number; pct: number } =>
+                    (t.minQty ?? 0) > 0 && (t.pct ?? 0) > 0,
+                );
 
                 return (
                   <Surface
@@ -689,6 +699,19 @@ export function ProductDetailPage() {
                           <div className="inline-flex items-center gap-1.5 text-xs text-mint bg-mint/5 px-2.5 py-1 border border-mint/20">
                             <span className="font-semibold">Save {formatLKR(priceDiffVsMax)}</span>
                             <span>per {data.product.unit} (-{savingsPct}%) compared to highest quote</span>
+                          </div>
+                        )}
+                        {/* Volume tier table */}
+                        {volumeTiers.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {volumeTiers.map((t, i) => (
+                              <span
+                                key={i}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 border border-line bg-bone text-[10px] font-mono text-ink-3"
+                              >
+                                {t.minQty}+ {data.product.unit}s · −{t.pct}%
+                              </span>
+                            ))}
                           </div>
                         )}
                         {priceDiffVsMax === 0 && isFastest && (

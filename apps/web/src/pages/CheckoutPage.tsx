@@ -16,6 +16,9 @@ interface CartItem {
   quantity: number;
   priceCents: number;
   lineTotalCents: number;
+  discountCents: number;
+  bestTier: { minQty: number; discountPct: number } | null;
+  nextTier: { minQty: number; discountPct: number } | null;
   product: { name: string };
   supplier: { name: string };
 }
@@ -38,6 +41,8 @@ export function CheckoutPage() {
         cart: { id: string };
         items: CartItem[];
         subtotalCents: number;
+        discountTotalCents: number;
+        totalCents: number;
         supplierCount: number;
       }>(`/cart?businessId=${activeBusinessId}`),
     enabled: !!activeBusinessId,
@@ -90,6 +95,8 @@ export function CheckoutPage() {
   }
 
   const subtotalCents = cart.data?.subtotalCents ?? 0;
+  const discountTotalCents = cart.data?.discountTotalCents ?? 0;
+  const totalCents = cart.data?.totalCents ?? subtotalCents;
   const supplierCount = cart.data?.supplierCount ?? 0;
   const lineCount = cart.data?.items?.length ?? 0;
   const empty = !cart.data?.items?.length;
@@ -163,9 +170,21 @@ export function CheckoutPage() {
                 </div>
               ))}
             </div>
-            <div className="pt-3 flex items-baseline justify-between">
-              <span className="text-[11px] uppercase tracking-[0.14em] text-ink-4">Subtotal</span>
-              <MetricNumber size="md">{formatLKR(subtotalCents)}</MetricNumber>
+            <div className="pt-3 space-y-2">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[11px] uppercase tracking-[0.14em] text-ink-4">Subtotal</span>
+                <span className="font-mono text-sm">{formatLKR(subtotalCents)}</span>
+              </div>
+              {discountTotalCents > 0 && (
+                <div className="flex items-baseline justify-between text-mint">
+                  <span className="text-[11px] uppercase tracking-[0.14em]">Volume savings</span>
+                  <span className="font-mono text-sm font-semibold">−{formatLKR(discountTotalCents)}</span>
+                </div>
+              )}
+              <div className="flex items-baseline justify-between">
+                <span className="text-[11px] uppercase tracking-[0.14em] text-ink-4">Total</span>
+                <MetricNumber size="md">{formatLKR(totalCents)}</MetricNumber>
+              </div>
             </div>
           </Surface>
 
