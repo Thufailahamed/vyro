@@ -107,6 +107,8 @@ export const platformSettingsPatchSchema = z
     supportEmail: z.string().email().optional(),
     supportPhone: z.string().max(40).optional(),
     platformFeeBps: z.number().int().min(0).max(1000).optional(),
+    rfqValueThresholdCents: z.number().int().min(0).max(100000000).optional(),
+    rfqQuantityThreshold: z.number().int().min(0).max(1000000).optional(),
     enableBusinessSignup: z.boolean().optional(),
     enableSupplierSignup: z.boolean().optional(),
   })

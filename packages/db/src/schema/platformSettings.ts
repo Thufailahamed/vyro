@@ -10,6 +10,8 @@ export const platformSettings = sqliteTable(
     supportPhone: text('support_phone'),
     defaultCurrency: text('default_currency').notNull().default('LKR'),
     platformFeeBps: integer('platform_fee_bps').notNull().default(250),
+    rfqValueThresholdCents: integer('rfq_value_threshold_cents').notNull().default(100000),
+    rfqQuantityThreshold: integer('rfq_quantity_threshold').notNull().default(500),
     enableBusinessSignup: integer('enable_business_signup').notNull().default(1),
     enableSupplierSignup: integer('enable_supplier_signup').notNull().default(1),
     updatedAt: integer('updated_at').notNull(),

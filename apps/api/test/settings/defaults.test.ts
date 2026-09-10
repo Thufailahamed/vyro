@@ -43,6 +43,8 @@ describe('settings/defaults', () => {
       supportPhone: null,
       defaultCurrency: 'LKR',
       platformFeeBps: 250,
+      rfqValueThresholdCents: 100000,
+      rfqQuantityThreshold: 500,
       enableBusinessSignup: 1,
       enableSupplierSignup: 1,
       updatedAt: expect.any(Number),

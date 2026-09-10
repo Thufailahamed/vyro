@@ -40,6 +40,18 @@ export const NotificationType = {
   STOCK_LOW: 'stock.low',
   STOCK_OUT: 'stock.out',
   PO_MESSAGE: 'po.message',
+  RFQ_INVITED: 'rfq.invited',
+  RFQ_OPENED: 'rfq.opened',
+  RFQ_VIEWED: 'rfq.viewed',
+  QUOTE_RECEIVED: 'rfq.quote_received',
+  QUOTE_UPDATED: 'rfq.quote_updated',
+  QUOTE_COUNTERED: 'rfq.countered',
+  QUOTE_ACCEPTED: 'rfq.accepted',
+  QUOTE_REJECTED: 'rfq.rejected',
+  RFQ_CANCELLED: 'rfq.cancelled',
+  RFQ_EXPIRED: 'rfq.expired',
+  RFQ_MESSAGE: 'rfq.message',
+  RFQ_REVISION_REQUESTED: 'rfq.revision_requested',
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 
@@ -63,6 +75,18 @@ export const NOTIFICATION_CATEGORY: Record<string, NotificationCategory> = {
   [NotificationType.STOCK_LOW]: NotificationCategory.STOCK,
   [NotificationType.STOCK_OUT]: NotificationCategory.STOCK,
   [NotificationType.PO_MESSAGE]: NotificationCategory.MESSAGE,
+  [NotificationType.RFQ_INVITED]: NotificationCategory.ORDER,
+  [NotificationType.RFQ_OPENED]: NotificationCategory.ORDER,
+  [NotificationType.RFQ_VIEWED]: NotificationCategory.ORDER,
+  [NotificationType.QUOTE_RECEIVED]: NotificationCategory.ORDER,
+  [NotificationType.QUOTE_UPDATED]: NotificationCategory.ORDER,
+  [NotificationType.QUOTE_COUNTERED]: NotificationCategory.ORDER,
+  [NotificationType.QUOTE_ACCEPTED]: NotificationCategory.ORDER,
+  [NotificationType.QUOTE_REJECTED]: NotificationCategory.ORDER,
+  [NotificationType.RFQ_CANCELLED]: NotificationCategory.ORDER,
+  [NotificationType.RFQ_EXPIRED]: NotificationCategory.ORDER,
+  [NotificationType.RFQ_MESSAGE]: NotificationCategory.MESSAGE,
+  [NotificationType.RFQ_REVISION_REQUESTED]: NotificationCategory.ORDER,
 };
 
 export function categoryForNotificationType(type: string): NotificationCategory {

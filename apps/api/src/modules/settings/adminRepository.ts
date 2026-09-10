@@ -13,6 +13,8 @@ function toShape(row: PlatformSetting): PlatformSettingsShape {
     supportPhone: row.supportPhone,
     defaultCurrency: 'LKR',
     platformFeeBps: row.platformFeeBps,
+    rfqValueThresholdCents: row.rfqValueThresholdCents,
+    rfqQuantityThreshold: row.rfqQuantityThreshold,
     enableBusinessSignup: row.enableBusinessSignup === 1 ? 1 : 0,
     enableSupplierSignup: row.enableSupplierSignup === 1 ? 1 : 0,
     updatedAt: row.updatedAt,
@@ -35,6 +37,8 @@ export type PlatformSettingsPatch = {
   supportEmail?: string | undefined;
   supportPhone?: string | undefined;
   platformFeeBps?: number | undefined;
+  rfqValueThresholdCents?: number | undefined;
+  rfqQuantityThreshold?: number | undefined;
   enableBusinessSignup?: boolean | undefined;
   enableSupplierSignup?: boolean | undefined;
 };
@@ -53,6 +57,8 @@ export async function patchPlatformSettings(
     supportPhone: patch.supportPhone ?? current.supportPhone,
     defaultCurrency: 'LKR',
     platformFeeBps: patch.platformFeeBps ?? current.platformFeeBps,
+    rfqValueThresholdCents: patch.rfqValueThresholdCents ?? current.rfqValueThresholdCents,
+    rfqQuantityThreshold: patch.rfqQuantityThreshold ?? current.rfqQuantityThreshold,
     enableBusinessSignup:
       patch.enableBusinessSignup !== undefined
         ? patch.enableBusinessSignup

@@ -4,6 +4,7 @@ export * from './constants/notifications';
 export * from './constants/paymentStatus';
 export * from './constants/roles';
 export * from './constants/verification';
+export * from './constants/rfqStatus';
 export * from './lib/money';
 export * from './lib/inventory';
 export * from './lib/dates';

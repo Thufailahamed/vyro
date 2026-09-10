@@ -36,6 +36,10 @@ const InvoiceUploadPage = lazy(() => import('./pages/InvoiceUploadPage').then((m
 const InvoiceListPage = lazy(() => import('./pages/InvoiceListPage').then((m) => ({ default: m.InvoiceListPage })));
 const InvoiceReviewPage = lazy(() => import('./pages/InvoiceReviewPage').then((m) => ({ default: m.InvoiceReviewPage })));
 const AiPreferencesPage = lazy(() => import('./pages/AiPreferencesPage').then((m) => ({ default: m.AiPreferencesPage })));
+const RfqsPage = lazy(() => import('./pages/RfqsPage').then((m) => ({ default: m.RfqsPage })));
+const RfqCreatePage = lazy(() => import('./pages/RfqCreatePage').then((m) => ({ default: m.RfqCreatePage })));
+const RfqDetailPage = lazy(() => import('./pages/RfqDetailPage').then((m) => ({ default: m.RfqDetailPage })));
+const RfqComparePage = lazy(() => import('./pages/RfqComparePage').then((m) => ({ default: m.RfqComparePage })));
 
 const AdminHomePage = lazy(() => import('./admin/HomePage').then((m) => ({ default: m.AdminHomePage })));
 const AdminLoginPage = lazy(() => import('./admin/LoginPage').then((m) => ({ default: m.LoginPage })));
@@ -63,7 +67,7 @@ const SecurityPage = lazy(() => import('./admin/SecurityPage').then((m) => ({ de
 const ObservabilityPage = lazy(() => import('./admin/ObservabilityPage').then((m) => ({ default: m.ObservabilityPage })));
 const QueuesPage = lazy(() => import('./admin/QueuesPage').then((m) => ({ default: m.QueuesPage })));
 const AdminNotificationsPage = lazy(() => import('./admin/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
-
+const AdminRfqsPage = lazy(() => import('./admin/RfqsPage').then((m) => ({ default: m.AdminRfqsPage })));
 const SupplierDashboardPage = lazy(() => import('./supplier/DashboardPage').then((m) => ({ default: m.SupplierDashboardPage })));
 const SupplierProductsPage = lazy(() => import('./supplier/ProductsPage').then((m) => ({ default: m.SupplierProductsPage })));
 const SupplierProductFormPage = lazy(() => import('./supplier/ProductFormPage').then((m) => ({ default: m.SupplierProductFormPage })));
@@ -74,6 +78,8 @@ const SupplierCustomersPage = lazy(() => import('./supplier/CustomersPage').then
 const SupplierDeliveriesPage = lazy(() => import('./supplier/DeliveriesPage').then((m) => ({ default: m.SupplierDeliveriesPage })));
 const SupplierPaymentsPage = lazy(() => import('./supplier/PaymentsPage').then((m) => ({ default: m.SupplierPaymentsPage })));
 const SupplierSettingsPage = lazy(() => import('./supplier/SettingsPage').then((m) => ({ default: m.SupplierSettingsPage })));
+const QuoteRequestsPage = lazy(() => import('./supplier/QuoteRequestsPage').then((m) => ({ default: m.QuoteRequestsPage })));
+const SupplierQuoteDetailPage = lazy(() => import('./supplier/SupplierQuoteDetailPage').then((m) => ({ default: m.SupplierQuoteDetailPage })));
 
 function PageFallback() {
   return (
@@ -123,6 +129,10 @@ export default function App() {
         <Route path="/invoices/:id/review" element={<RequireAuth><InvoiceReviewPage /></RequireAuth>} />
         <Route path="/ai/preferences" element={<RequireAuth><AiPreferencesPage /></RequireAuth>} />
         <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
+        <Route path="/rfqs" element={<RequireBusiness><RfqsPage /></RequireBusiness>} />
+        <Route path="/rfqs/new" element={<RequireBusiness><RfqCreatePage /></RequireBusiness>} />
+        <Route path="/rfqs/:id" element={<RequireBusiness><RfqDetailPage /></RequireBusiness>} />
+        <Route path="/rfqs/:id/compare" element={<RequireBusiness><RfqComparePage /></RequireBusiness>} />
         <Route path="/legal/terms" element={<LegalPage kind="terms" />} />
         <Route path="/legal/privacy" element={<LegalPage kind="privacy" />} />
         <Route path="/legal/cookies" element={<LegalPage kind="cookies" />} />
@@ -166,6 +176,7 @@ export default function App() {
           <Route path="observability" element={<RequireAdmin><ObservabilityPage /></RequireAdmin>} />
           <Route path="observability/queues" element={<RequireAdmin><QueuesPage /></RequireAdmin>} />
           <Route path="ai-usage" element={<RequireAdmin><AdminAIUsagePage /></RequireAdmin>} />
+          <Route path="rfqs" element={<RequireAdmin><AdminRfqsPage /></RequireAdmin>} />
           <Route path="notifications" element={<RequireAdmin><AdminNotificationsPage /></RequireAdmin>} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
@@ -185,6 +196,8 @@ export default function App() {
         <Route path="deliveries" element={<SupplierDeliveriesPage />} />
         <Route path="payments" element={<SupplierPaymentsPage />} />
         <Route path="settings" element={<SupplierSettingsPage />} />
+        <Route path="quotes" element={<QuoteRequestsPage />} />
+        <Route path="quotes/:rfqId" element={<SupplierQuoteDetailPage />} />
         <Route path="*" element={<Navigate to="/supplier" replace />} />
       </Route>
 

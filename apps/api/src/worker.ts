@@ -39,6 +39,7 @@ export default {
         ctx.waitUntil(handleSessionCleanup(env));
         ctx.waitUntil(handleRefundStuckChecker(env));
         ctx.waitUntil(handleQueueDlqScan(env));
+        ctx.waitUntil(import('./modules/rfqs/service').then((m) => m.rfqService.expireDue(env.DB, env.NOTIFICATIONS_QUEUE as never)));
         break;
       case '0 4 * * *':
         ctx.waitUntil(handleAuditExportRunner(env));

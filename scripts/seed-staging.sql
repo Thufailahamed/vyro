@@ -21,8 +21,8 @@ INSERT OR IGNORE INTO business_types (id, slug, name, active) VALUES
   ('bt-supplier-meat', 'meat-seafood', 'Meat & Seafood Wholesale', 1);
 
 -- 2. Platform defaults (LKR, 2.5% fee, signups open)
-INSERT OR IGNORE INTO platform_settings (id, brand_name, support_email, support_phone, default_currency, platform_fee_bps, enable_business_signup, enable_supplier_signup, updated_at) VALUES
-  (1, 'VYRO', 'support@vyro.lk', '+94 11 000 0000', 'LKR', 250, 1, 1, 1725450000000);
+INSERT OR IGNORE INTO platform_settings (id, brand_name, support_email, support_phone, default_currency, platform_fee_bps, rfq_value_threshold_cents, rfq_quantity_threshold, enable_business_signup, enable_supplier_signup, updated_at) VALUES
+  (1, 'VYRO', 'support@vyro.lk', '+94 11 000 0000', 'LKR', 250, 100000, 500, 1, 1, 1725450000000);
 -- Categories
 INSERT OR IGNORE INTO categories (id, slug, name, parent_id, sort_order, active) VALUES
   ('cat-staples',   'staples',   'Staples & Grains',   NULL, 1, 1),

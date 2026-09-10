@@ -26,6 +26,7 @@ import {
 import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, Surface } from '@/components/brand/Surface';
 import { CartHintsBanner } from '@/ai/CartHintsBanner';
+import { BulkQuoteCta } from '@/components/BulkQuoteCta';
 import { useQuery as useRQ } from '@tanstack/react-query';
 
 interface LineHint {
@@ -672,6 +673,9 @@ export function CartPage() {
                 >
                   Generate {supplierCount} PO{supplierCount === 1 ? '' : 's'} & Checkout
                 </Button>
+                <div className="mt-3">
+                  <BulkQuoteCta totalCents={total} quantity={totalUnits} />
+                </div>
               </div>
 
               {/* Procurement Guarantees */}

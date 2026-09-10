@@ -56,6 +56,8 @@ const STAGES: Record<string, [string, string]> = {
   procurement_plan: ['Reading your purchase history', 'Pricing your weekly plan'],
   budget_optimize: ['Reading your purchase history', 'Fitting your budget'],
   simulate_supplier_switch: ['Reading your purchase history', 'Pricing the alternative'],
+  create_rfq: ['Searching VYRO products', 'Preparing your RFQ'],
+  compare_quotes: ['Reading your quotes', 'Comparing total costs'],
 };
 
 export async function* orchestrate(

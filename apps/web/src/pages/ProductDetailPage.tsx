@@ -305,6 +305,12 @@ export function ProductDetailPage() {
 
       {/* SUPPLIER COMPARISON ENGINE */}
       <section id="supplier-comparison" className="space-y-6 pt-2">
+        {businessId && (
+          <Link to="/rfqs/new" className="block rounded-2xl border border-line bg-paper p-4 hover:border-ink transition-colors">
+            <span className="text-xs uppercase tracking-widest text-ink-4">Large quantity?</span>
+            <span className="block text-lg font-semibold">Need 500kg+? Request a custom supplier quote →</span>
+          </Link>
+        )}
         <ErrorBanner message={err} />
         <PageSection
           eyebrow="Offers"
