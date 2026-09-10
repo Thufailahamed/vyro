@@ -214,7 +214,15 @@ Sign in as support admin. Visit `/admin/trust-safety`. Three tabs: Reports, KYC,
 4. POST decision again → 409 `KYC_NOT_PENDING`.
 5. As finance → 403 (no kyc:review).
 
-### 7e.4 User suspension
+### 7e.4 Seller KYC submission
+
+1. Sign in as seller. Visit `/supplier/verification` → status pending (banner visible in SupplierShell).
+2. Submit BR/tax/bank fields → POST `/api/kyc/submit` → 201, row in `kyc_reviews` pending.
+3. Resubmit while pending → 409 `KYC_NOT_PENDING`.
+4. Sign in as support admin. `POST /api/admin/kyc/<id>/decision {decision:'approved'}` → 200; supplier `verificationStatus` → verified.
+5. Seller refreshes `/supplier/verification` → verified; banner disappears.
+
+### 7e.5 User suspension
 
 1. POST `/api/admin/users/<userId>/suspend` → 200. Audit `user.suspend`. Sessions revoked.
 2. POST `/api/admin/users/<userId>/unsuspend` → 200. Audit `user.unsuspend`.
