@@ -75,6 +75,19 @@ vi.mock('../../src/modules/suppliers/repository', () => ({
   },
 }));
 
+const notifyState = vi.hoisted(() => ({ org: [] as any[], users: [] as any[] }));
+
+vi.mock('../../src/modules/notifications/dispatcher', () => ({
+  notifyAdmins: async () => {},
+  notifySupplierOrg: async (_d1: any, _q: any, supplierId: string, payload: any) => {
+    notifyState.org.push({ supplierId, payload });
+  },
+  notifyUsers: async (_d1: any, _q: any, userIds: string[], payload: any) => {
+    notifyState.users.push({ userIds, payload });
+    return [];
+  },
+}));
+
 import kycRouter from '../../src/modules/admin/trustSafety/kycRoutes';
 import { errorEnvelope } from '../../src/lib/errors';
 
@@ -107,6 +120,8 @@ function reset() {
   ];
   state.audit = [];
   supplierState.verifications = [];
+  notifyState.org = [];
+  notifyState.users = [];
 }
 
 describe('kyc', () => {
@@ -132,6 +147,23 @@ describe('kyc', () => {
     expect(res.status).toBe(200);
     expect(state.audit[0].action).toBe('kyc.approved');
     expect(supplierState.verifications[0]).toEqual({ id: 's-1', status: 'verified' });
+    expect(notifyState.org[0].supplierId).toBe('s-1');
+    expect(notifyState.org[0].payload.type).toBe('supplier.verified');
+    expect(notifyState.org[0].payload.link).toBe('/supplier/verification');
+  });
+
+  it('POST /:id/decision rejected → syncs supplier + notifies org', async () => {
+    const res = await buildApp('support').fetch(
+      new Request('http://localhost/api/admin/kyc/k-1/decision', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ decision: 'rejected', notes: 'Blurry BR scan' }),
+      }),
+      env,
+    );
+    expect(res.status).toBe(200);
+    expect(supplierState.verifications[0]).toEqual({ id: 's-1', status: 'rejected' });
+    expect(notifyState.org[0].payload.type).toBe('supplier.rejected');
   });
 
   it('decide already-decided → 409 KYC_NOT_PENDING', async () => {

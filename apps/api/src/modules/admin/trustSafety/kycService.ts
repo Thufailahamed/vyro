@@ -2,7 +2,7 @@ import type { Context } from 'hono';
 import { randomUUID } from 'crypto';
 import { httpError } from '../../../lib/errors';
 import { auditAdmin } from '../../admin/lib/audit';
-import { notifyAdmins } from '../../notifications/dispatcher';
+import { notifyAdmins, notifySupplierOrg, notifyUsers } from '../../notifications/dispatcher';
 import type { Env } from '../../../env';
 import * as repo from './kycRepository';
 import { findSupplierIdByMemberUserId, setSupplierVerification } from '../../suppliers/repository';
@@ -67,6 +67,37 @@ export async function decide(
   if (supplierId) {
     const mapped = decision === 'approved' ? 'verified' : decision === 'rejected' ? 'rejected' : 'pending';
     await setSupplierVerification(d1, supplierId, mapped as 'verified' | 'rejected' | 'pending');
+  }
+  const env = ctx.env as unknown as Env;
+  const queue = (env as unknown as { NOTIFICATIONS_QUEUE?: never }).NOTIFICATIONS_QUEUE;
+  const decisionNotice =
+    decision === 'approved'
+      ? {
+          type: 'supplier.verified',
+          title: 'You are verified on Vyro',
+          body: 'Good news — your supplier account is now verified on Vyro.',
+        }
+      : decision === 'rejected'
+        ? {
+            type: 'supplier.rejected',
+            title: 'Verification was rejected',
+            body: notes ?? 'Unfortunately we were not able to verify your supplier account.',
+          }
+        : {
+            type: 'supplier.review_required',
+            title: 'More information needed',
+            body: notes ?? 'We need a little more information before we can verify your account.',
+          };
+  if (supplierId) {
+    await notifySupplierOrg(d1, queue, supplierId, {
+      ...decisionNotice,
+      link: '/supplier/verification',
+    });
+  } else {
+    await notifyUsers(d1, queue, [out.before.userId], {
+      ...decisionNotice,
+      link: '/supplier/verification',
+    });
   }
   await auditAdmin({
     ctx,
