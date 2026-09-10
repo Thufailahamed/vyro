@@ -4,12 +4,12 @@ const tierDiscount = z.number().int().min(0).max(50);
 const tierMinQty = z.number().int().min(1).max(100000);
 
 type TierFields = {
-  tier1MinQty?: number;
-  tier1DiscountPct?: number;
-  tier2MinQty?: number;
-  tier2DiscountPct?: number;
-  tier3MinQty?: number;
-  tier3DiscountPct?: number;
+  tier1MinQty?: number | undefined;
+  tier1DiscountPct?: number | undefined;
+  tier2MinQty?: number | undefined;
+  tier2DiscountPct?: number | undefined;
+  tier3MinQty?: number | undefined;
+  tier3DiscountPct?: number | undefined;
 };
 
 /**
