@@ -115,3 +115,21 @@ export async function setSupplierVerification(
     .run();
   return (res.meta?.changes ?? 0) > 0;
 }
+
+/**
+ * Finds the supplier org a user belongs to (first active membership).
+ * Used to mirror KYC decisions onto `suppliers.verificationStatus`.
+ */
+export async function findSupplierIdByMemberUserId(
+  d1: D1Database,
+  userId: string,
+): Promise<string | null> {
+  const db = getDb(d1);
+  const row = await db
+    .select({ supplierId: supplierMembers.supplierId })
+    .from(supplierMembers)
+    .where(and(eq(supplierMembers.userId, userId), eq(supplierMembers.status, 'active')))
+    .limit(1)
+    .get();
+  return row?.supplierId ?? null;
+}

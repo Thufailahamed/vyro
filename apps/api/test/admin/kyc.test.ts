@@ -61,6 +61,20 @@ vi.mock('../../src/modules/admin/lib/audit', () => ({
   },
 }));
 
+const supplierState = vi.hoisted(() => ({
+  members: [{ supplierId: 's-1', userId: 'u-1' }],
+  verifications: [] as any[],
+}));
+
+vi.mock('../../src/modules/suppliers/repository', () => ({
+  findSupplierIdByMemberUserId: async (_d1: any, userId: string) =>
+    supplierState.members.find((m) => m.userId === userId)?.supplierId ?? null,
+  setSupplierVerification: async (_d1: any, id: string, status: string) => {
+    supplierState.verifications.push({ id, status });
+    return true;
+  },
+}));
+
 import kycRouter from '../../src/modules/admin/trustSafety/kycRoutes';
 import { errorEnvelope } from '../../src/lib/errors';
 
@@ -92,6 +106,7 @@ function reset() {
     { id: 'k-1', userId: 'u-1', status: 'pending', documentsJson: null, notes: null, reviewedBy: null, reviewedAt: null, createdAt: 1000 },
   ];
   state.audit = [];
+  supplierState.verifications = [];
 }
 
 describe('kyc', () => {
@@ -116,6 +131,7 @@ describe('kyc', () => {
     );
     expect(res.status).toBe(200);
     expect(state.audit[0].action).toBe('kyc.approved');
+    expect(supplierState.verifications[0]).toEqual({ id: 's-1', status: 'verified' });
   });
 
   it('decide already-decided → 409 KYC_NOT_PENDING', async () => {

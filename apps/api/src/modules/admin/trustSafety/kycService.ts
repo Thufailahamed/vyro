@@ -1,14 +1,11 @@
 import type { Context } from 'hono';
 import { randomUUID } from 'crypto';
-import { eq } from 'drizzle-orm';
-import { getDb } from '@vyro/db';
-import { supplierMembers } from '@vyro/db/schema';
 import { httpError } from '../../../lib/errors';
 import { auditAdmin } from '../../admin/lib/audit';
 import { notifyAdmins } from '../../notifications/dispatcher';
 import type { Env } from '../../../env';
 import * as repo from './kycRepository';
-import { setSupplierVerification } from '../../suppliers/repository';
+import { findSupplierIdByMemberUserId, setSupplierVerification } from '../../suppliers/repository';
 
 export async function list(
   d1: D1Database,
@@ -66,16 +63,10 @@ export async function decide(
   if (out.before.status !== 'pending') {
     throw httpError(409, 'KYC_NOT_PENDING', `KYC review is ${out.before.status}`);
   }
-  const db = getDb(d1);
-  const membership = await db
-    .select({ supplierId: supplierMembers.supplierId })
-    .from(supplierMembers)
-    .where(eq(supplierMembers.userId, out.before.userId))
-    .limit(1)
-    .get();
-  if (membership) {
+  const supplierId = await findSupplierIdByMemberUserId(d1, out.before.userId);
+  if (supplierId) {
     const mapped = decision === 'approved' ? 'verified' : decision === 'rejected' ? 'rejected' : 'pending';
-    await setSupplierVerification(d1, membership.supplierId, mapped as 'verified' | 'rejected' | 'pending');
+    await setSupplierVerification(d1, supplierId, mapped as 'verified' | 'rejected' | 'pending');
   }
   await auditAdmin({
     ctx,
