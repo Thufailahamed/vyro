@@ -48,11 +48,31 @@ export type PlatformSettingsShape = {
   supportPhone: string | null;
   defaultCurrency: 'LKR';
   platformFeeBps: number;
+  rfqValueThresholdCents: number;
+  rfqQuantityThreshold: number;
   enableBusinessSignup: 0 | 1;
   enableSupplierSignup: 0 | 1;
   updatedAt: number;
   updatedByUserId: string | null;
 };
+
+/**
+ * Admin-editable settings for the RFQ bulk-quote qualification trigger.
+ * Runtime reads from `platform_settings` (see adminRepository.ts);
+ * these defaults seed a fresh row and the typed shape is reused by
+ * the admin settings UI to render an editor.
+ */
+export type RfqThresholdsShape = {
+  valueThresholdCents: number;
+  quantityThreshold: number;
+};
+
+export function defaultRfqThresholds(): RfqThresholdsShape {
+  return {
+    valueThresholdCents: 100000,
+    quantityThreshold: 500,
+  };
+}
 
 export function defaultUserSettings(userId: string): UserSettingsShape {
   const now = nowMs();
@@ -109,6 +129,8 @@ export function defaultPlatformSettings(): PlatformSettingsShape {
     supportPhone: null,
     defaultCurrency: 'LKR',
     platformFeeBps: 250,
+    rfqValueThresholdCents: 100000,
+    rfqQuantityThreshold: 500,
     enableBusinessSignup: 1,
     enableSupplierSignup: 1,
     updatedAt: nowMs(),
