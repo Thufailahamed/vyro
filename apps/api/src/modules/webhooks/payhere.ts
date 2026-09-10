@@ -174,7 +174,7 @@ async function handlePayHereNotify(c: Context<{ Bindings: Env }>) {
   if (event.type === 'payment.success') {
     await db.transaction(async (tx) => {
       tx.update(paymentsTable)
-        .set({ status: 'confirmed', confirmedAt: now, paidAt: now, updatedAt: now })
+        .set({ status: 'confirmed', confirmedAt: now, paidAt: now, providerTransactionId: providerPaymentId, updatedAt: now })
         .where(eq(paymentsTable.id, payment.id))
         .run();
       writeLedgerEntry(tx as any, {
@@ -198,8 +198,56 @@ async function handlePayHereNotify(c: Context<{ Bindings: Env }>) {
         });
       }
     });
+    // Attempt outcome: close the matching processing attempt (spec §6).
+    try {
+      const { listAttempts, completeAttempt } = await import('../finance/repository');
+      const attempts = await listAttempts(env.DB, payment.id);
+      const open = [...attempts]
+        .reverse()
+        .find((a: any) => ['initiated', 'processing'].includes(a.status));
+      if (open) {
+        await completeAttempt(env.DB, open.id, 'paid', { providerReference: providerPaymentId });
+      } else {
+        const { recordAttempt } = await import('../finance/repository');
+        const created = await recordAttempt(env.DB, {
+          paymentId: payment.id,
+          provider,
+          amountCents: payment.amountCents,
+          currency: payment.currency,
+          status: 'processing',
+          providerReference: providerPaymentId,
+          initiatedAt: now,
+        });
+        await completeAttempt(env.DB, created.id, 'paid', { providerReference: providerPaymentId });
+      }
+    } catch (err) {
+      console.error('[payhere.webhook] attempt tracking failed', err);
+    }
+    // Allocation + earnings flow for online-paid money (spec §13-14).
+    try {
+      const { ensureAllocationAndEarning } = await import('../finance/earnings');
+      await ensureAllocationAndEarning(env.DB, payment.id, null);
+    } catch (err) {
+      console.error('[payhere.webhook] earning failed', err);
+    }
     try {
       await generateReceiptForPayment(env.DB, { ...payment, status: 'confirmed' } as any);
+      try {
+        await notifyOrderParties(
+          env.DB,
+          env.NOTIFICATIONS_QUEUE,
+          { id: po.id, poNumber: po.poNumber, businessId: po.businessId, supplierId: po.supplierId },
+          {
+            type: NotificationType.INVOICE_AVAILABLE,
+            title: `Invoice available for PO ${po.poNumber}`,
+            body: 'Your payment receipt is ready.',
+            link: `/invoices?poId=${po.id}`,
+            audience: 'buyer',
+          },
+        );
+      } catch (err) {
+        console.error('[payhere.webhook] invoice-available notify failed', err);
+      }
     } catch (e) {
       await recordAudit(env.DB, {
         actorUserId: null,
@@ -244,9 +292,17 @@ async function handlePayHereNotify(c: Context<{ Bindings: Env }>) {
   } else if (event.type === 'payment.cancelled') {
     await db
       .update(paymentsTable)
-      .set({ status: 'cancelled', statusReason: 'gateway:payment.cancelled', updatedAt: now })
+      .set({ status: 'cancelled', statusReason: 'gateway:payment.cancelled', cancelledAt: now, updatedAt: now })
       .where(eq(paymentsTable.id, payment.id))
       .run();
+    try {
+      const { listAttempts, completeAttempt } = await import('../finance/repository');
+      const attempts = await listAttempts(env.DB, payment.id);
+      const open = [...attempts].reverse().find((a: any) => ['initiated', 'processing'].includes(a.status));
+      if (open) await completeAttempt(env.DB, open.id, 'cancelled', { providerReference: providerPaymentId, failureReason: 'gateway:payment.cancelled' });
+    } catch (err) {
+      console.error('[payhere.webhook] attempt tracking failed', err);
+    }
     try {
       await notifyOrderParties(
         env.DB,
@@ -301,9 +357,17 @@ async function handlePayHereNotify(c: Context<{ Bindings: Env }>) {
     // payment.failed and any unknown failure mapping.
     await db
       .update(paymentsTable)
-      .set({ status: 'failed', statusReason: `gateway:${event.type}`, updatedAt: now })
+      .set({ status: 'failed', statusReason: `gateway:${event.type}`, failedAt: now, updatedAt: now })
       .where(eq(paymentsTable.id, payment.id))
       .run();
+    try {
+      const { listAttempts, completeAttempt } = await import('../finance/repository');
+      const attempts = await listAttempts(env.DB, payment.id);
+      const open = [...attempts].reverse().find((a: any) => ['initiated', 'processing'].includes(a.status));
+      if (open) await completeAttempt(env.DB, open.id, 'failed', { providerReference: providerPaymentId, failureReason: `gateway:${event.type}` });
+    } catch (err) {
+      console.error('[payhere.webhook] attempt tracking failed', err);
+    }
     try {
       await notifyOrderParties(
         env.DB,

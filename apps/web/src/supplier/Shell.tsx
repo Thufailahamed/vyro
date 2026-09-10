@@ -58,6 +58,7 @@ const NAV_GROUPS: SupplierNavGroup[] = [
       { to: '/supplier/quotes', label: 'Quote Requests', icon: FileTextIcon },
       { to: '/supplier/deliveries', label: 'Deliveries', icon: TruckIcon },
       { to: '/supplier/payments', label: 'Payments', icon: BanknoteIcon },
+      { to: '/supplier/accounts', label: 'Accounts', icon: BanknoteIcon },
     ],
   },
   {

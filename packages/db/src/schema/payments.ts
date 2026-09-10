@@ -6,10 +6,14 @@ export const payments = sqliteTable(
   'payments',
   {
     id: text('id').primaryKey(),
+    paymentNumber: text('payment_number'),
     purchaseOrderId: text('purchase_order_id')
       .notNull()
       .references(() => purchaseOrders.id),
+    businessId: text('business_id'),
+    supplierId: text('supplier_id'),
     method: text('method', { enum: ['cash', 'bank_transfer', 'online'] }).notNull(),
+    provider: text('provider').notNull().default('payhere'),
     status: text('status', { enum: ['pending', 'confirmed', 'failed', 'cancelled', 'chargeback', 'refunded'] })
       .notNull()
       .default('pending'),
@@ -20,9 +24,16 @@ export const payments = sqliteTable(
     transactionReference: text('transaction_reference'),
     gatewayRef: text('gateway_ref'),
     gatewayPayload: text('gateway_payload'),
+    providerReference: text('provider_reference'),
+    providerTransactionId: text('provider_transaction_id'),
     idempotencyKey: text('idempotency_key'),
     statusReason: text('status_reason'),
+    initiatedAt: integer('initiated_at'),
+    authorizedAt: integer('authorized_at'),
     paidAt: integer('paid_at'),
+    failedAt: integer('failed_at'),
+    cancelledAt: integer('cancelled_at'),
+    expiredAt: integer('expired_at'),
     confirmedAt: integer('confirmed_at'),
     confirmedByUserId: text('confirmed_by_user_id').references(() => users.id),
     notes: text('notes'),

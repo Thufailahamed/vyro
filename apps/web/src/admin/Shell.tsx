@@ -167,6 +167,15 @@ export function AdminShell() {
             hasPermission(role, 'ledger:read'),
         },
         {
+          to: '/admin/accounts',
+          label: 'Accounts',
+          icon: BanknoteIcon,
+          show:
+            !role ||
+            hasPermission(role, 'financial_report:read') ||
+            hasPermission(role, 'payment:read'),
+        },
+        {
           to: '/admin/finance',
           label: 'Finance Ops',
           icon: CreditCardIcon,

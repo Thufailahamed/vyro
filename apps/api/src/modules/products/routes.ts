@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { createProductSchema, updateProductSchema } from '@vyro/validation/product';
 import { session } from '../../middleware/session';
+import type { Ctx } from '../../middleware/session';
 import { requireRole } from '../../middleware/rbac';
 import { httpError } from '../../lib/errors';
 import { newId } from '@vyro/shared';
@@ -99,7 +100,7 @@ router.get('/:id', async (c) => {
 router.post('/', session(), async (c) => {
   const ctx = (c.get('ctx') || c.get('session' as any)) as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
-  const isAuthorized = ctx.isAdmin || (ctx.supplierMemberships && ctx.supplierMemberships.length > 0);
+  const isAuthorized = ctx.isAdmin || ((ctx.suppliers?.length ?? 0) > 0);
   if (!isAuthorized) throw httpError(403, 'FORBIDDEN', 'Supplier or Admin role required');
 
   const parsed = createProductSchema.safeParse(await c.req.json().catch(() => null));
@@ -112,8 +113,8 @@ router.post('/', session(), async (c) => {
 
 router.patch('/:id', session(), async (c) => {
   const ctx = (c.get('ctx') || c.get('session' as any)) as Ctx | undefined;
-  if (!ctx || (!ctx.isAdmin && (!ctx.supplierMemberships || ctx.supplierMemberships.length === 0))) {
-    throw httpError(403, 'Supplier or Admin role required');
+  if (!ctx || (!ctx.isAdmin && ((ctx.suppliers?.length ?? 0) === 0))) {
+    throw httpError(403, 'FORBIDDEN', 'Supplier or Admin role required');
   }
   const parsed = updateProductSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
@@ -138,7 +139,7 @@ router.delete('/:id', session(), requireRole({ admin: true }), async (c) => {
 router.post('/:id/images', session(), async (c) => {
   const ctx = (c.get('ctx') || c.get('session' as any)) as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
-  const isAuthorized = ctx.isAdmin || (ctx.supplierMemberships && ctx.supplierMemberships.length > 0);
+  const isAuthorized = ctx.isAdmin || ((ctx.suppliers?.length ?? 0) > 0);
   if (!isAuthorized) throw httpError(403, 'FORBIDDEN', 'Supplier or Admin role required');
 
   const parsed = addImageSchema.safeParse(await c.req.json().catch(() => null));

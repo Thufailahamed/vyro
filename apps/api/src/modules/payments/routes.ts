@@ -19,6 +19,7 @@ import {
 } from '@vyro/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { newId } from '@vyro/shared';
+import { NotificationType } from '@vyro/shared';
 import { recordAudit } from '../supplierProducts/repository';
 import { resolveGateway } from '@vyro/payments';
 import {
@@ -30,6 +31,10 @@ import {
 import { writeLedgerEntry } from '../ledger';
 import { generateReceiptForPayment } from '../invoices/generate';
 import { computePlatformFeeCents, getPlatformFeeBps } from './fees';
+import { resolveCommissionBps, commissionFor, categoryForPo } from '../finance/commission';
+import { recordAttempt, completeAttempt, ensureCodCollection, createBankTransfer } from '../finance/repository';
+import { bankTransferReference, paymentNumber } from '../finance/numbers';
+import { notifyOrderParties } from '../notifications/dispatcher';
 import {
   requireBusinessPaymentRole,
   requireSupplierConfirmRole,
@@ -128,18 +133,39 @@ router.post('/', session(), async (c) => {
   }
 
   const feeBps = await getPlatformFeeBps(c.env.DB);
-  const feeCents = parseInt(String(parsed.data.method === 'online' ? 0 : computePlatformFeeCents(amountCents, feeBps)), 10);
+  // Commission-aware fee (spec §15): supplier/category/product/promotional
+  // rules overlay the global platform fee; online stays 0 per the 0%
+  // platform-commission policy for PayHere orders. The applied value is
+  // snapshotted on the payment row so history never rewrites.
+  let feeCents: number;
+  if (parsed.data.method === 'online') {
+    feeCents = 0;
+  } else {
+    try {
+      const categoryId = await categoryForPo(c.env.DB, po.id).catch(() => undefined);
+      const resolved = await resolveCommissionBps(c.env.DB, { supplierId: po.supplierId, categoryId });
+      feeCents = parseInt(String(computePlatformFeeCents(amountCents, resolved.bps)), 10);
+      void feeBps;
+    } catch {
+      feeCents = parseInt(String(computePlatformFeeCents(amountCents, feeBps)), 10);
+    }
+  }
   const netCents = amountCents - feeCents;
 
   const db = getDb(c.env.DB);
   const id = newId();
   const now = Date.now();
+  const number = paymentNumber(now);
   await db.transaction(async (tx) => {
     tx.insert(payments)
       .values({
         id,
+        paymentNumber: number,
         purchaseOrderId: po.id,
+        businessId: po.businessId,
+        supplierId: po.supplierId,
         method: parsed.data.method,
+        provider: parsed.data.method === 'online' ? 'payhere' : 'manual',
         status: 'pending',
         amountCents,
         feeCents,
@@ -147,6 +173,7 @@ router.post('/', session(), async (c) => {
         currency: po.currency,
         transactionReference: parsed.data.transactionReference ?? null,
         idempotencyKey: idemKey ?? null,
+        initiatedAt: now,
         notes: parsed.data.notes ?? null,
         createdAt: now,
         updatedAt: now,
@@ -154,15 +181,79 @@ router.post('/', session(), async (c) => {
       .run();
   });
 
+  // Attempt #1: creation itself is the first attempt (history, spec §6).
+  const attempt = await recordAttempt(c.env.DB, {
+    paymentId: id,
+    provider: parsed.data.method === 'online' ? 'payhere' : 'manual',
+    amountCents,
+    currency: po.currency,
+    status: 'initiated',
+    initiatedByUserId: ctx.userId,
+    initiatedAt: now,
+  }).catch(() => null);
+
+  // Method companions: COD expectations + bank-transfer reference row so the
+  // business immediately sees what to do next (spec §9-10).
+  try {
+    if (parsed.data.method === 'cash') {
+      await ensureCodCollection(c.env.DB, {
+        paymentId: id,
+        purchaseOrderId: po.id,
+        expectedCents: amountCents,
+        currency: po.currency,
+        status: 'pending',
+        reconciliationStatus: 'unreconciled',
+        collectedCents: null,
+        discrepancyCents: 0,
+      });
+    } else if (parsed.data.method === 'bank_transfer') {
+      await createBankTransfer(c.env.DB, {
+        paymentId: id,
+        referenceNumber: bankTransferReference(now),
+        expectedCents: amountCents,
+        currency: po.currency,
+        status: 'pending',
+        submittedByUserId: ctx.userId,
+        submittedAt: now,
+      });
+    }
+  } catch (err) {
+    console.error('[payments.create] companion failed', err);
+  }
+
   await recordAudit(c.env.DB, {
     actorUserId: ctx.userId,
     action: 'payment.create',
     resourceType: 'purchase_order',
     resourceId: po.id,
-    metadata: { paymentId: id, method: parsed.data.method, amountCents, feeCents },
+    metadata: { paymentId: id, paymentNumber: number, method: parsed.data.method, amountCents, feeCents },
   });
+  await recordAudit(c.env.DB, {
+    actorUserId: ctx.userId,
+    action: 'PAYMENT_INITIATED',
+    resourceType: 'payment',
+    resourceId: id,
+    metadata: { paymentId: id, paymentNumber: number, attemptId: attempt?.id ?? null },
+  });
+  try {
+    await notifyOrderParties(
+      c.env.DB,
+      c.env.NOTIFICATIONS_QUEUE,
+      { id: po.id, poNumber: po.poNumber, businessId: po.businessId, supplierId: po.supplierId },
+      {
+        type: NotificationType.PAYMENT_INITIATED,
+        title: `Payment initiated for PO ${po.poNumber}`,
+        body: `${number} — ${amountCents}c via ${parsed.data.method}.`,
+        link: `/orders/${po.id}`,
+        audience: 'both',
+        excludeUserId: ctx.userId,
+      },
+    );
+  } catch (err) {
+    console.error('[payments.create] notify failed', err);
+  }
 
-  const responseBody = { id, amountCents, feeCents, netCents, status: 'pending' as const };
+  const responseBody = { id, paymentNumber: number, amountCents, feeCents, netCents, status: 'pending' as const };
   if (idemKey) {
     await storeIdempotencyResponse(c.env.DB, ctx.userId, idemKey, requestHash, 201, JSON.stringify(responseBody));
   }
@@ -259,6 +350,39 @@ router.post('/:id/confirm', session(), async (c) => {
         resourceId: payment.purchaseOrderId,
         metadata: { paymentId: payment.id, error: String(e) },
       });
+    }
+    // Offline-paid money now flows through allocation + earnings (spec §13-14).
+    try {
+      const { ensureAllocationAndEarning } = await import('../finance/earnings');
+      await ensureAllocationAndEarning(c.env.DB, payment.id, ctx.userId);
+    } catch (err) {
+      console.error('[payments.confirm] earning failed', err);
+    }
+    // Close the open attempt, if any.
+    try {
+      const { listAttempts } = await import('../finance/repository');
+      const attempts = await listAttempts(c.env.DB, payment.id);
+      const open = attempts.find((a: any) => ['initiated', 'processing'].includes(a.status));
+      if (open) await completeAttempt(c.env.DB, open.id, 'paid', { providerReference: payment.transactionReference ?? null });
+    } catch (err) {
+      console.error('[payments.confirm] attempt close failed', err);
+    }
+    try {
+      await notifyOrderParties(
+        c.env.DB,
+        c.env.NOTIFICATIONS_QUEUE,
+        { id: po.id, poNumber: po.poNumber, businessId: po.businessId, supplierId: po.supplierId },
+        {
+          type: NotificationType.PAYMENT_RECEIVED,
+          title: `Payment confirmed for PO ${po.poNumber}`,
+          body: `Payment via ${payment.method} confirmed.`,
+          link: `/orders/${po.id}`,
+          audience: 'both',
+          excludeUserId: ctx.userId,
+        },
+      );
+    } catch (err) {
+      console.error('[payments.confirm] notify failed', err);
     }
   }
 
@@ -358,10 +482,27 @@ router.post('/:id/checkout', session(), async (c) => {
     .set({
       gatewayRef: result.gatewayRef,
       gatewayPayload: JSON.stringify({ provider, orderId: payment.id }),
+      providerReference: result.gatewayRef,
       updatedAt: Date.now(),
     })
     .where(eq(payments.id, payment.id))
     .run();
+
+  // Checkout start is a new attempt (spec §6) — history preserved per try.
+  try {
+    await recordAttempt(c.env.DB, {
+      paymentId: payment.id,
+      provider,
+      amountCents: payment.amountCents,
+      currency: payment.currency,
+      status: 'processing',
+      providerReference: result.gatewayRef,
+      initiatedByUserId: ctx.userId,
+      initiatedAt: Date.now(),
+    });
+  } catch (err) {
+    console.error('[payments.checkout] attempt record failed', err);
+  }
 
   const auditMeta = { paymentId: payment.id, gatewayRef: result.gatewayRef, provider };
   await recordAudit(c.env.DB, {

@@ -23,6 +23,7 @@ const BUDGET_AMOUNT_RX = /rs\.?\s?([\d,]+)/i;
 const SIMULATE_RX = /\b(what if (?:i|we) (?:switch|changed?)|simulate(?:d)?\s+(?:switch|supplier)|switching\s+supplier|switch\s+from\s+\w+\s+to\s+\w+|alternative supplier for)\b/i;
 const WHY_RX = /\b(why|why did|why is|reason|explain|what caused)\b/i;
 const CATEGORIZE_RX = /\b(categori[sz]e|classify|breakdown|group by category|spending by category)\b.*\b(expenses|spending|costs|outlays)\b/i;
+const FINANCE_RX = /\b(pending payments?|unpaid invoices?|outstanding|amount due|what do i owe|owe suppliers?|amount payable|payable|my refunds?|refund status|invoices? (?:are |is )?(?:unpaid|pending|due))\b/i;
 const CATEGORY_SLOT_RX = /\b(?:on|for|by)\s+(food|packaging|cleaning|office|equipment)\b/i;
 
 const WORD_NUMS: Record<string, number> = {
@@ -172,6 +173,16 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
   } else if (REORDER_RX.test(text)) {
     intent = 'reorder';
     confidence = 0.7;
+  } else if (FINANCE_RX.test(text)) {
+    // Read-only money questions: pending payments, unpaid invoices, refunds.
+    // Must precede SPEND_RX ("unpaid" contains "paid").
+    intent = 'finance_status';
+    confidence = 0.8;
+    const lower = text.toLowerCase();
+    if (/\binvoice\b/.test(lower)) extraSlots.financeTopic = 'unpaid_invoices';
+    else if (/\brefund\b/.test(lower)) extraSlots.financeTopic = 'refunds';
+    else if (/\bpending\b/.test(lower)) extraSlots.financeTopic = 'pending_payments';
+    else extraSlots.financeTopic = 'overview';
   } else if (USUAL_RX.test(text)) {
     intent = 'usual_order';
     confidence = 0.7;
@@ -339,6 +350,7 @@ export const INTENT_ALLOWLIST_BY_ROLE = {
     'procurement_plan', 'budget_optimize', 'simulate_supplier_switch',
     'categorize_expenses', 'create_rfq', 'compare_quotes',
     'rfq_invite_suppliers', 'rfq_negotiate', 'rfq_recommend_quote', 'rfq_status',
+    'finance_status',
   ],
   member: [
     'search_products', 'find_cheapest', 'compare_suppliers', 'supplier_recommend',
@@ -349,6 +361,7 @@ export const INTENT_ALLOWLIST_BY_ROLE = {
     'procurement_plan', 'budget_optimize', 'simulate_supplier_switch',
     'categorize_expenses', 'create_rfq', 'compare_quotes',
     'rfq_invite_suppliers', 'rfq_negotiate', 'rfq_recommend_quote', 'rfq_status',
+    'finance_status',
   ],
   viewer: [
     'search_products', 'find_cheapest', 'compare_suppliers',
@@ -356,6 +369,7 @@ export const INTENT_ALLOWLIST_BY_ROLE = {
     'price_changes', 'delivery_estimate',
     'price_watch', 'price_anomaly', 'supplier_intel', 'procurement_health',
     'spend_forecast', 'category_intel', 'insights_feed', 'clarify',
+    'finance_status',
   ],
 } as const;
 

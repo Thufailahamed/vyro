@@ -146,6 +146,14 @@ router.post('/disputes/:poId/resolve', async (c) => {
   } else {
     await setPoStatus(c.env.DB, poId, 'delivered', ctx.userId, parsed.data.note ?? 'dispute resolved: release_supplier');
   }
+  // Disputed money is held; resolution unblocks eligibility either way
+  // (cancelled → ineligible, delivered → recompute). Best-effort.
+  try {
+    const { recomputeEligibilityForPo } = await import('../finance/earnings');
+    await recomputeEligibilityForPo(c.env.DB, poId);
+  } catch (err) {
+    console.error('[disputes.resolve] eligibility sync failed', err);
+  }
 
   const now = Date.now();
   // Fan out to both orgs — admin is the actor so they get nothing, and the

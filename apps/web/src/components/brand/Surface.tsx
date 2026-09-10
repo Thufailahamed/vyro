@@ -41,7 +41,7 @@ export function MetricNumber({
     sm: 'text-xl',
     md: 'text-3xl',
     lg: 'text-metric',
-    xl: 'text-5xl sm:text-6xl',
+    xl: 'text-4xl sm:text-5xl lg:text-6xl',
   }[size];
   return <div className={cn('vyro-metric leading-none', scale, className)}>{children}</div>;
 }

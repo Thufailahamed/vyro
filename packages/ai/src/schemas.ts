@@ -31,6 +31,7 @@ export const INTENT_NAMES = [
   'rfq_negotiate',
   'rfq_recommend_quote',
   'rfq_status',
+  'finance_status',
 ] as const;
 
 export type IntentName = (typeof INTENT_NAMES)[number];
@@ -72,6 +73,8 @@ const Slots = z.object({
   rfqId: z.string().min(1).max(120).optional(),
   quoteId: z.string().min(1).max(120).optional(),
   targetTotalCents: z.number().int().min(1).max(100000000).optional(),
+  // finance_status (read-only financial summary; never executes money movement)
+  financeTopic: z.enum(['pending_payments', 'unpaid_invoices', 'refunds', 'overview']).optional(),
 }).strict();
 
 export type SlotsByIntent = z.infer<typeof Slots>;
@@ -119,6 +122,7 @@ export const ComponentTypes = [
   'confirmation_card',
   'why_card',
   'simulation_card',
+  'finance_status_card',
 ] as const;
 
 export const ConfirmationItemSchema = z

@@ -259,6 +259,18 @@ export const checkoutService = {
       ...tsForStatus(input.to),
       ...reasonColumns,
     });
+    // Settlement eligibility follows order state (spec §21): completion,
+    // disputes, and cancellations all change what is payable. Best-effort —
+    // never block a legal status move on financial bookkeeping.
+    if (['completed', 'disputed', 'cancelled', 'delivered'].includes(input.to)) {
+      try {
+        const { recomputeEligibilityForPo } = await import('../finance/earnings');
+        await recomputeEligibilityForPo(d1, po.id);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[po.transition] eligibility sync failed', { poId: po.id, to: input.to, err });
+      }
+    }
     await insertOrderEvent(d1, {
       purchaseOrderId: po.id,
       actorUserId: input.actor.userId,

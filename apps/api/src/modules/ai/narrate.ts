@@ -167,6 +167,23 @@ export function summarizeResult(intent: string, result: HandlerResult): string {
         ? `${s.count} insights: savings, price moves, and supplier signals with evidence.`
         : 'No fresh insights right now.'
       ).slice(0, MAX);
+    case 'finance_status': {
+      const parts: string[] = [];
+      if (typeof s.pendingCents === 'number' && s.pendingCents > 0) {
+        parts.push(`${s.pendingCount ?? 0} pending payments totalling ${formatLKR(s.pendingCents)}`);
+      }
+      if (typeof s.outstandingCents === 'number' && s.outstandingCents > 0) {
+        parts.push(`${formatLKR(s.outstandingCents)} outstanding`);
+      }
+      if (typeof s.unpaidInvoiceCount === 'number' && s.unpaidInvoiceCount > 0) {
+        parts.push(`${s.unpaidInvoiceCount} unpaid invoices`);
+      }
+      if (typeof s.refundedCents === 'number' && s.refundedCents > 0) {
+        parts.push(`${formatLKR(s.refundedCents)} refunded`);
+      }
+      const body = parts.length ? parts.join('; ') + '.' : 'No pending payments or unpaid invoices.';
+      return (`Accounts: paid ${formatLKR(s.paidCents)} to date; ${body} Based on your payment and invoice records.`).slice(0, MAX);
+    }
     case 'procurement_plan': {
       const lines: any[] = data.lines ?? [];
       if (!lines.length) return 'Not enough order history to build a weekly plan yet.';

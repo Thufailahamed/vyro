@@ -7,6 +7,24 @@ export type AccountType = 'supplier' | 'business' | 'platform';
 export type Direction = 'debit' | 'credit';
 export type RefType = 'payment' | 'refund' | 'payout' | 'fee' | 'adjustment';
 
+/**
+ * Financial categories for double-entry readiness (spec §25). The legacy
+ * refType column stays within its DB CHECK; the category carries the richer
+ * event kind (SALE, COMMISSION, SETTLEMENT, PAYOUT, CREDIT, DEBIT, ...).
+ */
+export type LedgerCategory =
+  | 'PAYMENT'
+  | 'PAYMENT_FEE'
+  | 'SALE'
+  | 'COMMISSION'
+  | 'REFUND'
+  | 'REFUND_ADJUSTMENT'
+  | 'SETTLEMENT'
+  | 'PAYOUT'
+  | 'CREDIT'
+  | 'DEBIT'
+  | 'MANUAL_ADJUSTMENT';
+
 export interface LedgerWriteInput {
   accountType: AccountType;
   accountId: string;
@@ -17,6 +35,10 @@ export interface LedgerWriteInput {
   refId: string;
   description: string;
   createdByUserId?: string | null;
+  category?: LedgerCategory | undefined;
+  entityType?: string | undefined;
+  entityId?: string | undefined;
+  metadata?: Record<string, unknown> | undefined;
 }
 
 /**
@@ -42,6 +64,10 @@ export function writeLedgerEntry(
     currency: input.currency ?? 'LKR',
     refType: input.refType,
     refId: input.refId,
+    category: input.category ?? null,
+    entityType: input.entityType ?? null,
+    entityId: input.entityId ?? null,
+    metadata: input.metadata ? JSON.stringify(input.metadata).slice(0, 2000) : null,
     description: input.description.slice(0, 500),
     createdByUserId: input.createdByUserId ?? null,
     createdAt: Date.now(),

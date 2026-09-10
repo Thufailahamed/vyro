@@ -26,6 +26,7 @@ import { budgetOptimizeHandler } from './budgetOptimize';
 import { simulateSupplierSwitchHandler } from './simulateSupplierSwitch';
 import { categorizeExpensesHandler } from './categorizeExpenses';
 import { createRfqHandler, compareQuotesHandler } from './rfq';
+import { financeStatusHandler } from './financeStatus';
 import {
   rfq_invite_suppliersHandler,
   rfq_negotiateHandler,
@@ -81,4 +82,5 @@ export const HANDLERS: Record<ClassifyResult['intent'], Handler> = {
   rfq_negotiate: rfq_negotiateHandler,
   rfq_recommend_quote: rfq_recommend_quoteHandler,
   rfq_status: rfq_statusHandler,
+  finance_status: financeStatusHandler,
 };

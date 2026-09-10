@@ -1,20 +1,27 @@
 import { useEffect, useState, useMemo, useRef, type FormEvent } from 'react';
 import { useNavigate, useParams, Link, useSearchParams } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import { PageHeader, Button, Input, Label, Badge } from '@/components/ui';
-import { Surface, ProductImage } from '@/components/brand/Surface';
+import {
+  Button,
+  ErrorBanner,
+  Input,
+  Label,
+  Select,
+  Textarea,
+  SuccessBanner,
+} from '@/components/ui';
+import { Surface } from '@/components/brand/Surface';
 import { useSupplierId } from './useSupplierId';
 import { SupplierErrorState, SupplierLoadingState } from './SupplierPageState';
+import { useToast } from '@vyro/ui';
 import {
   PackageIcon,
   ArrowLeftIcon,
-  CheckCircleIcon,
+  CheckIcon,
   TruckIcon,
-  PercentIcon,
   SearchIcon,
   EyeIcon,
-  CheckIcon,
   ClockIcon,
   XIcon,
   AlertCircleIcon,
@@ -25,8 +32,15 @@ import {
   UploadCloudIcon,
   PlusIcon,
   LayersIcon,
+  CheckCircle2Icon,
+  BanknoteIcon,
+  PercentIcon,
+  SparklesIcon,
+  ChevronRightIcon,
+  ArrowRightIcon,
 } from '@/components/icons';
 import { formatLKR } from '@/lib/format';
+import { cn } from '@vyro/ui';
 
 type Category = {
   id: string;
@@ -82,7 +96,7 @@ const COMMON_UNITS = [
 
 const MOQ_PRESETS = [1, 5, 10, 25, 50, 100];
 const LEAD_PRESETS = [
-  { label: 'Same Day (0d)', value: '0' },
+  { label: 'Same Day', value: '0' },
   { label: '1 Day', value: '1' },
   { label: '2-3 Days', value: '3' },
   { label: '5-7 Days', value: '7' },
@@ -92,7 +106,7 @@ const RADIUS_PRESETS = [
   { label: '25 km (Local)', value: '25' },
   { label: '50 km (Metro)', value: '50' },
   { label: '100 km (Regional)', value: '100' },
-  { label: 'Island-wide (No limit)', value: '' },
+  { label: 'Island-wide', value: '' },
 ];
 
 function fileToBase64(file: File): Promise<string> {
@@ -108,25 +122,14 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-function FormField({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-baseline justify-between">
-        <Label className="text-xs font-semibold uppercase tracking-wider text-ink-3">{label}</Label>
-        {hint && <span className="text-[11px] text-ink-4">{hint}</span>}
-      </div>
-      {children}
-    </div>
-  );
-}
+const FORM_SECTIONS = [
+  { key: 'category', label: 'Category', hint: 'Admin taxonomy', icon: LayersIcon },
+  { key: 'details', label: 'Product', hint: 'Identity & specs', icon: PackageIcon },
+  { key: 'photo', label: 'Photo', hint: 'Depot imagery', icon: UploadCloudIcon },
+  { key: 'pricing', label: 'Pricing', hint: 'Wholesale & MOQ', icon: BanknoteIcon },
+  { key: 'tiers', label: 'Tiers', hint: 'Volume discounts', icon: PercentIcon },
+  { key: 'delivery', label: 'Fulfillment', hint: 'Delivery & coverage', icon: TruckIcon },
+] as const;
 
 export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const { supplierId, supplierName } = useSupplierId();
@@ -134,6 +137,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const toast = useToast();
   const isEdit = mode === 'edit';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -150,7 +154,6 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
   });
 
   const categories = useMemo(() => categoriesQuery.data?.categories ?? [], [categoriesQuery.data]);
-
   const existingOffer = isEdit ? offers.data?.offers.find((o) => o.id === id) ?? null : null;
 
   // If editing, fetch product details
@@ -218,11 +221,14 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
     setEnableTiers(Boolean(hasTiers));
 
     if (existingOffer.tier1MinQty != null) setTier1MinQty(String(existingOffer.tier1MinQty));
-    if (existingOffer.tier1DiscountPct != null) setTier1DiscountPct(String(existingOffer.tier1DiscountPct));
+    if (existingOffer.tier1DiscountPct != null)
+      setTier1DiscountPct(String(existingOffer.tier1DiscountPct));
     if (existingOffer.tier2MinQty != null) setTier2MinQty(String(existingOffer.tier2MinQty));
-    if (existingOffer.tier2DiscountPct != null) setTier2DiscountPct(String(existingOffer.tier2DiscountPct));
+    if (existingOffer.tier2DiscountPct != null)
+      setTier2DiscountPct(String(existingOffer.tier2DiscountPct));
     if (existingOffer.tier3MinQty != null) setTier3MinQty(String(existingOffer.tier3MinQty));
-    if (existingOffer.tier3DiscountPct != null) setTier3DiscountPct(String(existingOffer.tier3DiscountPct));
+    if (existingOffer.tier3DiscountPct != null)
+      setTier3DiscountPct(String(existingOffer.tier3DiscountPct));
   }, [isEdit, existingOffer]);
 
   // Populate product details in edit mode
@@ -251,7 +257,9 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const filteredCategories = useMemo(() => {
     if (!categorySearch.trim()) return categories;
     const q = categorySearch.toLowerCase();
-    return categories.filter((c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q));
+    return categories.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q),
+    );
   }, [categories, categorySearch]);
 
   const selectedCategoryObj = useMemo(
@@ -293,7 +301,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
     }
   };
 
-  const priceCents = () => {
+  const priceCentsValue = (): number => {
     const n = Number.parseFloat(priceLkr);
     if (Number.isNaN(n) || n <= 0) return 0;
     return Math.round(n * 100);
@@ -303,15 +311,25 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const hasCategory = Boolean(categoryId);
   const hasName = Boolean(productName.trim());
   const hasUnit = Boolean(unit.trim());
-  const hasPrice = priceCents() > 0;
+  const hasPrice = priceCentsValue() > 0;
   const hasMoq = Number(minQty) >= 1;
   const hasImage = Boolean(imagePreviewUrl || existingImageUrl);
 
-  const readinessScore = [hasCategory, hasName, hasUnit, hasPrice, hasMoq].filter(Boolean).length;
-  const totalReadinessSteps = 5;
+  const readinessItems = [
+    { key: 'category', label: 'Admin category selected', done: hasCategory },
+    { key: 'name', label: 'Product title defined', done: hasName },
+    { key: 'unit', label: 'Billing unit specified', done: hasUnit },
+    { key: 'price', label: 'Wholesale unit rate configured', done: hasPrice },
+    { key: 'moq', label: 'Minimum order quantity set', done: hasMoq },
+    { key: 'image', label: 'Product photo uploaded', done: hasImage, optional: true },
+  ];
+  const readinessScore = readinessItems.filter((r) => r.done).length;
+  const totalReadinessSteps = readinessItems.length;
+  const readinessPct = (readinessScore / totalReadinessSteps) * 100;
+  const canPublish = hasCategory && hasName && hasUnit && hasPrice && hasMoq;
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: FormEvent) => {
+    e?.preventDefault();
     setErr(null);
 
     if (!categoryId) {
@@ -326,7 +344,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
       setErr('Please specify the standard billing unit of measure (e.g. kg, bag, unit, set).');
       return;
     }
-    const cents = priceCents();
+    const cents = priceCentsValue();
     if (!cents || cents <= 0) {
       setErr('Please enter a valid base wholesale price in LKR.');
       return;
@@ -356,7 +374,6 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
       let targetProductId = existingOffer?.productId || '';
 
       if (!isEdit) {
-        // 1. Create product under the admin category
         const prodPayload: {
           name: string;
           categoryId: string;
@@ -376,7 +393,6 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
         const prodRes = await api.post<{ id: string }>('/products', prodPayload);
         targetProductId = prodRes.id;
       } else {
-        // Edit mode: update existing product details
         const updatePayload: {
           name: string;
           categoryId: string;
@@ -396,7 +412,6 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
         await api.patch(`/products/${targetProductId}`, updatePayload);
       }
 
-      // 2. Upload image to R2 if selected
       if (selectedImageFile) {
         const base64 = await fileToBase64(selectedImageFile);
         await api.post(`/products/${targetProductId}/images`, {
@@ -406,8 +421,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
         });
       }
 
-      // 3. Create or update supplier-product offer
-      const offerPayload: Record<string, any> = {
+      const offerPayload: Record<string, unknown> = {
         priceCents: cents,
         minOrderQty: Number(minQty) || 1,
         leadTimeDays: Number(lead) || 1,
@@ -455,6 +469,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
       await qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'offers'] });
       await qc.invalidateQueries({ queryKey: ['products', 'catalog'] });
+      toast.show(toast.success(isEdit ? 'Product changes saved' : 'Wholesale product published'));
       navigate('/supplier/products');
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : 'Failed to save product listing. Please check inputs.');
@@ -475,85 +490,82 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
     );
   }
 
-  // Active display image
   const displayImageUrl = imagePreviewUrl || existingImageUrl || null;
+  const displayPriceCents = priceCentsValue();
+  const displayMoq = Number(minQty) || 1;
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-20">
-      {/* Header */}
-      <div>
+    <div className="space-y-8 max-w-7xl mx-auto pb-32">
+      {/* Top bar: back link + stepper */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-ink/10 pb-4">
         <Link
           to="/supplier/products"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ink-3 hover:text-ink-1 transition-colors mb-3"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ink-3 hover:text-ink-1 transition-colors"
         >
-          <ArrowLeftIcon className="w-3.5 h-3.5" /> Back to Products
+          <ArrowLeftIcon size={14} /> Back to Products
         </Link>
-        <PageHeader
-          title={isEdit ? 'Edit Wholesale Product' : 'Create Wholesale Product'}
-          sub={
-            isEdit
-              ? 'Update your product specifications, imagery, pricing, and fulfillment coverage.'
-              : 'Select an admin category, define your product details and imagery, and set your wholesale commercial terms.'
-          }
-        />
+        <div className="w-full sm:w-[36rem]">
+          <FormStepper sections={FORM_SECTIONS} state={readinessItems} />
+        </div>
       </div>
 
-      {err && (
-        <div className="p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm flex items-start gap-3">
-          <AlertCircleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="font-semibold">Unable to proceed</p>
-            <p className="mt-0.5 text-danger/90">{err}</p>
+      {/* Header banner */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="size-2 rounded-full bg-volt animate-pulse" />
+            <span className="vyro-kicker text-volt-deep">Wholesale Catalog</span>
+            {isEdit && (
+              <span className="ml-1 font-mono text-[10px] font-semibold uppercase tracking-wider bg-copper/10 text-copper border border-copper/30 px-2 py-0.5">
+                Editing
+              </span>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={() => setErr(null)}
-            className="text-danger/60 hover:text-danger text-xs font-bold uppercase tracking-wider"
-          >
-            Dismiss
-          </button>
+          <h1 className="vyro-display text-4xl sm:text-5xl text-balance text-ink">
+            {isEdit ? 'Edit Wholesale Product' : 'Create Wholesale Product'}
+          </h1>
+          <p className="mt-3 text-body-lg text-ink-3 max-w-2xl">
+            Select an admin category, define your product details and imagery, and set your
+            wholesale commercial terms.
+          </p>
         </div>
-      )}
+      </div>
 
-      {/* 2-Column Responsive Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Form Configuration (8 Cols) */}
-        <form onSubmit={handleSubmit} className="lg:col-span-8 space-y-6">
-          {/* SECTION 1: Category Selection */}
-          <Surface className="p-6 rounded-2xl border border-paper-subtle space-y-5 bg-paper">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="w-7 h-7 rounded-full bg-emerald-600 text-white font-mono font-bold text-xs flex items-center justify-center shadow-sm">
-                  1
-                </span>
-                <div>
-                  <h2 className="text-base font-bold text-ink-1">Select Product Category</h2>
-                  <p className="text-xs text-ink-3">
-                    Choose from categories created by platform administrators
-                  </p>
-                </div>
-              </div>
-              <Badge variant="neutral" className="font-mono text-xs">
-                {categories.length} Categories Configured
-              </Badge>
-            </div>
+      {err && <ErrorBanner message={err} />}
 
-            {/* Category Search Filter */}
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
+      >
+        {/* LEFT — Form sections */}
+        <div className="lg:col-span-8 space-y-5">
+          {/* SECTION 1 — Category */}
+          <SectionCard
+            step={1}
+            eyebrow="Category"
+            title="Select product category"
+            sub="Choose from categories created by platform administrators"
+            complete={hasCategory}
+            countLabel={`${categories.length} categories`}
+          >
             {categories.length > 6 && (
               <div className="relative">
-                <SearchIcon className="w-4 h-4 text-ink-4 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
+                <SearchIcon
+                  size={15}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4"
+                />
+                <Input
                   type="text"
                   placeholder="Filter categories (e.g. Food, Furniture, Packaging, Hardware)..."
                   value={categorySearch}
                   onChange={(e) => setCategorySearch(e.target.value)}
-                  className="w-full pl-9.5 pr-4 py-2 text-xs rounded-xl bg-paper-subtle/50 border border-paper-subtle focus:border-emerald-600 focus:bg-paper transition-all outline-none"
+                  className="pl-9 bg-paper"
                 />
                 {categorySearch && (
                   <button
                     type="button"
                     onClick={() => setCategorySearch('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-4 hover:text-ink-1 text-xs"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-4 hover:text-ink-1 text-[11px] font-semibold"
                   >
                     Clear
                   </button>
@@ -561,8 +573,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
               </div>
             )}
 
-            {/* Category Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-72 overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-72 overflow-y-auto pr-1 scrollbar-thin">
               {filteredCategories.map((cat) => {
                 const isSelected = categoryId === cat.id;
                 return (
@@ -570,22 +581,30 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                     key={cat.id}
                     type="button"
                     onClick={() => setCategoryId(cat.id)}
-                    className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
+                    className={cn(
+                      'flex items-center justify-between p-3 rounded-xl border text-left transition-all',
                       isSelected
-                        ? 'border-emerald-600 bg-emerald-500/10 text-emerald-950 font-semibold shadow-sm'
-                        : 'border-paper-subtle hover:border-ink-4 bg-paper-subtle/30 text-ink-2 hover:bg-paper-subtle/60'
-                    }`}
+                        ? 'border-ink bg-ink/[0.04] ring-1 ring-volt/40 shadow-sm'
+                        : 'border-ink/10 bg-paper hover:border-ink/30',
+                    )}
                   >
                     <div className="min-w-0 pr-2">
-                      <p className="text-xs truncate font-medium">{cat.name}</p>
+                      <p
+                        className={cn(
+                          'text-xs truncate',
+                          isSelected ? 'font-bold text-ink' : 'font-medium text-ink-2',
+                        )}
+                      >
+                        {cat.name}
+                      </p>
                       <p className="text-[10px] text-ink-4 font-mono truncate">{cat.slug}</p>
                     </div>
                     {isSelected ? (
-                      <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center flex-shrink-0">
-                        <CheckIcon className="w-3 h-3" />
+                      <span className="w-5 h-5 rounded-full bg-ink text-volt flex items-center justify-center flex-shrink-0">
+                        <CheckIcon size={12} />
                       </span>
                     ) : (
-                      <span className="w-4 h-4 rounded-full border border-paper-subtle flex-shrink-0" />
+                      <span className="w-4 h-4 rounded-full border border-ink/15 flex-shrink-0" />
                     )}
                   </button>
                 );
@@ -593,137 +612,129 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
             </div>
 
             {selectedCategoryObj && (
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs flex items-center justify-between text-emerald-900">
-                <span className="flex items-center gap-2">
-                  <CheckCircleIcon className="w-4 h-4 text-emerald-600" />
+              <div className="p-3 rounded-xl bg-mint/10 border border-mint/30 text-xs flex items-center justify-between text-ink-1">
+                <span className="flex items-center gap-2 font-semibold">
+                  <CheckCircle2Icon size={14} className="text-mint" />
                   Listing under category: <strong>{selectedCategoryObj.name}</strong>
                 </span>
-                <span className="text-[11px] font-mono opacity-80">{selectedCategoryObj.slug}</span>
+                <span className="text-[11px] font-mono text-ink-3">{selectedCategoryObj.slug}</span>
               </div>
             )}
-          </Surface>
+          </SectionCard>
 
-          {/* SECTION 2: Product Identity & Specs */}
-          <Surface className="p-6 rounded-2xl border border-paper-subtle space-y-5 bg-paper">
-            <div className="flex items-center gap-3">
-              <span className="w-7 h-7 rounded-full bg-emerald-600 text-white font-mono font-bold text-xs flex items-center justify-center shadow-sm">
-                2
-              </span>
-              <div>
-                <h2 className="text-base font-bold text-ink-1">Product Details & Specifications</h2>
-                <p className="text-xs text-ink-3">
-                  Define the name, brand, billing unit, and packaging specs for your product
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-4 pt-1">
-              {/* Product Name */}
-              <FormField
-                label="Product Title / Name *"
+          {/* SECTION 2 — Product details */}
+          <SectionCard
+            step={2}
+            eyebrow="Product"
+            title="Product details & specifications"
+            sub="Define the name, brand, billing unit, and packaging for your product"
+            complete={hasName && hasUnit}
+          >
+            <div className="space-y-5">
+              <Field
+                label="Product title / name"
+                required
                 hint="Descriptive name visible to all wholesale buyers"
+                icon={<PackageIcon size={13} className="text-copper" />}
               >
                 <Input
                   type="text"
-                  placeholder="e.g. Ceylon Cinnamon Quills Grade ALBA 25kg, Solid Teak 6-Seater Banquet Table"
+                  placeholder="e.g. Ceylon Cinnamon Quills Grade ALBA 25kg"
                   value={productName}
                   onChange={(e) => setProductName(e.target.value)}
-                  className="font-medium"
+                  className="bg-paper"
                   required
                 />
-              </FormField>
+              </Field>
 
-              {/* Brand & Billing Unit in 2 cols */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField label="Brand / Manufacturer" hint="Optional (leave blank if unbranded)">
+                <Field
+                  label="Brand / manufacturer"
+                  optional
+                  hint="Leave blank if unbranded"
+                  icon={<Building2Icon size={13} className="text-copper" />}
+                >
                   <Input
                     type="text"
                     placeholder="e.g. Royal Spices, CraftWood, In-House"
                     value={brand}
                     onChange={(e) => setBrand(e.target.value)}
+                    className="bg-paper"
                   />
-                </FormField>
+                </Field>
 
-                <FormField label="Standard Billing Unit *" hint="Wholesale transaction unit">
+                <Field
+                  label="Standard billing unit"
+                  required
+                  hint="Wholesale transaction unit"
+                  icon={<PackageIcon size={13} className="text-copper" />}
+                >
                   <Input
                     type="text"
-                    placeholder="e.g. kg, bag, unit, set, pack"
+                    placeholder="e.g. kg, bag, unit, set"
                     value={unit}
                     onChange={(e) => setUnit(e.target.value)}
+                    className="bg-paper"
                     required
                   />
-                </FormField>
+                </Field>
               </div>
 
-              {/* Quick Unit Presets */}
-              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                <span className="text-[11px] font-semibold text-ink-4 mr-1">Common Units:</span>
-                {COMMON_UNITS.map((u) => (
-                  <button
-                    key={u}
-                    type="button"
-                    onClick={() => setUnit(u)}
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono transition-all ${
-                      unit.toLowerCase() === u
-                        ? 'bg-emerald-600 text-white font-semibold shadow-xs'
-                        : 'bg-paper-subtle/80 hover:bg-paper-subtle text-ink-3 border border-paper-subtle'
-                    }`}
-                  >
-                    {u}
-                  </button>
-                ))}
+              {/* Quick unit presets */}
+              <div>
+                <div className="text-[10px] font-mono text-ink-3 uppercase tracking-wider font-semibold mb-1.5">
+                  Common units
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {COMMON_UNITS.map((u) => (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => setUnit(u)}
+                      className={cn(
+                        'px-2.5 py-0.5 text-xs font-mono transition-all rounded-md',
+                        unit.toLowerCase() === u
+                          ? 'bg-ink text-volt font-semibold'
+                          : 'bg-paper border border-ink/10 text-ink-3 hover:border-ink/30',
+                      )}
+                    >
+                      {u}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Pack Size */}
-              <FormField
-                label="Packaging Specification / Pack Size"
-                hint="Packaging format or dimensions"
-              >
+              <Field label="Packaging specification / pack size" optional hint="Packaging format or dimensions">
                 <Input
                   type="text"
-                  placeholder="e.g. 25kg vacuum-sealed sack, Set of 4, 12 bottles/carton, 180cm x 90cm"
+                  placeholder="e.g. 25kg vacuum-sealed sack, Set of 4, 12 bottles/carton"
                   value={packSize}
                   onChange={(e) => setPackSize(e.target.value)}
+                  className="bg-paper"
                 />
-              </FormField>
+              </Field>
 
-              {/* Description */}
-              <FormField
-                label="Product Specifications & Details"
-                hint="Detailed specifications, material origin, certifications, storage conditions"
-              >
-                <textarea
+              <Field label="Product specifications & details" optional hint="Detailed specs, material origin, certifications">
+                <Textarea
                   rows={3}
                   placeholder="Provide technical specifications, quality grades, moisture levels, warranty, or packaging details for enterprise purchasing managers..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full p-3 text-xs rounded-xl bg-paper-subtle/30 border border-paper-subtle focus:border-emerald-600 focus:bg-paper outline-none transition-all resize-y"
+                  className="bg-paper"
                 />
-              </FormField>
+              </Field>
             </div>
-          </Surface>
+          </SectionCard>
 
-          {/* SECTION 3: Product Photography */}
-          <Surface className="p-6 rounded-2xl border border-paper-subtle space-y-5 bg-paper">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="w-7 h-7 rounded-full bg-emerald-600 text-white font-mono font-bold text-xs flex items-center justify-center shadow-sm">
-                  3
-                </span>
-                <div>
-                  <h2 className="text-base font-bold text-ink-1">Product Photo & Depot Packaging</h2>
-                  <p className="text-xs text-ink-3">
-                    Upload direct photography of your product or packaging as received at depot
-                  </p>
-                </div>
-              </div>
-              {displayImageUrl && (
-                <Badge variant="success" className="gap-1 font-semibold text-xs">
-                  <CheckIcon className="w-3.5 h-3.5" /> Photo Attached
-                </Badge>
-              )}
-            </div>
-
+          {/* SECTION 3 — Product photo */}
+          <SectionCard
+            step={3}
+            eyebrow="Photo"
+            title="Product photo & depot packaging"
+            sub="Upload direct photography of your product or packaging as received at depot"
+            complete={hasImage}
+            {...(hasImage ? { countLabel: 'Photo attached', countTone: 'mint' as const } : {})}
+          >
             <input
               type="file"
               ref={fileInputRef}
@@ -735,10 +746,10 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
             {!displayImageUrl ? (
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-paper-subtle hover:border-emerald-600 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all bg-paper-subtle/20 hover:bg-emerald-500/5 group"
+                className="border-2 border-dashed border-ink/15 hover:border-volt rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all bg-paper-subtle/30 hover:bg-volt/5 group"
               >
-                <div className="w-12 h-12 rounded-2xl bg-paper-subtle group-hover:bg-emerald-100 text-ink-3 group-hover:text-emerald-700 flex items-center justify-center transition-colors mb-3">
-                  <UploadCloudIcon className="w-6 h-6" />
+                <div className="w-12 h-12 rounded-2xl bg-bone group-hover:bg-volt/20 text-ink-3 group-hover:text-volt-deep flex items-center justify-center transition-colors mb-3">
+                  <UploadCloudIcon size={24} />
                 </div>
                 <p className="text-sm font-bold text-ink-1">
                   Click or drag to upload product photography
@@ -748,13 +759,13 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                 </p>
                 <div className="mt-4">
                   <Button type="button" variant="secondary" size="sm" className="gap-2 text-xs">
-                    <PlusIcon className="w-3.5 h-3.5" /> Browse Image Files
+                    <PlusIcon size={12} /> Browse Image Files
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-2xl bg-paper-subtle/30 border border-paper-subtle">
-                <div className="w-24 h-24 rounded-xl overflow-hidden bg-paper-subtle border border-paper-subtle flex-shrink-0 shadow-inner">
+              <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-2xl bg-paper-subtle/30 border border-ink/10">
+                <div className="w-24 h-24 rounded-xl overflow-hidden bg-bone border border-ink/10 flex-shrink-0 shadow-inner">
                   <img
                     src={displayImageUrl}
                     alt={productName || 'Product photo'}
@@ -763,11 +774,11 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                 </div>
                 <div className="flex-1 min-w-0 text-center sm:text-left">
                   <p className="text-xs font-bold text-ink-1 truncate">
-                    {selectedImageFile ? selectedImageFile.name : 'Current Depot Product Photo'}
+                    {selectedImageFile ? selectedImageFile.name : 'Current depot product photo'}
                   </p>
                   <p className="text-[11px] text-ink-4 mt-0.5">
                     {selectedImageFile
-                      ? `${(selectedImageFile.size / 1024).toFixed(1)} KB • Ready for cloud upload`
+                      ? `${(selectedImageFile.size / 1024).toFixed(1)} KB · Ready for cloud upload`
                       : 'Saved in product catalog'}
                   </p>
                   <div className="flex items-center gap-2 mt-3 justify-center sm:justify-start">
@@ -778,72 +789,64 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                       onClick={() => fileInputRef.current?.click()}
                       className="text-xs gap-1.5"
                     >
-                      <Edit3Icon className="w-3.5 h-3.5" /> Change Photo
+                      <Edit3Icon size={12} /> Change photo
                     </Button>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       onClick={removeSelectedImage}
-                      className="text-xs text-danger hover:text-danger gap-1.5"
+                      className="text-xs text-rose hover:text-rose gap-1.5"
                     >
-                      <XIcon className="w-3.5 h-3.5" /> Remove
+                      <XIcon size={12} /> Remove
                     </Button>
                   </div>
                 </div>
               </div>
             )}
-          </Surface>
+          </SectionCard>
 
-          {/* SECTION 4: Commercial Pricing & MOQ */}
-          <Surface className="p-6 rounded-2xl border border-paper-subtle space-y-5 bg-paper">
-            <div className="flex items-center gap-3">
-              <span className="w-7 h-7 rounded-full bg-emerald-600 text-white font-mono font-bold text-xs flex items-center justify-center shadow-sm">
-                4
-              </span>
-              <div>
-                <h2 className="text-base font-bold text-ink-1">
-                  Wholesale Pricing & Minimum Order (MOQ)
-                </h2>
-                <p className="text-xs text-ink-3">
-                  Set your base wholesale unit rate and purchase commitment rules
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-4 pt-1">
-              {/* Internal SKU & Stock availability */}
+          {/* SECTION 4 — Pricing & MOQ */}
+          <SectionCard
+            step={4}
+            eyebrow="Pricing"
+            title="Wholesale pricing & minimum order (MOQ)"
+            sub="Set your base wholesale unit rate and purchase commitment rules"
+            complete={hasPrice && hasMoq}
+          >
+            <div className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField label="Internal Supplier SKU" hint="Warehouse reference">
+                <Field label="Internal supplier SKU" optional hint="Warehouse reference" mono>
                   <Input
                     type="text"
                     placeholder="e.g. WH-FURN-2026-01"
                     value={supplierSku}
                     onChange={(e) => setSupplierSku(e.target.value)}
-                    className="font-mono text-xs"
+                    className="bg-paper font-mono text-xs"
                   />
-                </FormField>
+                </Field>
 
-                <FormField label="Stock Availability Status" hint="Marketplace visibility">
-                  <select
+                <Field label="Stock availability" hint="Marketplace visibility">
+                  <Select
                     value={avail}
-                    onChange={(e) => setAvail(e.target.value as any)}
-                    className="w-full h-9 px-3 rounded-lg border border-paper-subtle bg-paper text-ink-1 text-xs focus:border-emerald-600 outline-none"
+                    onChange={(e) => setAvail(e.target.value as typeof avail)}
+                    className="bg-paper"
                   >
-                    <option value="in_stock">✓ In Stock (Ready for immediate dispatch)</option>
-                    <option value="low">⚠ Low Stock (Limited depot allocation)</option>
-                    <option value="out_of_stock">✕ Out of Stock (Pre-order / Backorder)</option>
-                  </select>
-                </FormField>
+                    <option value="in_stock">✓ In Stock — ready for immediate dispatch</option>
+                    <option value="low">⚠ Low Stock — limited depot allocation</option>
+                    <option value="out_of_stock">✕ Out of Stock — pre-order / backorder</option>
+                  </Select>
+                </Field>
               </div>
 
-              {/* Price */}
-              <FormField
-                label={`Base Wholesale Rate (LKR / ${unit || 'unit'}) *`}
+              <Field
+                label={`Base wholesale rate (LKR / ${unit || 'unit'})`}
+                required
                 hint="Net wholesale price per unit before volume discounts"
+                icon={<BanknoteIcon size={13} className="text-copper" />}
               >
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono text-xs font-bold text-ink-3">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-xs font-bold text-ink-3 pointer-events-none">
                     Rs.
                   </span>
                   <Input
@@ -853,379 +856,243 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                     placeholder="0.00"
                     value={priceLkr}
                     onChange={(e) => setPriceLkr(e.target.value)}
-                    className="pl-11 font-mono font-bold text-sm"
+                    className="pl-11 pr-16 bg-paper font-mono font-bold text-sm"
                     required
                   />
-                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-ink-4">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-4 pointer-events-none">
                     / {unit || 'unit'}
                   </span>
                 </div>
-              </FormField>
+              </Field>
 
-              {/* MOQ & Lead Time in 2 cols */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <FormField label="Minimum Order Qty (MOQ) *" hint="Smallest order accepted">
-                    <Input
-                      type="number"
-                      min="1"
-                      value={minQty}
-                      onChange={(e) => setMinQty(e.target.value)}
-                      className="font-mono text-xs font-bold"
-                      required
-                    />
-                  </FormField>
-                  <div className="flex flex-wrap gap-1">
-                    {MOQ_PRESETS.map((q) => (
-                      <button
-                        key={q}
-                        type="button"
-                        onClick={() => setMinQty(String(q))}
-                        className={`px-2 py-0.5 text-[11px] font-mono rounded border transition-all ${
-                          minQty === String(q)
-                            ? 'bg-ink-1 text-paper font-bold border-ink-1'
-                            : 'bg-paper-subtle/50 text-ink-3 border-paper-subtle hover:border-ink-4'
-                        }`}
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <FormField label="Dispatch Lead Time (Days) *" hint="Time from order to dispatch">
-                    <Input
-                      type="number"
-                      min="0"
-                      value={lead}
-                      onChange={(e) => setLead(e.target.value)}
-                      className="font-mono text-xs font-bold"
-                      required
-                    />
-                  </FormField>
-                  <div className="flex flex-wrap gap-1">
-                    {LEAD_PRESETS.map((p) => (
-                      <button
-                        key={p.value}
-                        type="button"
-                        onClick={() => setLead(p.value)}
-                        className={`px-2 py-0.5 text-[11px] rounded border transition-all ${
-                          lead === p.value
-                            ? 'bg-ink-1 text-paper font-bold border-ink-1'
-                            : 'bg-paper-subtle/50 text-ink-3 border-paper-subtle hover:border-ink-4'
-                        }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <PresetField
+                  label="Minimum order qty (MOQ)"
+                  required
+                  hint="Smallest order accepted"
+                  value={minQty}
+                  onChange={setMinQty}
+                  presets={MOQ_PRESETS.map((q) => ({ label: String(q), value: String(q) }))}
+                  inputMode="numeric"
+                  mono
+                />
+                <PresetField
+                  label="Dispatch lead time (days)"
+                  required
+                  hint="Time from order to dispatch"
+                  value={lead}
+                  onChange={setLead}
+                  presets={LEAD_PRESETS}
+                  inputMode="numeric"
+                  mono
+                />
               </div>
 
-              {/* Minimum Purchase Commitment Banner */}
-              {priceCents() > 0 && Number(minQty) > 0 && (
-                <div className="p-3.5 rounded-xl bg-ink-1 text-paper flex items-center justify-between shadow-sm">
+              {/* Min order commitment banner */}
+              {displayPriceCents > 0 && displayMoq > 0 && (
+                <div className="p-4 rounded-xl bg-ink text-paper flex items-center justify-between shadow-sm">
                   <div className="text-xs">
-                    <p className="font-semibold text-paper/80">Minimum Order Commitment</p>
-                    <p className="text-[11px] text-paper/60 font-mono">
-                      {minQty} {unit || 'units'} × {formatLKR(priceCents())}
+                    <p className="font-mono uppercase tracking-wider text-volt text-[10px] font-bold">
+                      Minimum order commitment
+                    </p>
+                    <p className="text-[11px] text-paper/70 font-mono mt-0.5">
+                      {minQty} {unit || 'units'} × {formatLKR(displayPriceCents)}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-mono font-bold text-sm text-volt">
-                      {formatLKR(priceCents() * (Number(minQty) || 1))}
+                    <p className="font-mono font-bold text-lg text-volt">
+                      {formatLKR(displayPriceCents * displayMoq)}
                     </p>
-                    <p className="text-[10px] text-paper/60">Minimum PO Value</p>
+                    <p className="text-[10px] text-paper/60">Minimum PO value</p>
                   </div>
                 </div>
               )}
             </div>
-          </Surface>
+          </SectionCard>
 
-          {/* SECTION 5: Volume Discount Ladders (Optional) */}
-          <Surface className="p-6 rounded-2xl border border-paper-subtle space-y-5 bg-paper">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="w-7 h-7 rounded-full bg-emerald-600 text-white font-mono font-bold text-xs flex items-center justify-center shadow-sm">
-                  5
-                </span>
-                <div>
-                  <h2 className="text-base font-bold text-ink-1">
-                    Volume Discount Ladders (Optional)
-                  </h2>
-                  <p className="text-xs text-ink-3">
-                    Reward buyers who order pallet or truckload quantities
-                  </p>
-                </div>
-              </div>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <span className="text-xs font-semibold text-ink-2">Enable Tiers</span>
-                <input
-                  type="checkbox"
-                  checked={enableTiers}
-                  onChange={(e) => setEnableTiers(e.target.checked)}
-                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                />
-              </label>
-            </div>
-
+          {/* SECTION 5 — Volume tiers */}
+          <SectionCard
+            step={5}
+            eyebrow="Tiers"
+            title="Volume discount ladders (optional)"
+            sub="Reward buyers who order pallet or truckload quantities"
+            complete={enableTiers}
+            countLabel={enableTiers ? 'Enabled' : 'Off'}
+            countTone={enableTiers ? 'mint' : 'ink'}
+            actions={
+              <ToggleSwitch
+                checked={enableTiers}
+                onChange={setEnableTiers}
+                label="Enable tiers"
+              />
+            }
+          >
             {enableTiers && (
-              <div className="space-y-4 pt-1">
+              <div className="space-y-4">
                 <p className="text-xs text-ink-3">
-                  Configure tiered bulk discounts based on minimum order quantity thresholds:
+                  Configure tiered bulk discounts based on minimum order quantity thresholds.
                 </p>
-
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {/* Tier 1 */}
-                  <div className="p-3.5 rounded-xl border border-paper-subtle bg-paper-subtle/30 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-ink-1">Tier 1 Wholesale</span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-paper font-semibold border border-paper-subtle">
-                        {tier1DiscountPct}% OFF
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      <div>
-                        <Label className="text-[10px] text-ink-4">Min Qty</Label>
-                        <Input
-                          type="number"
-                          value={tier1MinQty}
-                          onChange={(e) => setTier1MinQty(e.target.value)}
-                          className="font-mono text-xs"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-ink-4">Discount %</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="90"
-                          value={tier1DiscountPct}
-                          onChange={(e) => setTier1DiscountPct(e.target.value)}
-                          className="font-mono text-xs font-bold"
-                        />
-                      </div>
-                      {priceCents() > 0 && (
-                        <p className="text-[11px] font-mono text-ink-3 pt-1 border-t border-paper-subtle">
-                          Net: {formatLKR(Math.round(priceCents() * (1 - (Number(tier1DiscountPct) || 0) / 100)))}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Tier 2 */}
-                  <div className="p-3.5 rounded-xl border border-paper-subtle bg-paper-subtle/30 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-ink-1">Tier 2 Pallet</span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-paper font-semibold border border-paper-subtle">
-                        {tier2DiscountPct}% OFF
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      <div>
-                        <Label className="text-[10px] text-ink-4">Min Qty</Label>
-                        <Input
-                          type="number"
-                          value={tier2MinQty}
-                          onChange={(e) => setTier2MinQty(e.target.value)}
-                          className="font-mono text-xs"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-ink-4">Discount %</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="90"
-                          value={tier2DiscountPct}
-                          onChange={(e) => setTier2DiscountPct(e.target.value)}
-                          className="font-mono text-xs font-bold"
-                        />
-                      </div>
-                      {priceCents() > 0 && (
-                        <p className="text-[11px] font-mono text-ink-3 pt-1 border-t border-paper-subtle">
-                          Net: {formatLKR(Math.round(priceCents() * (1 - (Number(tier2DiscountPct) || 0) / 100)))}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Tier 3 */}
-                  <div className="p-3.5 rounded-xl border border-paper-subtle bg-paper-subtle/30 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-ink-1">Tier 3 Truckload</span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-paper font-semibold border border-paper-subtle">
-                        {tier3DiscountPct}% OFF
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      <div>
-                        <Label className="text-[10px] text-ink-4">Min Qty</Label>
-                        <Input
-                          type="number"
-                          value={tier3MinQty}
-                          onChange={(e) => setTier3MinQty(e.target.value)}
-                          className="font-mono text-xs"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-ink-4">Discount %</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="90"
-                          value={tier3DiscountPct}
-                          onChange={(e) => setTier3DiscountPct(e.target.value)}
-                          className="font-mono text-xs font-bold"
-                        />
-                      </div>
-                      {priceCents() > 0 && (
-                        <p className="text-[11px] font-mono text-ink-3 pt-1 border-t border-paper-subtle">
-                          Net: {formatLKR(Math.round(priceCents() * (1 - (Number(tier3DiscountPct) || 0) / 100)))}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                  <TierCard
+                    label="Tier 1"
+                    name="Wholesale"
+                    color="volt"
+                    qtyValue={tier1MinQty}
+                    qtyOnChange={setTier1MinQty}
+                    pctValue={tier1DiscountPct}
+                    pctOnChange={setTier1DiscountPct}
+                    basePriceCents={displayPriceCents}
+                    unit={unit || 'units'}
+                  />
+                  <TierCard
+                    label="Tier 2"
+                    name="Pallet"
+                    color="copper"
+                    qtyValue={tier2MinQty}
+                    qtyOnChange={setTier2MinQty}
+                    pctValue={tier2DiscountPct}
+                    pctOnChange={setTier2DiscountPct}
+                    basePriceCents={displayPriceCents}
+                    unit={unit || 'units'}
+                  />
+                  <TierCard
+                    label="Tier 3"
+                    name="Truckload"
+                    color="mint"
+                    qtyValue={tier3MinQty}
+                    qtyOnChange={setTier3MinQty}
+                    pctValue={tier3DiscountPct}
+                    pctOnChange={setTier3DiscountPct}
+                    basePriceCents={displayPriceCents}
+                    unit={unit || 'units'}
+                  />
                 </div>
               </div>
             )}
-          </Surface>
+            {!enableTiers && (
+              <p className="text-xs text-ink-4 italic">
+                Tiers are off. Enable to configure bulk-volume discounts.
+              </p>
+            )}
+          </SectionCard>
 
-          {/* SECTION 6: Delivery & Fulfillment */}
-          <Surface className="p-6 rounded-2xl border border-paper-subtle space-y-5 bg-paper">
-            <div className="flex items-center gap-3">
-              <span className="w-7 h-7 rounded-full bg-emerald-600 text-white font-mono font-bold text-xs flex items-center justify-center shadow-sm">
-                6
-              </span>
-              <div>
-                <h2 className="text-base font-bold text-ink-1">Fulfillment & Delivery Coverage</h2>
-                <p className="text-xs text-ink-3">Configure dock collection and fleet delivery</p>
-              </div>
+          {/* SECTION 6 — Fulfillment & delivery */}
+          <SectionCard
+            step={6}
+            eyebrow="Fulfillment"
+            title="Delivery & coverage"
+            sub="Configure dock collection and supplier fleet delivery"
+            complete={deliveryAvailable}
+            countLabel={deliveryAvailable ? 'Delivery on' : 'Pickup only'}
+            countTone={deliveryAvailable ? 'mint' : 'ink'}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FulfillmentOption
+                icon={<WarehouseIcon size={18} />}
+                title="Depot dock pickup"
+                description="Buyers dispatch transport to pick up directly from your depot dock"
+                active
+                locked
+                tone="volt"
+              />
+              <FulfillmentOption
+                icon={<TruckIcon size={18} />}
+                title="Supplier fleet delivery"
+                description="Deliver directly to buyer warehouse with your own vehicles"
+                active={deliveryAvailable}
+                onToggle={() => setDeliveryAvailable(!deliveryAvailable)}
+                tone="copper"
+              />
             </div>
 
-            <div className="space-y-4 pt-1">
-              {/* Pickup & Delivery Option Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Depot Pickup */}
-                <div className="p-4 rounded-xl border border-emerald-600/30 bg-emerald-500/5 flex items-start gap-3">
-                  <WarehouseIcon className="w-5 h-5 text-emerald-600 mt-0.5" />
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-bold text-ink-1">Depot Dock Pickup</p>
-                      <Badge variant="success" className="text-[10px]">Active</Badge>
-                    </div>
-                    <p className="text-[11px] text-ink-3 mt-1">
-                      Buyers dispatch transport to pick up directly from your depot dock
-                    </p>
-                  </div>
-                </div>
-
-                {/* Delivery */}
-                <div
-                  onClick={() => setDeliveryAvailable(!deliveryAvailable)}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
-                    deliveryAvailable
-                      ? 'border-emerald-600/30 bg-emerald-500/5'
-                      : 'border-paper-subtle bg-paper-subtle/20 opacity-60'
-                  }`}
+            {deliveryAvailable && (
+              <div className="space-y-2 pt-1">
+                <Field
+                  label="Delivery radius (km)"
+                  optional
+                  hint="Leave blank for island-wide delivery"
+                  mono
                 >
-                  <TruckIcon className="w-5 h-5 text-emerald-600 mt-0.5" />
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-bold text-ink-1">Supplier Fleet Delivery</p>
-                      <input
-                        type="checkbox"
-                        checked={deliveryAvailable}
-                        onChange={() => {}}
-                        className="w-3.5 h-3.5 rounded text-emerald-600"
-                      />
-                    </div>
-                    <p className="text-[11px] text-ink-3 mt-1">
-                      Deliver directly to buyer warehouse with your own vehicles
-                    </p>
-                  </div>
+                  <Input
+                    type="number"
+                    placeholder="e.g. 50 (blank = island-wide)"
+                    value={radius}
+                    onChange={(e) => setRadius(e.target.value)}
+                    className="bg-paper font-mono text-xs"
+                  />
+                </Field>
+                <div className="flex flex-wrap gap-1.5">
+                  {RADIUS_PRESETS.map((p) => (
+                    <button
+                      key={p.value}
+                      type="button"
+                      onClick={() => setRadius(p.value)}
+                      className={cn(
+                        'px-2.5 py-1 text-xs rounded-md border transition-all',
+                        radius === p.value
+                          ? 'bg-ink text-volt font-semibold border-ink'
+                          : 'bg-paper text-ink-3 border-ink/10 hover:border-ink/30',
+                      )}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
                 </div>
               </div>
+            )}
+          </SectionCard>
 
-              {/* Delivery Radius */}
-              {deliveryAvailable && (
-                <div className="space-y-2 pt-1">
-                  <FormField
-                    label="Delivery Radius (km)"
-                    hint="Leave blank for island-wide delivery"
-                  >
-                    <Input
-                      type="number"
-                      placeholder="e.g. 50 (blank = Island-wide)"
-                      value={radius}
-                      onChange={(e) => setRadius(e.target.value)}
-                      className="font-mono text-xs"
-                    />
-                  </FormField>
-
-                  <div className="flex flex-wrap gap-1.5">
-                    {RADIUS_PRESETS.map((p) => (
-                      <button
-                        key={p.value}
-                        type="button"
-                        onClick={() => setRadius(p.value)}
-                        className={`px-2.5 py-1 rounded text-xs border transition-all ${
-                          radius === p.value
-                            ? 'bg-ink-1 text-paper font-semibold border-ink-1'
-                            : 'bg-paper-subtle/50 text-ink-3 border-paper-subtle hover:border-ink-4'
-                        }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </Surface>
-
-          {/* Active switch in Edit Mode */}
+          {/* Edit-only: active toggle */}
           {isEdit && (
-            <Surface className="p-4 rounded-xl border border-paper-subtle bg-paper flex items-center justify-between">
+            <Surface className="p-4 rounded-2xl border border-ink/10 bg-paper flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold text-ink-1">Listing Active Status</p>
-                <p className="text-[11px] text-ink-3">
-                  When active, enterprise buyers can find and purchase this product on the marketplace
+                <p className="text-xs font-bold text-ink-1">Listing active status</p>
+                <p className="text-[11px] text-ink-3 mt-0.5">
+                  When active, enterprise buyers can find and purchase this product on the
+                  marketplace.
                 </p>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={active}
-                  onChange={(e) => setActive(e.target.checked)}
-                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                />
-                <span className="text-xs font-bold text-ink-1">
+              <div className="flex items-center gap-3">
+                <span
+                  className={cn(
+                    'text-[10px] font-mono uppercase tracking-wider font-bold px-2 py-0.5',
+                    active ? 'bg-mint/15 text-mint' : 'bg-ink/10 text-ink-3',
+                  )}
+                >
                   {active ? 'Active' : 'Archived'}
                 </span>
-              </label>
+                <ToggleSwitch checked={active} onChange={setActive} hideLabel />
+              </div>
             </Surface>
           )}
-        </form>
+        </div>
 
-        {/* Right Column: Marketplace Live Preview & Readiness (4 Cols Sticky) */}
-        <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-6">
-          {/* Marketplace Live Preview Card */}
-          <Surface className="p-5 rounded-2xl border border-paper-subtle bg-paper space-y-4 shadow-sm">
-            <div className="flex items-center justify-between pb-3 border-b border-paper-subtle">
-              <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-ink-3">
-                <EyeIcon className="w-3.5 h-3.5" /> Marketplace Live Preview
-              </span>
-              <Badge variant="neutral" className="text-[10px] uppercase font-bold text-emerald-700 bg-emerald-50 border-emerald-200">
-                Buyer View
-              </Badge>
-            </div>
+        {/* RIGHT — Live preview & readiness */}
+        <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-6">
+          <div className="vyro-kicker text-copper">Marketplace Live Preview</div>
 
-            {/* Product Card as seen on marketplace */}
-            <div className="space-y-4">
-              {/* Product Image */}
-              <div className="w-full aspect-[4/3] rounded-xl overflow-hidden bg-paper-subtle border border-paper-subtle relative flex items-center justify-center">
+          <Surface kind="ink" className="p-5 relative overflow-hidden grain shadow-xl border border-paper/20">
+            <div className="relative z-10 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-paper/15">
+                <span className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-volt font-bold">
+                  <EyeIcon size={12} /> Buyer view
+                </span>
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 font-bold',
+                    avail === 'in_stock'
+                      ? 'bg-mint text-paper'
+                      : avail === 'low'
+                      ? 'bg-amber text-ink'
+                      : 'bg-rose text-paper',
+                  )}
+                >
+                  {avail === 'in_stock' ? 'In stock' : avail === 'low' ? 'Low stock' : 'Out of stock'}
+                </span>
+              </div>
+
+              {/* Product image */}
+              <div className="w-full aspect-[4/3] rounded-xl overflow-hidden bg-bone border border-paper/15 relative flex items-center justify-center">
                 {displayImageUrl ? (
                   <img
                     src={displayImageUrl}
@@ -1233,210 +1100,617 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center p-6 text-center text-ink-4">
-                    <PackageIcon className="w-10 h-10 stroke-1 mb-2 opacity-50" />
+                  <div className="flex flex-col items-center justify-center p-6 text-center text-paper/40">
+                    <PackageIcon size={40} className="stroke-1 mb-2 opacity-50" />
                     <p className="text-xs font-medium">No photo uploaded yet</p>
-                    <p className="text-[10px] text-ink-4 mt-0.5">Upload photo in Step 3</p>
+                    <p className="text-[10px] text-paper/40 mt-0.5">Upload photo in Step 3</p>
                   </div>
                 )}
-                {/* Stock badge */}
-                <div className="absolute top-2.5 right-2.5">
-                  <Badge
-                    variant={avail === 'in_stock' ? 'success' : avail === 'low' ? 'warning' : 'danger'}
-                    className="text-[10px] uppercase font-mono shadow-xs"
-                  >
-                    {avail === 'in_stock' ? 'In Stock' : avail === 'low' ? 'Low Stock' : 'Out of Stock'}
-                  </Badge>
-                </div>
               </div>
 
-              {/* Supplier & Category */}
+              {/* Supplier & category */}
               <div>
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="w-5 h-5 rounded-md bg-ink-1 text-paper text-[10px] font-bold flex items-center justify-center">
+                  <span className="w-5 h-5 rounded-md bg-volt/20 text-volt text-[10px] font-bold flex items-center justify-center">
                     {(supplierName || 'S').charAt(0).toUpperCase()}
                   </span>
-                  <span className="text-xs font-bold text-ink-2 truncate">
+                  <span className="text-xs font-bold text-paper truncate">
                     {supplierName || 'Your Supplier Depot'}
                   </span>
-                  <span className="text-[10px] text-emerald-700 font-medium flex items-center gap-0.5">
-                    <ShieldCheckIcon className="w-3 h-3 inline" /> Verified Depot
+                  <span className="text-[10px] text-mint font-medium flex items-center gap-0.5">
+                    <ShieldCheckIcon size={10} className="inline" /> Verified
                   </span>
                 </div>
 
                 {selectedCategoryObj && (
-                  <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-800 text-[10px] font-semibold border border-emerald-500/20 mb-1.5">
+                  <span className="inline-block px-2 py-0.5 rounded-md bg-copper/20 text-copper border border-copper/30 text-[10px] font-mono font-bold uppercase tracking-wider mb-1.5">
                     {selectedCategoryObj.name}
                   </span>
                 )}
 
-                <h3 className="text-base font-bold text-ink-1 leading-snug">
-                  {productName || 'Product Title...'}
+                <h3 className="font-display text-lg text-paper font-bold leading-snug">
+                  {productName || 'Product title…'}
                 </h3>
-                <div className="flex items-center gap-2 text-[11px] text-ink-3 mt-1">
-                  {brand && <span>Brand: <strong>{brand}</strong></span>}
-                  {packSize && <span>• Pack: <strong>{packSize}</strong></span>}
+                <div className="flex items-center gap-2 text-[11px] text-paper/60 mt-1 font-mono">
+                  {brand && <span>Brand: <strong className="text-paper">{brand}</strong></span>}
+                  {packSize && <span>· Pack: <strong className="text-paper">{packSize}</strong></span>}
                 </div>
               </div>
 
-              {/* Wholesale Rate Box */}
-              <div className="p-3.5 rounded-xl bg-paper-subtle/50 border border-paper-subtle">
+              {/* Wholesale rate box */}
+              <div className="p-3.5 rounded-xl bg-paper/[0.04] border border-paper/15">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-3">
-                    Wholesale Rate
+                  <span className="text-[10px] font-mono text-paper/60 uppercase tracking-wider font-bold">
+                    Wholesale rate
                   </span>
-                  <span className="text-xs font-mono text-ink-4">Per {unit || 'unit'}</span>
+                  <span className="text-[10px] font-mono text-paper/40">Per {unit || 'unit'}</span>
                 </div>
                 <div className="mt-1">
-                  <span className="text-xl font-mono font-bold text-ink-1">
-                    {priceCents() > 0 ? formatLKR(priceCents()) : 'Rs. 0.00'}
+                  <span className="font-mono font-bold text-2xl text-volt">
+                    {displayPriceCents > 0 ? formatLKR(displayPriceCents) : 'Rs. 0.00'}
                   </span>
-                  <span className="text-xs text-ink-3 ml-1">/ {unit || 'unit'}</span>
+                  <span className="text-xs text-paper/60 ml-1">/ {unit || 'unit'}</span>
                 </div>
               </div>
 
-              {/* Commercial Badges */}
+              {/* MOQ + Lead time */}
               <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="p-2.5 rounded-lg border border-paper-subtle bg-paper-subtle/20">
-                  <span className="text-[10px] text-ink-4 block">Min Order (MOQ)</span>
-                  <span className="font-mono font-bold text-ink-1">
+                <div className="p-2.5 rounded-lg border border-paper/15 bg-paper/[0.04]">
+                  <span className="text-[10px] text-paper/50 uppercase tracking-wider font-mono block">
+                    Min order
+                  </span>
+                  <span className="font-mono font-bold text-paper text-sm">
                     {minQty || '1'} {unit || 'units'}
                   </span>
                 </div>
-                <div className="p-2.5 rounded-lg border border-paper-subtle bg-paper-subtle/20">
-                  <span className="text-[10px] text-ink-4 block">Dispatch Lead</span>
-                  <span className="font-mono font-bold text-ink-1">
-                    {lead === '0' ? 'Same Day' : `${lead} day${lead === '1' ? '' : 's'}`}
+                <div className="p-2.5 rounded-lg border border-paper/15 bg-paper/[0.04]">
+                  <span className="text-[10px] text-paper/50 uppercase tracking-wider font-mono block">
+                    Dispatch lead
+                  </span>
+                  <span className="font-mono font-bold text-paper text-sm">
+                    {lead === '0' ? 'Same day' : `${lead} day${lead === '1' ? '' : 's'}`}
                   </span>
                 </div>
               </div>
 
-              {/* Volume Tiers preview if active */}
+              {/* Tier preview */}
               {enableTiers && Number(tier1DiscountPct) > 0 && (
-                <div className="p-3 rounded-xl border border-paper-subtle bg-paper-subtle/30 space-y-1.5 text-[11px]">
-                  <p className="font-bold text-ink-2">Bulk Volume Tiers</p>
-                  <div className="space-y-1 font-mono text-ink-3">
+                <div className="p-3 rounded-xl border border-paper/15 bg-paper/[0.04] space-y-1.5 text-[11px]">
+                  <p className="text-[10px] font-mono text-paper/50 uppercase tracking-wider font-bold">
+                    Bulk volume tiers
+                  </p>
+                  <div className="space-y-1 font-mono text-paper/80">
                     <div className="flex justify-between">
-                      <span>{tier1MinQty}+ {unit}</span>
-                      <span className="text-emerald-700 font-semibold">{tier1DiscountPct}% off</span>
+                      <span>{tier1MinQty}+ {unit || 'units'}</span>
+                      <span className="text-volt font-semibold">{tier1DiscountPct}% off</span>
                     </div>
                     {Number(tier2DiscountPct) > 0 && (
                       <div className="flex justify-between">
-                        <span>{tier2MinQty}+ {unit}</span>
-                        <span className="text-emerald-700 font-semibold">{tier2DiscountPct}% off</span>
+                        <span>{tier2MinQty}+ {unit || 'units'}</span>
+                        <span className="text-volt font-semibold">{tier2DiscountPct}% off</span>
                       </div>
                     )}
                     {Number(tier3DiscountPct) > 0 && (
                       <div className="flex justify-between">
-                        <span>{tier3MinQty}+ {unit}</span>
-                        <span className="text-emerald-700 font-semibold">{tier3DiscountPct}% off</span>
+                        <span>{tier3MinQty}+ {unit || 'units'}</span>
+                        <span className="text-volt font-semibold">{tier3DiscountPct}% off</span>
                       </div>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* Fulfillment tags */}
-              <div className="text-[11px] text-ink-3 flex items-center gap-2 pt-1 border-t border-paper-subtle">
-                <TruckIcon className="w-3.5 h-3.5 text-emerald-600" />
+              {/* Fulfillment tag */}
+              <div className="text-[11px] text-paper/70 flex items-center gap-2 pt-1 border-t border-paper/15 font-mono">
+                <TruckIcon size={12} className="text-volt" />
                 <span>
                   {deliveryAvailable
                     ? radius
-                      ? `Depot Delivery within ${radius}km & Dock Pickup`
-                      : 'Island-wide Depot Delivery & Dock Pickup'
-                    : 'Depot Dock Pickup Only'}
+                      ? `Depot delivery · ${radius}km radius + dock pickup`
+                      : 'Island-wide delivery + dock pickup'
+                    : 'Depot dock pickup only'}
                 </span>
               </div>
             </div>
           </Surface>
 
-          {/* Listing Readiness Meter */}
-          <Surface className="p-5 rounded-2xl border border-paper-subtle bg-paper space-y-3 shadow-sm">
+          {/* Readiness card */}
+          <Surface className="p-5 rounded-2xl border border-ink/10 bg-paper space-y-3 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-ink-1">Listing Readiness</span>
-              <span className="text-[11px] font-mono font-bold text-emerald-700">
-                {readinessScore}/{totalReadinessSteps} Complete
+              <div>
+                <span className="text-xs font-bold text-ink-1 uppercase tracking-wider">
+                  Listing readiness
+                </span>
+                <p className="text-[11px] text-ink-4 mt-0.5">Complete the must-haves to publish</p>
+              </div>
+              <span className="text-[11px] font-mono font-bold text-volt-deep">
+                {readinessScore}/{totalReadinessSteps}
               </span>
             </div>
 
-            {/* Progress Bar */}
-            <div className="w-full h-2 rounded-full bg-paper-subtle overflow-hidden">
+            <div className="w-full h-2 rounded-full bg-bone overflow-hidden">
               <div
-                className="h-full bg-emerald-600 transition-all duration-300"
-                style={{ width: `${(readinessScore / totalReadinessSteps) * 100}%` }}
+                className="h-full bg-gradient-to-r from-volt to-volt-deep transition-all duration-300"
+                style={{ width: `${readinessPct}%` }}
               />
             </div>
 
-            {/* Checklist */}
-            <ul className="space-y-1.5 text-xs text-ink-3 pt-1">
-              <li className={`flex items-center gap-2 ${hasCategory ? 'text-emerald-700 font-semibold' : ''}`}>
-                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${hasCategory ? 'bg-emerald-100 text-emerald-700' : 'bg-paper-subtle text-ink-4'}`}>
-                  {hasCategory ? '✓' : '○'}
-                </span>
-                Admin category selected
-              </li>
-              <li className={`flex items-center gap-2 ${hasName ? 'text-emerald-700 font-semibold' : ''}`}>
-                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${hasName ? 'bg-emerald-100 text-emerald-700' : 'bg-paper-subtle text-ink-4'}`}>
-                  {hasName ? '✓' : '○'}
-                </span>
-                Product title defined
-              </li>
-              <li className={`flex items-center gap-2 ${hasUnit ? 'text-emerald-700 font-semibold' : ''}`}>
-                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${hasUnit ? 'bg-emerald-100 text-emerald-700' : 'bg-paper-subtle text-ink-4'}`}>
-                  {hasUnit ? '✓' : '○'}
-                </span>
-                Billing unit specified
-              </li>
-              <li className={`flex items-center gap-2 ${hasPrice ? 'text-emerald-700 font-semibold' : ''}`}>
-                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${hasPrice ? 'bg-emerald-100 text-emerald-700' : 'bg-paper-subtle text-ink-4'}`}>
-                  {hasPrice ? '✓' : '○'}
-                </span>
-                Wholesale unit rate configured
-              </li>
-              <li className={`flex items-center gap-2 ${hasMoq ? 'text-emerald-700 font-semibold' : ''}`}>
-                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${hasMoq ? 'bg-emerald-100 text-emerald-700' : 'bg-paper-subtle text-ink-4'}`}>
-                  {hasMoq ? '✓' : '○'}
-                </span>
-                Minimum order quantity set
-              </li>
-              <li className={`flex items-center gap-2 ${hasImage ? 'text-emerald-700 font-semibold' : 'text-ink-4'}`}>
-                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${hasImage ? 'bg-emerald-100 text-emerald-700' : 'bg-paper-subtle text-ink-4'}`}>
-                  {hasImage ? '✓' : '○'}
-                </span>
-                Product photo uploaded (Recommended)
-              </li>
+            <ul className="space-y-1.5 text-xs pt-1">
+              {readinessItems.map((r) => (
+                <li
+                  key={r.key}
+                  className={cn(
+                    'flex items-center gap-2',
+                    r.done ? 'text-mint font-semibold' : 'text-ink-3',
+                    r.optional && !r.done && 'text-ink-4',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'w-4 h-4 rounded-full flex items-center justify-center text-[10px]',
+                      r.done
+                        ? 'bg-mint/15 text-mint'
+                        : r.optional
+                        ? 'bg-bone text-ink-4'
+                        : 'bg-bone text-ink-4',
+                    )}
+                  >
+                    {r.done ? <CheckIcon size={10} /> : r.optional ? '○' : '○'}
+                  </span>
+                  {r.label}
+                  {r.optional && (
+                    <span className="text-[9px] font-mono uppercase text-ink-4 tracking-wider">
+                      (optional)
+                    </span>
+                  )}
+                </li>
+              ))}
             </ul>
-
-            {/* Primary Action Button */}
-            <div className="pt-3 space-y-2">
-              <Button
-                type="button"
-                onClick={handleSubmit}
-                disabled={isSubmitting || readinessScore < totalReadinessSteps}
-                className="w-full py-3 text-xs font-bold uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center justify-center gap-2"
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Saving Listing...
-                  </>
-                ) : isEdit ? (
-                  'Save Product Changes'
-                ) : (
-                  'Publish Wholesale Product'
-                )}
-              </Button>
-
-              <Link
-                to="/supplier/products"
-                className="block text-center text-xs text-ink-4 hover:text-ink-1 py-1"
-              >
-                Cancel & Return
-              </Link>
-            </div>
           </Surface>
+
+          {/* Tips card */}
+          <div className="p-4 bg-paper border border-ink/10 space-y-2.5">
+            <div className="text-[10px] font-mono text-copper uppercase tracking-wider font-bold flex items-center gap-1.5">
+              <SparklesIcon size={11} className="text-copper" /> Listing tips
+            </div>
+            <ul className="space-y-1.5 text-[11px] text-ink-3 leading-relaxed">
+              <li>· Use the mill-gate pack size (e.g. 50kg bag) for clearer commercial pricing</li>
+              <li>· Photos with packaging visible build 2.4× more buyer trust</li>
+              <li>· Add at least one bulk tier — buyers prefer stacking discounts</li>
+            </ul>
+          </div>
+        </div>
+      </form>
+
+      {/* Sticky bottom action bar */}
+      <div className="sticky bottom-4 z-30 -mx-4 sm:mx-0">
+        <div className="bg-paper border border-ink/15 shadow-float rounded-2xl px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3 text-xs">
+            <div
+              className={cn(
+                'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                canPublish
+                  ? 'bg-ink text-volt'
+                  : 'bg-ink/10 text-ink-3',
+              )}
+            >
+              {canPublish ? <CheckCircle2Icon size={14} /> : <AlertCircleIcon size={14} />}
+            </div>
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4">
+                Listing progress
+              </div>
+              <div className="font-semibold text-ink-1">
+                {canPublish
+                  ? isEdit
+                    ? 'Ready to save changes'
+                    : 'Ready to publish'
+                  : `${readinessScore} of ${totalReadinessSteps} required fields complete`}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 sm:shrink-0">
+            <Link to="/supplier/products" className="hidden sm:inline-flex">
+              <Button variant="ghost">Cancel</Button>
+            </Link>
+            <Button
+              type="button"
+              onClick={() => void handleSubmit()}
+              loading={isSubmitting}
+              disabled={!canPublish}
+              className="font-bold uppercase tracking-wider"
+            >
+              {isEdit ? 'Save changes' : 'Publish wholesale product'}
+              <ArrowRightIcon size={14} />
+            </Button>
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+/* ---------- Local helpers ---------- */
+
+function SectionCard({
+  step,
+  eyebrow,
+  title,
+  sub,
+  complete,
+  countLabel,
+  countTone,
+  actions,
+  children,
+}: {
+  step: number;
+  eyebrow: string;
+  title: string;
+  sub?: string;
+  complete?: boolean;
+  countLabel?: string;
+  countTone?: 'mint' | 'ink' | 'volt' | 'amber';
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Surface className="p-6 rounded-2xl space-y-5 animate-fade-in">
+      <div className="flex items-start justify-between gap-3 pb-3 border-b border-ink/10">
+        <div className="flex items-start gap-3 min-w-0">
+          <div
+            className={cn(
+              'w-8 h-8 rounded-full font-mono font-bold text-xs flex items-center justify-center shrink-0 shadow-xs',
+              complete ? 'bg-mint text-paper' : 'bg-ink text-volt',
+            )}
+          >
+            {complete ? <CheckCircle2Icon size={14} /> : step}
+          </div>
+          <div className="min-w-0">
+            <div className="vyro-kicker text-copper">{eyebrow}</div>
+            <h2 className="mt-1 text-lg font-bold text-ink-1">{title}</h2>
+            {sub && <p className="text-xs text-ink-3 mt-0.5 max-w-xl">{sub}</p>}
+          </div>
+        </div>
+        <div className="shrink-0 flex items-center gap-2">
+          {countLabel && (
+            <span
+              className={cn(
+                'hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider border',
+                countTone === 'mint' && 'bg-mint/15 text-mint border-mint/30',
+                countTone === 'ink' && 'bg-ink/10 text-ink-3 border-ink/20',
+                countTone === 'volt' && 'bg-volt/15 text-ink-1 border-volt/30',
+                countTone === 'amber' && 'bg-amber/15 text-amber border-amber/30',
+                !countTone && 'bg-ink/10 text-ink-3 border-ink/20',
+              )}
+            >
+              {countLabel}
+            </span>
+          )}
+          {actions}
+        </div>
+      </div>
+      {children}
+    </Surface>
+  );
+}
+
+function Field({
+  label,
+  required,
+  optional,
+  hint,
+  mono,
+  icon,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  optional?: boolean;
+  hint?: string;
+  mono?: boolean;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="flex items-center gap-1.5">
+        {icon}
+        <span>{label}</span>
+        {required && <span className="text-rose">*</span>}
+        {optional && (
+          <span className="ml-1 font-mono text-[10px] uppercase tracking-wider text-ink-4 font-normal">
+            optional
+          </span>
+        )}
+      </Label>
+      {children}
+      {hint && <p className={cn('text-[11px] text-ink-4', mono && 'font-mono')}>{hint}</p>}
+    </div>
+  );
+}
+
+function PresetField({
+  label,
+  required,
+  hint,
+  value,
+  onChange,
+  presets,
+  inputMode,
+  mono,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  value: string;
+  onChange: (v: string) => void;
+  presets: { label: string; value: string }[];
+  inputMode?: 'numeric' | 'decimal' | 'text';
+  mono?: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="flex items-center gap-1.5">
+        {label}
+        {required && <span className="text-rose">*</span>}
+      </Label>
+      <Input
+        type="text"
+        inputMode={inputMode}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn('bg-paper', mono && 'font-mono text-xs font-bold')}
+        required={required}
+      />
+      <div className="flex flex-wrap gap-1">
+        {presets.map((p) => (
+          <button
+            key={p.value + p.label}
+            type="button"
+            onClick={() => onChange(p.value)}
+            className={cn(
+              'px-2 py-0.5 text-[11px] font-mono rounded-md border transition-all',
+              value === p.value
+                ? 'bg-ink text-volt font-bold border-ink'
+                : 'bg-paper text-ink-3 border-ink/10 hover:border-ink/30',
+            )}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {hint && <p className="text-[11px] text-ink-4">{hint}</p>}
+    </div>
+  );
+}
+
+function TierCard({
+  label,
+  name,
+  color,
+  qtyValue,
+  qtyOnChange,
+  pctValue,
+  pctOnChange,
+  basePriceCents,
+  unit,
+}: {
+  label: string;
+  name: string;
+  color: 'volt' | 'copper' | 'mint';
+  qtyValue: string;
+  qtyOnChange: (v: string) => void;
+  pctValue: string;
+  pctOnChange: (v: string) => void;
+  basePriceCents: number;
+  unit: string;
+}) {
+  const pct = Number(pctValue) || 0;
+  const net = basePriceCents > 0 ? Math.round(basePriceCents * (1 - pct / 100)) : 0;
+  const colorMap = {
+    volt: { bg: 'bg-volt/10', text: 'text-volt-deep', border: 'border-volt/30' },
+    copper: { bg: 'bg-copper/10', text: 'text-copper-deep', border: 'border-copper/30' },
+    mint: { bg: 'bg-mint/10', text: 'text-mint', border: 'border-mint/30' },
+  };
+  const cm = colorMap[color];
+
+  return (
+    <div className="p-3.5 rounded-xl border border-ink/10 bg-paper-subtle/30 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold text-ink-1">
+          {label} · {name}
+        </span>
+        <span className={cn('text-[10px] font-mono px-1.5 py-0.5 font-bold border', cm.bg, cm.text, cm.border)}>
+          {pctValue}% OFF
+        </span>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <Label className="text-[10px] text-ink-4">Min qty</Label>
+          <Input
+            type="number"
+            value={qtyValue}
+            onChange={(e) => qtyOnChange(e.target.value)}
+            className="bg-paper font-mono text-xs"
+          />
+        </div>
+        <div>
+          <Label className="text-[10px] text-ink-4">Discount %</Label>
+          <Input
+            type="number"
+            min="0"
+            max="90"
+            value={pctValue}
+            onChange={(e) => pctOnChange(e.target.value)}
+            className="bg-paper font-mono text-xs font-bold"
+          />
+        </div>
+        {basePriceCents > 0 && (
+          <p className="text-[11px] font-mono text-ink-3 pt-1 border-t border-ink/10">
+            Net: <span className="text-ink-1 font-bold">{formatLKR(net)}</span>{' '}
+            <span className="text-ink-4">/ {unit}</span>
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FulfillmentOption({
+  icon,
+  title,
+  description,
+  active,
+  locked,
+  onToggle,
+  tone,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  active: boolean;
+  locked?: boolean;
+  onToggle?: () => void;
+  tone: 'volt' | 'copper';
+}) {
+  return (
+    <div
+      onClick={locked ? undefined : onToggle}
+      className={cn(
+        'p-4 rounded-xl border flex items-start gap-3 transition-all',
+        active
+          ? tone === 'volt'
+            ? 'border-volt/40 bg-volt/[0.06]'
+            : 'border-copper/40 bg-copper/[0.06]'
+          : 'border-ink/10 bg-paper-subtle/20 opacity-70',
+        !locked && 'cursor-pointer hover:opacity-100',
+      )}
+    >
+      <div
+        className={cn(
+          'size-9 flex items-center justify-center shrink-0',
+          active
+            ? tone === 'volt'
+              ? 'bg-volt/20 text-volt-deep'
+              : 'bg-copper/20 text-copper-deep'
+            : 'bg-bone text-ink-3',
+        )}
+      >
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-bold text-ink-1">{title}</p>
+          {locked && (
+            <span className="text-[9px] font-mono uppercase tracking-wider bg-mint/15 text-mint border border-mint/30 px-1.5 py-0.5 font-bold">
+              Always on
+            </span>
+          )}
+          {!locked && (
+            <span
+              className={cn(
+                'text-[9px] font-mono uppercase tracking-wider font-bold px-1.5 py-0.5',
+                active ? 'bg-mint/15 text-mint' : 'bg-ink/10 text-ink-3',
+              )}
+            >
+              {active ? 'On' : 'Off'}
+            </span>
+          )}
+        </div>
+        <p className="text-[11px] text-ink-3 mt-1 leading-relaxed">{description}</p>
+      </div>
+      {!locked && (
+        <ToggleSwitch checked={active} onChange={() => onToggle?.()} hideLabel />
+      )}
+    </div>
+  );
+}
+
+function ToggleSwitch({
+  checked,
+  onChange,
+  label,
+  hideLabel,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label?: string;
+  hideLabel?: boolean;
+}) {
+  return (
+    <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+      {!hideLabel && label && (
+        <span className="text-xs font-semibold text-ink-2">{label}</span>
+      )}
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        aria-pressed={checked}
+        className={cn(
+          'relative inline-flex h-5 w-9 rounded-full transition-colors',
+          checked ? 'bg-ink' : 'bg-mist',
+        )}
+      >
+        <span
+          className={cn(
+            'inline-block size-4 rounded-full bg-paper shadow transform transition-transform mt-0.5',
+            checked ? 'translate-x-[18px] bg-volt' : 'translate-x-0.5',
+          )}
+        />
+      </button>
+    </label>
+  );
+}
+
+function FormStepper({
+  sections,
+  state,
+}: {
+  sections: ReadonlyArray<{ key: string; label: string; hint: string; icon: React.ComponentType<{ size?: number; className?: string }> }>;
+  state: { key: string; done: boolean }[];
+}) {
+  return (
+    <ol className="flex items-start w-full">
+      {sections.map((s, i) => {
+        const done = state.find((x) => x.key === s.key)?.done;
+        const isActive = !done && (i === sections.findIndex((x) => !state.find((y) => y.key === x.key)?.done));
+        return (
+          <li key={s.key} className="flex-1 min-w-0 flex items-start">
+            <div className="flex flex-col items-start gap-1.5 min-w-0 w-full">
+              <div className="flex items-center w-full">
+                <span
+                  className={cn(
+                    'relative z-[1] size-2.5 rotate-45 shrink-0',
+                    done ? 'bg-mint' : isActive ? 'bg-volt animate-mark-pulse' : 'bg-mist',
+                  )}
+                />
+                {i < sections.length - 1 && (
+                  <span className="relative mx-2 h-px flex-1 overflow-hidden bg-ink/15">
+                    <span
+                      className={cn(
+                        'absolute inset-y-0 left-0 w-1/2 bg-volt',
+                        done && 'w-full',
+                      )}
+                    />
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 pr-3">
+                <div
+                  className={cn(
+                    'text-[10px] font-mono font-bold tracking-wide uppercase',
+                    done ? 'text-mint' : isActive ? 'text-ink' : 'text-ink-4',
+                  )}
+                >
+                  0{i + 1} · {s.label}
+                </div>
+                <div className="text-[9px] text-ink-4 mt-0.5 truncate">{s.hint}</div>
+              </div>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }

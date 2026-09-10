@@ -530,8 +530,8 @@ export function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Executive Command Header */}
-      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-ink/10">
-        <div className="space-y-1.5">
+      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6 pb-5 sm:pb-6 border-b border-ink/10">
+        <div className="space-y-1.5 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-volt/25 text-ink text-[10px] font-mono font-bold uppercase tracking-wider border border-volt/40">
               <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
@@ -545,16 +545,16 @@ export function DashboardPage() {
               SVAT Invoicing Ready
             </span>
           </div>
-          <h1 className="vyro-display text-3xl sm:text-4xl lg:text-5xl text-ink leading-none">
+          <h1 className="vyro-display text-2xl sm:text-4xl lg:text-5xl text-ink leading-none break-words">
             {businessName}
           </h1>
           <p className="text-xs sm:text-sm text-ink-3">
             {greetingForNow()}, <span className="font-semibold text-ink">{user.name || 'Purchasing Director'}</span>. Wholesale procurement console connected to 25 districts.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
-          <Link to="/cart">
-            <Button variant="secondary" size="sm" className="text-xs font-semibold relative">
+        <div className="grid grid-cols-3 lg:flex lg:flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+          <Link to="/cart" className="w-full lg:w-auto">
+            <Button variant="secondary" size="sm" className="w-full lg:w-auto text-xs font-semibold relative">
               <ShoppingCartIcon size={14} /> View Cart
               {cartItemsCount > 0 && (
                 <span className="ml-1 px-1.5 py-0.2 bg-volt text-ink font-mono font-bold text-[10px] rounded-full">
@@ -563,13 +563,13 @@ export function DashboardPage() {
               )}
             </Button>
           </Link>
-          <Link to="/rfqs">
-            <Button variant="secondary" size="sm" className="text-xs font-semibold">
+          <Link to="/rfqs" className="w-full lg:w-auto">
+            <Button variant="secondary" size="sm" className="w-full lg:w-auto text-xs font-semibold">
               Bulk Quotes
             </Button>
           </Link>
-          <Link to="/search">
-            <Button variant="primary" size="sm" className="text-xs uppercase tracking-wider font-bold">
+          <Link to="/search" className="w-full lg:w-auto">
+            <Button variant="primary" size="sm" className="w-full lg:w-auto text-xs uppercase tracking-wider font-bold">
               Start Procurement
             </Button>
           </Link>
@@ -648,21 +648,21 @@ export function DashboardPage() {
               <p className="text-xs sm:text-sm text-paper/75 leading-relaxed max-w-xl">
                 Your commercial purchasing account for <strong className="text-paper">{businessName}</strong> is active. You can now issue legally-binding POs, order across multiple factories in a single checkout, and track road freight directly to your receiving dock.
               </p>
-              <div className="grid grid-cols-3 gap-2.5 pt-1">
-                <div className="p-3 bg-paper/5 border border-paper/10 space-y-1">
-                  <span className="text-[10px] font-mono text-volt uppercase tracking-wider">Step 1</span>
-                  <div className="text-xs font-display text-paper font-semibold">Select Products</div>
-                  <span className="text-[10px] text-paper/50 block">Mill-gate wholesale rates</span>
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5 pt-1">
+                <div className="p-2 sm:p-3 bg-paper/5 border border-paper/10 space-y-1">
+                  <span className="text-[9px] sm:text-[10px] font-mono text-volt uppercase tracking-wider block">Step 1</span>
+                  <div className="text-[11px] sm:text-xs font-display text-paper font-semibold leading-tight">Select Products</div>
+                  <span className="text-[9px] sm:text-[10px] text-paper/50 block leading-tight">Mill-gate wholesale rates</span>
                 </div>
-                <div className="p-3 bg-paper/5 border border-paper/10 space-y-1">
-                  <span className="text-[10px] font-mono text-volt uppercase tracking-wider">Step 2</span>
-                  <div className="text-xs font-display text-paper font-semibold">Auto-Split PO</div>
-                  <span className="text-[10px] text-paper/50 block">Automated vendor routing</span>
+                <div className="p-2 sm:p-3 bg-paper/5 border border-paper/10 space-y-1">
+                  <span className="text-[9px] sm:text-[10px] font-mono text-volt uppercase tracking-wider block">Step 2</span>
+                  <div className="text-[11px] sm:text-xs font-display text-paper font-semibold leading-tight">Auto-Split PO</div>
+                  <span className="text-[9px] sm:text-[10px] text-paper/50 block leading-tight">Automated vendor routing</span>
                 </div>
-                <div className="p-3 bg-paper/5 border border-paper/10 space-y-1">
-                  <span className="text-[10px] font-mono text-volt uppercase tracking-wider">Step 3</span>
-                  <div className="text-xs font-display text-paper font-semibold">Dock GRN Signoff</div>
-                  <span className="text-[10px] text-paper/50 block">Pallet receipt on arrival</span>
+                <div className="p-2 sm:p-3 bg-paper/5 border border-paper/10 space-y-1">
+                  <span className="text-[9px] sm:text-[10px] font-mono text-volt uppercase tracking-wider block">Step 3</span>
+                  <div className="text-[11px] sm:text-xs font-display text-paper font-semibold leading-tight">Dock GRN Signoff</div>
+                  <span className="text-[9px] sm:text-[10px] text-paper/50 block leading-tight">Pallet receipt on arrival</span>
                 </div>
               </div>
               <div className="pt-2 flex flex-wrap items-center gap-3">
@@ -710,7 +710,7 @@ export function DashboardPage() {
                 {stats.total} {stats.total === 1 ? 'PO' : 'POs'} on record
               </span>
             </div>
-            <MetricNumber size="xl" className="mt-3 text-paper">
+            <MetricNumber size="xl" className="mt-3 text-paper break-words">
               {formatCompactLKR(stats.lifetimeCents)}
             </MetricNumber>
             <p className="mt-2 text-paper/60 text-xs">
@@ -764,18 +764,18 @@ export function DashboardPage() {
         {/* Real Monthly Spend Trajectory Chart */}
         <Surface kind="flat" className="lg:col-span-8 p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-6">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-display text-2xl text-ink">Procurement Activity</h2>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-display text-xl sm:text-2xl text-ink">Procurement Activity</h2>
                 <span className="px-2 py-0.5 text-[10px] font-mono font-semibold bg-mist text-ink border border-line">
                   12-Month Trajectory
                 </span>
               </div>
               <p className="text-xs text-ink-4 mt-1">Monthly wholesale purchasing volume & seasonal trend</p>
             </div>
-            <div className="text-right">
+            <div className="text-left sm:text-right shrink-0">
               <span className="text-[10px] font-mono text-ink-4 block uppercase tracking-wider">Trailing Spend</span>
-              <span className="vyro-metric text-lg text-copper font-bold">
+              <span className="vyro-metric text-lg text-copper font-bold break-words">
                 {formatCompactLKR(monthlyValues.reduce((a, b) => a + b, 0))}
               </span>
             </div>
@@ -863,9 +863,9 @@ export function DashboardPage() {
       {/* Live Wholesale Commodity Spotlight (Connected to Real Catalog Endpoint) */}
       <Surface kind="flat" className="p-6 sm:p-8 space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-ink/10">
-          <div>
+          <div className="min-w-0">
             <div className="vyro-kicker text-copper">Wholesale Commodity Spot Ticker</div>
-            <h2 className="font-display text-2xl text-ink font-semibold mt-0.5">
+            <h2 className="font-display text-xl sm:text-2xl text-ink font-semibold mt-0.5">
               Factory & Mill-Gate Pricing Available Now
             </h2>
             <p className="text-xs text-ink-4 mt-0.5">
@@ -873,32 +873,34 @@ export function DashboardPage() {
             </p>
           </div>
           {/* Dynamic Category Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setSpotlightCategory('all')}
-              className={`px-3 py-1.5 text-xs font-mono font-semibold transition-all duration-150 border ${
-                spotlightCategory === 'all'
-                  ? 'bg-ink text-paper border-ink shadow-sm'
-                  : 'bg-paper text-ink border-ink/15 hover:border-ink hover:bg-mist'
-              }`}
-            >
-              All Items ({hits.length})
-            </button>
-            {categories.map((cat) => (
+          <div className="-mx-4 sm:mx-0 overflow-x-auto pb-1 scrollbar-hide">
+            <div className="flex items-center gap-1.5 px-4 sm:px-0 min-w-max">
               <button
-                key={cat.id}
                 type="button"
-                onClick={() => setSpotlightCategory(cat.id)}
-                className={`px-3 py-1.5 text-xs font-mono font-semibold transition-all duration-150 border ${
-                  spotlightCategory === cat.id
+                onClick={() => setSpotlightCategory('all')}
+                className={`shrink-0 px-3 py-1.5 text-xs font-mono font-semibold transition-all duration-150 border ${
+                  spotlightCategory === 'all'
                     ? 'bg-ink text-paper border-ink shadow-sm'
                     : 'bg-paper text-ink border-ink/15 hover:border-ink hover:bg-mist'
                 }`}
               >
-                {cat.name}
+                All Items ({hits.length})
               </button>
-            ))}
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setSpotlightCategory(cat.id)}
+                  className={`shrink-0 px-3 py-1.5 text-xs font-mono font-semibold transition-all duration-150 border ${
+                    spotlightCategory === cat.id
+                      ? 'bg-ink text-paper border-ink shadow-sm'
+                      : 'bg-paper text-ink border-ink/15 hover:border-ink hover:bg-mist'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -1004,9 +1006,9 @@ export function DashboardPage() {
       {/* Verified Millers & Authorized Primary Distributors (Connected to Real /api/suppliers) */}
       <Surface kind="flat" className="p-6 sm:p-8 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-ink/10">
-          <div>
+          <div className="min-w-0">
             <div className="vyro-kicker text-volt-deep">Audited Supplier Facilities</div>
-            <h2 className="font-display text-2xl text-ink font-semibold mt-0.5">
+            <h2 className="font-display text-xl sm:text-2xl text-ink font-semibold mt-0.5">
               Verified Millers & Authorized Primary Distributors
             </h2>
             <p className="text-xs text-ink-4 mt-0.5">
@@ -1077,30 +1079,34 @@ export function DashboardPage() {
       {/* Recent Orders (Real Purchase Orders) */}
       {orders.length > 0 && (
         <Surface kind="flat" className="p-0 overflow-hidden">
-          <div className="px-6 py-5 flex items-center justify-between border-b border-ink/10">
-            <div className="flex items-center gap-3">
-              <h2 className="font-display text-xl text-ink">Recent Purchase Orders</h2>
-              <span className="px-2 py-0.5 text-[10px] font-mono bg-mist text-ink border border-line">
+          <div className="px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between gap-3 border-b border-ink/10">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <h2 className="font-display text-base sm:text-xl text-ink">Recent Purchase Orders</h2>
+              <span className="px-2 py-0.5 text-[10px] font-mono bg-mist text-ink border border-line shrink-0">
                 {orders.length} Total
               </span>
             </div>
-            <Link to="/orders" className="text-xs text-copper font-semibold hover:underline">
+            <Link to="/orders" className="text-xs text-copper font-semibold hover:underline whitespace-nowrap shrink-0">
               View all orders →
             </Link>
           </div>
           <ul>
             {recent.map((o) => (
               <li key={o.id} className="border-b border-ink/5 last:border-0">
-                <Link to={`/orders/${o.id}`} className="flex items-center gap-4 px-6 py-3.5 hover:bg-mist/60 transition-colors">
-                  <span className="vyro-metric text-sm w-36 truncate font-bold">{o.poNumber}</span>
-                  <span className="flex-1">
-                    <StatusDots status={(o.status as OrderStatus) ?? 'pending'} />
-                  </span>
-                  <span className="text-xs text-ink-4 hidden sm:inline truncate max-w-xs">
-                    {o.supplierName || 'Primary Supplier'}
-                  </span>
-                  <span className="vyro-metric text-sm font-semibold">{formatCompactLKR(o.totalCents)}</span>
-                  <ArrowRightIcon size={14} className="text-ink-4" />
+                <Link to={`/orders/${o.id}`} className="block sm:flex sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-3.5 hover:bg-mist/60 transition-colors">
+                  <div className="flex items-center justify-between sm:justify-start gap-3 sm:gap-4 sm:flex-1 sm:min-w-0">
+                    <span className="vyro-metric text-sm font-bold truncate min-w-0">{o.poNumber}</span>
+                    <span className="sm:flex-1 sm:min-w-0">
+                      <StatusDots status={(o.status as OrderStatus) ?? 'pending'} />
+                    </span>
+                  </div>
+                  <div className="mt-1.5 sm:mt-0 flex items-center justify-between gap-3 sm:gap-4">
+                    <span className="text-[11px] sm:text-xs text-ink-4 truncate min-w-0 flex-1 sm:flex-initial sm:max-w-[12rem]">
+                      {o.supplierName || 'Primary Supplier'}
+                    </span>
+                    <span className="vyro-metric text-sm font-semibold shrink-0">{formatCompactLKR(o.totalCents)}</span>
+                    <ArrowRightIcon size={14} className="text-ink-4 shrink-0" />
+                  </div>
                 </Link>
               </li>
             ))}
@@ -1109,8 +1115,8 @@ export function DashboardPage() {
       )}
 
       {/* Quick Actions & Operational Tool Bar */}
-      <div className="grid sm:grid-cols-3 gap-4">
-        <div className="p-5 bg-paper border border-ink/10 space-y-2">
+      <div className="grid sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="p-4 sm:p-5 bg-paper border border-ink/10 space-y-2">
           <div className="flex items-center gap-2 text-ink font-display font-semibold text-sm">
             <PackageIcon size={16} className="text-copper" />
             <span>Fast Replenishment</span>
@@ -1123,7 +1129,7 @@ export function DashboardPage() {
           </Link>
         </div>
 
-        <div className="p-5 bg-paper border border-ink/10 space-y-2">
+        <div className="p-4 sm:p-5 bg-paper border border-ink/10 space-y-2">
           <div className="flex items-center gap-2 text-ink font-display font-semibold text-sm">
             <ShieldCheckIcon size={16} className="text-volt-deep" />
             <span>SVAT Digital E-Invoicing</span>
@@ -1136,7 +1142,7 @@ export function DashboardPage() {
           </Link>
         </div>
 
-        <div className="p-5 bg-paper border border-ink/10 space-y-2">
+        <div className="p-4 sm:p-5 bg-paper border border-ink/10 space-y-2">
           <div className="flex items-center gap-2 text-ink font-display font-semibold text-sm">
             <Building2Icon size={16} className="text-ink" />
             <span>Receiving Docks & Team</span>

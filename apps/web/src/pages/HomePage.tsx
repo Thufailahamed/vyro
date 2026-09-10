@@ -387,7 +387,7 @@ export function HomePage() {
   return (
     <div className="bg-bone">
       {/* 1. HERO SECTION */}
-      <section className="relative overflow-hidden bg-void text-paper grain min-h-[calc(100dvh-4rem)] flex flex-col justify-center">
+      <section className="relative overflow-hidden bg-void text-paper grain min-h-[calc(100dvh-3.5rem)] sm:min-h-[calc(100dvh-4rem)] flex flex-col justify-center">
         <div className="absolute inset-0" aria-hidden>
           <FlowCanvas tone="paper" density="hero" className="absolute inset-0 opacity-80" />
           <div className="absolute inset-0 bg-gradient-to-r from-void via-void/80 to-void/30" />
@@ -395,7 +395,7 @@ export function HomePage() {
           <div className="absolute right-0 bottom-0 size-[28rem] rounded-full bg-copper/[0.08] blur-[120px] pointer-events-none" />
         </div>
 
-        <div className="relative max-w-stage mx-auto w-full px-5 sm:px-8 py-16 lg:py-20 grid lg:grid-cols-12 gap-12 lg:gap-10 items-center">
+        <div className="relative max-w-stage mx-auto w-full px-5 sm:px-8 py-12 sm:py-16 lg:py-20 grid lg:grid-cols-12 gap-10 sm:gap-12 lg:gap-10 items-center">
           {/* Left Column: Heading & Search */}
           <div className="lg:col-span-7">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-paper/10 border border-paper/15 text-xs text-volt mb-6">
@@ -403,7 +403,7 @@ export function HomePage() {
               <span className="vyro-kicker text-volt">Sri Lanka's B2B Wholesale Operating Layer</span>
             </div>
 
-            <h1 className="vyro-display text-[2.75rem] sm:text-6xl lg:text-[4.5rem] text-paper leading-[1.06] max-w-2xl text-balance">
+            <h1 className="vyro-display text-[2rem] sm:text-5xl lg:text-[4.5rem] text-paper leading-[1.08] sm:leading-[1.06] max-w-2xl text-balance">
               Everything a business <span className="text-volt">needs, connected.</span>
             </h1>
 
@@ -479,7 +479,7 @@ export function HomePage() {
 
           {/* Right Column: Hero Visual Showcase */}
           <div className="lg:col-span-5">
-            <div className="grid grid-cols-2 gap-3 h-[32rem]">
+            <div className="grid grid-cols-2 gap-3 aspect-[4/5] sm:aspect-auto sm:h-[32rem]">
               {/* Large Featured Product Tile */}
               <div className="relative col-span-2 row-span-2 overflow-hidden border border-paper/15 group">
                 <img
@@ -490,34 +490,34 @@ export function HomePage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-void via-void/40 to-transparent" />
 
                 {/* Floating Live Pricing Badge */}
-                <div className="absolute top-4 right-4 bg-ink/90 backdrop-blur-md px-3 py-1 border border-volt/40 flex items-center gap-2 text-xs">
+                <div className="absolute top-3 right-3 sm:top-4 sm:right-4 bg-ink/90 backdrop-blur-md px-2.5 py-1 sm:px-3 border border-volt/40 flex items-center gap-2 text-[10px] sm:text-xs">
                   <span className="size-2 rounded-full bg-volt animate-ping" />
                   <span className="font-mono text-volt font-bold">LIVE OFFERS</span>
                 </div>
 
                 {/* Overlay Details */}
-                <div className="absolute inset-x-0 bottom-0 p-5 bg-gradient-to-t from-void via-void/90 to-transparent">
-                  <div className="flex items-baseline justify-between">
-                    <div>
+                <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 bg-gradient-to-t from-void via-void/90 to-transparent">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <div className="min-w-0">
                       <span className="text-[10px] uppercase font-bold tracking-widest text-volt">Wholesale Benchmark</span>
-                      <h2 className="font-display text-2xl sm:text-3xl text-paper mt-0.5">{HERO_PROOF.product}</h2>
-                      <p className="text-xs text-paper/70 mt-1">{HERO_PROOF.origin}</p>
+                      <h2 className="font-display text-lg sm:text-3xl text-paper mt-0.5 truncate">{HERO_PROOF.product}</h2>
+                      <p className="text-[11px] sm:text-xs text-paper/70 mt-1 truncate">{HERO_PROOF.origin}</p>
                     </div>
                     <Link
                       to="/search?q=rice"
-                      className="px-3 py-1.5 bg-volt text-ink text-xs font-bold uppercase tracking-wider hover:bg-volt-glow transition-colors"
+                      className="shrink-0 px-3 py-1.5 bg-volt text-ink text-[10px] sm:text-xs font-bold uppercase tracking-wider hover:bg-volt-glow transition-colors"
                     >
                       Compare →
                     </Link>
                   </div>
 
                   {/* 3 Offers live preview */}
-                  <div className="mt-4 grid grid-cols-3 gap-2 pt-3 border-t border-paper/15">
+                  <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-1.5 sm:gap-2 pt-3 border-t border-paper/15">
                     {HERO_PROOF.offers.map((o) => (
-                      <div key={o.tag} className="bg-void/80 backdrop-blur-sm p-2 border border-paper/10">
-                        <span className="text-[9px] uppercase tracking-wider text-paper/50 block">{o.tag}</span>
-                        <span className="vyro-metric text-base text-paper font-bold block mt-0.5">{o.value}</span>
-                        <span className="text-[10px] text-paper/60 truncate block">{o.hint}</span>
+                      <div key={o.tag} className="bg-void/80 backdrop-blur-sm p-1.5 sm:p-2 border border-paper/10 min-w-0">
+                        <span className="text-[8px] sm:text-[9px] uppercase tracking-wider text-paper/50 block truncate">{o.tag}</span>
+                        <span className="vyro-metric text-[13px] sm:text-base text-paper font-bold block mt-0.5 truncate">{o.value}</span>
+                        <span className="hidden sm:block text-[10px] text-paper/60 truncate">{o.hint}</span>
                       </div>
                     ))}
                   </div>
@@ -526,12 +526,12 @@ export function HomePage() {
             </div>
 
             {/* 3 Secondary Mini Image Tiles */}
-            <div className="mt-3 grid grid-cols-3 gap-3">
+            <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
               {HERO_MOSAIC.map((item) => (
                 <Link
                   key={item.name}
                   to={`/search?q=${item.query}`}
-                  className="relative h-28 overflow-hidden border border-paper/15 group cursor-pointer"
+                  className="relative h-24 sm:h-28 overflow-hidden border border-paper/15 group cursor-pointer"
                 >
                   <img
                     src={item.src}
@@ -539,9 +539,9 @@ export function HomePage() {
                     className="absolute inset-0 h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-void/90 via-void/30 to-transparent" />
-                  <div className="absolute bottom-2 inset-x-2">
-                    <span className="text-[9px] font-mono text-volt uppercase block truncate">{item.badge}</span>
-                    <span className="text-xs font-display text-paper leading-tight block truncate group-hover:text-volt transition-colors">
+                  <div className="absolute bottom-1.5 sm:bottom-2 inset-x-1.5 sm:inset-x-2">
+                    <span className="text-[8px] sm:text-[9px] font-mono text-volt uppercase block truncate">{item.badge}</span>
+                    <span className="text-[10px] sm:text-xs font-display text-paper leading-tight block truncate group-hover:text-volt transition-colors">
                       {item.name}
                     </span>
                   </div>
@@ -555,12 +555,12 @@ export function HomePage() {
       {/* 2. TRUST STATS TICKER */}
       <section className="bg-bone border-b border-ink/10 py-8">
         <div className="max-w-stage mx-auto px-5 sm:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-left">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-6 text-left">
             {renderedTrustStats.map((s) => (
-              <div key={s.label} className="border-l-2 border-volt pl-4">
-                <div className="vyro-metric text-3xl sm:text-4xl text-ink font-bold">{s.metric}</div>
-                <div className="font-display text-base text-ink mt-1 font-semibold">{s.label}</div>
-                <div className="text-xs text-ink-4 mt-0.5">{s.sub}</div>
+              <div key={s.label} className="border-l-2 border-volt pl-3 sm:pl-4 min-w-0">
+                <div className="vyro-metric text-2xl sm:text-3xl lg:text-4xl text-ink font-bold break-words leading-tight">{s.metric}</div>
+                <div className="font-display text-sm sm:text-base text-ink mt-1 font-semibold">{s.label}</div>
+                <div className="text-[11px] sm:text-xs text-ink-4 mt-0.5 leading-snug">{s.sub}</div>
               </div>
             ))}
           </div>
@@ -572,7 +572,7 @@ export function HomePage() {
         ref={productsSectionRef}
         onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
         onMouseLeave={() => setHoveredProduct(null)}
-        className="relative bg-[#0C0E0B] text-paper border-y border-ink/40 py-24 sm:py-32 overflow-hidden"
+        className="relative bg-[#0C0E0B] text-paper border-y border-ink/40 py-16 sm:py-24 lg:py-32 overflow-hidden"
       >
         {/* Ambient atmospheric gradients */}
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-volt/5 rounded-full blur-3xl pointer-events-none" />
@@ -589,15 +589,15 @@ export function HomePage() {
 
         <div className="max-w-stage mx-auto px-5 sm:px-8 relative z-10">
           {/* Section Header matching portfolio aesthetic */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-12 sm:pb-16 border-b border-paper/10">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-10 sm:pb-16 border-b border-paper/10">
             <div>
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-volt animate-pulse" />
-                <span className="text-[11px] font-mono tracking-widest text-volt uppercase">
+                <span className="text-[10px] sm:text-[11px] font-mono tracking-widest text-volt uppercase">
                   SELECTED COMMODITIES · MARKETPLACE BENCHMARK
                 </span>
               </div>
-              <h2 className="mt-4 vyro-display text-4xl sm:text-6xl text-paper tracking-tight">
+              <h2 className="mt-4 vyro-display text-3xl sm:text-5xl lg:text-6xl text-paper tracking-tight">
                 Things We Supply
               </h2>
               <p className="mt-3 text-sm sm:text-base text-ink-5 max-w-xl font-sans">
@@ -625,7 +625,7 @@ export function HomePage() {
                   key={p.id}
                   to={`/products/${p.id}`}
                   onMouseEnter={() => setHoveredProduct(p)}
-                  className={`group relative block py-8 sm:py-10 transition-all duration-300 ${
+                  className={`group relative block py-6 sm:py-10 transition-all duration-300 ${
                     isAnyHovered
                       ? isHovered
                         ? 'opacity-100 translate-x-1 sm:translate-x-2'
@@ -642,7 +642,7 @@ export function HomePage() {
 
                       <div className="space-y-1.5 min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                          <h3 className="vyro-display text-2xl sm:text-4xl text-paper group-hover:text-volt transition-colors truncate">
+                          <h3 className="vyro-display text-xl sm:text-4xl text-paper group-hover:text-volt transition-colors truncate">
                             {p.name}
                           </h3>
                           {p.badge && (
@@ -683,7 +683,7 @@ export function HomePage() {
                   </div>
 
                   {/* Mobile inline preview (for touch devices) */}
-                  <div className="mt-4 lg:hidden rounded-lg overflow-hidden border border-paper/15 relative h-40 bg-ink/60">
+                  <div className="mt-4 lg:hidden rounded-lg overflow-hidden border border-paper/15 relative h-36 bg-ink/60">
                     <img
                       src={p.image}
                       alt={p.name}
@@ -713,7 +713,7 @@ export function HomePage() {
       </section>
 
       {/* 4. WHO IT'S FOR (OPERATORS PHOTOGRAPHIC GRID) */}
-      <section className="bg-paper border-y border-ink/10 py-20">
+      <section className="bg-paper border-y border-ink/10 py-12 sm:py-16 lg:py-20">
         <div className="max-w-stage mx-auto px-5 sm:px-8">
           <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-10 items-end mb-12">
             <div>
@@ -760,7 +760,7 @@ export function HomePage() {
       </section>
 
       {/* 5. SECTORS CATALOG (WITH IMAGES) */}
-      <section className="max-w-stage mx-auto px-5 sm:px-8 py-20">
+      <section className="max-w-stage mx-auto px-5 sm:px-8 py-12 sm:py-16 lg:py-20">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
           <div>
             <div className="vyro-kicker text-copper">Wholesale Lines</div>
@@ -810,7 +810,7 @@ export function HomePage() {
       </section>
 
       {/* 6. VERIFIED SUPPLIER DEPOTS SPOTLIGHT */}
-      <section className="bg-paper border-t border-ink/10 py-20">
+      <section className="bg-paper border-t border-ink/10 py-12 sm:py-16 lg:py-20">
         <div className="max-w-stage mx-auto px-5 sm:px-8">
           <div className="max-w-2xl mb-12">
             <div className="vyro-kicker text-copper">Verified Supply Base</div>
@@ -876,7 +876,7 @@ export function HomePage() {
       </section>
 
       {/* 7. HOW IT WORKS (FOUR MOVEMENTS WITH VISUAL PROCESS) */}
-      <section className="bg-bone border-t border-ink/10 py-20">
+      <section className="bg-bone border-t border-ink/10 py-12 sm:py-16 lg:py-20">
         <div className="max-w-stage mx-auto px-5 sm:px-8">
           <div className="grid lg:grid-cols-12 gap-12 items-center">
             <div className="lg:col-span-5 space-y-6">
@@ -897,12 +897,12 @@ export function HomePage() {
                 />
               </div>
 
-              <div className="pt-4 flex gap-4">
-                <Link to={user ? '/search' : '/onboarding/business'}>
-                  <Button>{user ? 'Enter Marketplace' : 'Register Your Business'}</Button>
+              <div className="pt-4 flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <Link to={user ? '/search' : '/onboarding/business'} className="w-full sm:w-auto">
+                  <Button className="w-full">{user ? 'Enter Marketplace' : 'Register Your Business'}</Button>
                 </Link>
-                <Link to="/how-it-works">
-                  <Button variant="secondary">Full Walkthrough →</Button>
+                <Link to="/how-it-works" className="w-full sm:w-auto">
+                  <Button variant="secondary" className="w-full">Full Walkthrough →</Button>
                 </Link>
               </div>
             </div>
@@ -939,7 +939,7 @@ export function HomePage() {
       </section>
 
       {/* 8. FAQ SECTION */}
-      <section className="bg-paper border-t border-ink/10 py-20">
+      <section className="bg-paper border-t border-ink/10 py-12 sm:py-16 lg:py-20">
         <div className="max-w-stage mx-auto px-5 sm:px-8">
           <div className="max-w-2xl mb-12">
             <div className="vyro-kicker text-copper">Questions & Answers</div>
@@ -963,9 +963,9 @@ export function HomePage() {
           <FlowCanvas tone="paper" density="hero" />
         </div>
 
-        <div className="relative max-w-stage mx-auto px-5 sm:px-8 py-20 grid lg:grid-cols-2 gap-8">
+        <div className="relative max-w-stage mx-auto px-5 sm:px-8 py-16 sm:py-20 grid lg:grid-cols-2 gap-6 sm:gap-8">
           {/* Buyer CTA Box */}
-          <div className="relative overflow-hidden border border-paper/15 p-8 sm:p-10 flex flex-col justify-between group">
+          <div className="relative overflow-hidden border border-paper/15 p-6 sm:p-8 lg:p-10 flex flex-col justify-between group min-h-[20rem] sm:min-h-[24rem]">
             <img
               src="https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=800&q=80"
               alt="Commercial procurement kitchen chef"
@@ -976,7 +976,7 @@ export function HomePage() {
                 <BrandMark size={24} tone="volt" />
                 <span className="vyro-kicker text-volt">For Buying Businesses</span>
               </div>
-              <h2 className="vyro-display text-3xl sm:text-4xl text-paper">Stop chasing quotes. Start procuring.</h2>
+              <h2 className="vyro-display text-2xl sm:text-3xl lg:text-4xl text-paper leading-tight">Stop chasing quotes. Start procuring.</h2>
               <p className="text-sm text-paper/75 max-w-md">
                 Register your business in under 2 minutes, browse live LKR prices, compare multiple suppliers, and issue binding POs.
               </p>
@@ -986,9 +986,9 @@ export function HomePage() {
                 <li className="flex items-center gap-2">✓ 25 Sri Lankan districts receiving delivery</li>
               </ul>
             </div>
-            <div className="relative z-10 pt-8">
-              <Link to={user ? '/search' : '/onboarding/business'}>
-                <Button className="bg-volt text-ink hover:bg-volt-glow font-bold uppercase tracking-wider text-xs px-6 py-3">
+            <div className="relative z-10 pt-6 sm:pt-8">
+              <Link to={user ? '/search' : '/onboarding/business'} className="block w-full sm:inline-block sm:w-auto">
+                <Button className="w-full sm:w-auto bg-volt text-ink hover:bg-volt-glow font-bold uppercase tracking-wider text-xs px-6 py-3 min-h-[44px]">
                   {user ? 'Browse Live Catalog →' : 'Register Your Business →'}
                 </Button>
               </Link>
@@ -996,7 +996,7 @@ export function HomePage() {
           </div>
 
           {/* Supplier CTA Box */}
-          <div className="relative overflow-hidden border border-paper/15 p-8 sm:p-10 flex flex-col justify-between group">
+          <div className="relative overflow-hidden border border-paper/15 p-6 sm:p-8 lg:p-10 flex flex-col justify-between group min-h-[20rem] sm:min-h-[24rem]">
             <img
               src="https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=800&q=80"
               alt="Wholesale warehouse manager"
@@ -1007,7 +1007,7 @@ export function HomePage() {
                 <BrandMark size={24} tone="paper" />
                 <span className="vyro-kicker text-copper">For Wholesale Suppliers</span>
               </div>
-              <h2 className="vyro-display text-3xl sm:text-4xl text-paper">Put your inventory in the flow.</h2>
+              <h2 className="vyro-display text-2xl sm:text-3xl lg:text-4xl text-paper leading-tight">Put your inventory in the flow.</h2>
               <p className="text-sm text-paper/75 max-w-md">
                 Connect your mill, factory, or distribution depot directly to commercial buyers across Sri Lanka without middleman fees.
               </p>
@@ -1017,9 +1017,9 @@ export function HomePage() {
                 <li className="flex items-center gap-2">✓ Direct commercial buyer relationships</li>
               </ul>
             </div>
-            <div className="relative z-10 pt-8">
-              <Link to="/onboarding/supplier">
-                <Button variant="secondary" className="text-paper border-paper/30 hover:bg-paper hover:text-ink font-bold uppercase tracking-wider text-xs px-6 py-3">
+            <div className="relative z-10 pt-6 sm:pt-8">
+              <Link to="/onboarding/supplier" className="block w-full sm:inline-block sm:w-auto">
+                <Button variant="secondary" className="w-full sm:w-auto text-paper border-paper/30 hover:bg-paper hover:text-ink font-bold uppercase tracking-wider text-xs px-6 py-3 min-h-[44px]">
                   List as Authorized Supplier →
                 </Button>
               </Link>

@@ -7,7 +7,7 @@ export type RefundRow = {
   paymentId: string;
   amountCents: number;
   reason: string | null;
-  status: 'requested' | 'processing' | 'completed' | 'failed';
+  status: 'requested' | 'approved' | 'processing' | 'completed' | 'failed' | 'rejected' | 'cancelled';
   requestedByUserId: string;
   createdAt: number;
 };
@@ -63,7 +63,7 @@ export async function getRefund(d1: D1Database, id: string): Promise<RefundRow |
 export async function setRefundStatus(
   d1: D1Database,
   id: string,
-  status: 'processing' | 'completed' | 'failed',
+  status: 'approved' | 'processing' | 'completed' | 'failed' | 'rejected' | 'cancelled',
 ): Promise<RefundRow | null> {
   const db = getDb(d1);
   const before = await getRefund(d1, id);

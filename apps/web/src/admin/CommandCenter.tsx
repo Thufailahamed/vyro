@@ -1,16 +1,9 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import {
-  AlertCircleIcon,
-  CheckCircle2Icon,
-  CreditCardIcon,
-  BanknoteIcon,
-  TruckIcon,
-  ScaleIcon,
-} from '@/components/icons';
+import { ArrowRightIcon, ShieldCheckIcon, AlertCircleIcon } from '@/components/icons';
 
-type CommandCenterData = {
+export type CommandCenterData = {
   needsAction: {
     stuckPayments: number;
     payoutFailures: number;
@@ -29,130 +22,129 @@ export function useCommandCenter() {
   });
 }
 
-export function CommandCenter() {
+export function CommandCenter({ variant = 'dark' }: { variant?: 'dark' | 'light' }) {
   const { data, isLoading, isError } = useCommandCenter();
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-pulse">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-20 bg-white border border-ink/10 rounded-xl p-4" />
+          <div
+            key={i}
+            className={`h-20 animate-pulse ${
+              variant === 'dark' ? 'bg-paper/5 border border-paper/10' : 'bg-slate-100 border border-ink/10'
+            }`}
+          />
         ))}
       </div>
     );
   }
 
   if (isError || !data) return null;
-
   const n = data.needsAction;
+
   const items = [
     {
       label: 'Stuck Payments',
       value: n.stuckPayments,
       to: '/admin/finance?tab=refunds',
-      icon: <CreditCardIcon size={16} />,
-      healthyLabel: 'Payment flows normal',
-      alertLabel: 'Requires clearance',
+      hint: 'Refund & escrow holds',
     },
     {
       label: 'Payout Failures',
       value: n.payoutFailures,
       to: '/admin/finance?tab=payouts',
-      icon: <BanknoteIcon size={16} />,
-      healthyLabel: 'Settlements cleared',
-      alertLabel: 'Batches need review',
+      hint: 'Supplier bank batches',
     },
     {
       label: 'SLA Breaches',
       value: n.slaBreaches,
       to: '/admin/deliveries',
-      icon: <TruckIcon size={16} />,
-      healthyLabel: 'Logistics on schedule',
-      alertLabel: 'Deliveries delayed',
+      hint: 'Dispatch time-outs',
     },
     {
       label: 'Open Disputes',
       value: n.openDisputes,
       to: '/admin/disputed',
-      icon: <ScaleIcon size={16} />,
-      healthyLabel: 'Zero open claims',
-      alertLabel: 'Active arbitration',
+      hint: 'Dockside GRN variances',
     },
   ];
 
   return (
-    <section aria-label="Operational Health & Alert Triage" className="space-y-2">
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2 text-xs font-mono font-semibold uppercase tracking-wider text-ink-4">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Operations Health & Alert Triage</span>
-        </div>
-        <span className="text-[11px] font-mono text-ink-4">Auto-syncs every 60s</span>
-      </div>
+    <section aria-label="Needs action telemetry triage" className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {items.map((i) => {
+        const hasIssue = i.value > 0;
+        return (
+          <Link
+            key={i.label}
+            to={i.to}
+            className={`p-3.5 transition-all duration-150 flex flex-col justify-between group ${
+              variant === 'dark'
+                ? hasIssue
+                  ? 'border border-rose/60 bg-rose/15 hover:bg-rose/25 hover:border-rose'
+                  : 'border border-paper/15 bg-paper/5 hover:border-paper/35 hover:bg-paper/10'
+                : hasIssue
+                  ? 'border border-rose/40 bg-rose/5 hover:border-rose hover:bg-rose/10 shadow-xs'
+                  : 'border border-ink/15 bg-white hover:border-ink hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-1">
+              <span
+                className={`text-[10px] font-mono uppercase tracking-wider font-semibold truncate ${
+                  variant === 'dark'
+                    ? 'text-paper/70 group-hover:text-paper'
+                    : 'text-ink-4 group-hover:text-ink'
+                }`}
+              >
+                {i.label}
+              </span>
+              {hasIssue ? (
+                <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase font-bold text-rose px-1.5 py-0.2 rounded bg-rose/20 border border-rose/30 animate-pulse">
+                  <span className="size-1.5 rounded-full bg-rose" />
+                  Action
+                </span>
+              ) : (
+                <span
+                  className={`inline-flex items-center gap-1 text-[9px] font-mono uppercase font-semibold ${
+                    variant === 'dark' ? 'text-mint/90' : 'text-emerald-700'
+                  }`}
+                >
+                  <span className="size-1.5 rounded-full bg-mint" />
+                  Clear
+                </span>
+              )}
+            </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {items.map((i) => {
-          const hasAlert = i.value > 0;
-          return (
-            <Link
-              key={i.label}
-              to={i.to}
-              className={`p-4 rounded-xl border transition-all duration-150 flex flex-col justify-between group shadow-xs ${
-                hasAlert
-                  ? 'bg-rose-50/50 border-rose-200 hover:border-rose-400 hover:shadow-sm'
-                  : 'bg-white border-ink/10 hover:border-ink/25 hover:shadow-sm'
+            <div className="mt-2.5 flex items-baseline justify-between">
+              <div
+                className={`text-2xl sm:text-3xl font-bold font-mono tracking-tight ${
+                  hasIssue ? 'text-rose' : variant === 'dark' ? 'text-paper' : 'text-ink'
+                }`}
+              >
+                {i.value}
+              </div>
+              <span
+                className={`text-[11px] font-mono transition-all flex items-center gap-0.5 opacity-60 group-hover:opacity-100 ${
+                  variant === 'dark'
+                    ? 'text-volt group-hover:translate-x-0.5'
+                    : 'text-copper group-hover:translate-x-0.5'
+                }`}
+              >
+                <span>Triage</span>
+                <ArrowRightIcon size={12} />
+              </span>
+            </div>
+
+            <div
+              className={`text-[10px] font-mono mt-1 truncate ${
+                variant === 'dark' ? 'text-paper/40' : 'text-ink-4'
               }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
-                      hasAlert
-                        ? 'bg-rose-100 text-rose-700'
-                        : 'bg-slate-100 text-ink-3 group-hover:bg-emerald-50 group-hover:text-emerald-700'
-                    }`}
-                  >
-                    {i.icon}
-                  </div>
-                  <span className="text-[11px] font-mono uppercase tracking-wider font-semibold text-ink-4 group-hover:text-ink transition-colors">
-                    {i.label}
-                  </span>
-                </div>
-
-                {hasAlert ? (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-rose-100 text-rose-700">
-                    <AlertCircleIcon size={10} />
-                    Alert
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium text-emerald-700 bg-emerald-50">
-                    <CheckCircle2Icon size={10} />
-                    Clear
-                  </span>
-                )}
-              </div>
-
-              <div className="mt-3">
-                <div className="flex items-baseline gap-2">
-                  <span
-                    className={`text-2xl font-bold font-mono tracking-tight ${
-                      hasAlert ? 'text-rose-600' : 'text-ink'
-                    }`}
-                  >
-                    {i.value}
-                  </span>
-                  <span className="text-[11px] text-ink-4 font-normal">
-                    {hasAlert ? 'incident(s)' : 'detected'}
-                  </span>
-                </div>
-                <div className={`text-[11px] mt-0.5 truncate ${hasAlert ? 'text-rose-600 font-medium' : 'text-ink-4'}`}>
-                  {hasAlert ? i.alertLabel : i.healthyLabel}
-                </div>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+              {i.hint}
+            </div>
+          </Link>
+        );
+      })}
     </section>
   );
 }

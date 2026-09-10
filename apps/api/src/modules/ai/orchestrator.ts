@@ -62,6 +62,7 @@ const STAGES: Record<string, [string, string]> = {
   rfq_negotiate: ['Reading your quotes', 'Drafting your counter-offer'],
   rfq_recommend_quote: ['Reading your quotes', 'Ranking best value'],
   rfq_status: ['Reading your RFQ', 'Summarizing status'],
+  finance_status: ['Reading your accounts', 'Summarizing balances'],
 };
 
 export async function* orchestrate(

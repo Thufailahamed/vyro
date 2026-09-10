@@ -7,6 +7,7 @@ export * from './supplierProduct';
 export * from './cart';
 export * from './delivery';
 export * from './payment';
+export * from './accounts';
 export * from './settings';
 export * from './analytics';
 export * from './adminUsers';

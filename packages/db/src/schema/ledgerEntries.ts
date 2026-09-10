@@ -12,6 +12,12 @@ export const ledgerEntries = sqliteTable(
     currency: text('currency').notNull().default('LKR'),
     refType: text('ref_type', { enum: ['payment', 'refund', 'payout', 'fee', 'adjustment'] }).notNull(),
     refId: text('ref_id').notNull(),
+    // Double-entry readiness metadata: financial category + related entities.
+    // Stored as JSON: { category, source, destination, orderId, paymentId, ... }
+    category: text('category'),
+    entityType: text('entity_type'),
+    entityId: text('entity_id'),
+    metadata: text('metadata'),
     description: text('description').notNull(),
     createdByUserId: text('created_by_user_id').references(() => users.id),
     createdAt: integer('created_at').notNull(),

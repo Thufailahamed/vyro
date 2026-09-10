@@ -9,15 +9,15 @@ import type { Ctx } from '../../middleware/session';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
-import { eq } from 'drizzle-orm';
-import { rfqs, rfqItems } from '@vyro/db/schema';
+import { eq, desc } from 'drizzle-orm';
+import { rfqs, rfqItems, businesses } from '@vyro/db/schema';
 import { hasBusinessAccess, hasSupplierAccess, requireBusinessRole, requireSupplierRole } from '@vyro/auth';
 import { rfqService } from './service';
 import {
   findRfq, listRfqItems, listRfqInvites, listQuotesForRfq, listQuoteItems, listTiersForItems,
   findQuote, listRfqEvents, listRfqsForBusiness, listRfqsForSupplier, listCounters,
   listVersions, listMessages, messagesSince, listDocuments, listTemplates, listTemplateItems, insertRfqEvent,
-  pageFromQuery,
+  pageFromQuery, page,
 } from './repository';
 
 const router = new Hono<{ Bindings: Env }>();
@@ -71,9 +71,48 @@ router.get('/', session(), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = c.req.query('businessId');
-  if (!businessId) throw httpError(400, 'VALIDATION_ERROR', 'businessId required');
-  requireBusinessRole(ctx, businessId, B_ROLES);
   const opts = pageFromQuery((n) => c.req.query(n));
+  if (!businessId) {
+    if (ctx.isAdmin) {
+      const db = getDb(c.env.DB);
+      const { limit, offset } = page(opts);
+      const status = c.req.query('status');
+      const baseQuery = db
+        .select({
+          id: rfqs.id,
+          businessId: rfqs.businessId,
+          rfqNumber: rfqs.rfqNumber,
+          title: rfqs.title,
+          description: rfqs.description,
+          status: rfqs.status,
+          deadline: rfqs.deadline,
+          createdAt: rfqs.createdAt,
+          awardedQuoteId: rfqs.awardedQuoteId,
+          deliveryCity: rfqs.deliveryCity,
+          deliveryDistrict: rfqs.deliveryDistrict,
+          businessName: businesses.name,
+        })
+        .from(rfqs)
+        .leftJoin(businesses, eq(rfqs.businessId, businesses.id));
+
+      const allRfqs = status
+        ? await baseQuery
+            .where(eq(rfqs.status, status))
+            .orderBy(desc(rfqs.createdAt))
+            .limit(limit)
+            .offset(offset)
+            .all()
+        : await baseQuery
+            .orderBy(desc(rfqs.createdAt))
+            .limit(limit)
+            .offset(offset)
+            .all();
+
+      return c.json({ rfqs: allRfqs, ...opts });
+    }
+    throw httpError(400, 'VALIDATION_ERROR', 'businessId required');
+  }
+  requireBusinessRole(ctx, businessId, B_ROLES);
   return c.json({ rfqs: await listRfqsForBusiness(c.env.DB, businessId, opts), ...opts });
 });
 

@@ -40,6 +40,11 @@ const RfqsPage = lazy(() => import('./pages/RfqsPage').then((m) => ({ default: m
 const RfqCreatePage = lazy(() => import('./pages/RfqCreatePage').then((m) => ({ default: m.RfqCreatePage })));
 const RfqDetailPage = lazy(() => import('./pages/RfqDetailPage').then((m) => ({ default: m.RfqDetailPage })));
 const RfqComparePage = lazy(() => import('./pages/RfqComparePage').then((m) => ({ default: m.RfqComparePage })));
+const BusinessAccountsPage = lazy(() => import('./pages/AccountsPage').then((m) => ({ default: m.AccountsPage })));
+const TransactionDetailPage = lazy(() => import('./pages/TransactionDetailPage').then((m) => ({ default: m.TransactionDetailPage })));
+const SupplierAccountsPage = lazy(() => import('./supplier/AccountsPage').then((m) => ({ default: m.SupplierAccountsPage })));
+const AdminAccountsPage = lazy(() => import('./admin/AccountsPage').then((m) => ({ default: m.AdminAccountsPage })));
+const AdminTransactionPage = lazy(() => import('./admin/TransactionPage').then((m) => ({ default: m.AdminTransactionPage })));
 
 const AdminHomePage = lazy(() => import('./admin/HomePage').then((m) => ({ default: m.AdminHomePage })));
 const AdminLoginPage = lazy(() => import('./admin/LoginPage').then((m) => ({ default: m.LoginPage })));
@@ -134,6 +139,8 @@ export default function App() {
         <Route path="/rfqs/new" element={<RequireBusiness><RfqCreatePage /></RequireBusiness>} />
         <Route path="/rfqs/:id" element={<RequireBusiness><RfqDetailPage /></RequireBusiness>} />
         <Route path="/rfqs/:id/compare" element={<RequireBusiness><RfqComparePage /></RequireBusiness>} />
+        <Route path="/accounts" element={<RequireAuth><BusinessAccountsPage /></RequireAuth>} />
+        <Route path="/accounts/payments/:id" element={<RequireAuth><TransactionDetailPage /></RequireAuth>} />
         <Route path="/legal/terms" element={<LegalPage kind="terms" />} />
         <Route path="/legal/privacy" element={<LegalPage kind="privacy" />} />
         <Route path="/legal/cookies" element={<LegalPage kind="cookies" />} />
@@ -169,6 +176,8 @@ export default function App() {
           <Route path="catalog" element={<RequireAdmin><CatalogPage /></RequireAdmin>} />
           <Route path="catalog/products/:id" element={<RequireAdmin><AdminProductDetailPage /></RequireAdmin>} />
           <Route path="money" element={<RequireAdmin><MoneyPage /></RequireAdmin>} />
+          <Route path="accounts" element={<RequireAdmin><AdminAccountsPage /></RequireAdmin>} />
+          <Route path="accounts/payments/:id" element={<RequireAdmin><AdminTransactionPage /></RequireAdmin>} />
           <Route path="payments" element={<RequireAdmin><PaymentsPage /></RequireAdmin>} />
           <Route path="payments/:id" element={<RequireAdmin><PaymentDetailPage /></RequireAdmin>} />
           <Route path="trust-safety" element={<RequireAdmin><TrustSafetyPage /></RequireAdmin>} />
@@ -196,6 +205,7 @@ export default function App() {
         <Route path="customers" element={<SupplierCustomersPage />} />
         <Route path="deliveries" element={<SupplierDeliveriesPage />} />
         <Route path="payments" element={<SupplierPaymentsPage />} />
+        <Route path="accounts" element={<SupplierAccountsPage />} />
         <Route path="settings" element={<SupplierSettingsPage />} />
         <Route path="quotes" element={<QuoteRequestsPage />} />
         <Route path="quotes/:rfqId" element={<SupplierQuoteDetailPage />} />
