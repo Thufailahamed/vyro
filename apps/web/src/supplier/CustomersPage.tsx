@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHeader, Input, Button, Badge } from '@/components/ui';
 import { Surface, MetricNumber } from '@/components/brand/Surface';
@@ -36,14 +36,19 @@ export function SupplierCustomersPage() {
   const [q, setQ] = useState('');
   const [sortBy, setSortBy] = useState<'spend' | 'orders' | 'recent'>('spend');
 
-  const customers = useQuery({
+  const customers = useInfiniteQuery({
     queryKey: ['supplier', supplierId, 'customers'],
-    queryFn: () => api.get<{ items: Customer[] }>(`/suppliers/${supplierId}/customers`),
+    queryFn: ({ pageParam }: { pageParam: string | null }) =>
+      api.get<{ items: Customer[]; nextCursor: string | null }>(
+        `/suppliers/${supplierId}/customers?limit=20${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     retry: false,
     refetchInterval: 30_000,
   });
 
-  const list = customers.data?.items ?? [];
+  const list = (customers.data?.pages ?? []).flatMap((p) => p.items);
 
   const handleRefresh = async () => {
     toast.info('Refreshing commercial accounts…');
@@ -467,6 +472,18 @@ export function SupplierCustomersPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+            {customers.hasNextPage && (
+              <div className="p-4 text-center border-t border-line">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void customers.fetchNextPage()}
+                  disabled={customers.isFetchingNextPage}
+                >
+                  {customers.isFetchingNextPage ? 'Loading…' : 'Load more buyers'}
+                </Button>
               </div>
             )}
           </Surface>

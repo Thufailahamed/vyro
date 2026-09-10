@@ -30,7 +30,12 @@ vi.mock('@vyro/db', () => ({
         innerJoin: (_o: any) => ({
           where: (_c: any) => ({
             groupBy: (_g: any) => ({
-              orderBy: (_o2: any) => ({
+              having: (_h: any) => ({
+                orderBy: (..._o2: any[]) => ({
+                  all: async () => state.rows,
+                }),
+              }),
+              orderBy: (..._o2: any[]) => ({
                 all: async () => state.rows,
               }),
             }),
@@ -104,5 +109,24 @@ describe('GET /api/suppliers/:id/customers', () => {
     expect(body.items).toHaveLength(2);
     expect(body.items[0].businessId).toBe('biz-1');
     expect(body.items[0].name).toBe('Acme');
+  });
+
+  it('paginates with cursor and limit', async () => {
+    state.member = { role: 'owner' };
+    state.rows = [
+      { businessId: 'biz-1', name: 'Acme', totalOrders: 4, totalCents: 50000, lastOrderAt: 2000 },
+      { businessId: 'biz-2', name: 'Beta', totalOrders: 1, totalCents: 1000, lastOrderAt: 1000 },
+    ];
+    const app = buildApp();
+    const res = await app.fetch(
+      new Request('http://localhost/api/suppliers/sup-1/customers?limit=1'),
+      env,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as any;
+    expect(Array.isArray(body.items)).toBe(true);
+    expect(body.items).toHaveLength(1);
+    expect('nextCursor' in body).toBe(true);
+    expect(body.nextCursor).toBeTruthy();
   });
 });

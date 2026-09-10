@@ -27,12 +27,33 @@ export async function ensureSupplierMember(
   }
 }
 
+function decodeCustomerCursor(cursor: string): { lastOrderAt: number; businessId: string } | null {
+  try {
+    const raw = Buffer.from(cursor, 'base64url').toString('utf8');
+    const idx = raw.indexOf(':');
+    if (idx === -1) return null;
+    const ts = Number(raw.slice(0, idx));
+    const businessId = raw.slice(idx + 1);
+    if (!Number.isFinite(ts) || !businessId) return null;
+    return { lastOrderAt: ts, businessId };
+  } catch {
+    return null;
+  }
+}
+
+function encodeCustomerCursor(lastOrderAt: number, businessId: string): string {
+  return Buffer.from(`${lastOrderAt}:${businessId}`, 'utf8').toString('base64url');
+}
+
 export async function listCustomersForSupplier(
   d1: D1Database,
   supplierId: string,
-): Promise<CustomerSummary[]> {
+  opts?: { cursor?: string | null; limit?: number },
+): Promise<{ items: CustomerSummary[]; nextCursor: string | null }> {
+  const limit = Math.min(Math.max(opts?.limit ?? 20, 1), 100);
+  const cursor = opts?.cursor ? decodeCustomerCursor(opts.cursor) : null;
   const db = getDb(d1);
-  const rows = await db
+  const base = db
     .select({
       businessId: purchaseOrders.businessId,
       name: businesses.name,
@@ -48,14 +69,28 @@ export async function listCustomersForSupplier(
         sql`${purchaseOrders.status} <> 'cancelled'`,
       ),
     )
-    .groupBy(purchaseOrders.businessId, businesses.name)
-    .orderBy(desc(sql`MAX(${purchaseOrders.createdAt})`))
+    .groupBy(purchaseOrders.businessId, businesses.name);
+  // Keyset on (lastOrderAt DESC, businessId ASC): rows strictly after cursor.
+  const keyed = cursor
+    ? base.having(
+        sql`MAX(${purchaseOrders.createdAt}) < ${cursor.lastOrderAt} OR (MAX(${purchaseOrders.createdAt}) = ${cursor.lastOrderAt} AND ${businesses.id} > ${cursor.businessId})`,
+      )
+    : base;
+  const rows = await keyed
+    .orderBy(desc(sql`MAX(${purchaseOrders.createdAt})`), businesses.id)
     .all();
-  return rows.map((r) => ({
+  const mapped: CustomerSummary[] = rows.map((r) => ({
     businessId: r.businessId,
     name: r.name,
     totalOrders: Number(r.totalOrders),
     totalCents: Number(r.totalCents),
     lastOrderAt: Number(r.lastOrderAt),
   }));
+  const page = mapped.slice(0, limit);
+  const hasMore = mapped.length > limit;
+  const last = page[page.length - 1];
+  return {
+    items: page,
+    nextCursor: hasMore && last ? encodeCustomerCursor(last.lastOrderAt, last.businessId) : null,
+  };
 }

@@ -13,8 +13,12 @@ router.get('/:id/customers', async (c) => {
   const supplierId = c.req.param('id');
   if (!ctx.userId) throw httpError(401, 'UNAUTHORIZED', 'No session');
   await ensureSupplierMember(c.env.DB, supplierId, ctx.userId);
-  const items = await listCustomersForSupplier(c.env.DB, supplierId);
-  return c.json({ items });
+  const limitRaw = Number(c.req.query('limit') ?? 20);
+  const page = await listCustomersForSupplier(c.env.DB, supplierId, {
+    cursor: c.req.query('cursor') ?? null,
+    limit: Number.isFinite(limitRaw) ? limitRaw : 20,
+  });
+  return c.json(page);
 });
 
 export default router;
