@@ -3,7 +3,18 @@ import { z } from 'zod';
 export const adminReasonBody = z.object({ reason: z.string().trim().min(5).max(500) }).strict();
 
 export const adminOrderOverrideBody = z.object({
-  status: z.enum(['confirmed', 'fulfilled', 'delivered', 'cancelled']),
+  status: z.enum([
+    'pending',
+    'accepted',
+    'rejected',
+    'preparing',
+    'ready_for_pickup',
+    'out_for_delivery',
+    'delivered',
+    'completed',
+    'cancelled',
+    'disputed',
+  ]),
   reason: z.string().trim().min(5).max(500),
   expectedUpdatedAt: z.number().int().optional(),
 }).strict();

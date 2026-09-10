@@ -143,7 +143,7 @@ export function SupplierOrdersPage() {
     [orders],
   );
   const done = useMemo(
-    () => orders.filter((o) => ['delivered', 'completed', 'rejected', 'cancelled'].includes(o.status)),
+    () => orders.filter((o) => ['delivered', 'completed', 'rejected', 'cancelled', 'disputed'].includes(o.status)),
     [orders],
   );
 

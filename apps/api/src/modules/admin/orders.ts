@@ -8,6 +8,9 @@ import { purchaseOrders, businesses, suppliers, purchaseOrderItems, orderEvents 
 import { eq, and, or, like, desc } from 'drizzle-orm';
 import { adminListQuery, adminOrderOverrideBody } from '@vyro/validation';
 import { auditAdmin } from './lib/audit';
+import { canTransition, type OrderStatus } from '@vyro/shared';
+import { insertOrderEvent, updatePoStatus } from '../purchaseOrders/repository';
+import { inventoryService } from '../inventory/service';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -147,11 +150,48 @@ router.post('/:id/override', async (c) => {
   if (parsed.data.expectedUpdatedAt !== undefined && (row as any).updatedAt !== parsed.data.expectedUpdatedAt) {
     throw httpError(409, 'CONFLICT', 'Order changed; refresh and retry');
   }
-  await db
-    .update(purchaseOrders)
-    .set({ status: parsed.data.status as any, updatedAt: Date.now() })
-    .where(eq(purchaseOrders.id, row.id))
-    .run();
+  const from = (row as any).status as OrderStatus;
+  const to = parsed.data.status as OrderStatus;
+  if (from !== to && !canTransition(from, to, 'admin')) {
+    throw httpError(409, 'CONFLICT', `Illegal override ${from} -> ${to}`);
+  }
+  const ctx = c.get('ctx') as { userId?: string } | undefined;
+  const actorUserId = ctx?.userId ?? null;
+  const now = Date.now();
+  const tsPatch: Record<string, number> =
+    to === 'accepted' ? { acceptedAt: now }
+    : to === 'rejected' ? { rejectedAt: now }
+    : to === 'preparing' ? { preparedAt: now }
+    : to === 'ready_for_pickup' ? { readyAt: now }
+    : to === 'out_for_delivery' ? { dispatchedAt: now }
+    : to === 'delivered' ? { deliveredAt: now }
+    : to === 'completed' ? { completedAt: now }
+    : to === 'cancelled' ? { cancelledAt: now }
+    : {};
+  const reasonPatch: Record<string, string | null> =
+    to === 'rejected' ? { rejectionReason: parsed.data.reason }
+    : to === 'cancelled' ? { cancelledReason: parsed.data.reason }
+    : {};
+  await updatePoStatus(c.env.DB, row.id, to, { ...tsPatch, ...reasonPatch });
+  if (from !== to) {
+    await insertOrderEvent(c.env.DB, {
+      purchaseOrderId: row.id,
+      actorUserId,
+      fromStatus: from,
+      toStatus: to,
+      reason: `admin override: ${parsed.data.reason}`,
+      metadata: { override: true },
+    });
+    try {
+      if (to === 'cancelled' || to === 'rejected') {
+        await inventoryService.releaseForOrder(c.env.DB, c.env.NOTIFICATIONS_QUEUE, row.id, actorUserId ?? 'admin', `admin override ${to}`);
+      } else if (to === 'delivered') {
+        await inventoryService.commitForOrder(c.env.DB, c.env.NOTIFICATIONS_QUEUE, row.id, actorUserId ?? 'admin');
+      }
+    } catch (err) {
+      console.error('[admin.override] stock sync failed', { poId: row.id, to, err });
+    }
+  }
   await auditAdmin({
     ctx: c,
     action: 'order.override',

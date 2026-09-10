@@ -15,7 +15,9 @@ import { ensureDelivery, findDeliveryByPo, updateDelivery } from './repository';
 import { recordAudit } from '../supplierProducts/repository';
 import { listDeliveriesForSupplier, requireSupplierMember } from './listRepository';
 import { notifyOrderParties } from '../notifications/dispatcher';
-import { NotificationType, newId } from '@vyro/shared';
+import { NotificationType, newId, canTransition } from '@vyro/shared';
+import { updatePoStatus, insertOrderEvent } from '../purchaseOrders/repository';
+import { inventoryService } from '../inventory/service';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -107,18 +109,46 @@ router.post('/:poId/transitions', session(), async (c) => {
     metadata: { from: existing.status, to: parsed.data.status, reason: parsed.data.reason ?? null },
   });
 
-  // Mirror delivery state into the order timeline so buyer/supplier views show it.
+  // Mirror delivery state into the order timeline without polluting the
+  // PO state machine: order_events.toStatus stays a valid OrderStatus.
+  // Delivery detail lives in metadata/reason.
   const db = getDb(c.env.DB);
+  const poForTimeline = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, c.req.param('poId'))).get();
   await db.insert(orderEvents).values({
     id: newId(),
     purchaseOrderId: c.req.param('poId'),
     actorUserId: ctx.userId,
-    fromStatus: existing.status,
-    toStatus: parsed.data.status,
-    reason: parsed.data.reason ?? null,
-    metadata: null,
+    fromStatus: poForTimeline?.status ?? existing.status,
+    toStatus: poForTimeline?.status ?? 'pending',
+    reason: `delivery ${existing.status} -> ${parsed.data.status}${parsed.data.reason ? `: ${parsed.data.reason}` : ''}`,
+    metadata: JSON.stringify({ kind: 'delivery', from: existing.status, to: parsed.data.status }),
     createdAt: now,
   });
+
+  // Keep PO and delivery machines in sync: a completed drop-off advances
+  // out_for_delivery -> delivered (stock commit + timeline event included).
+  if (parsed.data.status === 'delivered' && poForTimeline && (poForTimeline as any).status === 'out_for_delivery') {
+    try {
+      if (canTransition('out_for_delivery', 'delivered', role as 'business' | 'supplier' | 'admin')) {
+        await updatePoStatus(c.env.DB, (poForTimeline as any).id, 'delivered', { deliveredAt: now });
+        await insertOrderEvent(c.env.DB, {
+          purchaseOrderId: (poForTimeline as any).id,
+          actorUserId: ctx.userId,
+          fromStatus: 'out_for_delivery',
+          toStatus: 'delivered',
+          reason: 'delivery completed by carrier',
+          metadata: { via: 'delivery.sync' },
+        });
+        try {
+          await inventoryService.commitForOrder(c.env.DB, c.env.NOTIFICATIONS_QUEUE, (poForTimeline as any).id, ctx.userId);
+        } catch (err) {
+          console.error('[delivery.sync] stock commit failed', err);
+        }
+      }
+    } catch (err) {
+      console.error('[delivery.sync] po advance failed', err);
+    }
+  }
 
   // Best-effort buyer notification — supplier is the actor and is excluded.
   try {

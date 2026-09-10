@@ -8,11 +8,15 @@ import { formatLKR, formatCompactLKR } from '@/lib/format';
 const STATUS_TABS = [
   { id: 'all', label: 'All Orders' },
   { id: 'pending', label: 'Pending' },
-  { id: 'confirmed', label: 'Confirmed' },
-  { id: 'fulfilled', label: 'Fulfilled' },
+  { id: 'accepted', label: 'Accepted' },
+  { id: 'preparing', label: 'Preparing' },
+  { id: 'ready_for_pickup', label: 'Ready for Pickup' },
+  { id: 'out_for_delivery', label: 'Out for Delivery' },
   { id: 'delivered', label: 'Delivered' },
+  { id: 'completed', label: 'Completed' },
   { id: 'disputed', label: 'Disputed' },
   { id: 'cancelled', label: 'Cancelled' },
+  { id: 'rejected', label: 'Rejected' },
 ] as const;
 
 type SortOption = 'newest' | 'oldest' | 'amount-high' | 'amount-low';
@@ -80,7 +84,7 @@ export function OrdersPage() {
     for (const o of rawOrders) {
       totalCents += o.totalCents ?? 0;
       if (o.status === 'pending') pendingCount++;
-      if (['confirmed', 'preparing', 'fulfilled', 'in_transit'].includes(o.status)) {
+      if (['accepted', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(o.status)) {
         inFulfillmentCount++;
       }
       if (['delivered', 'completed'].includes(o.status)) {

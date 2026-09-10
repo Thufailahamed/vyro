@@ -7,7 +7,7 @@ import { StatusBadge, Surface, EmptyState } from '@/components/ui';
 import { ArrowLeftIcon, Building2Icon, StoreIcon, PackageIcon, AlertCircleIcon, CheckCircleIcon, ClockIcon } from '@/components/icons';
 import { formatLKR } from '@/lib/format';
 
-const OVERRIDE_STATUSES = ['pending', 'confirmed', 'fulfilled', 'delivered', 'cancelled', 'disputed'] as const;
+const OVERRIDE_STATUSES = ['pending', 'accepted', 'rejected', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'delivered', 'completed', 'cancelled', 'disputed'] as const;
 
 function formatFullDate(ts?: number | null): string {
   if (!ts) return '—';

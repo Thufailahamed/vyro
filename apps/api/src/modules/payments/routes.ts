@@ -47,8 +47,13 @@ const ALLOWED_PO_STATUSES = new Set([
   'out_for_delivery',
   'delivered',
   'completed',
-  'disputed',
 ]);
+
+const TERMINAL_PO_BLOCK_MESSAGE: Record<string, string> = {
+  cancelled: 'Cannot pay a cancelled PO',
+  rejected: 'Cannot pay a rejected PO',
+  disputed: 'Cannot pay a disputed PO — resolve the dispute first',
+};
 
 async function rolesForPo(
   d1: D1Database,
@@ -98,7 +103,7 @@ router.post('/', session(), async (c) => {
   const { role, po } = await rolesForPo(c.env.DB, parsed.data.purchaseOrderId, ctx.userId, ctx.isAdmin);
   if (!po) throw httpError(404, 'NOT_FOUND', 'PO not found');
   if (!ALLOWED_PO_STATUSES.has(po.status)) {
-    throw httpError(409, 'CONFLICT', `Cannot pay PO in status ${po.status}`);
+    throw httpError(409, 'CONFLICT', TERMINAL_PO_BLOCK_MESSAGE[po.status] ?? `Cannot pay PO in status ${po.status}`);
   }
   if (role !== 'business' && role !== 'admin') {
     throw httpError(403, 'FORBIDDEN', 'Only business/admin record payments');
