@@ -35,6 +35,9 @@ describe('nextTier', () => {
   it('returns tier2 from qty=11', () => {
     expect(nextTier(tiers, 11)).toEqual({ minQty: 50, discountPct: 10 });
   });
+  it('shows tier2 progress while in tier1', () => {
+    expect(nextTier(tiers, 10)).toEqual({ minQty: 50, discountPct: 10 });
+  });
   it('returns null when at top tier', () => {
     expect(nextTier(tiers, 100)).toBeNull();
   });

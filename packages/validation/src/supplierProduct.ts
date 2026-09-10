@@ -3,6 +3,40 @@ import { z } from 'zod';
 const tierDiscount = z.number().int().min(0).max(50);
 const tierMinQty = z.number().int().min(1).max(100000);
 
+type TierFields = {
+  tier1MinQty?: number;
+  tier1DiscountPct?: number;
+  tier2MinQty?: number;
+  tier2DiscountPct?: number;
+  tier3MinQty?: number;
+  tier3DiscountPct?: number;
+};
+
+/**
+ * Active tiers (discount > 0) must order by quantity: strictly increasing
+ * minimums with non-shrinking discounts. Pairs with a missing side (partial
+ * updates) are skipped — only provided values are checked.
+ */
+function tierOrderOk(v: TierFields): boolean {
+  const tiers = [
+    { min: v.tier1MinQty, pct: v.tier1DiscountPct },
+    { min: v.tier2MinQty, pct: v.tier2DiscountPct },
+    { min: v.tier3MinQty, pct: v.tier3DiscountPct },
+  ].filter((t) => (t.pct ?? 0) > 0);
+  for (let i = 1; i < tiers.length; i++) {
+    const prev = tiers[i - 1]!;
+    const cur = tiers[i]!;
+    if (prev.min == null || cur.min == null) continue;
+    if (cur.min <= prev.min) return false;
+    if ((cur.pct ?? 0) < (prev.pct ?? 0)) return false;
+  }
+  return true;
+}
+
+const tierOrderRefine = {
+  message: 'tier minimums must increase and discounts must not shrink with quantity',
+};
+
 export const createSupplierProductSchema = z
   .object({
     supplierId: z.string().min(1),
@@ -24,7 +58,8 @@ export const createSupplierProductSchema = z
     tier3MinQty: tierMinQty.optional(),
     tier3DiscountPct: tierDiscount.optional(),
   })
-  .strict();
+  .strict()
+  .refine(tierOrderOk, tierOrderRefine);
 
 export const updateSupplierProductSchema = z
   .object({
@@ -45,7 +80,8 @@ export const updateSupplierProductSchema = z
     tier3MinQty: tierMinQty.optional(),
     tier3DiscountPct: tierDiscount.optional(),
   })
-  .strict();
+  .strict()
+  .refine(tierOrderOk, tierOrderRefine);
 
 /** Stock write: absolute count (`set`) or signed delta (`adjust`). */
 export const stockAdjustSchema = z

@@ -112,7 +112,7 @@ router.get('/', session(), async (c) => {
         lineTotalCents: lineTotal,
         discountCents: disc,
         bestTier: best,
-        nextTier: best ? null : nextTier(tierSet, i.quantity),
+        nextTier: nextTier(tierSet, i.quantity),
         product: {
           ...o.product,
           imageUrl: imageMap.get(o.product.id) ?? null,
