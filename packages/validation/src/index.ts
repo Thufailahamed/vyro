@@ -22,3 +22,4 @@ export * from './adminOps';
 export * from './businessTypes';
 export * from './supplierTypes';
 export * from './rfq';
+export * from './kyc';
