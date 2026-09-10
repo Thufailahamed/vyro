@@ -6,6 +6,7 @@ import { getDb } from '@vyro/db';
 import { supplierMembers } from '@vyro/db/schema';
 import { findBusinessTypeBySlug } from '../businesses/repository';
 import { insertOwnerSupplierMember, insertSupplier } from './repository';
+import { createKyc, findKycByUser } from '../admin/trustSafety/kycRepository';
 
 export const supplierService = {
   async onboard(d1: D1Database, userId: string, input: OnboardingSupplierInput) {
@@ -28,6 +29,10 @@ export const supplierService = {
       updatedAt: now,
     });
     await insertOwnerSupplierMember(d1, newId(), id, userId, now);
+    const existingKyc = await findKycByUser(d1, userId);
+    if (!existingKyc) {
+      await createKyc(d1, { id: newId(), userId, documentsJson: null, createdAt: now });
+    }
     return { id };
   },
 

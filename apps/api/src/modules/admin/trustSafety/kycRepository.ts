@@ -47,6 +47,18 @@ export async function getKyc(d1: D1Database, id: string): Promise<KycRow | null>
   return row ?? null;
 }
 
+export async function findKycByUser(d1: D1Database, userId: string): Promise<KycRow | null> {
+  const db = getDb(d1);
+  const row = (await db
+    .select()
+    .from(kycReviews)
+    .where(eq(kycReviews.userId, userId))
+    .orderBy(desc(kycReviews.createdAt))
+    .limit(1)
+    .get()) as KycRow | undefined;
+  return row ?? null;
+}
+
 export async function createKyc(
   d1: D1Database,
   body: { id: string; userId: string; documentsJson: string | null; createdAt: number },
