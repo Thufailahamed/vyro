@@ -25,6 +25,12 @@ export const INTENT_NAMES = [
   'budget_optimize',
   'simulate_supplier_switch',
   'categorize_expenses',
+  'create_rfq',
+  'compare_quotes',
+  'rfq_invite_suppliers',
+  'rfq_negotiate',
+  'rfq_recommend_quote',
+  'rfq_status',
 ] as const;
 
 export type IntentName = (typeof INTENT_NAMES)[number];

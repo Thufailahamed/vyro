@@ -126,6 +126,14 @@ export function heuristicClassify(text: string, dict: AiDictionary): ClassifyRes
   } else if (/\b(insight|what changed|vyro insight|signal)\b/i.test(text)) {
     intent = 'insights_feed';
     confidence = 0.7;
+  } else if (/\b(ask .* (quote|best price)|request .*quote|bulk quote|rfq|negotiat|compare .*quote|which quote|lowest total cost|best quote)\b/i.test(text)) {
+    if (/\b(compare|which|best|lowest)\b/i.test(text)) {
+      intent = 'compare_quotes';
+      confidence = 0.75;
+    } else {
+      intent = 'create_rfq';
+      confidence = 0.75;
+    }
   } else if (REORDER_RX.test(text)) {
     intent = 'reorder';
     confidence = 0.7;
@@ -294,7 +302,8 @@ export const INTENT_ALLOWLIST_BY_ROLE = {
     'price_watch', 'price_anomaly', 'supplier_intel', 'procurement_health',
     'spend_forecast', 'category_intel', 'insights_feed', 'clarify',
     'procurement_plan', 'budget_optimize', 'simulate_supplier_switch',
-    'categorize_expenses',
+    'categorize_expenses', 'create_rfq', 'compare_quotes',
+    'rfq_invite_suppliers', 'rfq_negotiate', 'rfq_recommend_quote', 'rfq_status',
   ],
   member: [
     'search_products', 'find_cheapest', 'compare_suppliers', 'supplier_recommend',
@@ -303,7 +312,8 @@ export const INTENT_ALLOWLIST_BY_ROLE = {
     'price_watch', 'price_anomaly', 'supplier_intel', 'procurement_health',
     'spend_forecast', 'category_intel', 'insights_feed', 'clarify',
     'procurement_plan', 'budget_optimize', 'simulate_supplier_switch',
-    'categorize_expenses',
+    'categorize_expenses', 'create_rfq', 'compare_quotes',
+    'rfq_invite_suppliers', 'rfq_negotiate', 'rfq_recommend_quote', 'rfq_status',
   ],
   viewer: [
     'search_products', 'find_cheapest', 'compare_suppliers',
