@@ -25,6 +25,13 @@ import { procurementPlanHandler } from './procurementPlan';
 import { budgetOptimizeHandler } from './budgetOptimize';
 import { simulateSupplierSwitchHandler } from './simulateSupplierSwitch';
 import { categorizeExpensesHandler } from './categorizeExpenses';
+import { createRfqHandler, compareQuotesHandler } from './rfq';
+import {
+  rfq_invite_suppliersHandler,
+  rfq_negotiateHandler,
+  rfq_recommend_quoteHandler,
+  rfq_statusHandler,
+} from './rfqSuggest';
 
 export interface IntentContext {
   env: Env;
@@ -68,4 +75,10 @@ export const HANDLERS: Record<ClassifyResult['intent'], Handler> = {
   budget_optimize: budgetOptimizeHandler,
   simulate_supplier_switch: simulateSupplierSwitchHandler,
   categorize_expenses: categorizeExpensesHandler,
+  create_rfq: createRfqHandler,
+  compare_quotes: compareQuotesHandler,
+  rfq_invite_suppliers: rfq_invite_suppliersHandler,
+  rfq_negotiate: rfq_negotiateHandler,
+  rfq_recommend_quote: rfq_recommend_quoteHandler,
+  rfq_status: rfq_statusHandler,
 };
