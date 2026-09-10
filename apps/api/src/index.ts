@@ -70,6 +70,7 @@ import homeRouter from './modules/home/routes';
 import cspReportRouter from './modules/cspReport/routes';
 import documentsRouter from './modules/documents/routes';
 import rfqRouter from './modules/rfqs/routes';
+import kycSellerRouter from './modules/kyc/routes';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -174,5 +175,6 @@ app.route('/api/home', homeRouter);
 app.route('/api/csp-report', cspReportRouter);
 app.route('/api/documents', documentsRouter);
 app.route('/api/rfqs', rfqRouter);
+app.route('/api/kyc', kycSellerRouter);
 
 export default app;
