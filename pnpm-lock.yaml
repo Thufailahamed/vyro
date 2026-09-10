@@ -81,6 +81,9 @@ importers:
       '@vyro/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@vyro/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@vyro/ui':
         specifier: workspace:*
         version: link:../../packages/ui

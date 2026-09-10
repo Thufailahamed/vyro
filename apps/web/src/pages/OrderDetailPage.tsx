@@ -5,6 +5,7 @@ import { usePageTitle } from '@/lib/usePageTitle';
 import { api, ApiError } from '@/lib/api';
 import { Button, ErrorBanner, Select, Input, StatusDots } from '@/components/ui';
 import type { OrderStatus } from '@/components/ui';
+import { ORDER_TRANSITIONS, canTransition, type OrderStatus as SharedOrderStatus } from '@vyro/shared';
 import { formatLKR } from '@/lib/format';
 import { ArrowLeftIcon, RefreshCwIcon } from '@/components/icons';
 import { FlowLine } from '@/components/brand/FlowLine';
@@ -41,16 +42,37 @@ interface OrderDetail {
   }>;
 }
 
-// Business-side allowed transitions. Mirrors @vyro/shared ORDER_TRANSITIONS.
-const NEXT_OPTIONS_BY_ROLE: Record<string, string[]> = {
-  pending: ['cancelled'],
-  accepted: ['cancelled'],
-  preparing: ['cancelled'],
-  delivered: ['completed', 'disputed'],
-  completed: ['disputed'],
-};
+// Business-side allowed transitions, derived from the API truth
+// (ORDER_TRANSITIONS + TRANSITION_RULES in @vyro/shared). The buyer acts
+// with the 'business' role; other roles have their own surfaces.
+function allowedTransitionsFor(status: string): string[] {
+  const next = ORDER_TRANSITIONS[status as SharedOrderStatus] as readonly string[] | undefined;
+  if (!next) return [];
+  return next.filter((to) =>
+    canTransition(status as SharedOrderStatus, to as SharedOrderStatus, 'business'),
+  );
+}
 
-const JOURNEY = ['pending', 'accepted', 'preparing', 'in_transit', 'delivered', 'completed'] as const;
+const JOURNEY = [
+  'pending',
+  'accepted',
+  'preparing',
+  'ready_for_pickup',
+  'out_for_delivery',
+  'delivered',
+  'completed',
+] as const;
+
+// Five journey labels for seven statuses: pickup/delivery share a label.
+const JOURNEY_LABEL_INDEX: Record<(typeof JOURNEY)[number], number> = {
+  pending: 0,
+  accepted: 1,
+  preparing: 2,
+  ready_for_pickup: 3,
+  out_for_delivery: 3,
+  delivered: 4,
+  completed: 4,
+};
 
 function journeyState(status: string): Array<{ label: string; state: 'done' | 'active' | 'idle' }> {
   const labels = ['Order', 'Supplier', 'Preparation', 'Delivery', 'Business'];
@@ -62,9 +84,7 @@ function journeyState(status: string): Array<{ label: string; state: 'done' | 'a
       state: (i === 0 ? 'active' : 'idle') as 'done' | 'active' | 'idle',
     }));
   }
-  const idx = JOURNEY.indexOf(status as (typeof JOURNEY)[number]);
-  const mapped = status === 'accepted' ? 1 : status === 'preparing' ? 2 : status === 'in_transit' ? 3 : status === 'delivered' || status === 'completed' ? 4 : 0;
-  const active = idx === -1 ? 0 : mapped;
+  const active = JOURNEY_LABEL_INDEX[status as (typeof JOURNEY)[number]] ?? 0;
   return labels.map((label, i) => ({
     label,
     state: i < active ? 'done' : i === active ? 'active' : 'idle',
@@ -75,7 +95,7 @@ export function OrderDetailPage() {
   const { id } = useParams();
   usePageTitle(`Order ${id?.slice(0, 8) ?? ''}`);
   const qc = useQueryClient();
-  const [to, setTo] = useState('completed');
+  const [to, setTo] = useState('');
   const [reason, setReason] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
@@ -195,7 +215,7 @@ export function OrderDetailPage() {
   }
 
   const { order, items, events } = data;
-  const allowed = NEXT_OPTIONS_BY_ROLE[order.status] ?? [];
+  const allowed = allowedTransitionsFor(order.status);
 
   // Default the dropdown to the first valid option for the current status.
   useEffect(() => {

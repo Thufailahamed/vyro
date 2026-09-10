@@ -38,14 +38,20 @@ interface Order {
 
 const STATUS_FILTERS = [
   { id: 'all', label: 'All Orders' },
-  { id: 'in_flight', label: 'In Flight' },
   { id: 'pending', label: 'Pending' },
   { id: 'accepted', label: 'Accepted' },
-  { id: 'in_transit', label: 'In Transit' },
+  { id: 'preparing', label: 'Preparing' },
+  { id: 'ready_for_pickup', label: 'Ready for Pickup' },
+  { id: 'out_for_delivery', label: 'Out for Delivery' },
   { id: 'delivered', label: 'Delivered' },
   { id: 'completed', label: 'Completed' },
+  { id: 'cancelled', label: 'Cancelled' },
+  { id: 'rejected', label: 'Rejected' },
   { id: 'disputed', label: 'Disputed' },
 ];
+
+// Active pipeline statuses (1:1 with ORDER_TRANSITIONS, no synthetic keys).
+const IN_FLIGHT_STATUSES = ['pending', 'accepted', 'preparing', 'ready_for_pickup', 'out_for_delivery'];
 
 const REORDERABLE: ReadonlySet<string> = new Set(['delivered', 'completed']);
 
@@ -102,9 +108,7 @@ export function OrdersPage() {
   // Summary Metrics
   const stats = useMemo(() => {
     const inFlight = allOrders.filter((o) =>
-      ['pending', 'accepted', 'preparing', 'ready_for_pickup', 'in_transit', 'out_for_delivery', 'dispatched'].includes(
-        o.status.toLowerCase(),
-      ),
+      IN_FLIGHT_STATUSES.includes(o.status.toLowerCase()),
     ).length;
     const completed = allOrders.filter((o) =>
       ['completed', 'delivered'].includes(o.status.toLowerCase()),
@@ -121,13 +125,7 @@ export function OrdersPage() {
   const filteredOrders = useMemo(() => {
     let list = allOrders;
 
-    if (filter === 'in_flight') {
-      list = list.filter((o) =>
-        ['pending', 'accepted', 'preparing', 'in_transit', 'out_for_delivery', 'dispatched'].includes(
-          o.status.toLowerCase(),
-        ),
-      );
-    } else if (filter !== 'all') {
+    if (filter !== 'all') {
       list = list.filter((o) => o.status.toLowerCase() === filter);
     }
 
@@ -309,7 +307,6 @@ export function OrdersPage() {
           {STATUS_FILTERS.map((tab) => {
             let count = 0;
             if (tab.id === 'all') count = allOrders.length;
-            else if (tab.id === 'in_flight') count = stats.inFlight;
             else count = allOrders.filter((o) => o.status.toLowerCase() === tab.id).length;
 
             const active = filter === tab.id;
