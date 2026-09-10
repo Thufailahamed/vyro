@@ -9,6 +9,7 @@ import { Surface } from '@/components/brand/Surface';
 import { StatusPill } from './RfqsPage';
 import { useToast } from '@vyro/ui';
 import { RfqDocsUpload } from '@/components/RfqDocsUpload';
+import { RfqSupplierDiscovery } from '@/components/RfqSupplierDiscovery';
 
 export function RfqDetailPage() {
   const { id } = useParams();
@@ -57,6 +58,8 @@ export function RfqDetailPage() {
       </div>
       {error && <div className="mt-4"><ErrorBanner message={error} /></div>}
       {rfq.description && <Surface className="mt-4 p-5"><p className="text-ink-2">{rfq.description}</p></Surface>}
+
+      <RfqSupplierDiscovery rfqId={id!} rfqStatus={rfq.status} />
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <Surface className="p-5">
