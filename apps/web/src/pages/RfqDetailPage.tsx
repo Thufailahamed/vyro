@@ -61,7 +61,7 @@ export function RfqDetailPage() {
 
       <RfqSupplierDiscovery rfqId={id!} rfqStatus={rfq.status} />
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+      <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-3">
         <Surface className="p-5">
           <h2 className="font-semibold">Requested items</h2>
           <ul className="mt-2 space-y-2 text-sm">
@@ -91,7 +91,7 @@ export function RfqDetailPage() {
           {compare.data.splitOptimization.supplierCount > 1 && <span className="rounded-full bg-amber/10 border border-amber/40 px-3 py-1">SPLIT: {compare.data.splitOptimization.supplierCount} suppliers from Rs. {(compare.data.splitOptimization.splitItemsTotalCents / 100).toLocaleString()}</span>}
         </div>
       )}
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <div className="mt-4 grid gap-4 sm:grid-cols-1 md:grid-cols-2">
         {(quotes.data?.quotes ?? []).map(({ quote, items }) => {
           const q = quote as unknown as { id: string; quoteNumber: string; status: string; totalCents: number; currency: string; deliveryFeeCents: number; paymentTerms?: string; validUntil?: number; estimatedDeliveryDate?: number; notes?: string; isPartial: number | boolean; supplierId: string };
           const expired = q.validUntil != null && q.validUntil < Date.now();
@@ -122,7 +122,7 @@ export function RfqDetailPage() {
                 )}
                 <button onClick={() => void act(() => api.post(`/rfqs/quotes/${q.id}/request-revision`, { message: 'Please revise your best price.' }), 'Revision requested')} className="text-sm underline">Request revision</button>
               </div>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <input value={counter[q.id] ?? ''} onChange={(e) => setCounter({ ...counter, [q.id]: e.target.value })} placeholder="Counter total Rs." inputMode="decimal" className="w-36 rounded-lg border border-line px-2 py-1 text-sm" />
                 <input value={counterMsg[q.id] ?? ''} onChange={(e) => setCounterMsg({ ...counterMsg, [q.id]: e.target.value })} placeholder="Message (required)" className="flex-1 rounded-lg border border-line px-2 py-1 text-sm" />
                 <button

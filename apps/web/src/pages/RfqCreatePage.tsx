@@ -101,8 +101,8 @@ export function RfqCreatePage() {
         <Surface className="mt-4 p-6">
           <div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-semibold">Products</h2><button type="button" onClick={() => setItems([...items, { description: '', quantity: '100', unit: 'kg', targetPrice: '', specifications: '' }])} className="text-sm underline">+ Add item</button></div>
           {items.map((it, i) => (
-            <div key={i} className="mb-3 grid gap-2 rounded-xl border border-line p-3 md:grid-cols-6">
-              <input value={it.description} onChange={(e) => setItems(items.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Product" className="rounded-lg border border-line px-2 py-1.5 md:col-span-2" />
+            <div key={i} className="mb-3 grid grid-cols-2 gap-2 rounded-xl border border-line p-3 sm:grid-cols-3 md:grid-cols-6">
+              <input value={it.description} onChange={(e) => setItems(items.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Product" className="col-span-2 rounded-lg border border-line px-2 py-1.5 md:col-span-2" />
               <input value={it.quantity} onChange={(e) => setItems(items.map((x, j) => j === i ? { ...x, quantity: e.target.value } : x))} placeholder="Qty" inputMode="numeric" className="rounded-lg border border-line px-2 py-1.5" />
               <input value={it.unit} onChange={(e) => setItems(items.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} placeholder="Unit" className="rounded-lg border border-line px-2 py-1.5" />
               <input value={it.targetPrice} onChange={(e) => setItems(items.map((x, j) => j === i ? { ...x, targetPrice: e.target.value } : x))} placeholder="Target Rs (opt)" inputMode="decimal" className="rounded-lg border border-line px-2 py-1.5" />
