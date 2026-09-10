@@ -7,6 +7,7 @@ import { BrandMark } from '@/components/brand/BrandMark';
 import { cn } from '@vyro/ui';
 import { NoSupplierMembership } from './NoSupplierMembership';
 import { SupplierIdProvider } from './useSupplierId';
+import { useSellerKyc } from './useSellerKyc';
 import {
   LayoutGridIcon,
   PackageIcon,
@@ -88,6 +89,8 @@ export function SupplierShell() {
   });
   const unread = notif?.unreadCount ?? 0;
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { data: kycData } = useSellerKyc();
+  const kycStatus = kycData?.kyc?.status ?? 'pending';
 
   if (loading) {
     return (
@@ -307,6 +310,24 @@ export function SupplierShell() {
             id="main-content"
             className="flex-1 max-w-stage w-full mx-auto px-4 sm:px-8 py-8 animate-fade-in"
           >
+            {kycStatus !== 'approved' && (
+              <div
+                className={
+                  kycStatus === 'rejected'
+                    ? 'mb-6 p-3 bg-rose/10 border border-rose/30 text-sm text-rose'
+                    : 'mb-6 p-3 bg-amber-50 border border-amber-200 text-sm text-amber-800'
+                }
+              >
+                {kycStatus === 'rejected'
+                  ? 'Verification rejected — '
+                  : kycStatus === 'needs_more_info'
+                    ? 'More information needed — '
+                    : 'Verification pending — '}
+                <Link to="/supplier/verification" className="underline font-semibold">
+                  complete verification
+                </Link>
+              </div>
+            )}
             <Outlet />
           </main>
         </div>
