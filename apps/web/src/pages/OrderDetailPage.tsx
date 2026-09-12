@@ -45,6 +45,7 @@ import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, Surface } from '@/components/brand/Surface';
 import { MessageThread } from '@/components/MessageThread';
 import { PaymentPanel } from '@/components/payments/PaymentPanel';
+import { ThreeWayReconciliationCard } from '@/components/reconciliation/ThreeWayReconciliationCard';
 import { cn } from '@vyro/ui';
 import { useToast } from '@vyro/ui';
 
@@ -546,6 +547,19 @@ export function OrderDetailPage() {
               </div>
             )}
           </SectionCard>
+
+          {/* 3-Way PO & Invoice Reconciliation */}
+          {order && (
+            <ThreeWayReconciliationCard
+              orderId={order.id}
+              poNumber={order.poNumber}
+              poTotalCents={order.totalCents}
+              orderStatus={order.status}
+              onReleasePayment={() => {
+                void confirmReceipt();
+              }}
+            />
+          )}
 
           {/* Delivery Details */}
           <SectionCard
