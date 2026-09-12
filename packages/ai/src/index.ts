@@ -6,3 +6,4 @@ export * from './analytics/index';
 export * from './refinement/index';
 export * from './supplier/index';
 export * from './reconciliation/index';
+export * from './conversational/index';
