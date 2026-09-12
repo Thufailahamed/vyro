@@ -9,8 +9,22 @@ import { Surface } from '@/components/brand/Surface';
 import { StatusPill } from '@/pages/RfqsPage';
 import { useToast } from '@vyro/ui';
 import { RfqDocsUpload } from '@/components/RfqDocsUpload';
+import { AiQuoteCopilotCard } from './components/AiQuoteCopilotCard';
+import type { AiQuoteDraft } from '@vyro/ai';
 
-interface QuoteLine { rfqItemId?: string; productId?: string; description: string; quantity: string; unitPrice: string; discount: string; isAlternative?: boolean; alternativeFor?: string; notes?: string; tierQty?: string; tierPrice?: string }
+interface QuoteLine {
+  rfqItemId?: string | undefined;
+  productId?: string | undefined;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  discount: string;
+  isAlternative?: boolean | undefined;
+  alternativeFor?: string | undefined;
+  notes?: string | undefined;
+  tierQty?: string | undefined;
+  tierPrice?: string | undefined;
+}
 interface CounterRow { id: string; offeredByType: string; proposedTotalCents: number; message?: string | null; status: string; createdAt: number }
 
 function SupplierCounters({ quoteId, onChanged }: { quoteId: string; onChanged: () => void }) {
@@ -39,7 +53,7 @@ function SupplierCounters({ quoteId, onChanged }: { quoteId: string; onChanged: 
 export function SupplierQuoteDetailPage() {
   const { rfqId } = useParams();
   usePageTitle('Quote detail');
-  const supplierId = useSupplierId();
+  const { supplierId } = useSupplierId();
   const qc = useQueryClient();
   const toast = useToast();
   const [lines, setLines] = useState<QuoteLine[]>([]);
@@ -83,6 +97,48 @@ export function SupplierQuoteDetailPage() {
       toast.show(toast.success('Quote submitted'));
       void qc.invalidateQueries({ queryKey: ['sup-quotes', rfqId] });
     } catch (e) { setError(e instanceof Error ? e.message : 'Submit failed'); }
+  }
+
+  function applyAiDraft(draft: AiQuoteDraft) {
+    setDeliveryFee(String(draft.deliveryFeeCents / 100));
+    setValidDays(String(draft.validDays));
+    setPaymentTerms(draft.paymentTerms);
+    setNotes(draft.notes);
+
+    setLines((prev) => {
+      if (prev.length === 0) {
+        return draft.items.map((it) => ({
+          rfqItemId: it.rfqItemId,
+          productId: it.productId,
+          description: it.description,
+          quantity: String(it.quantity),
+          unitPrice: it.unitPriceCents > 0 ? String(it.unitPriceCents / 100) : '',
+          discount: it.discountCents > 0 ? String(it.discountCents / 100) : '0',
+          isAlternative: it.isAlternative,
+          alternativeFor: it.alternativeForRfqItemId,
+          notes: it.notes,
+          tierQty: it.tier ? String(it.tier.minQty) : undefined,
+          tierPrice: it.tier ? String(it.tier.unitPriceCents / 100) : undefined,
+        }));
+      }
+      return prev.map((l) => {
+        const draftItem = draft.items.find((it) => it.rfqItemId === l.rfqItemId);
+        if (!draftItem || draftItem.unitPriceCents === 0) return l;
+
+        return {
+          ...l,
+          productId: draftItem.productId ?? l.productId,
+          description: draftItem.description,
+          unitPrice: String(draftItem.unitPriceCents / 100),
+          discount: String(draftItem.discountCents / 100),
+          isAlternative: draftItem.isAlternative,
+          alternativeFor: draftItem.alternativeForRfqItemId,
+          notes: draftItem.notes ?? l.notes,
+          tierQty: draftItem.tier ? String(draftItem.tier.minQty) : l.tierQty,
+          tierPrice: draftItem.tier ? String(draftItem.tier.unitPriceCents / 100) : l.tierPrice,
+        };
+      });
+    });
   }
 
   const rfq = detail.data?.rfq as unknown as { title: string; rfqNumber: string; status: string; deliveryLocation?: string; deliveryCity?: string; deliveryDistrict?: string; requiredDeliveryDate?: number; deadline?: number; paymentTerms?: string; paymentMethod?: string; specifications?: string; packagingRequirements?: string; qualityRequirements?: string } | undefined;
@@ -138,6 +194,16 @@ export function SupplierQuoteDetailPage() {
             ))}
           </ul>
         </Surface>
+      )}
+
+      {rfqId && supplierId && (
+        <div className="mt-6">
+          <AiQuoteCopilotCard
+            rfqId={rfqId}
+            supplierId={supplierId}
+            onApplyDraft={applyAiDraft}
+          />
+        </div>
       )}
 
       <Surface className="mt-4 p-5">
