@@ -54,13 +54,13 @@ export async function generateAiQuoteDraft(
   const rfq = await db.select().from(rfqs).where(eq(rfqs.id, rfqId)).get();
   if (!rfq) throw httpError(404, 'NOT_FOUND', 'RFQ not found');
   if (rfq.status !== 'open' && rfq.status !== 'quoting' && rfq.status !== 'published') {
-    throw httpError(400, 'INVALID_STATE', `Cannot draft quote for RFQ in status '${rfq.status}'`);
+    throw httpError(400, 'VALIDATION_ERROR', `Cannot draft quote for RFQ in status '${rfq.status}'`);
   }
 
   // 2. Fetch RFQ items
   const items = await db.select().from(rfqItems).where(eq(rfqItems.rfqId, rfqId)).all();
   if (items.length === 0) {
-    throw httpError(400, 'BAD_REQUEST', 'RFQ contains no line items');
+    throw httpError(400, 'VALIDATION_ERROR', 'RFQ contains no line items');
   }
 
   // 3. Fetch Supplier active catalog
@@ -174,10 +174,10 @@ export async function generateAiQuoteDraft(
   // 6. Audit log
   try {
     await db.insert(auditLogs).values({
-      id: newId('audit'),
+      id: newId(),
       action: 'ai.supplier.quote_draft',
-      actorType: 'supplier',
-      actorId: supplierId,
+      resourceType: 'supplier',
+      resourceId: supplierId,
       metadata: JSON.stringify({
         rfqId,
         supplierId,

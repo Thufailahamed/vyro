@@ -4,6 +4,8 @@ import {
   createRfqSchema, updateRfqSchema, submitQuoteSchema, counterOfferSchema,
   rfqMessageSchema, awardQuoteSchema, rfqThresholdsSchema, createTemplateSchema,
 } from '@vyro/validation';
+import { AiQuoteDraftRequestSchema } from '@vyro/ai';
+import { generateAiQuoteDraft } from './aiQuotingService';
 import { session } from '../../middleware/session';
 import type { Ctx } from '../../middleware/session';
 import { httpError } from '../../lib/errors';
@@ -425,6 +427,24 @@ router.post('/:id/messages', session(), async (c) => {
 });
 
 // ---------- Supplier quote endpoints ----------
+router.post('/:id/ai-quote-draft', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const url = new URL(c.req.url);
+  const supplierId = url.searchParams.get('supplierId') ?? ctx.suppliers?.[0]?.supplierId;
+  if (!supplierId) throw httpError(400, 'VALIDATION_ERROR', 'supplierId required');
+  requireSupplierRole(ctx, supplierId, S_ROLES);
+
+  const rawBody = await c.req.json().catch(() => ({}));
+  const parsed = AiQuoteDraftRequestSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    throw httpError(400, 'VALIDATION_ERROR', 'Invalid request body', parsed.error.flatten());
+  }
+
+  const draft = await generateAiQuoteDraft(c.env, c.req.param('id'), supplierId, parsed.data);
+  return c.json({ draft });
+});
+
 router.post('/:id/quote', session(), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
