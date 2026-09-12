@@ -211,6 +211,11 @@ export function OrdersPage() {
                 </Button>
               </Link>
             )}
+            <Link to="/orders/conversational">
+              <Button variant="secondary" size="sm" className="text-xs uppercase tracking-wider font-semibold bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100">
+                <span>💬 WhatsApp Bot</span>
+              </Button>
+            </Link>
             <Link to="/ask">
               <Button variant="secondary" size="sm" className="text-xs uppercase tracking-wider font-semibold bg-paper">
                 <SparklesIcon size={14} className="text-copper" />
