@@ -72,7 +72,7 @@ export interface ParsedItem {
 export interface ParsedOrderResult {
   intent: ConversationalIntent;
   items: ParsedItem[];
-  locationCue?: string;
-  timeCue?: string;
-  poNumberQuery?: string;
+  locationCue?: string | undefined;
+  timeCue?: string | undefined;
+  poNumberQuery?: string | undefined;
 }

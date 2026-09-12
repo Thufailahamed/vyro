@@ -75,6 +75,7 @@ import documentsRouter from './modules/documents/routes';
 import rfqRouter from './modules/rfqs/routes';
 import kycSellerRouter from './modules/kyc/routes';
 import reconciliationRouter from './modules/reconciliation/routes';
+import whatsappRouter from './modules/whatsapp/routes';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -185,5 +186,6 @@ app.route('/api/csp-report', cspReportRouter);
 app.route('/api/documents', documentsRouter);
 app.route('/api/rfqs', rfqRouter);
 app.route('/api/kyc', kycSellerRouter);
+app.route('/api', whatsappRouter);
 
 export default app;
