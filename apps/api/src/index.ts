@@ -75,6 +75,7 @@ import cspReportRouter from './modules/cspReport/routes';
 import documentsRouter from './modules/documents/routes';
 import rfqRouter from './modules/rfqs/routes';
 import creditRouter, { creditAdminRouter } from './modules/credit/routes';
+import reviewsRouter from './modules/reviews/routes';
 import kycSellerRouter from './modules/kyc/routes';
 import reconciliationRouter from './modules/reconciliation/routes';
 import whatsappRouter from './modules/whatsapp/routes';
@@ -194,6 +195,7 @@ app.route('/api/documents', documentsRouter);
 app.route('/api/rfqs', rfqRouter);
 app.route('/api/credit', creditRouter);
 app.route('/api/admin/credit', creditAdminRouter);
+app.route('/api', reviewsRouter);
 app.route('/api/kyc', kycSellerRouter);
 app.route('/api', whatsappRouter);
 

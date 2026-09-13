@@ -389,11 +389,34 @@ export const checkoutService = {
         );
       } else if (input.to === 'delivered') {
         await inventoryService.commitForOrder(d1, queue, po.id, input.actor.userId);
+        // Recompute supplier review aggregate — covers the post-delivery
+        // window when buyers are now eligible to submit. No-op if no
+        // reviews exist yet (cheap SQL aggregate).
+        try {
+          const { recomputeAggregate } = await import('../reviews/service');
+          await recomputeAggregate(d1, po.supplierId);
+        } catch (err) {
+          console.error('[po.transition] reviews aggregate recompute failed', err);
+        }
       }
     } catch (err) {
       // Never block a legal status move on inventory bookkeeping.
       // eslint-disable-next-line no-console
       console.error('[po.transition] stock sync failed', { poId: po.id, to: input.to, err });
+    }
+
+    // Reviews: hide published reviews when dispute opens; restore when leaving
+    // `disputed`. Idempotent — safe to fire on every transition.
+    try {
+      const reviewsHooks = await import('../reviews/hooks');
+      if (input.to === 'disputed') {
+        await reviewsHooks.onOrderDisputeOpened(d1, po.id);
+      } else if (po.status === 'disputed') {
+        await reviewsHooks.onOrderDisputeResolved(d1, po.id);
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[po.transition] reviews hook failed', { poId: po.id, to: input.to, err });
     }
 
     // Notify the other side (and co-workers) about the new state.
