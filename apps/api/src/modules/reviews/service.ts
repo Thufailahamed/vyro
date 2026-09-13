@@ -109,7 +109,7 @@ export async function flagReview(
   d1: D1Database,
   supplierId: string,
   reviewId: string,
-  input: { reason: FlagReason; note?: string },
+  input: { reason: FlagReason; note?: string | undefined },
   session: SupplierSession,
 ) {
   if (session.supplierId !== supplierId) throw new ReviewError('not_supplier_owner');
@@ -131,7 +131,7 @@ export async function flagReview(
 export async function resolveFlag(
   d1: D1Database,
   flagId: string,
-  input: { decision: 'keep' | 'remove'; note?: string },
+  input: { decision: 'keep' | 'remove'; note?: string | undefined },
   session: AdminSession,
 ) {
   if (session.role !== 'admin') throw new ReviewError('not_admin');

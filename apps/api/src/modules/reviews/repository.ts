@@ -285,3 +285,20 @@ export async function updateFlag(
     .returning()
     .get()) as any;
 }
+
+export async function adminDeleteReview(
+  d1: D1Database,
+  reviewId: string,
+  adminUserId: string,
+  now: number,
+) {
+  const db = getDb(d1);
+  await db
+    .update(supplierReviews)
+    .set({ status: 'removed_by_admin', updatedAt: now })
+    .where(eq(supplierReviews.id, reviewId))
+    .run();
+  // Note: supplierId for aggregate recompute is the caller's responsibility
+  // (route layer reads review first then recomputes). Kept minimal here.
+  void adminUserId; // reserved for future audit hook
+}
