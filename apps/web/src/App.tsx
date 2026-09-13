@@ -43,6 +43,7 @@ const RfqCreatePage = lazy(() => import('./pages/RfqCreatePage').then((m) => ({ 
 const RfqDetailPage = lazy(() => import('./pages/RfqDetailPage').then((m) => ({ default: m.RfqDetailPage })));
 const RfqComparePage = lazy(() => import('./pages/RfqComparePage').then((m) => ({ default: m.RfqComparePage })));
 const BusinessAccountsPage = lazy(() => import('./pages/AccountsPage').then((m) => ({ default: m.AccountsPage })));
+const CreditPage = lazy(() => import('./pages/CreditPage').then((m) => ({ default: m.CreditPage })));
 const TransactionDetailPage = lazy(() => import('./pages/TransactionDetailPage').then((m) => ({ default: m.TransactionDetailPage })));
 const SupplierAccountsPage = lazy(() => import('./supplier/AccountsPage').then((m) => ({ default: m.SupplierAccountsPage })));
 const AdminAccountsPage = lazy(() => import('./admin/AccountsPage').then((m) => ({ default: m.AdminAccountsPage })));
@@ -147,6 +148,7 @@ export default function App() {
         <Route path="/rfqs/:id" element={<RequireBusiness><RfqDetailPage /></RequireBusiness>} />
         <Route path="/rfqs/:id/compare" element={<RequireBusiness><RfqComparePage /></RequireBusiness>} />
         <Route path="/accounts" element={<RequireAuth><BusinessAccountsPage /></RequireAuth>} />
+        <Route path="/credit" element={<RequireBusiness><CreditPage /></RequireBusiness>} />
         <Route path="/accounts/payments/:id" element={<RequireAuth><TransactionDetailPage /></RequireAuth>} />
         <Route path="/legal/terms" element={<LegalPage kind="terms" />} />
         <Route path="/legal/privacy" element={<LegalPage kind="privacy" />} />

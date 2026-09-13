@@ -325,7 +325,7 @@ function MarketingFooter() {
               </Link>
             </li>
             <li>
-              <Link to="/about" className="hover:text-volt">
+              <Link to="/credit" className="hover:text-volt">
                 VYRO Credit
               </Link>
             </li>
