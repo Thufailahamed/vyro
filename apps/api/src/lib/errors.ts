@@ -61,7 +61,12 @@ export type ErrorCode =
   | 'KYC_REQUIRED'
   | 'MISSING_CUSTOMS_DOC'
   | 'WIRE_RECONCILIATION_MISMATCH'
-  | 'HS_CODE_UNKNOWN';
+  | 'HS_CODE_UNKNOWN'
+  | 'credit_not_eligible'
+  | 'credit_overdue_blocked'
+  | 'credit_limit_exceeded'
+  | 'credit_drawdown_exists'
+  | 'credit_limit_below_used';
 
 export class HttpError extends Error {
   constructor(
