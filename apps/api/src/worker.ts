@@ -43,6 +43,7 @@ export default {
         ctx.waitUntil(handleRefundStuckChecker(env));
         ctx.waitUntil(handleQueueDlqScan(env));
         ctx.waitUntil(import('./modules/rfqs/service').then((m) => m.rfqService.expireDue(env.DB, env.NOTIFICATIONS_QUEUE as never)));
+        ctx.waitUntil(import('./cron/creditOverdue').then((m) => m.handleCreditOverdue(env)));
         break;
       case '0 4 * * *':
         ctx.waitUntil(handleAuditExportRunner(env));
