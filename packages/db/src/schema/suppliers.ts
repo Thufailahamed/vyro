@@ -37,6 +37,7 @@ export const suppliers = sqliteTable(
     reviewCount: integer('review_count').notNull().default(0),
     reviewAvg: integer('review_avg_x100').notNull().default(0), // 0..500; divide by 100 for display
     lastReviewAt: integer('last_review_at'),
+    slug: text('slug'),
   },
   (t) => ({
     cityIdx: index('suppliers_city_idx').on(t.city),
