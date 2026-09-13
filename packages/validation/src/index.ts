@@ -20,6 +20,7 @@ export * from './adminTrustSafety';
 export * from './adminPlatformConfig';
 export * from './adminSecurity';
 export * from './adminOps';
+export * from './observability';
 export * from './businessTypes';
 export * from './supplierTypes';
 export * from './rfq';
