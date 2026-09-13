@@ -27,6 +27,11 @@ router.get('/', async (c) => {
     conditions.push(eq(purchaseOrders.status, parsed.data.status));
   }
 
+  const direction = c.req.query('direction');
+  if (direction === 'domestic' || direction === 'export' || direction === 'import') {
+    conditions.push(eq(purchaseOrders.direction, direction));
+  }
+
   if (parsed.data.q && parsed.data.q.trim()) {
     const qPattern = `%${parsed.data.q.trim()}%`;
     conditions.push(
@@ -47,6 +52,17 @@ router.get('/', async (c) => {
       businessId: purchaseOrders.businessId,
       supplierId: purchaseOrders.supplierId,
       status: purchaseOrders.status,
+      direction: purchaseOrders.direction,
+      incoterms: purchaseOrders.incoterms,
+      fxSnapshotId: purchaseOrders.fxSnapshotId,
+      declaredShippingCostCents: purchaseOrders.declaredShippingCostCents,
+      declaredDutyCents: purchaseOrders.declaredDutyCents,
+      commercialInvoiceNo: purchaseOrders.commercialInvoiceNo,
+      customsStatus: purchaseOrders.customsStatus,
+      wireRef: purchaseOrders.wireRef,
+      wireReceivedAmountCents: purchaseOrders.wireReceivedAmountCents,
+      wireReceivedCurrency: purchaseOrders.wireReceivedCurrency,
+      wireReceivedAt: purchaseOrders.wireReceivedAt,
       subtotalCents: purchaseOrders.subtotalCents,
       deliveryFeeCents: purchaseOrders.deliveryFeeCents,
       totalCents: purchaseOrders.totalCents,
@@ -59,8 +75,10 @@ router.get('/', async (c) => {
       updatedAt: purchaseOrders.updatedAt,
       businessName: businesses.name,
       businessCity: businesses.city,
+      businessCountryCode: businesses.countryCode,
       supplierName: suppliers.name,
       supplierCity: suppliers.city,
+      supplierCountryCode: suppliers.countryCode,
     })
     .from(purchaseOrders)
     .leftJoin(businesses, eq(purchaseOrders.businessId, businesses.id))

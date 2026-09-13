@@ -71,8 +71,10 @@ export async function insertOrderEvent(
   });
 }
 
-export async function listPosForBusiness(d1: D1Database, businessId: string) {
+export async function listPosForBusiness(d1: D1Database, businessId: string, opts?: { direction?: 'domestic' | 'export' | 'import' }) {
   const db = getDb(d1);
+  const conds = [eq(purchaseOrders.businessId, businessId)];
+  if (opts?.direction) conds.push(eq(purchaseOrders.direction, opts.direction));
   return db
     .select({
       id: purchaseOrders.id,
@@ -80,6 +82,17 @@ export async function listPosForBusiness(d1: D1Database, businessId: string) {
       businessId: purchaseOrders.businessId,
       supplierId: purchaseOrders.supplierId,
       status: purchaseOrders.status,
+      direction: purchaseOrders.direction,
+      incoterms: purchaseOrders.incoterms,
+      fxSnapshotId: purchaseOrders.fxSnapshotId,
+      declaredShippingCostCents: purchaseOrders.declaredShippingCostCents,
+      declaredDutyCents: purchaseOrders.declaredDutyCents,
+      commercialInvoiceNo: purchaseOrders.commercialInvoiceNo,
+      customsStatus: purchaseOrders.customsStatus,
+      wireRef: purchaseOrders.wireRef,
+      wireReceivedAmountCents: purchaseOrders.wireReceivedAmountCents,
+      wireReceivedCurrency: purchaseOrders.wireReceivedCurrency,
+      wireReceivedAt: purchaseOrders.wireReceivedAt,
       subtotalCents: purchaseOrders.subtotalCents,
       deliveryFeeCents: purchaseOrders.deliveryFeeCents,
       totalCents: purchaseOrders.totalCents,
@@ -105,14 +118,44 @@ export async function listPosForBusiness(d1: D1Database, businessId: string) {
     })
     .from(purchaseOrders)
     .leftJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
-    .where(eq(purchaseOrders.businessId, businessId))
+    .where(and(...conds))
     .orderBy(desc(purchaseOrders.createdAt))
     .all();
 }
 
-export async function listPosForSupplier(d1: D1Database, supplierId: string) {
+export async function listPosForSupplier(d1: D1Database, supplierId: string, opts?: { direction?: 'domestic' | 'export' | 'import' }) {
   const db = getDb(d1);
-  return db.select().from(purchaseOrders).where(eq(purchaseOrders.supplierId, supplierId)).all();
+  const conds = [eq(purchaseOrders.supplierId, supplierId)];
+  if (opts?.direction) conds.push(eq(purchaseOrders.direction, opts.direction));
+  return db
+    .select({
+      id: purchaseOrders.id,
+      poNumber: purchaseOrders.poNumber,
+      businessId: purchaseOrders.businessId,
+      supplierId: purchaseOrders.supplierId,
+      status: purchaseOrders.status,
+      direction: purchaseOrders.direction,
+      incoterms: purchaseOrders.incoterms,
+      fxSnapshotId: purchaseOrders.fxSnapshotId,
+      declaredShippingCostCents: purchaseOrders.declaredShippingCostCents,
+      declaredDutyCents: purchaseOrders.declaredDutyCents,
+      commercialInvoiceNo: purchaseOrders.commercialInvoiceNo,
+      customsStatus: purchaseOrders.customsStatus,
+      wireRef: purchaseOrders.wireRef,
+      wireReceivedAmountCents: purchaseOrders.wireReceivedAmountCents,
+      wireReceivedCurrency: purchaseOrders.wireReceivedCurrency,
+      wireReceivedAt: purchaseOrders.wireReceivedAt,
+      subtotalCents: purchaseOrders.subtotalCents,
+      deliveryFeeCents: purchaseOrders.deliveryFeeCents,
+      totalCents: purchaseOrders.totalCents,
+      currency: purchaseOrders.currency,
+      createdAt: purchaseOrders.createdAt,
+      updatedAt: purchaseOrders.updatedAt,
+    })
+    .from(purchaseOrders)
+    .where(and(...conds))
+    .orderBy(desc(purchaseOrders.createdAt))
+    .all();
 }
 
 export async function findPo(d1: D1Database, id: string) {

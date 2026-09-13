@@ -56,16 +56,21 @@ router.get('/', session(), async (c) => {
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const businessId = c.req.query('businessId');
   const supplierId = c.req.query('supplierId');
+  const directionRaw = c.req.query('direction');
+  const direction =
+    directionRaw === 'domestic' || directionRaw === 'export' || directionRaw === 'import'
+      ? directionRaw
+      : undefined;
   if (!businessId && !supplierId)
     throw httpError(400, 'VALIDATION_ERROR', 'businessId or supplierId required');
   if (businessId) {
     requireBusinessRole(ctx, businessId, PO_BUSINESS_ROLES);
-    const pos = await listPosForBusiness(c.env.DB, businessId);
+    const pos = await listPosForBusiness(c.env.DB, businessId, { direction });
     return c.json({ orders: pos });
   }
   if (supplierId) {
     requireSupplierRole(ctx, supplierId, PO_SUPPLIER_ROLES);
-    const pos = await listPosForSupplier(c.env.DB, supplierId);
+    const pos = await listPosForSupplier(c.env.DB, supplierId, { direction });
     return c.json({ orders: pos });
   }
   return c.json({ orders: [] });
