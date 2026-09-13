@@ -81,7 +81,7 @@ describe('buyer KYC', () => {
       documentUrls: ['https://docs.example/a.pdf'],
       submittedBy: 'u1',
     });
-    expect(fakeUpdates[0].values).toMatchObject({ kycLevel: 'none', kycVerifiedAt: null, kycVerifiedBy: null });
+    expect(fakeUpdates[0]!.values).toMatchObject({ kycLevel: 'none', kycVerifiedAt: null, kycVerifiedBy: null });
     const audit = fakeAudits.find((a) => a.action === 'cross_border.buyer_kyc_submitted');
     expect(audit).toBeTruthy();
     expect(audit.metadata).toMatchObject({ level: 'enhanced', documentCount: 1 });
@@ -113,8 +113,8 @@ describe('buyer KYC', () => {
       level: 'enhanced',
       adminUserId: 'admin1',
     });
-    expect(fakeUpdates[0].values).toMatchObject({ kycLevel: 'enhanced', kycVerifiedBy: 'admin1' });
-    expect(typeof fakeUpdates[0].values.kycVerifiedAt).toBe('number');
+    expect(fakeUpdates[0]!.values).toMatchObject({ kycLevel: 'enhanced', kycVerifiedBy: 'admin1' });
+    expect(typeof fakeUpdates[0]!.values.kycVerifiedAt).toBe('number');
     const audit = fakeAudits.find((a) => a.action === 'cross_border.buyer_kyc_reviewed');
     expect(audit.metadata).toMatchObject({ decision: 'approve', level: 'enhanced' });
   });
@@ -127,7 +127,7 @@ describe('buyer KYC', () => {
       decision: 'reject',
       adminUserId: 'admin1',
     });
-    expect(fakeUpdates[0].values).toMatchObject({ kycLevel: 'none' });
+    expect(fakeUpdates[0]!.values).toMatchObject({ kycLevel: 'none' });
   });
 
   it('listPendingKycBusinesses filters to foreign only', async () => {

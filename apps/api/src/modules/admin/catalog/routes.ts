@@ -43,6 +43,8 @@ router.patch('/:id', requirePermission('product:moderate'), async (c) => {
   if (body.data.featured !== undefined) patch.featured = body.data.featured;
   if (body.data.moderationNotes !== undefined) patch.moderationNotes = body.data.moderationNotes;
   if (body.data.expectedUpdatedAt !== undefined) patch.expectedUpdatedAt = body.data.expectedUpdatedAt;
+  if (body.data.hsCode !== undefined) patch.hsCode = body.data.hsCode;
+  if (body.data.countryOfOrigin !== undefined) patch.countryOfOrigin = body.data.countryOfOrigin;
   const updated = await svc.updateProduct(c, param.data.id, patch);
   return c.json(updated);
 });

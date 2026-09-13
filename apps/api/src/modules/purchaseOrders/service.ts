@@ -123,20 +123,20 @@ export const checkoutService = {
       groups.set(o.sp.supplierId, list);
     }
 
-    const created: string[] = [];
+    const created: Array<{ poId: string; direction: 'domestic' | 'export' | 'import'; paymentMethod: 'payhere' | 'wire' }> = [];
     const now = Date.now();
     /** Undo POs already written when a later supplier's stock reservation fails. */
     const rollbackCreated = async () => {
-      for (const poId of created) {
+      for (const c of created) {
         try {
-          await inventoryService.releaseForOrder(d1, queue, poId, userId, 'checkout rollback');
+          await inventoryService.releaseForOrder(d1, queue, c.poId, userId, 'checkout rollback');
         } catch {
           /* ignore */
         }
         try {
-          await db.delete(purchaseOrderItems).where(eq(purchaseOrderItems.purchaseOrderId, poId));
-          await db.delete(orderEvents).where(eq(orderEvents.purchaseOrderId, poId));
-          await db.delete(purchaseOrders).where(eq(purchaseOrders.id, poId));
+          await db.delete(purchaseOrderItems).where(eq(purchaseOrderItems.purchaseOrderId, c.poId));
+          await db.delete(orderEvents).where(eq(orderEvents.purchaseOrderId, c.poId));
+          await db.delete(purchaseOrders).where(eq(purchaseOrders.id, c.poId));
         } catch {
           /* ignore */
         }
@@ -225,7 +225,11 @@ export const checkoutService = {
         reason: 'checkout',
         metadata: { poNumber },
       });
-      created.push(poId);
+      created.push({
+        poId,
+        direction: crossBorder?.direction ?? 'domestic',
+        paymentMethod: (crossBorder?.direction && crossBorder.direction !== 'domestic') ? 'wire' : 'payhere',
+      });
 
       // Reserve stock atomically; oversell is impossible because the UPDATE is
       // conditional on availability still holding.
@@ -265,10 +269,14 @@ export const checkoutService = {
       action: 'cart.checkout',
       resourceType: 'business',
       resourceId: business.id,
-      metadata: { poIds: created },
+      metadata: { poIds: created.map((c) => c.poId) },
     });
 
-    return { poIds: created, count: created.length };
+    return {
+      poIds: created.map((c) => c.poId),
+      count: created.length,
+      crossBorder: created.map((c) => ({ poId: c.poId, direction: c.direction, paymentMethod: c.paymentMethod })),
+    };
   },
 
   async transition(d1: D1Database, input: TransitionInput, queue?: QueueLike) {

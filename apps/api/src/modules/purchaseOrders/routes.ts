@@ -65,12 +65,12 @@ router.get('/', session(), async (c) => {
     throw httpError(400, 'VALIDATION_ERROR', 'businessId or supplierId required');
   if (businessId) {
     requireBusinessRole(ctx, businessId, PO_BUSINESS_ROLES);
-    const pos = await listPosForBusiness(c.env.DB, businessId, { direction });
+    const pos = await listPosForBusiness(c.env.DB, businessId, direction ? { direction } : undefined);
     return c.json({ orders: pos });
   }
   if (supplierId) {
     requireSupplierRole(ctx, supplierId, PO_SUPPLIER_ROLES);
-    const pos = await listPosForSupplier(c.env.DB, supplierId, { direction });
+    const pos = await listPosForSupplier(c.env.DB, supplierId, direction ? { direction } : undefined);
     return c.json({ orders: pos });
   }
   return c.json({ orders: [] });
@@ -87,6 +87,27 @@ router.get('/:id', session(), async (c) => {
   const items = await listPoItems(c.env.DB, po.id);
   const events = await listPoEvents(c.env.DB, po.id);
   return c.json({ order: po, items, events });
+});
+
+router.post('/:id/wire-instructions', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const poId = c.req.param('id');
+  const po = await findPo(c.env.DB, poId);
+  if (!po) throw httpError(404, 'NOT_FOUND', 'PO not found');
+  if (!hasBusinessAccess(ctx, po.businessId)) {
+    throw httpError(403, 'FORBIDDEN', 'No business access');
+  }
+  if (po.direction === 'domestic') {
+    throw httpError(400, 'VALIDATION_ERROR', 'Wire only applies to cross-border orders');
+  }
+  const { buildWireInstructions } = await import('../cross-border/wireInstructions');
+  const out = await buildWireInstructions(c.env, {
+    poId,
+    businessId: po.businessId,
+    userId: ctx.userId,
+  });
+  return c.json(out);
 });
 
 router.post('/:id/transition', session(), async (c) => {

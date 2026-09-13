@@ -6,6 +6,7 @@ import { businesses } from '@vyro/db/schema';
 import { eq } from 'drizzle-orm';
 import { httpError } from '../../lib/errors';
 import { recordAudit } from '../supplierProducts/repository';
+import type { Env } from '../../env';
 
 export async function submitBuyerKyc(args: {
   env: Env;

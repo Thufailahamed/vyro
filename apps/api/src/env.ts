@@ -71,4 +71,17 @@ export interface Env {
   CROSS_BORDER_KV: KVNamespace;
   /** R2 bucket for commercial invoice + COO PDFs. */
   CROSS_BORDER_DOCS: R2Bucket;
+  /** Cross-border wire beneficiary shown to buyers paying by SWIFT. */
+  VYRO_BANK_BENEFICIARY_NAME?: string;
+  VYRO_BANK_BENEFICIARY_ADDRESS?: string;
+  VYRO_BANK_NAME?: string;
+  VYRO_BANK_ADDRESS?: string;
+  VYRO_BANK_ACCOUNT_NUMBER?: string;
+  VYRO_BANK_SWIFT_BIC?: string;
+  VYRO_BANK_IBAN?: string;
+  /** Intermediary (correspondent) bank for USD wires. Optional. */
+  VYRO_BANK_INTERMEDIARY_NAME?: string;
+  VYRO_BANK_INTERMEDIARY_SWIFT?: string;
+  /** Reference prefix prepended to wire references for matching. */
+  VYRO_BANK_REFERENCE_PREFIX?: string;
 }

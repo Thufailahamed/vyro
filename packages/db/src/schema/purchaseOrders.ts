@@ -60,6 +60,12 @@ export const purchaseOrders = sqliteTable(
     wireReceivedCurrency: text('wire_received_currency'),
     wireReceivedAt: integer('wire_received_at'),
     wireReceivedBy: text('wire_received_by'),
+    // Buyer payment choice at checkout. Default payhere preserves existing flow;
+    // service layer forces 'wire' for direction IN ('export','import') because
+    // PayHere only charges LKR locally.
+    paymentMethod: text('payment_method', { enum: ['payhere', 'wire'] }).notNull().default('payhere'),
+    paymentInitiatedAt: integer('payment_initiated_at'),
+    paymentInitiatedByUserId: text('payment_initiated_by_user_id'),
   },
   (t) => ({
     poNumberUniq: uniqueIndex('purchase_orders_po_number_uniq').on(t.poNumber),
@@ -67,6 +73,7 @@ export const purchaseOrders = sqliteTable(
     supplierStatusIdx: index('po_supplier_status_idx').on(t.supplierId, t.status),
     directionIdx: index('purchase_orders_direction_idx').on(t.direction),
     customsStatusIdx: index('purchase_orders_customs_status_idx').on(t.customsStatus),
+    paymentMethodIdx: index('purchase_orders_payment_method_idx').on(t.paymentMethod),
   }),
 );
 

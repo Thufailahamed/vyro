@@ -45,6 +45,7 @@ import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, Surface } from '@/components/brand/Surface';
 import { MessageThread } from '@/components/MessageThread';
 import { PaymentPanel } from '@/components/payments/PaymentPanel';
+import { WireInstructionsPanel } from '@/components/payments/WireInstructionsPanel';
 import { ThreeWayReconciliationCard } from '@/components/reconciliation/ThreeWayReconciliationCard';
 import { cn } from '@vyro/ui';
 import { useToast } from '@vyro/ui';
@@ -54,6 +55,8 @@ interface OrderDetail {
     id: string;
     poNumber: string;
     status: string;
+    direction: 'domestic' | 'export' | 'import';
+    paymentMethod: 'payhere' | 'wire';
     totalCents: number;
     subtotalCents: number;
     deliveryAddress: string;
@@ -715,6 +718,11 @@ export function OrderDetailPage() {
             poStatus={order.status}
             totalCents={order.totalCents}
           />
+
+          {/* Wire Instructions — cross-border orders only */}
+          {order.direction !== 'domestic' && order.paymentMethod === 'wire' && (
+            <WireInstructionsPanel purchaseOrderId={order.id} poStatus={order.status} />
+          )}
 
           {/* Quick info grid */}
           <Surface className="p-4 space-y-3">

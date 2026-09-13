@@ -428,3 +428,143 @@ Use this against staging before changing the metrics web handler.
 
 `scripts/smoke-test.sh` now also asserts `/status.json → 200` and
 `/api/metrics/web → 204`. Run after every deploy.
+
+## Cross-border trade
+
+Cross-border orders add three things to the stack: a `CROSS_BORDER_KV`
+namespace (sanctions list + FX rate cache), an `INVOICES` / `CROSS_BORDER_DOCS`
+R2 bucket for customs documents, and a `CROSS_BORDER_ENABLED` flag.
+
+### Provisioning (first-time setup)
+
+```bash
+./scripts/provision-cross-border.sh
+```
+
+Idempotent. Creates `vyro-cross-border` KV namespace and `vyro-cross-border-docs`
+R2 bucket, patches `wrangler.toml`, and seeds `sanctions:list` with the UN
+consolidated reference countries (RU, IR, KP, SY, CU).
+
+### Enabling / disabling
+
+The feature flag is read at request time:
+
+```toml
+# apps/api/wrangler.toml → [env.production.vars]
+CROSS_BORDER_ENABLED = "true"
+```
+
+Set `"false"` to fall back to the existing domestic-only flow without
+deploying code. The flag is checked by `cross-border/service.ts` →
+`isEnabled()`.
+
+### Sanctions list
+
+Stored in `CROSS_BORDER_KV` under `sanctions:list` as a JSON array of ISO-3166
+alpha-2 codes. Refreshed monthly by the cron handler
+(`src/modules/cross-border/sanctions.ts` → `refreshSanctionsList`).
+
+Manual refresh (emergency, e.g. new sanctions imposed):
+
+```bash
+echo '["RU","IR","KP","SY","CU","AF"]' | \
+  npx wrangler kv key put --binding CROSS_BORDER_KV \
+    --env production --config apps/api/wrangler.toml \
+    --remote "sanctions:list"
+```
+
+A list with > 1000 countries triggers the `cross_border.sanctions.list_anomaly`
+warning; alert is silent because this should never happen — investigate.
+
+### FX rates
+
+`/api/fx/rates?base=XXX&quote=YYY` returns the current cached rate. On miss,
+the worker fetches CBSL first, then exchangerate.host, caches in
+`CROSS_BORDER_KV` for 1 hour. Failures emit the
+`cross_border.fx_unavailable_burst` SLO rule (critical > 3 fails / 5 min).
+
+Seed a manual rate (e.g. provider outage):
+
+```bash
+echo '33000000000000' | npx wrangler kv key put \
+  --binding CROSS_BORDER_KV --env production \
+  --config apps/api/wrangler.toml --remote "fx:LKR:USD:rateScaled"
+```
+
+### KYC review
+
+Foreign buyers (`countryCode != 'LK'`) cannot checkout with `kycLevel = 'none'`.
+They submit documents at `/businesses/:id/kyc`; admin reviews at
+`/admin/cross-border-kyc`.
+
+SLA: manual review within 1 business day. Decisions append to
+`audit_logs` (`action = 'cross_border.kyc_review'`).
+
+### Wire reconciliation
+
+Cross-border orders payable by SWIFT/wire start in `pending` with
+`paymentMethod = 'wire'` (stamped automatically by the checkout service when
+`direction != 'domestic'`).
+
+**Buyer-initiated flow:** the buyer hits `POST /api/purchase-orders/:id/wire-instructions`
+from the buyer order detail page (`/orders/:id`). The route:
+- Verifies the buyer owns the business (`hasBusinessAccess`) and `direction != 'domestic'`.
+- Loads Vyro's bank beneficiary from `VYRO_BANK_*` env vars (see Secrets below).
+- Computes live FX equivalents (USD/EUR/GBP) from the PO's `fxSnapshotId`.
+- Stamps `paymentMethod='wire'`, `paymentInitiatedAt`, `paymentInitiatedByUserId`.
+- Writes `audit_logs.action = 'cross_border.wire_initiated'`.
+- Emits Analytics Engine metric `cross_border.wire_initiated`.
+
+Returns the supplier-facing instruction block (beneficiary, IBAN, SWIFT/BIC,
+intermediary bank, reference = `VYRO-<poNumber>`, memo).
+
+**Supplier/finance confirmation:** admin records the received wire at
+`/admin/orders/:id`. > 1% delta requires an explicit `acknowledgeMismatch`
+checkbox; the system records the ack in
+`audit_logs.action = 'cross_border.wire_received'`. Metric
+`cross_border.wire_mismatch_rate` warns at > 5% acks per hour.
+
+If the wire never arrives within 14 days, finance should mark the order
+`cancelled` with reason `wire_timeout`.
+
+**Secrets (production):** the beneficiary block is sourced from worker secrets
+(via `[env.production.vars]` only as documentation). Required:
+
+```
+VYRO_BANK_BENEFICIARY_NAME
+VYRO_BANK_BENEFICIARY_ADDRESS
+VYRO_BANK_NAME
+VYRO_BANK_ADDRESS
+VYRO_BANK_ACCOUNT_NUMBER
+VYRO_BANK_SWIFT_BIC
+VYRO_BANK_IBAN              (optional)
+VYRO_BANK_INTERMEDIARY_NAME (optional)
+VYRO_BANK_INTERMEDIARY_SWIFT (optional)
+VYRO_BANK_REFERENCE_PREFIX  (defaults to "VYRO")
+```
+
+Without `VYRO_BANK_BENEFICIARY_NAME` / `VYRO_BANK_SWIFT_BIC` /
+`VYRO_BANK_ACCOUNT_NUMBER` set, the wire endpoint returns 503
+`WIRE_INSTRUCTIONS_UNCONFIGURED` — suppliers can still record received wires
+manually.
+
+### Customs documents
+
+`INVOICES` R2 bucket holds commercial invoices + packing lists. The
+`/api/admin/orders/:id/customs-docs` route accepts multipart PDF upload,
+stores under `cross-border/<poId>/<docId>.pdf`, and emits a `cleared`
+`customsStatus` once finance marks it so.
+
+Ship transition is blocked if `direction != 'domestic'` and no commercial
+invoice is on file.
+
+### Metrics to watch
+
+| Metric                                       | When                            |
+|----------------------------------------------|---------------------------------|
+| `cross_border.order_created`                 | Volume gauge                    |
+| `cross_border.sanctions_blocked`             | Spike = blocklist change needed |
+| `cross_border.restricted_blocked`            | Product catalog review          |
+| `cross_border.wire_mismatch_rate` (SLO warn) | > 5% acks / 1h                  |
+| `cross_border.fx_unavailable_burst` (SLO crit)| > 3 fails / 5min               |
+

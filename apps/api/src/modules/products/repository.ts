@@ -22,7 +22,16 @@ export async function findCategoryById(d1: D1Database, id: string) {
 
 export async function createProduct(
   d1: D1Database,
-  input: { name: string; description?: string | undefined; categoryId: string; brand?: string | undefined; unit: string; packSize?: string | undefined },
+  input: {
+    name: string;
+    description?: string | undefined;
+    categoryId: string;
+    brand?: string | undefined;
+    unit: string;
+    packSize?: string | undefined;
+    hsCode?: string | undefined;
+    countryOfOrigin?: string | undefined;
+  },
 ) {
   const db = getDb(d1);
   const id = newId();
@@ -35,6 +44,8 @@ export async function createProduct(
     brand: input.brand ?? null,
     unit: input.unit,
     packSize: input.packSize ?? null,
+    hsCode: input.hsCode ?? null,
+    countryOfOrigin: input.countryOfOrigin ? input.countryOfOrigin.toUpperCase() : null,
     active: true,
     createdAt: now,
     updatedAt: now,
@@ -53,10 +64,16 @@ export async function updateProduct(
     unit?: string | undefined;
     packSize?: string | null | undefined;
     active?: boolean | undefined;
+    hsCode?: string | null | undefined;
+    countryOfOrigin?: string | null | undefined;
   },
 ) {
   const db = getDb(d1);
-  await db.update(products).set({ ...input, updatedAt: Date.now() }).where(eq(products.id, id));
+  const patch: Record<string, unknown> = { ...input, updatedAt: Date.now() };
+  if (typeof input.countryOfOrigin === 'string') {
+    patch.countryOfOrigin = input.countryOfOrigin.toUpperCase();
+  }
+  await db.update(products).set(patch).where(eq(products.id, id));
 }
 
 export async function softDeleteProduct(d1: D1Database, id: string) {

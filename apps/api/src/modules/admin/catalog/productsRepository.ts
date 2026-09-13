@@ -11,6 +11,8 @@ export type ProductRow = {
   brand: string | null;
   unit: string;
   packSize: string | null;
+  hsCode: string | null;
+  countryOfOrigin: string | null;
   active: boolean;
   featured: boolean;
   moderationNotes: string | null;
@@ -56,6 +58,8 @@ export async function listProducts(
       brand: products.brand,
       unit: products.unit,
       packSize: products.packSize,
+      hsCode: products.hsCode,
+      countryOfOrigin: products.countryOfOrigin,
       active: products.active,
       featured: products.featured,
       moderationNotes: products.moderationNotes,
@@ -78,6 +82,8 @@ export async function listProducts(
     brand: r.brand,
     unit: r.unit,
     packSize: r.packSize,
+    hsCode: r.hsCode,
+    countryOfOrigin: r.countryOfOrigin,
     active: r.active,
     featured: r.featured,
     moderationNotes: r.moderationNotes,
@@ -113,6 +119,8 @@ export async function updateProduct(
     brand: string | null;
     unit: string;
     packSize: string | null;
+    hsCode: string | null;
+    countryOfOrigin: string | null;
     active: boolean;
     featured: boolean;
     moderationNotes: string | null;
@@ -131,6 +139,10 @@ export async function updateProduct(
       ...(patch.brand !== undefined ? { brand: patch.brand } : {}),
       ...(patch.unit !== undefined ? { unit: patch.unit } : {}),
       ...(patch.packSize !== undefined ? { packSize: patch.packSize } : {}),
+      ...(patch.hsCode !== undefined ? { hsCode: patch.hsCode } : {}),
+      ...(patch.countryOfOrigin !== undefined
+        ? { countryOfOrigin: patch.countryOfOrigin ? patch.countryOfOrigin.toUpperCase() : null }
+        : {}),
       ...(patch.active !== undefined ? { active: patch.active } : {}),
       ...(patch.featured !== undefined ? { featured: patch.featured } : {}),
       ...(patch.moderationNotes !== undefined ? { moderationNotes: patch.moderationNotes } : {}),
