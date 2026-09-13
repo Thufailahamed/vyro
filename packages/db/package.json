@@ -8,13 +8,16 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
-    "./migrate": "./src/migrate.ts"
+    "./migrate": "./src/migrate.ts",
+    "./data/*.json": "./src/data/*.json",
+    "./data/*": "./src/data/*"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc",
     "migrate": "wrangler d1 migrations apply vyro --local --config ../../apps/api/wrangler.toml",
     "seed": "tsx ../../scripts/seed.ts",
+    "backfill:cross-border": "tsx scripts/backfill-cross-border.ts",
     "studio": "drizzle-kit studio --config ./drizzle.config.ts",
     "lint": "tsc --noEmit",
     "test": "vitest run"

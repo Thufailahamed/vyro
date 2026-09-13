@@ -22,6 +22,7 @@ const CheckoutPage = lazy(() => import('./pages/CheckoutPage').then((m) => ({ de
 const OrdersPage = lazy(() => import('./pages/OrdersPage').then((m) => ({ default: m.OrdersPage })));
 const OrderDetailPage = lazy(() => import('./pages/OrderDetailPage').then((m) => ({ default: m.OrderDetailPage })));
 const ConversationalOrderPage = lazy(() => import('./pages/ConversationalOrderPage').then((m) => ({ default: m.ConversationalOrderPage })));
+const BuyerKycPage = lazy(() => import('./pages/BuyerKycPage').then((m) => ({ default: m.BuyerKycPage })));
 const SupplierOrdersPage = lazy(() => import('./pages/SupplierOrdersPage').then((m) => ({ default: m.SupplierOrdersPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
@@ -119,6 +120,7 @@ export default function App() {
         <Route path="/products/:id" element={<ProductDetailPage />} />
         <Route path="/cart" element={<RequireBusiness><CartPage /></RequireBusiness>} />
         <Route path="/checkout" element={<RequireBusiness><CheckoutPage /></RequireBusiness>} />
+        <Route path="/businesses/:id/kyc" element={<RequireBusiness><BuyerKycPage /></RequireBusiness>} />
         <Route path="/orders" element={<RequireAuth><OrdersPage /></RequireAuth>} />
         <Route path="/orders/conversational" element={<RequireAuth><ConversationalOrderPage /></RequireAuth>} />
         <Route path="/orders/:id" element={<RequireAuth><OrderDetailPage /></RequireAuth>} />

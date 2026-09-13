@@ -25,8 +25,19 @@ export const suppliers = sqliteTable(
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
     deletedAt: integer('deleted_at'),
+    countryCode: text('country_code').notNull().default('LK'),
+    taxId: text('tax_id'),
+    isExportEligible: integer('is_export_eligible', { mode: 'boolean' }).notNull().default(false),
+    defaultIncoterms: text('default_incoterms', {
+      enum: ['EXW', 'FOB', 'CIF', 'DDP', 'DDU'],
+    }),
+    defaultHsCode: text('default_hs_code'),
+    defaultCountryOfOrigin: text('default_country_of_origin'),
   },
-  (t) => ({ cityIdx: index('suppliers_city_idx').on(t.city) }),
+  (t) => ({
+    cityIdx: index('suppliers_city_idx').on(t.city),
+    countryIdx: index('suppliers_country_idx').on(t.countryCode),
+  }),
 );
 
 export type Supplier = typeof suppliers.$inferSelect;

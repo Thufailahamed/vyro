@@ -63,6 +63,22 @@ router.route('/orders', ordersRoutes);
 router.route('/deliveries', deliveriesAdminRoutes);
 router.route('/finance', financeRoutes);
 
+router.post('/orders/:id/wire-received', async (c) => {
+  const ctx = c.get('ctx') as Ctx;
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const { handleWireReceived } = await import('./wireRecon');
+  const result = await handleWireReceived(c.env, {
+    orderId: c.req.param('id'),
+    wireRef: String(body.wireRef ?? ''),
+    receivedAmountCents: Number(body.receivedAmountCents ?? 0),
+    receivedCurrency: String(body.receivedCurrency ?? 'USD'),
+    receivedAt: typeof body.receivedAt === 'number' ? body.receivedAt : undefined,
+    acknowledgeMismatch: Boolean(body.acknowledgeMismatch),
+    adminUserId: ctx.userId,
+  });
+  return c.json(result);
+});
+
 router.get('/suppliers', async (c) => {
   const parsed = listQuery.safeParse(c.req.query());
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());

@@ -78,6 +78,25 @@ export function CheckoutPage() {
     enabled: !!activeBusinessId,
   });
 
+  // Buyer business detail — needed for cross-border KYC gate and direction display.
+  const businessDetail = useQuery({
+    queryKey: ['business-detail', activeBusinessId],
+    queryFn: () =>
+      api.get<{
+        business: {
+          id: string;
+          countryCode?: string | null;
+          kycLevel?: 'none' | 'basic' | 'enhanced' | null;
+        };
+      }>(`/businesses/${activeBusinessId}`),
+    enabled: !!activeBusinessId,
+  });
+
+  const buyerCountry = (businessDetail.data?.business?.countryCode ?? 'LK').toUpperCase();
+  const buyerKycLevel = businessDetail.data?.business?.kycLevel ?? 'none';
+  const buyerIsForeign = buyerCountry !== 'LK';
+  const kycMissing = buyerIsForeign && buyerKycLevel === 'none';
+
   // Group items by supplier for multi-PO preview
   const grouped = useMemo(() => {
     const map = new Map<
@@ -168,6 +187,10 @@ export function CheckoutPage() {
         navigate('/orders');
       }
     } catch (e) {
+      if (e instanceof ApiError && e.code === 'KYC_REQUIRED') {
+        navigate(`/businesses/${activeBusinessId}/kyc`);
+        return;
+      }
       setErr(e instanceof ApiError ? e.message : 'Failed to place purchase orders. Please try again.');
     } finally {
       setLoading(false);
@@ -263,18 +286,44 @@ export function CheckoutPage() {
 
       {err && (
         <div className="p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm flex items-start gap-3">
-          <AlertCircleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="font-semibold">Unable to issue purchase orders</p>
-            <p className="text-xs mt-0.5 text-danger/90">{err}</p>
+          <AlertCircleIcon className="w-5 h-5 mt-0.5 shrink-0" />
+          <div className="flex-1">{err}</div>
+        </div>
+      )}
+
+      {kycMissing && (
+        <div className="p-4 rounded-xl bg-amber/10 border border-amber/30 flex items-start gap-3">
+          <ShieldCheckIcon className="w-5 h-5 mt-0.5 shrink-0 text-amber" />
+          <div className="flex-1 text-sm">
+            <div className="font-bold text-ink-1">
+              Cross-border KYC required
+            </div>
+            <p className="text-ink-3 mt-1">
+              Your business is registered in <span className="font-mono">{buyerCountry}</span>. Cross-border orders require KYC verification before checkout.
+              Wire transfers, customs documentation, and FX snapshotting are gated until verification is complete.
+            </p>
+            <Link
+              to={`/businesses/${activeBusinessId}/kyc`}
+              className="inline-block mt-3 px-4 py-2 bg-ink text-paper text-xs font-mono font-semibold hover:bg-ink-2 transition"
+            >
+              Complete KYC verification →
+            </Link>
           </div>
-          <button
-            type="button"
-            onClick={() => setErr('')}
-            className="text-danger/60 hover:text-danger text-xs font-bold uppercase"
-          >
-            Dismiss
-          </button>
+        </div>
+      )}
+
+      {buyerIsForeign && !kycMissing && (
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3">
+          <ShieldCheckIcon className="w-5 h-5 mt-0.5 shrink-0 text-emerald-700" />
+          <div className="flex-1 text-sm">
+            <div className="font-bold text-ink-1">
+              Cross-border verified
+            </div>
+            <p className="text-ink-3 mt-1">
+              KYC level <span className="font-mono font-bold">{buyerKycLevel}</span> — orders will be quoted in your home currency
+              with a frozen FX snapshot at the time of purchase. Customs docs are auto-generated on dispatch.
+            </p>
+          </div>
         </div>
       )}
 

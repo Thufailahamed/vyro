@@ -153,3 +153,41 @@ export async function handleQueueDlqScan(env: Env): Promise<{ reported: number }
 
 // satisfy unused-import linter when `isNull` is referenced only via drizzle's sql elsewhere
 void isNull;
+
+/**
+ * Weekly refresh of the KV-cached sanctions country list. Fetches OFAC +
+ * UN sources, dedupes ISO codes, replaces the KV entry. Runs on the
+ * scheduled cron (see worker.ts); manual trigger via admin cron endpoint.
+ */
+export async function handleSanctionsRefresh(env: Env): Promise<{ refreshed: boolean; count: number }> {
+  try {
+    const { refreshSanctionsList } = await import('../modules/cross-border/sanctions');
+    const count = await refreshSanctionsList(env);
+    return { refreshed: true, count };
+  } catch (e) {
+    console.error('[cron] sanctions-refresh failed:', e);
+    return { refreshed: false, count: 0 };
+  }
+}
+
+/**
+ * Nightly FX rate refresh. Writes latest LKR→{USD,EUR,GBP,INR,AED,SGD,AUD}
+ * rates to KV with 1h TTL. Manual trigger via admin cron endpoint.
+ */
+export async function handleFxRefresh(env: Env): Promise<{ refreshed: number }> {
+  const { fetchRate } = await import('../lib/fxProvider');
+  const QUOTE_CCY = ['USD', 'EUR', 'GBP', 'INR', 'AED', 'SGD', 'AUD'] as const;
+  let count = 0;
+  for (const quote of QUOTE_CCY) {
+    try {
+      const r = await fetchRate('LKR', quote, env);
+      if (r) {
+        await env.CROSS_BORDER_KV.put(`fx:LKR:${quote}`, r.rateScaled, { expirationTtl: 3600 });
+        count++;
+      }
+    } catch (e) {
+      console.warn('[cron] fx-refresh failed for', quote, e);
+    }
+  }
+  return { refreshed: count };
+}

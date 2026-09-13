@@ -28,6 +28,17 @@ export type AdminOrder = {
   id: string;
   poNumber?: string;
   status: string;
+  direction?: 'domestic' | 'export' | 'import' | null;
+  incoterms?: string | null;
+  fxSnapshotId?: string | null;
+  declaredShippingCostCents?: number | null;
+  declaredDutyCents?: number | null;
+  commercialInvoiceNo?: string | null;
+  customsStatus?: string | null;
+  wireRef?: string | null;
+  wireReceivedAmountCents?: number | null;
+  wireReceivedCurrency?: string | null;
+  wireReceivedAt?: number | null;
   businessId?: string;
   supplierId?: string;
   subtotalCents?: number;
@@ -55,6 +66,7 @@ export type AdminOrder = {
   // Joined counterparty fields
   businessName?: string | null;
   businessCity?: string | null;
+  businessCountryCode?: string | null;
   businessContactPerson?: string | null;
   businessPhone?: string | null;
   businessEmail?: string | null;
@@ -62,6 +74,7 @@ export type AdminOrder = {
 
   supplierName?: string | null;
   supplierCity?: string | null;
+  supplierCountryCode?: string | null;
   supplierContactPerson?: string | null;
   supplierPhone?: string | null;
   supplierEmail?: string | null;
@@ -71,6 +84,7 @@ export type AdminOrder = {
 export interface AdminOrdersFilter {
   status?: string | undefined;
   q?: string | undefined;
+  direction?: 'domestic' | 'export' | 'import' | undefined;
   limit?: number | undefined;
 }
 
@@ -83,12 +97,13 @@ export function useAdminOrders(filterOrStatus?: string | AdminOrdersFilter) {
   const params = new URLSearchParams();
   if (filter.status && filter.status !== 'all') params.set('status', filter.status);
   if (filter.q && filter.q.trim()) params.set('q', filter.q.trim());
+  if (filter.direction) params.set('direction', filter.direction);
   if (filter.limit) params.set('limit', String(filter.limit));
 
   const queryStr = params.toString() ? `?${params.toString()}` : '';
 
   return useQuery({
-    queryKey: ['admin-orders', filter.status ?? 'all', filter.q ?? '', filter.limit ?? 50],
+    queryKey: ['admin-orders', filter.status ?? 'all', filter.q ?? '', filter.direction ?? '', filter.limit ?? 50],
     queryFn: () => api.get<{ orders: AdminOrder[] }>(`/admin/orders${queryStr}`),
   });
 }

@@ -47,12 +47,14 @@ function formatTimestamp(ts?: number | null): { date: string; time: string; rela
 export function OrdersPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [directionFilter, setDirectionFilter] = useState<'all' | 'domestic' | 'export' | 'import'>('all');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
 
   // Fetch orders from API
   const { data, isLoading, isError, isFetching, refetch } = useAdminOrders({
     ...(selectedStatus !== 'all' ? { status: selectedStatus } : {}),
     ...(searchQuery.trim() ? { q: searchQuery.trim() } : {}),
+    ...(directionFilter !== 'all' ? { direction: directionFilter } : {}),
     limit: 100,
   });
 
@@ -288,6 +290,20 @@ export function OrdersPage() {
 
           {/* Sort Control & Record Count */}
           <div className="flex items-center justify-between sm:justify-end gap-3 text-xs text-ink-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-ink-4 uppercase font-mono">Direction:</span>
+              <select
+                value={directionFilter}
+                onChange={(e) => setDirectionFilter(e.target.value as typeof directionFilter)}
+                className="h-9 px-2 text-xs bg-sand/30 border border-ink/15 focus:outline-none focus:border-ink"
+              >
+                <option value="all">All</option>
+                <option value="domestic">Domestic</option>
+                <option value="export">Export</option>
+                <option value="import">Import</option>
+              </select>
+            </div>
+
             <span className="font-mono">
               Showing <strong>{processedOrders.length}</strong> {processedOrders.length === 1 ? 'order' : 'orders'}
             </span>
@@ -377,6 +393,7 @@ export function OrdersPage() {
                   <th className="py-3 px-4">PO Number & Date</th>
                   <th className="py-3 px-4">Buyer Business</th>
                   <th className="py-3 px-4">Supplier</th>
+                  <th className="py-3 px-4">Direction</th>
                   <th className="py-3 px-4">Destination</th>
                   <th className="py-3 px-4 text-right">Total Amount</th>
                   <th className="py-3 px-4">Status</th>
@@ -430,6 +447,28 @@ export function OrdersPage() {
                           <div className="text-[11px] text-ink-4 mt-0.5">
                             {o.supplierCity}
                           </div>
+                        )}
+                      </td>
+
+                      {/* Direction (cross-border) */}
+                      <td className="py-3.5 px-4">
+                        {o.direction && o.direction !== 'domestic' ? (
+                          <div className="space-y-0.5">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 text-[10px] font-mono font-semibold uppercase ${
+                                o.direction === 'export'
+                                  ? 'bg-volt/30 text-ink'
+                                  : 'bg-copper/20 text-copper-deep'
+                              }`}
+                            >
+                              {o.direction}
+                            </span>
+                            {o.incoterms && (
+                              <div className="text-[10px] text-ink-4 font-mono">{o.incoterms}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-ink-4 text-[10px] font-mono">domestic</span>
                         )}
                       </td>
 

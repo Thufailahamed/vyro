@@ -20,8 +20,16 @@ export const businesses = sqliteTable(
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
     deletedAt: integer('deleted_at'),
+    countryCode: text('country_code').notNull().default('LK'),
+    taxId: text('tax_id'),
+    kycLevel: text('kyc_level', { enum: ['none', 'basic', 'enhanced'] }).notNull().default('none'),
+    kycVerifiedAt: integer('kyc_verified_at'),
+    kycVerifiedBy: text('kyc_verified_by'),
   },
-  (t) => ({ cityIdx: index('businesses_city_idx').on(t.city) }),
+  (t) => ({
+    cityIdx: index('businesses_city_idx').on(t.city),
+    countryIdx: index('businesses_country_idx').on(t.countryCode),
+  }),
 );
 
 export type Business = typeof businesses.$inferSelect;

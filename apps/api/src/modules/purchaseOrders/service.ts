@@ -32,6 +32,10 @@ import { recordAudit } from '../supplierProducts/repository';
 import { resolveTier, applyTier, type TierSet } from '../cart/pricing';
 import { inventoryService } from '../inventory/service';
 import { notifyOrderParties } from '../notifications/dispatcher';
+import { isCrossBorderEnabled } from '../../lib/crossBorderEnv';
+import { preOrderCreateCheck } from '../cross-border/service';
+import { metric } from '../../lib/metrics';
+import type { Env } from '../../env';
 
 interface QueueLike {
   send: (body: unknown) => Promise<unknown>;
@@ -71,6 +75,7 @@ async function nextPoNumber(d1: D1Database, businessId: string): Promise<string>
 export const checkoutService = {
   async checkout(
     d1: D1Database,
+    env: Env,
     userId: string,
     input: CheckoutInput,
     queue?: QueueLike,
@@ -145,6 +150,29 @@ export const checkoutService = {
       let subtotal = 0;
       const poItemsRaw = items.filter((i) => map.get(i.supplierProductId)?.sp.supplierId === supplierId);
       const lineRows: Array<Parameters<typeof insertPoItem>[1]> = [];
+
+      // Cross-border hook: KYC gate + sanctions + restricted + FX snapshot.
+      // Only runs when CROSS_BORDER_ENABLED. Without the flag, all orders
+      // are forced to direction=domestic via schema default.
+      let crossBorder: { direction: 'domestic' | 'export' | 'import'; fxSnapshotId: string | null } | null = null;
+      if (isCrossBorderEnabled(env)) {
+        const buyerCountry = (business.countryCode ?? 'LK').toUpperCase();
+        const supplierCountry = (map.get(poItemsRaw[0]?.supplierProductId ?? '')?.supplier.countryCode ?? 'LK').toUpperCase();
+        if (buyerCountry !== 'LK' && business.kycLevel === 'none') {
+          metric(env, 'cross_border.kyc_required', 1, { buyer_country: buyerCountry });
+          throw httpError(422, 'KYC_REQUIRED', 'Foreign buyers require KYC verification');
+        }
+        const hsCodes = poItemsRaw
+          .map((i) => map.get(i.supplierProductId)?.product.hsCode)
+          .filter((h): h is string => Boolean(h));
+        crossBorder = await preOrderCreateCheck({
+          buyerCountry,
+          supplierCountry,
+          hsCodes,
+          env,
+          db,
+        });
+      }
       for (const i of poItemsRaw) {
         const o = map.get(i.supplierProductId);
         if (!o) continue;
@@ -185,6 +213,8 @@ export const checkoutService = {
         createdByUserId: userId,
         createdAt: now,
         updatedAt: now,
+        direction: crossBorder?.direction ?? 'domestic',
+        fxSnapshotId: crossBorder?.fxSnapshotId ?? null,
       });
       for (const row of lineRows) await insertPoItem(d1, row);
       await insertOrderEvent(d1, {
@@ -248,6 +278,20 @@ export const checkoutService = {
     if (!canTransition(po.status as OrderStatus, input.to, input.actor.role)) {
       throw httpError(409, 'CONFLICT', `Illegal transition ${po.status} -> ${input.to} for ${input.actor.role}`);
     }
+
+    // Cross-border customs-doc gate: ship transitions for cross-border orders
+    // require uploaded invoice + (if export) COO. Domestic orders are unaffected.
+    if (input.to === 'ready_for_pickup' && po.direction !== 'domestic') {
+      const { listDocsForOrder } = await import('../cross-border/repository');
+      const docs = await listDocsForOrder(db, po.id);
+      const kinds = new Set(docs.map((d) => d.kind));
+      if (!kinds.has('invoice')) {
+        throw httpError(422, 'MISSING_CUSTOMS_DOC', 'Commercial invoice required for cross-border shipment');
+      }
+      if (po.direction === 'export' && !kinds.has('coo')) {
+        throw httpError(422, 'MISSING_CUSTOMS_DOC', 'Certificate of origin required for export');
+      }
+    }
     // Persist the reason on the order itself for rejected / cancelled moves.
     const reasonColumns: Record<string, string | null> =
       input.to === 'rejected'
@@ -258,6 +302,10 @@ export const checkoutService = {
     await updatePoStatus(d1, po.id, input.to, {
       ...tsForStatus(input.to),
       ...reasonColumns,
+      // Stamp customs status + invoice number when shipping a cross-border order.
+      ...(input.to === 'ready_for_pickup' && po.direction !== 'domestic'
+        ? { customsStatus: 'pending' as const, commercialInvoiceNo: `INV-${po.poNumber}` }
+        : {}),
     });
     // Settlement eligibility follows order state (spec §21): completion,
     // disputes, and cancellations all change what is payable. Best-effort —

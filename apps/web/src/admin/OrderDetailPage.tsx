@@ -379,6 +379,74 @@ export function OrderDetailPage() {
                 </div>
               </Surface>
 
+              {/* Cross-Border Block (only when not domestic) */}
+              {order.direction && order.direction !== 'domestic' && (
+                <Surface className="p-4 border border-ink/10 bg-paper space-y-3">
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-ink border-b border-ink/10 pb-2">
+                    Cross-Border Details
+                  </h3>
+                  <div className="space-y-2 text-xs font-mono">
+                    <Row label="Direction">
+                      <span className="px-1.5 py-0.5 bg-volt/30 text-ink text-[10px] font-semibold uppercase">
+                        {order.direction}
+                      </span>
+                    </Row>
+                    {order.incoterms && <Row label="Incoterms">{order.incoterms}</Row>}
+                    {order.fxSnapshotId && (
+                      <Row label="FX Snapshot">
+                        <span className="text-[10px] text-ink-4">{order.fxSnapshotId}</span>
+                      </Row>
+                    )}
+                    {order.declaredShippingCostCents != null && (
+                      <Row label="Declared Shipping">
+                        {formatLKR(order.declaredShippingCostCents)}
+                      </Row>
+                    )}
+                    {order.declaredDutyCents != null && (
+                      <Row label="Declared Duty">
+                        {formatLKR(order.declaredDutyCents)}
+                      </Row>
+                    )}
+                    {order.commercialInvoiceNo && (
+                      <Row label="Commercial Invoice">{order.commercialInvoiceNo}</Row>
+                    )}
+                    {order.customsStatus && (
+                      <Row label="Customs Status">{order.customsStatus}</Row>
+                    )}
+                  </div>
+                </Surface>
+              )}
+
+              {/* Wire Received Panel (cross-border, unpaid) */}
+              {order.direction && order.direction !== 'domestic' && order.status === 'pending' && (
+                <WireReceivedPanel
+                  orderId={order.id}
+                  onRecorded={() => {
+                    qc.invalidateQueries({ queryKey: ['admin-order', id] });
+                    qc.invalidateQueries({ queryKey: ['admin-orders'] });
+                  }}
+                />
+              )}
+
+              {order.wireRef && (
+                <Surface className="p-4 border border-mint/30 bg-mint/5 space-y-2">
+                  <div className="text-xs font-mono font-bold uppercase text-mint">
+                    Wire Settled
+                  </div>
+                  <div className="space-y-1 text-xs font-mono">
+                    <Row label="Reference">{order.wireRef}</Row>
+                    {order.wireReceivedCurrency && order.wireReceivedAmountCents != null && (
+                      <Row label="Received">
+                        {order.wireReceivedAmountCents / 100} {order.wireReceivedCurrency}
+                      </Row>
+                    )}
+                    {order.wireReceivedAt && (
+                      <Row label="At">{formatFullDate(order.wireReceivedAt)}</Row>
+                    )}
+                  </div>
+                </Surface>
+              )}
+
               {/* Administrative Status Override Panel */}
               <Surface className="p-4 border-2 border-ink/20 bg-sand/10 space-y-3">
                 <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-ink uppercase tracking-wider">
@@ -459,6 +527,129 @@ export function OrderDetailPage() {
         </>
       )}
     </div>
+  );
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex justify-between items-center gap-2">
+      <span className="text-ink-4 uppercase text-[10px]">{label}</span>
+      <span className="text-ink">{children}</span>
+    </div>
+  );
+}
+
+function WireReceivedPanel({ orderId, onRecorded }: { orderId: string; onRecorded: () => void }) {
+  const [wireRef, setWireRef] = useState('');
+  const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState('USD');
+  const [ack, setAck] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = useMutation({
+    mutationFn: () =>
+      api.post<{ status: string; deltaBps: number }>(`/admin/orders/${orderId}/wire-received`, {
+        wireRef,
+        receivedAmountCents: Math.round(Number(amount) * 100),
+        receivedCurrency: currency,
+        acknowledgeMismatch: ack,
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setWireRef('');
+      setAmount('');
+      onRecorded();
+    },
+    onError: (e: unknown) => {
+      setErr(e instanceof ApiError ? `${e.code}: ${e.message}` : 'Failed');
+    },
+  });
+
+  return (
+    <Surface className="p-4 border-2 border-copper/30 bg-copper/5 space-y-3">
+      <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-copper-deep uppercase tracking-wider">
+        <Building2Icon size={15} />
+        <span>Record Wire Receipt</span>
+      </div>
+      <p className="text-[11px] text-ink-4 leading-relaxed">
+        Cross-border orders settle via wire/SWIFT. Record the bank wire receipt here to mark the order paid. Delta &gt; 1% requires explicit acknowledgement.
+      </p>
+
+      {err && (
+        <div className="p-2.5 bg-rose/10 border border-rose/25 text-rose text-xs">
+          {err}
+        </div>
+      )}
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit.mutate();
+        }}
+        className="space-y-2"
+      >
+        <div>
+          <label className="block text-[10px] font-mono uppercase text-ink-4 mb-1">Wire Reference</label>
+          <input
+            value={wireRef}
+            onChange={(e) => setWireRef(e.target.value)}
+            required
+            placeholder="e.g. SBI-IN-2026-001234"
+            className="w-full h-9 px-2.5 text-xs font-mono border border-ink/20 bg-paper focus:outline-none focus:border-ink"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[10px] font-mono uppercase text-ink-4 mb-1">Amount</label>
+            <input
+              type="number"
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              required
+              className="w-full h-9 px-2.5 text-xs font-mono border border-ink/20 bg-paper focus:outline-none focus:border-ink"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-mono uppercase text-ink-4 mb-1">Currency</label>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="w-full h-9 px-2.5 text-xs font-mono border border-ink/20 bg-paper focus:outline-none focus:border-ink"
+            >
+              <option>USD</option>
+              <option>EUR</option>
+              <option>GBP</option>
+              <option>INR</option>
+              <option>AED</option>
+              <option>SGD</option>
+              <option>AUD</option>
+              <option>JPY</option>
+              <option>CNY</option>
+            </select>
+          </div>
+        </div>
+
+        <label className="flex items-center gap-2 text-[11px] text-ink-3">
+          <input
+            type="checkbox"
+            checked={ack}
+            onChange={(e) => setAck(e.target.checked)}
+            className="accent-copper"
+          />
+          Acknowledge FX delta exceeds 1% threshold
+        </label>
+
+        <button
+          type="submit"
+          disabled={submit.isPending || !wireRef.trim() || !amount}
+          className="w-full py-2 bg-copper text-paper text-xs font-mono font-bold hover:bg-copper-deep transition disabled:opacity-40"
+        >
+          {submit.isPending ? 'Reconciling…' : 'Record wire & mark paid'}
+        </button>
+      </form>
+    </Surface>
   );
 }
 

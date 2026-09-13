@@ -45,11 +45,28 @@ export const purchaseOrders = sqliteTable(
     stockCommittedAt: integer('stock_committed_at'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
+    // Cross-border trade fields
+    direction: text('direction', { enum: ['domestic', 'export', 'import'] }).notNull().default('domestic'),
+    incoterms: text('incoterms', { enum: ['EXW', 'FOB', 'CIF', 'DDP', 'DDU'] }),
+    fxSnapshotId: text('fx_snapshot_id'),
+    declaredShippingCostCents: integer('declared_shipping_cost_cents'),
+    declaredDutyCents: integer('declared_duty_cents'),
+    commercialInvoiceNo: text('commercial_invoice_no'),
+    customsStatus: text('customs_status', { enum: ['none', 'pending', 'cleared', 'held'] })
+      .notNull()
+      .default('none'),
+    wireRef: text('wire_ref'),
+    wireReceivedAmountCents: integer('wire_received_amount_cents'),
+    wireReceivedCurrency: text('wire_received_currency'),
+    wireReceivedAt: integer('wire_received_at'),
+    wireReceivedBy: text('wire_received_by'),
   },
   (t) => ({
     poNumberUniq: uniqueIndex('purchase_orders_po_number_uniq').on(t.poNumber),
     businessStatusIdx: index('po_business_status_idx').on(t.businessId, t.status),
     supplierStatusIdx: index('po_supplier_status_idx').on(t.supplierId, t.status),
+    directionIdx: index('purchase_orders_direction_idx').on(t.direction),
+    customsStatusIdx: index('purchase_orders_customs_status_idx').on(t.customsStatus),
   }),
 );
 
