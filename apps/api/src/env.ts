@@ -65,4 +65,6 @@ export interface Env {
   VYRO_AI_GEMINI_MODEL?: string;
   /** Narration mode: 'deterministic' (default, no LLM) | 'llm'. */
   VYRO_AI_NARRATE_MODE?: string;
+  /** Cross-border trade master switch. "true" enables. Defaults off. */
+  CROSS_BORDER_ENABLED?: string;
 }
