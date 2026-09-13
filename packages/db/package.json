@@ -8,7 +8,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
-    "./migrate": "./src/migrate.ts"
+    "./migrate": "./src/migrate.ts",
+    "./data/*.json": "./src/data/*.json",
+    "./data/*": "./src/data/*"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
