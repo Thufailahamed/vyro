@@ -62,7 +62,18 @@ export function CheckoutPage() {
   const [notes, setNotes] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'paynow' | 'credit'>('paynow');
+  const [creditTerms, setCreditTerms] = useState<'net14' | 'net30'>('net30');
   const navigate = useNavigate();
+
+  const creditFacility = useQuery({
+    queryKey: ['credit-facility', activeBusinessId],
+    queryFn: () =>
+      api.get<{ facility: { limitCents: number; usedCents: number; status: string } | null; availableCents: number; eligible: boolean; reason: string | null }>(
+        `/credit/facility?businessId=${activeBusinessId}`,
+      ),
+    enabled: !!activeBusinessId,
+  });
 
   const cart = useQuery({
     queryKey: ['cart', activeBusinessId],
@@ -180,6 +191,8 @@ export function CheckoutPage() {
       const res = await api.post<{ poIds: string[]; count: number }>('/purchase-orders/checkout', {
         businessId: activeBusinessId,
         notes: notes.trim() || undefined,
+        paymentMethod,
+        ...(paymentMethod === 'credit' ? { creditTerms } : {}),
       });
       if (res.poIds && res.poIds.length === 1) {
         navigate(`/orders/${res.poIds[0]}`);
@@ -191,7 +204,11 @@ export function CheckoutPage() {
         navigate(`/businesses/${activeBusinessId}/kyc`);
         return;
       }
-      setErr(e instanceof ApiError ? e.message : 'Failed to place purchase orders. Please try again.');
+      if (e instanceof ApiError && (e.code === 'credit_limit_exceeded' || e.code === 'credit_overdue_blocked' || e.code === 'credit_not_eligible')) {
+        setErr(`${e.message} — View VYRO Credit`);
+      } else {
+        setErr(e instanceof ApiError ? e.message : 'Failed to place purchase orders. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -626,6 +643,33 @@ export function CheckoutPage() {
                     {formatLKR(totalCents)}
                   </span>
                 </div>
+              </div>
+
+              {/* Payment method */}
+              <div className="pt-3 border-t border-paper-subtle space-y-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-ink-1 block">Payment method</span>
+                {creditFacility.data?.eligible && (creditFacility.data?.availableCents ?? 0) >= totalCents ? (
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-xs">
+                      <input type="radio" checked={paymentMethod === 'paynow'} onChange={() => setPaymentMethod('paynow')} />
+                      Pay now (PayHere / bank transfer)
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-semibold">
+                      <input type="radio" checked={paymentMethod === 'credit'} onChange={() => setPaymentMethod('credit')} />
+                      Pay on credit (Net 14 / Net 30)
+                    </label>
+                    {paymentMethod === 'credit' && (
+                      <select value={creditTerms} onChange={(e) => setCreditTerms(e.target.value as 'net14' | 'net30')} className="text-xs border border-paper-subtle rounded-lg px-2 py-1.5">
+                        <option value="net14">Net 14</option>
+                        <option value="net30">Net 30</option>
+                      </select>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-xs text-ink-4">
+                    Credit unavailable: {creditFacility.data?.reason ?? 'loading…'} — <Link to="/credit" className="underline">View VYRO Credit</Link>
+                  </div>
+                )}
               </div>
 
               {/* Confirm Button */}

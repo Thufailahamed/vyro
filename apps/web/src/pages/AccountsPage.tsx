@@ -31,7 +31,7 @@ import {
 } from '@/components/icons';
 import { cn } from '@vyro/ui';
 
-type Tab = 'overview' | 'payments' | 'invoices' | 'refunds' | 'transactions';
+type Tab = 'overview' | 'payments' | 'invoices' | 'refunds' | 'transactions' | 'credit';
 
 const TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
   { id: 'overview', label: 'Overview', icon: <TrendingUpIcon size={12} /> },
@@ -39,6 +39,7 @@ const TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
   { id: 'invoices', label: 'Invoices', icon: <FileTextIcon size={12} /> },
   { id: 'refunds', label: 'Refunds', icon: <RefreshCwIcon size={12} /> },
   { id: 'transactions', label: 'Transactions', icon: <BanknoteIcon size={12} /> },
+  { id: 'credit', label: 'Credit', icon: <CreditCardIcon size={12} /> },
 ];
 
 const METHOD_META: Record<string, { label: string; tone: 'volt' | 'copper' | 'mint' | 'amber' }> = {
@@ -143,6 +144,7 @@ export function AccountsPage() {
         {tab === 'invoices' && <Invoices businessId={businessId} />}
         {tab === 'refunds' && <Refunds businessId={businessId} />}
         {tab === 'transactions' && <Transactions businessId={businessId} />}
+        {tab === 'credit' && <CreditPanel businessId={businessId} />}
       </div>
     </div>
   );
@@ -851,6 +853,26 @@ function Transactions({ businessId }: { businessId: string }) {
           })}
         </ul>
       )}
+    </div>
+  );
+}
+
+function CreditPanel({ businessId }: { businessId: string }) {
+  const q = useQuery({
+    queryKey: ['credit-facility', businessId],
+    queryFn: () =>
+      api.get<{ facility: { limitCents: number; usedCents: number; status: string } | null; availableCents: number; eligible: boolean; reason: string | null; overdueCount: number }>(
+        `/credit/facility?businessId=${businessId}`,
+      ),
+  });
+  if (q.isLoading) return <div className="text-sm text-ink-4">Loading credit…</div>;
+  if (q.isError) return <ErrorBanner message={(q.error as ApiError).message} />;
+  const f = q.data;
+  if (!f?.facility) return <EmptyState title="Credit not available" description={f?.reason ?? 'Complete 3 paid orders to unlock VYRO Credit.'} />;
+  return (
+    <div className="space-y-3">
+      <Stat label="Available credit" cents={f.availableCents} />
+      <Link to="/credit" className="text-xs underline">Open VYRO Credit →</Link>
     </div>
   );
 }
