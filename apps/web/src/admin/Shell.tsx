@@ -139,6 +139,7 @@ export function AdminShell() {
         { to: '/admin/rfqs', label: 'RFQs', icon: FileTextIcon },
         { to: '/admin/deliveries', label: 'Deliveries', icon: TruckIcon },
         { to: '/admin/disputed', label: 'Disputes', icon: AlertTriangleIcon },
+        { to: '/admin/reviews/flags', label: 'Review Flags', icon: AlertTriangleIcon },
       ],
     },
     {

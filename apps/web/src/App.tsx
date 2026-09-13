@@ -78,6 +78,7 @@ const QueuesPage = lazy(() => import('./admin/QueuesPage').then((m) => ({ defaul
 const StatusPage = lazy(() => import('./pages/StatusPage').then((m) => ({ default: m.StatusPage })));
 const AdminNotificationsPage = lazy(() => import('./admin/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
 const AdminRfqsPage = lazy(() => import('./admin/RfqsPage').then((m) => ({ default: m.AdminRfqsPage })));
+const AdminReviewsPage = lazy(() => import('./admin/ReviewsPage').then((m) => ({ default: m.AdminReviewsPage })));
 const SupplierDashboardPage = lazy(() => import('./supplier/DashboardPage').then((m) => ({ default: m.SupplierDashboardPage })));
 const SupplierProductsPage = lazy(() => import('./supplier/ProductsPage').then((m) => ({ default: m.SupplierProductsPage })));
 const SupplierProductFormPage = lazy(() => import('./supplier/ProductFormPage').then((m) => ({ default: m.SupplierProductFormPage })));
@@ -197,6 +198,7 @@ export default function App() {
           <Route path="observability/queues" element={<RequireAdmin><QueuesPage /></RequireAdmin>} />
           <Route path="ai-usage" element={<RequireAdmin><AdminAIUsagePage /></RequireAdmin>} />
           <Route path="rfqs" element={<RequireAdmin><AdminRfqsPage /></RequireAdmin>} />
+          <Route path="reviews/flags" element={<RequireAdmin><AdminReviewsPage /></RequireAdmin>} />
           <Route path="notifications" element={<RequireAdmin><AdminNotificationsPage /></RequireAdmin>} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
