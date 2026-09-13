@@ -61,3 +61,5 @@ export * from './rfqs';
 export * from './countries';
 export * from './fxSnapshots';
 export * from './orderCustomsDocs';
+export * from './creditFacilities';
+export * from './creditDrawdowns';
