@@ -12,6 +12,8 @@ import {
   useLedgerSummary,
   useOpenChargebacks,
   useResolveChargeback,
+  useCreditFacilities,
+  usePatchCreditFacility,
 } from './useAdminMoney';
 import {
   CheckCircleIcon,
@@ -24,7 +26,7 @@ import {
 } from '@/components/icons';
 import { formatLKR, formatCompactLKR } from '@/lib/format';
 
-type Tab = 'refunds' | 'payouts' | 'ledger' | 'chargebacks';
+type Tab = 'refunds' | 'payouts' | 'ledger' | 'chargebacks' | 'credit';
 
 function formatFullDate(ts?: number | null): string {
   if (!ts) return '—';
@@ -176,6 +178,9 @@ export function MoneyPage() {
         >
           Chargebacks
         </TabBtn>
+        <TabBtn active={tab === 'credit'} onClick={() => switchTab('credit')}>
+          Credit
+        </TabBtn>
       </div>
 
       {/* 4. Tab Content */}
@@ -183,6 +188,7 @@ export function MoneyPage() {
       {tab === 'payouts' ? <PayoutBatchesTab /> : null}
       {tab === 'ledger' ? <LedgerTab /> : null}
       {tab === 'chargebacks' ? <ChargebacksTab /> : null}
+      {tab === 'credit' ? <CreditTab /> : null}
     </div>
   );
 }
@@ -714,6 +720,94 @@ function ChargebacksTab() {
                       >
                         {resolve.isPending ? 'Resolving…' : 'Resolve'}
                       </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Surface>
+    </div>
+  );
+}
+
+function CreditTab() {
+  const canManage = usePermission('payment:refund');
+  const list = useCreditFacilities();
+  const patch = usePatchCreditFacility();
+  const [limits, setLimits] = useState<Record<string, string>>({});
+  if (!canManage) return <ErrorBanner message="You need payment:refund permission to manage credit facilities." />;
+  const rows = list.data ?? [];
+  return (
+    <div className="space-y-4">
+      {list.isError ? <ErrorBanner message={(list.error as Error).message} /> : null}
+      <Surface className="border border-ink/10 bg-paper overflow-hidden shadow-sm">
+        {list.isLoading ? (
+          <div className="p-4 text-xs text-ink-4">Loading facilities…</div>
+        ) : rows.length === 0 ? (
+          <EmptyState icon={<CheckCircleIcon size={24} />} title="No credit facilities" description="Facilities appear after businesses meet the 3-paid-orders rule or an admin creates one." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="bg-sand/30 border-b border-ink/10 text-ink-4 font-mono uppercase tracking-wider text-[10px]">
+                  <th className="py-3 px-4">Business</th>
+                  <th className="py-3 px-4 text-right">Limit</th>
+                  <th className="py-3 px-4 text-right">Used</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">New limit (cents)</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink/5">
+                {rows.map((r) => (
+                  <tr key={r.businessId} className="hover:bg-sand/20 transition-colors">
+                    <td className="py-3.5 px-4 font-mono text-xs">{r.businessId}</td>
+                    <td className="py-3.5 px-4 text-right font-mono">{formatLKR(r.limitCents)}</td>
+                    <td className="py-3.5 px-4 text-right font-mono">{formatLKR(r.usedCents)}</td>
+                    <td className="py-3.5 px-4"><StatusBadge status={r.status} /></td>
+                    <td className="py-3.5 px-4">
+                      <input
+                        className="border border-ink/20 px-2.5 py-1 text-xs bg-paper focus:outline-none focus:border-ink w-36 font-mono"
+                        value={limits[r.businessId] ?? ''}
+                        onChange={(e) => setLimits({ ...limits, [r.businessId]: e.target.value })}
+                        placeholder={String(r.limitCents)}
+                        inputMode="numeric"
+                      />
+                    </td>
+                    <td className="py-3.5 px-4 text-right space-x-2">
+                      <button
+                        type="button"
+                        disabled={patch.isPending || !limits[r.businessId]}
+                        onClick={() => patch.mutate({ businessId: r.businessId, patch: { limitCents: Number(limits[r.businessId]) } })}
+                        className="px-3 py-1 bg-ink text-paper hover:bg-ink-2 text-xs font-mono font-bold transition disabled:opacity-40"
+                      >
+                        Set limit
+                      </button>
+                      {r.status === 'active' ? (
+                        <button
+                          type="button"
+                          disabled={patch.isPending}
+                          onClick={() => {
+                            const reason = window.prompt('Suspend reason (required for audit):');
+                            if (!reason) return;
+                            patch.mutate({ businessId: r.businessId, patch: { status: 'suspended', reason } });
+                          }}
+                          className="px-3 py-1 border border-ink/20 hover:border-ink text-xs font-mono transition disabled:opacity-40"
+                        >
+                          Suspend
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={patch.isPending}
+                          onClick={() => patch.mutate({ businessId: r.businessId, patch: { status: 'active' } })}
+                          className="px-3 py-1 border border-ink/20 hover:border-ink text-xs font-mono transition disabled:opacity-40"
+                        >
+                          Resume
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

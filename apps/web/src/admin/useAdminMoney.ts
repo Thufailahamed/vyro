@@ -144,3 +144,32 @@ export function useResolveChargeback() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-chargebacks-open'] }),
   });
 }
+
+export type CreditFacilityRow = {
+  businessId: string;
+  limitCents: number;
+  usedCents: number;
+  status: 'active' | 'suspended' | 'closed';
+  defaultTerms: 'net14' | 'net30';
+  autoGranted: number;
+};
+
+export function useCreditFacilities(status?: string) {
+  return useQuery({
+    queryKey: ['admin-credit-facilities', status ?? 'all'],
+    queryFn: async () => {
+      const qs = status ? `?status=${status}` : '';
+      const r = await api.get<{ items: CreditFacilityRow[] }>(`/admin/credit/facilities${qs}`);
+      return r.items;
+    },
+  });
+}
+
+export function usePatchCreditFacility() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { businessId: string; patch: { limitCents?: number; status?: string; reason?: string } }) =>
+      api.patch<{ ok: true }>(`/admin/credit/facilities/${vars.businessId}`, vars.patch),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-credit-facilities'] }),
+  });
+}
