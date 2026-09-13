@@ -20,29 +20,34 @@ export class ReviewError extends Error {
   }
 }
 
-type BuyerSession = { userId: string; businessId: string; role: 'buyer' };
+type BuyerSession = { userId: string; allowedBusinessIds: string[]; role: 'buyer' };
 
-async function loadOrderForBuyer(d1: D1Database, orderId: string, buyerBusinessId: string) {
+async function loadOrderForBuyer(d1: D1Database, orderId: string, allowedBusinessIds: string[]) {
+  if (allowedBusinessIds.length === 0) return null;
   const db = getDb(d1);
   return (await db
     .select()
     .from(purchaseOrders)
-    .where(and(eq(purchaseOrders.id, orderId), eq(purchaseOrders.businessId, buyerBusinessId)))
+    .where(eq(purchaseOrders.id, orderId))
     .get()) as any;
+}
+
+function buyerOwnsOrder(order: any, allowedBusinessIds: string[]): boolean {
+  return !!order && allowedBusinessIds.includes(order.businessId);
 }
 
 export async function checkEligibility(
   d1: D1Database,
   orderId: string,
   session: BuyerSession,
-): Promise<{ canReview: boolean; reason: ReviewErrorCode | null; supplierId?: string }> {
-  const order = await loadOrderForBuyer(d1, orderId, session.businessId);
-  if (!order) return { canReview: false, reason: 'not_buyer' };
+): Promise<{ canReview: boolean; reason: ReviewErrorCode | null; supplierId?: string; buyerBusinessId?: string }> {
+  const order = await loadOrderForBuyer(d1, orderId, session.allowedBusinessIds);
+  if (!buyerOwnsOrder(order, session.allowedBusinessIds)) return { canReview: false, reason: 'not_buyer' };
   if (order.status !== 'delivered') return { canReview: false, reason: 'not_delivered' };
   if (order.status === 'disputed') return { canReview: false, reason: 'dispute_open' };
   const existing = await repo.findReviewByOrder(d1, order.supplierId, orderId);
   if (existing) return { canReview: false, reason: 'already_reviewed' };
-  return { canReview: true, reason: null, supplierId: order.supplierId };
+  return { canReview: true, reason: null, supplierId: order.supplierId, buyerBusinessId: order.businessId };
 }
 
 export async function submitReview(
@@ -57,7 +62,7 @@ export async function submitReview(
   const review = await repo.insertReview(d1, {
     supplierId: elig.supplierId!,
     orderId: input.orderId,
-    buyerBusinessId: session.businessId,
+    buyerBusinessId: elig.buyerBusinessId!,
     rating: input.rating,
     body: input.body,
     now,

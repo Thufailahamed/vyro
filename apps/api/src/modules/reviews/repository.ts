@@ -59,7 +59,7 @@ export async function insertReview(
 export async function listReviews(
   d1: D1Database,
   supplierId: string,
-  opts: { sort: 'recent' | 'highest' | 'lowest'; limit: number; cursor?: string },
+  opts: { sort: 'recent' | 'highest' | 'lowest'; limit: number; cursor?: string | undefined },
 ) {
   const db = getDb(d1);
   const orderBy =
@@ -249,7 +249,7 @@ export async function findFlagById(d1: D1Database, id: string) {
     .get()) as any;
 }
 
-export async function listPendingFlags(d1: D1Database, limit: number, cursor?: string) {
+export async function listPendingFlags(d1: D1Database, limit: number, cursor?: string | undefined) {
   const db = getDb(d1);
   return (await db
     .select()
