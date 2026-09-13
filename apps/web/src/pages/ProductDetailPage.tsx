@@ -25,6 +25,7 @@ import {
 import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, ProductImage, Surface } from '@/components/brand/Surface';
 import { resolveCatalogImage } from '@/lib/catalogImages';
+import { SupplierStarsLine } from '@/reviews/SupplierStarsLine';
 
 function availabilityLabel(status: string | undefined): { label: string; tone: 'good' | 'warn' | 'bad' | 'neutral' } {
   switch (status) {
@@ -531,6 +532,7 @@ export function ProductDetailPage() {
                             <span className="font-mono text-xs font-semibold text-ink-3 w-5">#{row.rank}</span>
                             <div>
                               <div className="font-semibold text-sm text-ink">{row.supplier.name}</div>
+                              <SupplierStarsLine supplierId={row.supplier.id} />
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 {isBestPrice && <Award>Best price</Award>}
                                 {isValue && <Award copper>Best value</Award>}

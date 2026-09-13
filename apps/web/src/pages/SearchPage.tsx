@@ -21,6 +21,7 @@ import { ProductImage } from '@/components/brand/Surface';
 import { CatalogSearch } from '@/components/CatalogSearch';
 import { buildSearchChips } from '@/ask/nlFilters.client';
 import { useAddToCart } from '@/lib/useAddToCart';
+import { SupplierStarsLine } from '@/reviews/SupplierStarsLine';
 
 interface Hit {
   product: {
@@ -508,6 +509,7 @@ export function SearchPage() {
                           <span className="font-medium text-ink truncate max-w-[180px]">
                             {h.bestOffer.supplier.name}
                           </span>
+                          <SupplierStarsLine supplierId={h.bestOffer.supplier.id} />
                         </div>
                       ) : (
                         <span className="text-ink-4">—</span>
