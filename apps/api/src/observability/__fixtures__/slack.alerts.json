@@ -1,0 +1,15 @@
+{
+  "text": "🚨 [warning] api.p95_latency_ms",
+  "blocks": [
+    { "type": "header", "text": { "type": "plain_text", "text": "[warning] api.p95_latency_ms" } },
+    { "type": "section", "fields": [
+      { "type": "mrkdwn", "text": "*Component*\napi" },
+      { "type": "mrkdwn", "text": "*Value*\n1800" },
+      { "type": "mrkdwn", "text": "*Threshold*\n1500" },
+      { "type": "mrkdwn", "text": "*Window*\n5m" }
+    ]},
+    { "type": "context", "elements": [
+      { "type": "mrkdwn", "text": "Silence: /admin/observability/alerts" }
+    ]}
+  ]
+}
