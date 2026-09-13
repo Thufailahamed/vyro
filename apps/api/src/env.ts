@@ -3,6 +3,7 @@ export interface Env {
   PRODUCTS: R2Bucket;
   INVOICES: R2Bucket;
   CACHE: KVNamespace;
+  ALERTS_KV: KVNamespace;
   ASSETS?: Fetcher;
   AUDIT_QUEUE: Queue;
   NOTIFICATIONS_QUEUE: Queue;
@@ -30,6 +31,14 @@ export interface Env {
   RESEND_API_KEY?: string;
   /** Default `From:` address for outbound email. */
   EMAIL_FROM?: string;
+  /** Slack incoming webhook URL for observability alerts. */
+  ALERT_SLACK_WEBHOOK_URL?: string;
+  /** Ops recipient address for alert emails. */
+  OPS_EMAIL?: string;
+  /** Public status page origin (CORS allow). */
+  STATUS_PAGE_ORIGIN?: string;
+  /** HMAC secret for UptimeRobot webhook callbacks. */
+  UPTIMEROBOT_WEBHOOK_SECRET?: string;
   /** Cloudflare Workers AI binding. Optional in unit tests. */
   AI?: Ai;
   /** Master switch. "false" returns 503 from /api/ai/*. */
