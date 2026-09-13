@@ -117,6 +117,8 @@ import healthRouter from './modules/health/routes';
 app.route('/api/health', healthRouter);
 import fxRouter from './routes/fx';
 app.route('/api', fxRouter);
+import crossBorderRouter from './modules/cross-border/routes';
+app.route('/api', crossBorderRouter);
 app.route('/api/auth', authRouter);
 app.route('/api/businesses', businessRouter);
 app.route('/api/suppliers', supplierRouter);
