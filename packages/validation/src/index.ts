@@ -26,3 +26,4 @@ export * from './supplierTypes';
 export * from './rfq';
 export * from './kyc';
 export * from './credit';
+export * from './supplierReviews';

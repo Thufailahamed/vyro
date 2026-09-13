@@ -33,6 +33,10 @@ export const suppliers = sqliteTable(
     }),
     defaultHsCode: text('default_hs_code'),
     defaultCountryOfOrigin: text('default_country_of_origin'),
+    // Supplier rating aggregate (denormalized from supplier_reviews).
+    reviewCount: integer('review_count').notNull().default(0),
+    reviewAvg: integer('review_avg_x100').notNull().default(0), // 0..500; divide by 100 for display
+    lastReviewAt: integer('last_review_at'),
   },
   (t) => ({
     cityIdx: index('suppliers_city_idx').on(t.city),

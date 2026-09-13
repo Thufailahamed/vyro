@@ -63,3 +63,6 @@ export * from './fxSnapshots';
 export * from './orderCustomsDocs';
 export * from './creditFacilities';
 export * from './creditDrawdowns';
+export * from './supplierReviews';
+export * from './supplierReviewReplies';
+export * from './supplierReviewFlags';
