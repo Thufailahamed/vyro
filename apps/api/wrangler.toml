@@ -134,11 +134,11 @@ id = "5a6075baf1834db294abf12405ced2b8"
 
 [[env.production.kv_namespaces]]
 binding = "ALERTS_KV"
-id = "REPLACE_WITH_PROD_KV_ID"
+id = "16cb41bd35a34517a8403af93db17d05"
 
 [[env.production.kv_namespaces]]
 binding = "CROSS_BORDER_KV"
-id = "REPLACE_WITH_PROD_CROSS_BORDER_KV_ID"
+id = "2870af28aa6746a293ba068236f40129"
 
 [[env.production.queues.producers]]
 binding = "AUDIT_QUEUE"
