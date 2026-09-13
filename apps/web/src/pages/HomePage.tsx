@@ -5,11 +5,12 @@ import { ProductHoverPreview, type ProductPreviewItem } from '@/components/produ
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui';
-import { SearchIcon, TruckIcon, PackageIcon, CheckCircleIcon, ArrowRightIcon, ClockIcon } from '@/components/icons';
+import { TruckIcon, PackageIcon, CheckCircleIcon, ArrowRightIcon, ClockIcon } from '@/components/icons';
 import { FlowCanvas, FlowLine } from '@/components/brand/FlowLine';
 import { BrandMark } from '@/components/brand/BrandMark';
-import { ProductImage, Surface } from '@/components/brand/Surface';
-import { cn } from '@vyro/ui';
+import { CatalogSearch } from '@/components/CatalogSearch';
+import { CATALOG_IMAGES } from '@/lib/catalogImages';
+import { renderTrustStats } from '@/lib/trustStats';
 
 const POPULAR = ['Rice', 'Sugar', 'Ceylon Tea', 'Coconut Oil', 'Wheat Flour', 'Cement', 'Packaging', 'Spices'];
 
@@ -48,13 +49,6 @@ const HERO_MOSAIC = [
   },
 ] as const;
 
-const TRUST_STATS = [
-  { metric: '25', label: 'Districts Covered', sub: 'Island-wide freight routing' },
-  { metric: 'Rs. 100M+', label: 'Wholesale Throughput', sub: 'Active commercial trading volume' },
-  { metric: '100%', label: 'Verified Suppliers', sub: 'Audited tax & depot identity' },
-  { metric: '0%', label: 'Hidden Broker Markup', sub: 'Direct factory & mill prices' },
-];
-
 const FEATURED_PRODUCTS = [
   {
     id: 'p-samba-rice-25kg',
@@ -89,7 +83,7 @@ const FEATURED_PRODUCTS = [
     moq: 'Min. 5 bags',
     leadTime: '1 day',
     supplier: 'Colombo Central Wholesalers',
-    image: 'https://images.unsplash.com/photo-1581441363689-1f3c3c414635?auto=format&fit=crop&w=600&q=80',
+    image: CATALOG_IMAGES.SUGAR,
     badge: 'Industrial Grade',
   },
   {
@@ -125,7 +119,7 @@ const FEATURED_PRODUCTS = [
     moq: 'Min. 50 packs',
     leadTime: '1 day',
     supplier: 'Colombo Central Wholesalers',
-    image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80',
+    image: CATALOG_IMAGES.FLOUR,
     badge: 'Bakery Batch',
   },
   {
@@ -184,7 +178,7 @@ const CATEGORIES: Array<{
     detail: 'Refined crystalline white sugar, brown sugar & molasses in commercial bags.',
     volume: 'Daily price lock',
     count: '12+ Bulk grades',
-    imageUrl: 'https://images.unsplash.com/photo-1622484212850-eb596d769edc?auto=format&fit=crop&w=600&q=80',
+    imageUrl: CATALOG_IMAGES.SUGAR,
   },
   {
     name: 'Dairy & Cold Chain',
@@ -354,34 +348,11 @@ export function HomePage() {
       }>('/home/feed'),
   });
 
-  const featuredProducts = (feed.data?.featuredProducts ?? []).slice(0, FEATURED_PRODUCTS.length);
-  const verifiedSuppliers = feed.data?.verifiedSuppliers ?? [];
-  const trustStats = feed.data?.trustStats;
-  const renderedTrustStats = trustStats
-    ? [
-        { metric: String(trustStats.districtsCovered), label: 'Districts Covered', sub: 'Island-wide freight routing' },
-        {
-          metric: `Rs. ${(trustStats.lifetimeGmvCents / 100 / 1_000_000).toFixed(0)}M+`,
-          label: 'Wholesale Throughput',
-          sub: 'Active commercial trading volume',
-        },
-        {
-          metric: `${trustStats.activeSuppliers > 0 ? '100%' : '0%'}`,
-          label: 'Verified Suppliers',
-          sub: 'Audited tax & depot identity',
-        },
-        { metric: '0%', label: 'Hidden Broker Markup', sub: 'Direct factory & mill prices' },
-      ]
-    : TRUST_STATS;
+  const renderedTrustStats = renderTrustStats(feed.data?.trustStats);
 
   function goSearch(term?: string) {
     const q = (term ?? query).trim();
     navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search');
-  }
-
-  function handleSearchSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    goSearch();
   }
 
   return (
@@ -398,7 +369,7 @@ export function HomePage() {
         <div className="relative max-w-stage mx-auto w-full px-5 sm:px-8 py-12 sm:py-16 lg:py-20 grid lg:grid-cols-12 gap-10 sm:gap-12 lg:gap-10 items-center">
           {/* Left Column: Heading & Search */}
           <div className="lg:col-span-7">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-paper/10 border border-paper/15 text-xs text-volt mb-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-paper/10 border border-paper/15 text-xs text-volt mb-6 rounded-md">
               <span className="size-2 rounded-full bg-volt animate-pulse" />
               <span className="vyro-kicker text-volt">Sri Lanka's B2B Wholesale Operating Layer</span>
             </div>
@@ -411,29 +382,15 @@ export function HomePage() {
               Source direct from verified mills, importers, and licensed distributors across Sri Lanka. Real-time LKR prices, multi-supplier split carts, and end-to-end delivery tracking.
             </p>
 
-            {/* Search Input Box */}
-            <form onSubmit={handleSearchSubmit} className="mt-8 max-w-xl">
-              <label htmlFor="home-search" className="sr-only">
-                Search the wholesale catalog
-              </label>
-              <div className="flex flex-col sm:flex-row bg-paper shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6)] focus-within:shadow-[0_0_0_2px_#C6DC4A,0_20px_50px_-20px_rgba(0,0,0,0.6)] transition-all">
-                <div className="relative flex-1">
-                  <SearchIcon size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-4 pointer-events-none" />
-                  <input
-                    id="home-search"
-                    name="q"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search rice, sugar, tea, oil, packaging, cement…"
-                    autoComplete="off"
-                    className="w-full h-14 bg-transparent pl-12 pr-4 text-ink placeholder:text-ink-4 text-sm sm:text-base focus:outline-none font-medium"
-                  />
-                </div>
-                <Button type="submit" size="lg" className="m-1.5 sm:min-w-40 bg-ink text-paper hover:bg-ink-2">
-                  Search Catalog →
-                </Button>
-              </div>
-            </form>
+            <div className="mt-8">
+              <CatalogSearch
+                variant="hero"
+                inputId="home-search"
+                value={query}
+                onChange={setQuery}
+                onSubmit={(term) => goSearch(term)}
+              />
+            </div>
 
             {/* Quick Keyword Pills */}
             <div className="mt-4">
@@ -444,7 +401,7 @@ export function HomePage() {
                     key={term}
                     type="button"
                     onClick={() => goSearch(term)}
-                    className="px-2.5 py-1 text-[11px] font-mono text-paper/70 bg-paper/5 border border-paper/15 hover:border-volt hover:text-volt hover:bg-paper/10 transition-colors cursor-pointer"
+                    className="px-2.5 py-1 text-[11px] font-mono text-paper/70 bg-paper/5 border border-paper/15 hover:border-volt hover:text-volt hover:bg-paper/10 transition-colors cursor-pointer rounded-lg"
                   >
                     {term}
                   </button>
@@ -481,7 +438,7 @@ export function HomePage() {
           <div className="lg:col-span-5">
             <div className="grid grid-cols-2 gap-3 aspect-[4/5] sm:aspect-auto sm:h-[32rem]">
               {/* Large Featured Product Tile */}
-              <div className="relative col-span-2 row-span-2 overflow-hidden border border-paper/15 group">
+              <div className="relative col-span-2 row-span-2 overflow-hidden border border-paper/15 group rounded-xl">
                 <img
                   src={HERO_PROOF.image}
                   alt={HERO_PROOF.product}
@@ -490,7 +447,7 @@ export function HomePage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-void via-void/40 to-transparent" />
 
                 {/* Floating Live Pricing Badge */}
-                <div className="absolute top-3 right-3 sm:top-4 sm:right-4 bg-ink/90 backdrop-blur-md px-2.5 py-1 sm:px-3 border border-volt/40 flex items-center gap-2 text-[10px] sm:text-xs">
+                <div className="absolute top-3 right-3 sm:top-4 sm:right-4 bg-ink/90 backdrop-blur-md px-2.5 py-1 sm:px-3 border border-volt/40 flex items-center gap-2 text-[10px] sm:text-xs rounded-md">
                   <span className="size-2 rounded-full bg-volt animate-ping" />
                   <span className="font-mono text-volt font-bold">LIVE OFFERS</span>
                 </div>
@@ -505,7 +462,7 @@ export function HomePage() {
                     </div>
                     <Link
                       to="/search?q=rice"
-                      className="shrink-0 px-3 py-1.5 bg-volt text-ink text-[10px] sm:text-xs font-bold uppercase tracking-wider hover:bg-volt-glow transition-colors"
+                      className="shrink-0 px-3 py-1.5 bg-volt text-ink text-[10px] sm:text-xs font-bold uppercase tracking-wider hover:bg-volt-glow transition-colors rounded-lg"
                     >
                       Compare →
                     </Link>
@@ -514,7 +471,7 @@ export function HomePage() {
                   {/* 3 Offers live preview */}
                   <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-1.5 sm:gap-2 pt-3 border-t border-paper/15">
                     {HERO_PROOF.offers.map((o) => (
-                      <div key={o.tag} className="bg-void/80 backdrop-blur-sm p-1.5 sm:p-2 border border-paper/10 min-w-0">
+                      <div key={o.tag} className="bg-void/80 backdrop-blur-sm p-1.5 sm:p-2 border border-paper/10 min-w-0 rounded-lg">
                         <span className="text-[8px] sm:text-[9px] uppercase tracking-wider text-paper/50 block truncate">{o.tag}</span>
                         <span className="vyro-metric text-[13px] sm:text-base text-paper font-bold block mt-0.5 truncate">{o.value}</span>
                         <span className="hidden sm:block text-[10px] text-paper/60 truncate">{o.hint}</span>
@@ -531,7 +488,7 @@ export function HomePage() {
                 <Link
                   key={item.name}
                   to={`/search?q=${item.query}`}
-                  className="relative h-24 sm:h-28 overflow-hidden border border-paper/15 group cursor-pointer"
+                  className="relative h-24 sm:h-28 overflow-hidden border border-paper/15 group cursor-pointer rounded-xl"
                 >
                   <img
                     src={item.src}
@@ -646,7 +603,7 @@ export function HomePage() {
                             {p.name}
                           </h3>
                           {p.badge && (
-                            <span className="px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider bg-paper/10 text-paper/90 border border-paper/20 rounded group-hover:border-volt/40 group-hover:text-volt transition-colors shrink-0">
+                            <span className="px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider bg-paper/10 text-paper/90 border border-paper/20 rounded-md group-hover:border-volt/40 group-hover:text-volt transition-colors shrink-0">
                               {p.badge}
                             </span>
                           )}
@@ -683,7 +640,7 @@ export function HomePage() {
                   </div>
 
                   {/* Mobile inline preview (for touch devices) */}
-                  <div className="mt-4 lg:hidden rounded-lg overflow-hidden border border-paper/15 relative h-36 bg-ink/60">
+                  <div className="mt-4 lg:hidden rounded-xl overflow-hidden border border-paper/15 relative h-36 bg-ink/60">
                     <img
                       src={p.image}
                       alt={p.name}
@@ -730,7 +687,7 @@ export function HomePage() {
               <Link
                 key={b.name}
                 to="/onboarding/business"
-                className="group relative h-80 overflow-hidden border border-ink/15 hover:border-ink transition-all duration-300 flex flex-col justify-end p-6 cursor-pointer"
+                className="group relative h-80 overflow-hidden border border-ink/15 hover:border-ink transition-all duration-300 flex flex-col justify-end p-6 cursor-pointer rounded-xl"
               >
                 {/* Background Photo */}
                 <img
@@ -743,7 +700,7 @@ export function HomePage() {
 
                 {/* Floating Content */}
                 <div className="relative z-10">
-                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-volt text-ink inline-block mb-3">
+                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-volt text-ink inline-block mb-3 rounded-md">
                     {b.tag}
                   </span>
                   <h3 className="font-display text-2xl text-paper group-hover:text-volt transition-colors">{b.name}</h3>
@@ -779,7 +736,7 @@ export function HomePage() {
             <Link
               key={c.name}
               to={`/search?q=${encodeURIComponent(c.query)}`}
-              className="group bg-paper border border-ink/15 hover:border-ink hover:shadow-md transition-all duration-240 overflow-hidden flex flex-col justify-between"
+              className="group bg-paper border border-ink/15 hover:border-ink hover:shadow-md transition-all duration-240 overflow-hidden flex flex-col justify-between rounded-xl"
             >
               <div>
                 <div className="relative h-36 overflow-hidden bg-bone">
@@ -789,7 +746,7 @@ export function HomePage() {
                     loading="lazy"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  <span className="absolute top-2 right-2 px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider bg-paper/90 backdrop-blur-sm border border-ink/10 text-ink">
+                  <span className="absolute top-2 right-2 px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider bg-paper/90 backdrop-blur-sm border border-ink/10 text-ink rounded-md">
                     {c.volume}
                   </span>
                 </div>
@@ -824,7 +781,7 @@ export function HomePage() {
             {VERIFIED_SUPPLIERS.map((s) => (
               <div
                 key={s.name}
-                className="bg-bone border border-ink/15 overflow-hidden flex flex-col justify-between hover:border-ink hover:shadow-lg transition-all duration-300"
+                className="bg-bone border border-ink/15 overflow-hidden flex flex-col justify-between hover:border-ink hover:shadow-lg transition-all duration-300 rounded-xl"
               >
                 <div>
                   <div className="relative h-48 overflow-hidden">
@@ -834,7 +791,7 @@ export function HomePage() {
                       loading="lazy"
                       className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                     />
-                    <div className="absolute top-3 right-3 px-2 py-1 bg-ink text-volt text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md">
+                    <div className="absolute top-3 right-3 px-2 py-1 bg-ink text-volt text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md rounded-md">
                       <CheckCircleIcon size={12} />
                       Verified Facility
                     </div>
@@ -864,7 +821,7 @@ export function HomePage() {
                 <div className="p-5 pt-0">
                   <Link
                     to={`/search?q=${encodeURIComponent(s.name.split(' ')[0] || s.name)}`}
-                    className="w-full h-10 border border-ink/20 hover:border-ink hover:bg-ink hover:text-paper transition-colors flex items-center justify-center text-xs font-semibold uppercase tracking-wider"
+                    className="w-full h-10 border border-ink/20 hover:border-ink hover:bg-ink hover:text-paper transition-colors flex items-center justify-center text-xs font-semibold uppercase tracking-wider rounded-lg"
                   >
                     View Supplier Catalog →
                   </Link>
@@ -910,7 +867,7 @@ export function HomePage() {
             <div className="lg:col-span-7 space-y-4">
               <div className="grid sm:grid-cols-2 gap-4">
                 {JOURNEY.map((s) => (
-                  <div key={s.n} className="bg-paper p-6 border border-ink/15 shadow-sm space-y-3">
+                  <div key={s.n} className="bg-paper p-6 border border-ink/15 shadow-sm space-y-3 rounded-xl">
                     <span className="vyro-metric text-3xl text-copper font-bold">{s.n}</span>
                     <h3 className="font-display text-2xl text-ink">{s.t}</h3>
                     <p className="text-xs text-ink-3 leading-relaxed">{s.b}</p>
@@ -919,9 +876,9 @@ export function HomePage() {
               </div>
 
               {/* Live Dispatch Preview Bar */}
-              <div className="bg-paper border border-ink/15 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="bg-paper border border-ink/15 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl">
                 <div className="flex items-center gap-3">
-                  <div className="size-10 bg-volt/20 flex items-center justify-center text-ink shrink-0">
+                  <div className="size-10 bg-volt/20 flex items-center justify-center text-ink shrink-0 rounded-lg">
                     <TruckIcon size={22} />
                   </div>
                   <div>
@@ -929,7 +886,7 @@ export function HomePage() {
                     <span className="text-xs font-semibold text-ink">PO #2026-0841 · Western Province Route Active</span>
                   </div>
                 </div>
-                <span className="px-3 py-1 bg-ink text-paper text-[11px] font-mono uppercase tracking-wider shrink-0">
+                <span className="px-3 py-1 bg-ink text-paper text-[11px] font-mono uppercase tracking-wider shrink-0 rounded-md">
                   Track in Real-Time
                 </span>
               </div>
@@ -948,7 +905,7 @@ export function HomePage() {
 
           <div className="grid md:grid-cols-2 gap-6">
             {FAQ.map((item) => (
-              <div key={item.q} className="p-6 bg-bone border border-ink/15 space-y-3">
+              <div key={item.q} className="p-6 bg-bone border border-ink/15 space-y-3 rounded-xl">
                 <h3 className="font-display text-xl text-ink font-semibold">{item.q}</h3>
                 <p className="text-sm text-ink-3 leading-relaxed">{item.a}</p>
               </div>
@@ -965,7 +922,7 @@ export function HomePage() {
 
         <div className="relative max-w-stage mx-auto px-5 sm:px-8 py-16 sm:py-20 grid lg:grid-cols-2 gap-6 sm:gap-8">
           {/* Buyer CTA Box */}
-          <div className="relative overflow-hidden border border-paper/15 p-6 sm:p-8 lg:p-10 flex flex-col justify-between group min-h-[20rem] sm:min-h-[24rem]">
+          <div className="relative overflow-hidden border border-paper/15 p-6 sm:p-8 lg:p-10 flex flex-col justify-between group min-h-[20rem] sm:min-h-[24rem] rounded-xl">
             <img
               src="https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=800&q=80"
               alt="Commercial procurement kitchen chef"
@@ -996,7 +953,7 @@ export function HomePage() {
           </div>
 
           {/* Supplier CTA Box */}
-          <div className="relative overflow-hidden border border-paper/15 p-6 sm:p-8 lg:p-10 flex flex-col justify-between group min-h-[20rem] sm:min-h-[24rem]">
+          <div className="relative overflow-hidden border border-paper/15 p-6 sm:p-8 lg:p-10 flex flex-col justify-between group min-h-[20rem] sm:min-h-[24rem] rounded-xl">
             <img
               src="https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=800&q=80"
               alt="Wholesale warehouse manager"

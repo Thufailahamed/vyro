@@ -10,7 +10,6 @@ import { useToast } from '@vyro/ui';
 import {
   ShoppingCartIcon,
   Trash2Icon,
-  PackageIcon,
   TruckIcon,
   ShieldCheckIcon,
   MapPinIcon,
@@ -24,7 +23,7 @@ import {
   CheckCircleIcon,
 } from '@/components/icons';
 import { FlowLine } from '@/components/brand/FlowLine';
-import { MetricNumber, Surface } from '@/components/brand/Surface';
+import { MetricNumber, ProductImage, Surface } from '@/components/brand/Surface';
 import { CartHintsBanner } from '@/ai/CartHintsBanner';
 import { BulkQuoteCta } from '@/components/BulkQuoteCta';
 import { useQuery as useRQ } from '@tanstack/react-query';
@@ -351,17 +350,12 @@ export function CartPage() {
                           {/* Item Thumbnail & Information */}
                           <div className="flex items-start gap-4 flex-1 min-w-0">
                             <Link to={`/products/${it.product.id}`} className="shrink-0 group">
-                              {it.product.imageUrl ? (
-                                <img
-                                  src={it.product.imageUrl}
-                                  alt={it.product.name}
-                                  className="w-16 h-16 object-cover border border-line group-hover:scale-105 transition-transform bg-bone"
-                                />
-                              ) : (
-                                <div className="w-16 h-16 border border-line bg-bone flex items-center justify-center text-ink-4">
-                                  <PackageIcon size={20} />
-                                </div>
-                              )}
+                              <ProductImage
+                                src={it.product.imageUrl}
+                                alt={it.product.name}
+                                seed={it.product.id}
+                                className="w-16 h-16 border border-line group-hover:scale-105 transition-transform"
+                              />
                             </Link>
 
                             <div className="space-y-1 flex-1 min-w-0">

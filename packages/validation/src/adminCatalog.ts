@@ -18,6 +18,17 @@ export const adminProductListQuery = z
   })
   .strict();
 
+const adminHsCode = z
+  .string()
+  .regex(/^[0-9]{6,10}(\.[0-9]{0,4})?$/, 'HS code must be 6-10 digits, optional .suffix')
+  .nullable()
+  .optional();
+const adminIso2 = z
+  .string()
+  .regex(/^[A-Z]{2}$/, 'Country of origin must be ISO-3166 alpha-2')
+  .nullable()
+  .optional();
+
 export const adminProductPatchBody = z
   .object({
     name: z.string().min(1).max(200).optional(),
@@ -30,6 +41,8 @@ export const adminProductPatchBody = z
     featured: z.boolean().optional(),
     moderationNotes: z.string().max(2000).nullable().optional(),
     expectedUpdatedAt: z.number().int().optional(),
+    hsCode: adminHsCode,
+    countryOfOrigin: adminIso2,
   })
   .strict();
 

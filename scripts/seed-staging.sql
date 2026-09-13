@@ -103,11 +103,11 @@ INSERT OR REPLACE INTO product_images (id, product_id, r2_key, sort_order, alt_t
   ('img-samba-1', 'p-samba-rice-25kg', 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?auto=format&fit=crop&w=800&q=80', 1, 'Samba rice wholesale sacks'),
   ('img-samba-2', 'p-samba-rice-25kg', 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80', 2, 'Clean Samba rice grains'),
 
-  ('img-sugar-1', 'p-sugar-1kg', 'https://images.unsplash.com/photo-1581441363689-1f3c3c414635?auto=format&fit=crop&w=800&q=80', 1, 'Refined white sugar crystals'),
-  ('img-sugar-2', 'p-sugar-1kg', 'https://images.unsplash.com/photo-1581441363689-1f3c3c414635?auto=format&fit=crop&w=800&q=80', 2, 'Granulated white sugar scoop'),
+  ('img-sugar-1', 'p-sugar-1kg', 'https://images.unsplash.com/photo-1562245376-3f9dae9f0e73?auto=format&fit=crop&w=800&q=80', 1, 'Refined white sugar crystals'),
+  ('img-sugar-2', 'p-sugar-1kg', 'https://images.unsplash.com/photo-1602634896158-b9b4e3381304?auto=format&fit=crop&w=800&q=80', 2, 'Granulated white sugar scoop'),
 
-  ('img-sugar50-1', 'p-sugar-50kg', 'https://images.unsplash.com/photo-1581441363689-1f3c3c414635?auto=format&fit=crop&w=800&q=80', 1, 'Bulk 50kg sugar commercial bag'),
-  ('img-sugar50-2', 'p-sugar-50kg', 'https://images.unsplash.com/photo-1622484212850-eb596d769edc?auto=format&fit=crop&w=800&q=80', 2, 'Refined sugar granules wholesale'),
+  ('img-sugar50-1', 'p-sugar-50kg', 'https://images.unsplash.com/photo-1562245376-3f9dae9f0e73?auto=format&fit=crop&w=800&q=80', 1, 'Bulk 50kg sugar commercial bag'),
+  ('img-sugar50-2', 'p-sugar-50kg', 'https://images.unsplash.com/photo-1602634896158-b9b4e3381304?auto=format&fit=crop&w=800&q=80', 2, 'Refined sugar granules wholesale'),
 
   ('img-tea-1', 'p-tea-200g', 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=800&q=80', 1, 'Ceylon black tea dry leaves'),
   ('img-tea-2', 'p-tea-200g', 'https://images.unsplash.com/photo-1597481499750-3e6b22637e12?auto=format&fit=crop&w=800&q=80', 2, 'Harvested estate tea'),
@@ -118,7 +118,7 @@ INSERT OR REPLACE INTO product_images (id, product_id, r2_key, sort_order, alt_t
   ('img-milk-1', 'p-milk-1l', 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80', 1, 'Fresh pasteurized whole milk bottle and glass'),
   ('img-milk-2', 'p-milk-1l', 'https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&w=800&q=80', 2, 'Dairy milk carton wholesale'),
 
-  ('img-flour-1', 'p-flour-1kg', 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80', 1, 'All-purpose wheat flour scoop and bowl'),
+  ('img-flour-1', 'p-flour-1kg', 'https://images.unsplash.com/photo-1714842981153-ffeaf74e7a1a?auto=format&fit=crop&w=800&q=80', 1, 'All-purpose wheat flour scoop and bowl'),
 
   ('img-cement-1', 'p-cement-50kg', 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=800&q=80', 1, 'Portland cement construction material'),
 

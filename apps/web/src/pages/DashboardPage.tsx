@@ -21,7 +21,10 @@ import {
 } from '@/components/icons';
 import { formatCompactLKR, formatLKR, greetingForNow } from '@/lib/format';
 import { FlowLine, FlowCanvas } from '@/components/brand/FlowLine';
-import { MetricNumber, Surface } from '@/components/brand/Surface';
+import { MetricNumber, ProductImage, Surface } from '@/components/brand/Surface';
+import { FALLBACK_PRODUCT_IMAGE, resolveCatalogImage } from '@/lib/catalogImages';
+import { dedupeSuppliers } from '@/lib/dedupeSuppliers';
+import { useAddToCart } from '@/lib/useAddToCart';
 
 interface OrderRow {
   id: string;
@@ -99,9 +102,6 @@ interface CartItem {
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-const FALLBACK_PRODUCT_IMAGE =
-  'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80';
-
 const SUPPLIER_PHOTOS: Record<string, string> = {
   'sup-colombo-wholesalers':
     'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80',
@@ -119,6 +119,7 @@ export function DashboardPage() {
   const { user } = useAuth();
   const businessId = user?.memberships?.[0]?.businessId;
   const businessName = user?.memberships?.[0]?.businessName;
+  const { addToCart, pendingKey } = useAddToCart();
 
   // 1. Real Purchase Orders Query
   const { data: ordersData } = useQuery({
@@ -212,7 +213,7 @@ export function DashboardPage() {
     return hits.filter((h) => h.product.categoryId === spotlightCategory);
   }, [hits, spotlightCategory]);
 
-  const suppliers = suppliersData?.suppliers ?? [];
+  const suppliers = dedupeSuppliers(suppliersData?.suppliers ?? []);
 
   // Derived real logistics depot network from actual verified suppliers
   const depotNetwork = useMemo(() => {
@@ -255,9 +256,9 @@ export function DashboardPage() {
       <div className="space-y-8 max-w-6xl">
         {/* Top Supplier Notice Banner if user is already a supplier */}
         {hasSupplier && (
-          <div className="p-5 bg-ink text-paper border border-volt/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md">
+          <div className="p-5 bg-ink text-paper border border-volt/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md rounded-xl">
             <div className="flex items-center gap-3">
-              <div className="size-10 bg-volt text-ink flex items-center justify-center font-bold shrink-0">
+              <div className="size-10 bg-volt text-ink flex items-center justify-center font-bold shrink-0 rounded-lg">
                 <StoreIcon size={20} />
               </div>
               <div>
@@ -299,7 +300,7 @@ export function DashboardPage() {
           </div>
           <div className="relative z-10 grid lg:grid-cols-12 gap-8 items-center">
             <div className="lg:col-span-7 space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-paper/10 border border-paper/15 text-xs text-volt">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-paper/10 border border-paper/15 text-xs text-volt rounded-md">
                 <span className="size-2 rounded-full bg-volt animate-pulse" />
                 <span className="vyro-kicker text-volt">National B2B Operating Layer</span>
               </div>
@@ -316,7 +317,7 @@ export function DashboardPage() {
                   { label: 'Invoicing', val: 'SVAT Digital' },
                   { label: 'Setup Time', val: '< 2 Minutes' },
                 ].map((s) => (
-                  <div key={s.label} className="p-3 bg-paper/5 border border-paper/10">
+                  <div key={s.label} className="p-3 bg-paper/5 border border-paper/10 rounded-lg">
                     <span className="vyro-metric text-lg text-paper font-bold block">{s.val}</span>
                     <span className="text-[10px] text-paper/50 uppercase tracking-wider block mt-0.5">{s.label}</span>
                   </div>
@@ -325,14 +326,14 @@ export function DashboardPage() {
             </div>
 
             <div className="lg:col-span-5">
-              <div className="relative overflow-hidden border border-paper/20 group h-64 sm:h-72 shadow-2xl">
+              <div className="relative overflow-hidden border border-paper/20 group h-64 sm:h-72 shadow-2xl rounded-xl">
                 <img
                   src="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80"
                   alt="Audited wholesale distribution depot"
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-void via-void/40 to-transparent" />
-                <div className="absolute bottom-4 left-4 right-4 p-3 bg-void/85 backdrop-blur-md border border-paper/15 space-y-1">
+                <div className="absolute bottom-4 left-4 right-4 p-3 bg-void/85 backdrop-blur-md border border-paper/15 space-y-1 rounded-lg">
                   <span className="text-[9px] font-mono text-volt uppercase tracking-wider block">Audited Mill Infrastructure</span>
                   <div className="text-xs font-display text-paper font-semibold">Direct Factory-to-Dock Freight</div>
                   <p className="text-[11px] text-paper/70 line-clamp-1">Kurunegala grain mills & Colombo central depots live on the network.</p>
@@ -349,7 +350,7 @@ export function DashboardPage() {
             <div className="space-y-5">
               <div className="flex items-center justify-between pb-4 border-b border-ink/10">
                 <div className="flex items-center gap-3">
-                  <div className="size-10 bg-ink text-volt flex items-center justify-center">
+                  <div className="size-10 bg-ink text-volt flex items-center justify-center rounded-lg">
                     <Building2Icon size={20} />
                   </div>
                   <div>
@@ -359,7 +360,7 @@ export function DashboardPage() {
                     </h3>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-volt text-ink">
+                <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-volt text-ink rounded-md">
                   Recommended
                 </span>
               </div>
@@ -368,7 +369,7 @@ export function DashboardPage() {
                 For restaurants, hotel resorts, catering kitchens, bakery chains, and retail supermarkets purchasing food commodities, beverage stocks, and packaging in bulk.
               </p>
 
-              <div className="space-y-2.5 p-4 bg-paper/70 border border-ink/10">
+              <div className="space-y-2.5 p-4 bg-paper/70 border border-ink/10 rounded-lg">
                 <span className="text-[10px] font-mono text-copper uppercase tracking-wider block font-bold">
                   What you unlock upon registration:
                 </span>
@@ -409,7 +410,7 @@ export function DashboardPage() {
             <div className="space-y-5">
               <div className="flex items-center justify-between pb-4 border-b border-ink/10">
                 <div className="flex items-center gap-3">
-                  <div className="size-10 bg-ink text-copper flex items-center justify-center">
+                  <div className="size-10 bg-ink text-copper flex items-center justify-center rounded-lg">
                     <StoreIcon size={20} />
                   </div>
                   <div>
@@ -419,7 +420,7 @@ export function DashboardPage() {
                     </h3>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-mist text-ink border border-line">
+                <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-mist text-ink border border-line rounded-md">
                   Suppliers
                 </span>
               </div>
@@ -428,7 +429,7 @@ export function DashboardPage() {
                 For rice millers, tea estates, certified food importers, commercial packaging factories, and authorized regional wholesale distribution hubs.
               </p>
 
-              <div className="space-y-2.5 p-4 bg-paper/70 border border-ink/10">
+              <div className="space-y-2.5 p-4 bg-paper/70 border border-ink/10 rounded-lg">
                 <span className="text-[10px] font-mono text-copper uppercase tracking-wider block font-bold">
                   What your facility receives:
                 </span>
@@ -489,15 +490,16 @@ export function DashboardPage() {
                 <Link
                   key={hit.product.id}
                   to={`/products/${hit.product.id}`}
-                  className="group p-3 bg-paper border border-ink/10 hover:border-ink transition-all duration-200 block space-y-3"
+                  className="group p-3 bg-paper border border-ink/10 hover:border-ink transition-all duration-200 block space-y-3 rounded-xl"
                 >
-                  <div className="relative h-32 overflow-hidden bg-mist">
-                    <img
+                  <div className="relative h-32 overflow-hidden bg-mist rounded-lg">
+                    <ProductImage
                       src={hit.product.imageUrl || FALLBACK_PRODUCT_IMAGE}
                       alt={hit.product.name}
+                      seed={hit.product.id}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    <span className="absolute top-2 left-2 px-2 py-0.5 text-[9px] font-mono font-bold uppercase bg-ink/90 text-paper border border-paper/20">
+                    <span className="absolute top-2 left-2 px-2 py-0.5 text-[9px] font-mono font-bold uppercase bg-ink/90 text-paper border border-paper/20 rounded-md">
                       {catName}
                     </span>
                   </div>
@@ -530,32 +532,30 @@ export function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Executive Command Header */}
-      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6 pb-5 sm:pb-6 border-b border-ink/10">
-        <div className="space-y-1.5 min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-volt/25 text-ink text-[10px] font-mono font-bold uppercase tracking-wider border border-volt/40">
-              <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
-              Verified Purchasing Entity
-            </span>
-            <span className="text-[11px] font-mono text-ink-4">
-              Workspace ID: {businessId}
+      <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-5 border-b border-ink/10">
+        <div className="space-y-1 min-w-0">
+          <p className="text-sm text-ink-3">
+            {greetingForNow()},{' '}
+            <span className="font-semibold text-ink">{user.name || 'Purchasing Director'}</span>
+          </p>
+          <h1 className="vyro-display text-2xl sm:text-3xl lg:text-4xl text-ink leading-tight break-words" title={businessId}>
+            {businessName}
+          </h1>
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-volt/25 text-ink text-[10px] font-mono font-bold uppercase tracking-wider border border-volt/40 rounded-md">
+              Verified
             </span>
             <span className="inline-flex items-center gap-1 text-[11px] text-ink-3">
               <ShieldCheckIcon size={13} className="text-volt-deep" />
-              SVAT Invoicing Ready
+              SVAT ready
             </span>
           </div>
-          <h1 className="vyro-display text-2xl sm:text-4xl lg:text-5xl text-ink leading-none break-words">
-            {businessName}
-          </h1>
-          <p className="text-xs sm:text-sm text-ink-3">
-            {greetingForNow()}, <span className="font-semibold text-ink">{user.name || 'Purchasing Director'}</span>. Wholesale procurement console connected to 25 districts.
-          </p>
         </div>
-        <div className="grid grid-cols-3 lg:flex lg:flex-wrap items-center gap-2 sm:gap-3 shrink-0">
-          <Link to="/cart" className="w-full lg:w-auto">
-            <Button variant="secondary" size="sm" className="w-full lg:w-auto text-xs font-semibold relative">
-              <ShoppingCartIcon size={14} /> View Cart
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Link to="/cart">
+            <Button variant="secondary" size="sm" className="text-xs font-semibold">
+              <ShoppingCartIcon size={14} />
+              {cartItemsCount > 0 ? `Cart · ${formatLKR(cartTotalCents)}` : 'Cart'}
               {cartItemsCount > 0 && (
                 <span className="ml-1 px-1.5 py-0.2 bg-volt text-ink font-mono font-bold text-[10px] rounded-full">
                   {cartItemsCount}
@@ -563,72 +563,21 @@ export function DashboardPage() {
               )}
             </Button>
           </Link>
-          <Link to="/rfqs" className="w-full lg:w-auto">
-            <Button variant="secondary" size="sm" className="w-full lg:w-auto text-xs font-semibold">
-              Bulk Quotes
-            </Button>
-          </Link>
-          <Link to="/search" className="w-full lg:w-auto">
-            <Button variant="primary" size="sm" className="w-full lg:w-auto text-xs uppercase tracking-wider font-bold">
+          {hasSupplier && (
+            <Link to="/supplier">
+              <Button variant="secondary" size="sm" className="text-xs font-semibold" title={supplier?.supplierId}>
+                <StoreIcon size={14} />
+                {supplier?.supplierName ?? 'Supplier console'}
+              </Button>
+            </Link>
+          )}
+          <Link to="/search">
+            <Button variant="primary" size="sm" className="text-xs uppercase tracking-wider font-bold">
               Start Procurement
             </Button>
           </Link>
         </div>
       </header>
-
-      {/* Supplier Console Switch Banner if user operates a facility */}
-      {hasSupplier && (
-        <div className="p-4 sm:p-5 bg-ink text-paper border border-volt/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md">
-          <div className="flex items-center gap-3">
-            <div className="size-10 bg-volt text-ink flex items-center justify-center font-bold shrink-0">
-              <StoreIcon size={20} />
-            </div>
-            <div>
-              <div className="vyro-kicker text-volt">Active Supplier Facility Connected</div>
-              <h3 className="font-display text-base text-paper font-semibold">
-                {supplier?.supplierName}
-              </h3>
-              <p className="text-xs text-paper/70">
-                Role: <span className="capitalize font-mono text-volt">{supplier?.role}</span> · Facility ID: {supplier?.supplierId}
-              </p>
-            </div>
-          </div>
-          <Link to="/supplier">
-            <Button className="bg-volt text-ink hover:bg-volt-glow font-bold uppercase tracking-wider text-xs">
-              Open Supplier Dispatch Console →
-            </Button>
-          </Link>
-        </div>
-      )}
-
-      {/* Active Cart Notification Callout (Real Cart Endpoint) */}
-      {cartItemsCount > 0 && (
-        <Surface kind="flat" className="p-4 sm:p-5 border-l-4 border-l-volt bg-paper shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="size-10 bg-volt/20 text-ink flex items-center justify-center font-bold shrink-0">
-              <ShoppingCartIcon size={20} className="text-ink" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-volt-deep">
-                  Draft Purchase Order Ready
-                </span>
-                <span className="px-1.5 py-0.5 text-[10px] font-mono bg-mist text-ink border border-line">
-                  {cartItemsCount} {cartItemsCount === 1 ? 'item' : 'items'}
-                </span>
-              </div>
-              <p className="text-xs text-ink-3 mt-0.5">
-                Your cart holds <strong className="text-ink">{formatLKR(cartTotalCents)}</strong> across {cartData?.supplierCount ?? 1} supplier PO {cartData?.supplierCount === 1 ? 'draft' : 'drafts'}. Ready for split-issuance and checkout.
-              </p>
-            </div>
-          </div>
-          <Link to="/cart" className="shrink-0">
-            <Button className="bg-volt text-ink hover:bg-volt-glow font-bold uppercase tracking-wider text-xs py-2 px-4 whitespace-nowrap">
-              Review & Issue POs →
-            </Button>
-          </Link>
-        </Surface>
-      )}
 
       {/* Fast-Track First Purchase Order Hero (prominent when 0 orders on record) */}
       {stats.total === 0 && (
@@ -638,7 +587,7 @@ export function DashboardPage() {
           </div>
           <div className="relative z-10 grid lg:grid-cols-12 gap-6 items-center">
             <div className="lg:col-span-7 space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-paper/10 border border-paper/15 text-xs text-volt">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-paper/10 border border-paper/15 text-xs text-volt rounded-md">
                 <SparklesIcon size={14} />
                 <span className="vyro-kicker text-volt">Fast-Track First Purchase Order</span>
               </div>
@@ -649,17 +598,17 @@ export function DashboardPage() {
                 Your commercial purchasing account for <strong className="text-paper">{businessName}</strong> is active. You can now issue legally-binding POs, order across multiple factories in a single checkout, and track road freight directly to your receiving dock.
               </p>
               <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5 pt-1">
-                <div className="p-2 sm:p-3 bg-paper/5 border border-paper/10 space-y-1">
+                <div className="p-2 sm:p-3 bg-paper/5 border border-paper/10 space-y-1 rounded-lg">
                   <span className="text-[9px] sm:text-[10px] font-mono text-volt uppercase tracking-wider block">Step 1</span>
                   <div className="text-[11px] sm:text-xs font-display text-paper font-semibold leading-tight">Select Products</div>
                   <span className="text-[9px] sm:text-[10px] text-paper/50 block leading-tight">Mill-gate wholesale rates</span>
                 </div>
-                <div className="p-2 sm:p-3 bg-paper/5 border border-paper/10 space-y-1">
+                <div className="p-2 sm:p-3 bg-paper/5 border border-paper/10 space-y-1 rounded-lg">
                   <span className="text-[9px] sm:text-[10px] font-mono text-volt uppercase tracking-wider block">Step 2</span>
                   <div className="text-[11px] sm:text-xs font-display text-paper font-semibold leading-tight">Auto-Split PO</div>
                   <span className="text-[9px] sm:text-[10px] text-paper/50 block leading-tight">Automated vendor routing</span>
                 </div>
-                <div className="p-2 sm:p-3 bg-paper/5 border border-paper/10 space-y-1">
+                <div className="p-2 sm:p-3 bg-paper/5 border border-paper/10 space-y-1 rounded-lg">
                   <span className="text-[9px] sm:text-[10px] font-mono text-volt uppercase tracking-wider block">Step 3</span>
                   <div className="text-[11px] sm:text-xs font-display text-paper font-semibold leading-tight">Dock GRN Signoff</div>
                   <span className="text-[9px] sm:text-[10px] text-paper/50 block leading-tight">Pallet receipt on arrival</span>
@@ -679,14 +628,14 @@ export function DashboardPage() {
               </div>
             </div>
             <div className="lg:col-span-5">
-              <div className="relative overflow-hidden border border-paper/20 group h-56 sm:h-64 shadow-2xl">
+              <div className="relative overflow-hidden border border-paper/20 group h-56 sm:h-64 shadow-2xl rounded-xl">
                 <img
                   src="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80"
                   alt="Wholesale Distribution Depot"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-void via-void/40 to-transparent" />
-                <div className="absolute bottom-3 left-3 right-3 p-3 bg-void/85 backdrop-blur-md border border-paper/15 space-y-1">
+                <div className="absolute bottom-3 left-3 right-3 p-3 bg-void/85 backdrop-blur-md border border-paper/15 space-y-1 rounded-lg">
                   <span className="text-[9px] font-mono text-volt uppercase tracking-wider block">Audited Logistics Network</span>
                   <div className="text-xs font-display text-paper font-semibold">Kurunegala, Colombo & Kandy Terminals</div>
                   <p className="text-[11px] text-paper/70">Average freight transit time: 24 to 48 hours island-wide.</p>
@@ -706,7 +655,7 @@ export function DashboardPage() {
               <span className="text-[11px] uppercase tracking-[0.16em] text-volt font-mono font-semibold">
                 Lifetime Procurement Spend
               </span>
-              <span className="px-2 py-0.5 text-[10px] font-mono text-paper/70 bg-paper/10 border border-paper/15">
+              <span className="px-2 py-0.5 text-[10px] font-mono text-paper/70 bg-paper/10 border border-paper/15 rounded-md">
                 {stats.total} {stats.total === 1 ? 'PO' : 'POs'} on record
               </span>
             </div>
@@ -767,7 +716,7 @@ export function DashboardPage() {
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="font-display text-xl sm:text-2xl text-ink">Procurement Activity</h2>
-                <span className="px-2 py-0.5 text-[10px] font-mono font-semibold bg-mist text-ink border border-line">
+                <span className="px-2 py-0.5 text-[10px] font-mono font-semibold bg-mist text-ink border border-line rounded-md">
                   12-Month Trajectory
                 </span>
               </div>
@@ -783,10 +732,10 @@ export function DashboardPage() {
           {monthlyValues.some((v) => v > 0) ? (
             <TimeSeries values={monthlyValues} labels={monthlyLabels} tone="cyan" height={175} formatValue={(v: number) => formatLKR(v)} />
           ) : (
-            <div className="border border-ink/10 bg-paper/60 p-5 space-y-4">
+            <div className="border border-ink/10 bg-paper/60 p-5 space-y-4 rounded-xl">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="size-10 bg-volt/25 text-ink flex items-center justify-center font-bold shrink-0">
+                  <div className="size-10 bg-volt/25 text-ink flex items-center justify-center font-bold shrink-0 rounded-lg">
                     <TrendingUpIcon size={20} />
                   </div>
                   <div>
@@ -812,7 +761,7 @@ export function DashboardPage() {
                   { label: 'Average Transit', val: '24h - 48h', sub: 'Island-wide freight' },
                   { label: 'SVAT Digital', val: '0% Net', sub: 'IRD-compliant tax invoices' },
                 ].map((stat) => (
-                  <div key={stat.label} className="p-3 bg-paper border border-ink/10">
+                  <div key={stat.label} className="p-3 bg-paper border border-ink/10 rounded-lg">
                     <span className="text-[10px] font-mono text-ink-4 uppercase tracking-wider block">{stat.label}</span>
                     <span className="vyro-metric text-base font-bold text-ink block mt-0.5">{stat.val}</span>
                     <span className="text-[10px] text-ink-4 block">{stat.sub}</span>
@@ -838,12 +787,12 @@ export function DashboardPage() {
 
             <div className="mt-4 space-y-2.5">
               {depotNetwork.map((depot) => (
-                <div key={depot.id} className="flex items-center justify-between p-2.5 bg-paper/80 border border-ink/10 text-xs">
+                <div key={depot.id} className="flex items-center justify-between p-2.5 bg-paper/80 border border-ink/10 text-xs rounded-lg">
                   <div className="truncate pr-2">
                     <span className="font-semibold text-ink block truncate">{depot.name}</span>
                     <span className="text-[10px] text-ink-4">{depot.city} · {depot.time}</span>
                   </div>
-                  <span className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase bg-mist text-ink border border-line shrink-0">
+                  <span className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase bg-mist text-ink border border-line shrink-0 rounded-md">
                     {depot.status}
                   </span>
                 </div>
@@ -878,7 +827,7 @@ export function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setSpotlightCategory('all')}
-                className={`shrink-0 px-3 py-1.5 text-xs font-mono font-semibold transition-all duration-150 border ${
+                className={`shrink-0 px-3 py-1.5 text-xs font-mono font-semibold transition-all duration-150 border rounded-lg ${
                   spotlightCategory === 'all'
                     ? 'bg-ink text-paper border-ink shadow-sm'
                     : 'bg-paper text-ink border-ink/15 hover:border-ink hover:bg-mist'
@@ -891,7 +840,7 @@ export function DashboardPage() {
                   key={cat.id}
                   type="button"
                   onClick={() => setSpotlightCategory(cat.id)}
-                  className={`shrink-0 px-3 py-1.5 text-xs font-mono font-semibold transition-all duration-150 border ${
+                  className={`shrink-0 px-3 py-1.5 text-xs font-mono font-semibold transition-all duration-150 border rounded-lg ${
                     spotlightCategory === cat.id
                       ? 'bg-ink text-paper border-ink shadow-sm'
                       : 'bg-paper text-ink border-ink/15 hover:border-ink hover:bg-mist'
@@ -922,32 +871,35 @@ export function DashboardPage() {
             {filteredHits.map((hit) => {
               const best = hit.bestOffer;
               const catName = categoryMap.get(hit.product.categoryId || '') || 'Wholesale';
+              const adding = pendingKey === best?.id;
               return (
-                <Link
+                <article
                   key={hit.product.id}
-                  to={`/products/${hit.product.id}`}
-                  className="group bg-paper border border-ink/10 hover:border-ink transition-all duration-200 block overflow-hidden shadow-sm hover:shadow-md"
+                  className="group bg-paper border border-ink/10 hover:border-ink transition-all duration-200 overflow-hidden rounded-xl shadow-sm hover:shadow-md flex flex-col"
                 >
-                  <div className="relative h-44 overflow-hidden bg-mist">
-                    <img
-                      src={hit.product.imageUrl || FALLBACK_PRODUCT_IMAGE}
+                  <Link to={`/products/${hit.product.id}`} className="relative h-44 overflow-hidden bg-mist block">
+                    <ProductImage
+                      src={resolveCatalogImage(hit.product.id, hit.product.imageUrl) || FALLBACK_PRODUCT_IMAGE}
                       alt={hit.product.name}
+                      seed={hit.product.id}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
-                    <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 text-[9px] font-mono font-bold uppercase bg-ink/90 text-paper border border-paper/20 backdrop-blur-sm">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity pointer-events-none" />
+                    <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 text-[9px] font-mono font-bold uppercase bg-ink/90 text-paper border border-paper/20 backdrop-blur-sm rounded-md">
                       {catName}
                     </span>
-                    <span className="absolute bottom-2.5 left-2.5 px-2.5 py-0.5 text-[10px] font-mono bg-paper/90 text-ink backdrop-blur-sm">
+                    <span className="absolute bottom-2.5 left-2.5 px-2.5 py-0.5 text-[10px] font-mono bg-paper/90 text-ink backdrop-blur-sm rounded-md">
                       {best ? `${best.minOrderQty} ${hit.product.unit} min` : 'Custom MOQ'}
                     </span>
-                  </div>
+                  </Link>
 
-                  <div className="p-4 space-y-3">
+                  <div className="p-4 space-y-3 flex-1 flex flex-col">
                     <div>
-                      <h3 className="font-display text-base font-semibold text-ink group-hover:text-copper transition-colors truncate">
-                        {hit.product.name}
-                      </h3>
+                      <Link to={`/products/${hit.product.id}`}>
+                        <h3 className="font-display text-base font-semibold text-ink group-hover:text-copper transition-colors truncate">
+                          {hit.product.name}
+                        </h3>
+                      </Link>
                       <p className="text-[11px] text-ink-4 flex items-center gap-1 mt-0.5 truncate">
                         <StoreIcon size={12} className="text-copper shrink-0" />
                         <span className="truncate">
@@ -963,32 +915,48 @@ export function DashboardPage() {
                         </span>
                         <span className="text-[11px] text-ink-4">/ {hit.product.unit}</span>
                       </div>
-                      <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 border border-emerald-200">
+                      <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 border border-emerald-200 rounded-md">
                         {best ? `${best.leadTimeDays * 24}h dispatch` : 'Immediate'}
                       </span>
                     </div>
 
-                    <div className="pt-2 flex items-center justify-between text-[11px] text-ink-3">
-                      <span className="flex items-center gap-1 truncate">
-                        <MapPinIcon size={12} className="text-ink-4 shrink-0" />
-                        <span className="truncate">
-                          {best?.supplier?.district ? `${best.supplier.district} Depot` : 'Island-wide'}
-                        </span>
-                      </span>
-                      <span className="font-bold text-ink group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5 shrink-0">
-                        Procure <ArrowRightIcon size={12} />
-                      </span>
+                    <div className="pt-2 mt-auto flex items-center gap-2">
+                      <Link
+                        to={`/products/${hit.product.id}`}
+                        className="flex-1 text-[11px] font-bold text-ink flex items-center gap-0.5 hover:text-copper"
+                      >
+                        {best?.supplier?.district ? `${best.supplier.district} Depot` : 'Island-wide'}
+                        <ArrowRightIcon size={12} />
+                      </Link>
+                      {best && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="text-[11px] uppercase tracking-wider font-bold"
+                          loading={adding}
+                          onClick={() =>
+                            addToCart({
+                              productId: hit.product.id,
+                              supplierProductId: best.id,
+                              quantity: best.minOrderQty || 1,
+                              productName: hit.product.name,
+                            })
+                          }
+                        >
+                          Add
+                        </Button>
+                      )}
                     </div>
                   </div>
-                </Link>
+                </article>
               );
             })}
           </div>
         )}
 
-        <div className="p-4 bg-mist/60 border border-line flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="p-4 bg-mist/60 border border-line flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl">
           <div className="flex items-center gap-3">
-            <div className="size-8 bg-ink text-volt flex items-center justify-center font-bold shrink-0">
+            <div className="size-8 bg-ink text-volt flex items-center justify-center font-bold shrink-0 rounded-lg">
               <PackageIcon size={16} />
             </div>
             <p className="text-xs text-ink-2">
@@ -1027,7 +995,7 @@ export function DashboardPage() {
             Loading verified primary distributors...
           </div>
         ) : suppliers.length === 0 ? (
-          <div className="p-6 text-center text-xs text-ink-4 border border-ink/10">
+          <div className="p-6 text-center text-xs text-ink-4 border border-ink/10 rounded-xl">
             No supplier facilities registered yet.
           </div>
         ) : (
@@ -1038,18 +1006,18 @@ export function DashboardPage() {
                 <Link
                   key={sup.id}
                   to={`/search?q=${encodeURIComponent(sup.name)}`}
-                  className="group p-4 bg-paper border border-ink/10 hover:border-ink transition-all duration-200 block space-y-3 shadow-sm hover:shadow-md"
+                  className="group p-4 bg-paper border border-ink/10 hover:border-ink transition-all duration-200 block space-y-3 rounded-xl shadow-sm hover:shadow-md"
                 >
-                  <div className="relative h-36 overflow-hidden bg-mist">
+                  <div className="relative h-36 overflow-hidden bg-mist rounded-lg">
                     <img
                       src={photo}
                       alt={sup.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    <span className="absolute top-2 left-2 px-2 py-0.5 text-[9px] font-mono font-bold uppercase bg-ink text-volt border border-volt/20">
+                    <span className="absolute top-2 left-2 px-2 py-0.5 text-[9px] font-mono font-bold uppercase bg-ink text-volt border border-volt/20 rounded-md">
                       {sup.verificationStatus === 'verified' ? 'Verified Hub' : 'Audited Facility'}
                     </span>
-                    <span className="absolute bottom-2 right-2 px-2 py-0.5 text-[9px] font-mono font-bold bg-paper/90 text-ink backdrop-blur-sm">
+                    <span className="absolute bottom-2 right-2 px-2 py-0.5 text-[9px] font-mono font-bold bg-paper/90 text-ink backdrop-blur-sm rounded-md">
                       {sup.activeListingsCount ? `${sup.activeListingsCount} listings` : 'Primary Hub'}
                     </span>
                   </div>
@@ -1082,7 +1050,7 @@ export function DashboardPage() {
           <div className="px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between gap-3 border-b border-ink/10">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <h2 className="font-display text-base sm:text-xl text-ink">Recent Purchase Orders</h2>
-              <span className="px-2 py-0.5 text-[10px] font-mono bg-mist text-ink border border-line shrink-0">
+              <span className="px-2 py-0.5 text-[10px] font-mono bg-mist text-ink border border-line shrink-0 rounded-md">
                 {orders.length} Total
               </span>
             </div>
@@ -1116,7 +1084,7 @@ export function DashboardPage() {
 
       {/* Quick Actions & Operational Tool Bar */}
       <div className="grid sm:grid-cols-3 gap-3 sm:gap-4">
-        <div className="p-4 sm:p-5 bg-paper border border-ink/10 space-y-2">
+        <div className="p-4 sm:p-5 bg-paper border border-ink/10 space-y-2 rounded-xl">
           <div className="flex items-center gap-2 text-ink font-display font-semibold text-sm">
             <PackageIcon size={16} className="text-copper" />
             <span>Fast Replenishment</span>
@@ -1129,7 +1097,7 @@ export function DashboardPage() {
           </Link>
         </div>
 
-        <div className="p-4 sm:p-5 bg-paper border border-ink/10 space-y-2">
+        <div className="p-4 sm:p-5 bg-paper border border-ink/10 space-y-2 rounded-xl">
           <div className="flex items-center gap-2 text-ink font-display font-semibold text-sm">
             <ShieldCheckIcon size={16} className="text-volt-deep" />
             <span>SVAT Digital E-Invoicing</span>
@@ -1142,7 +1110,7 @@ export function DashboardPage() {
           </Link>
         </div>
 
-        <div className="p-4 sm:p-5 bg-paper border border-ink/10 space-y-2">
+        <div className="p-4 sm:p-5 bg-paper border border-ink/10 space-y-2 rounded-xl">
           <div className="flex items-center gap-2 text-ink font-display font-semibold text-sm">
             <Building2Icon size={16} className="text-ink" />
             <span>Receiving Docks & Team</span>

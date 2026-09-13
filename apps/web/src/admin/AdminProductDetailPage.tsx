@@ -53,6 +53,10 @@ export function AdminProductDetailPage() {
               brand: fd.get('brand') ? String(fd.get('brand')) : null,
               packSize: fd.get('packSize') ? String(fd.get('packSize')) : null,
               unit: String(fd.get('unit') ?? p.unit),
+              hsCode: fd.get('hsCode') ? String(fd.get('hsCode')) : null,
+              countryOfOrigin: fd.get('countryOfOrigin')
+                ? String(fd.get('countryOfOrigin')).toUpperCase()
+                : null,
               active: fd.get('active') === 'on',
               moderationNotes: fd.get('moderationNotes')
                 ? String(fd.get('moderationNotes'))
@@ -101,6 +105,27 @@ export function AdminProductDetailPage() {
                 name="packSize"
                 defaultValue={p.packSize ?? ''}
                 className="border rounded px-2 py-1 w-full text-sm"
+              />
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-sm">
+              <span className="text-xs text-ink-500">HS / tariff code</span>
+              <input
+                name="hsCode"
+                defaultValue={p.hsCode ?? ''}
+                placeholder="0901.21"
+                className="border rounded px-2 py-1 w-full text-sm font-mono"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-xs text-ink-500">Country of origin</span>
+              <input
+                name="countryOfOrigin"
+                defaultValue={p.countryOfOrigin ?? ''}
+                placeholder="LK"
+                maxLength={2}
+                className="border rounded px-2 py-1 w-full text-sm font-mono uppercase"
               />
             </label>
           </div>

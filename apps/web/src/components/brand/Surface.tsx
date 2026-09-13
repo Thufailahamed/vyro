@@ -1,5 +1,6 @@
-import { useState, type HTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useState, type HTMLAttributes, type ReactNode } from 'react';
 import { cn } from '@vyro/ui';
+import { resolveCatalogImage } from '@/lib/catalogImages';
 
 type SurfaceKind = 'flat' | 'elevated' | 'floating' | 'split' | 'flow' | 'ink';
 
@@ -12,7 +13,7 @@ export function Surface({
   return (
     <div
       className={cn(
-        'relative overflow-hidden',
+        'relative overflow-hidden rounded-xl',
         kind === 'flat' && 'vyro-surface',
         kind === 'elevated' && 'vyro-elevated',
         kind === 'floating' && 'vyro-floating',
@@ -94,10 +95,16 @@ export function ProductImage({
   className?: string | undefined;
   priority?: boolean;
 }) {
+  const resolved = resolveCatalogImage(seed, src);
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
 
-  if (!src || errored) {
+  useEffect(() => {
+    setLoaded(false);
+    setErrored(false);
+  }, [resolved]);
+
+  if (!resolved || errored) {
     return <ProductPlaceholder seed={seed} className={className} />;
   }
 
@@ -105,7 +112,7 @@ export function ProductImage({
     <div className={cn('relative overflow-hidden bg-bone flex items-center justify-center', className)}>
       {!loaded && <ProductPlaceholder seed={seed} className="absolute inset-0 h-full w-full" />}
       <img
-        src={src}
+        src={resolved}
         alt={alt || 'Product image'}
         loading={priority ? 'eager' : 'lazy'}
         fetchPriority={priority ? 'high' : 'auto'}

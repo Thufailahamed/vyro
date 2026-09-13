@@ -199,7 +199,7 @@ function MarketingShell() {
           aria-modal="true"
           aria-label="Marketing navigation"
           className={cn(
-            'absolute inset-y-0 right-0 w-[88%] max-w-sm bg-paper shadow-2xl flex flex-col transition-transform duration-300 ease-out',
+            'absolute inset-y-0 right-0 w-[88%] max-w-sm bg-paper shadow-2xl flex flex-col transition-transform duration-300 ease-out rounded-l-xl',
             mobileNavOpen ? 'translate-x-0' : 'translate-x-full',
           )}
         >
@@ -309,10 +309,26 @@ function MarketingFooter() {
         <div>
           <div className="vyro-kicker text-copper">VYRO</div>
           <ul className="mt-4 space-y-2 text-sm text-paper/70">
-            <li>VYRO Procurement</li>
-            <li>VYRO Pay</li>
-            <li>VYRO Logistics</li>
-            <li>VYRO Credit</li>
+            <li>
+              <Link to="/search" className="hover:text-volt">
+                VYRO Procurement
+              </Link>
+            </li>
+            <li>
+              <Link to="/accounts" className="hover:text-volt">
+                VYRO Pay
+              </Link>
+            </li>
+            <li>
+              <Link to="/orders" className="hover:text-volt">
+                VYRO Logistics
+              </Link>
+            </li>
+            <li>
+              <Link to="/about" className="hover:text-volt">
+                VYRO Credit
+              </Link>
+            </li>
           </ul>
         </div>
       </div>

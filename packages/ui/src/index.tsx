@@ -17,7 +17,7 @@ import { cn } from './lib/cn';
 // BUTTON
 // ============================================
 const buttonVariants = cva(
-          'inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper focus-visible:ring-offset-2 focus-visible:ring-offset-paper rounded-xs',
+          'inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper focus-visible:ring-offset-2 focus-visible:ring-offset-paper rounded-lg',
   {
     variants: {
       variant: {
@@ -30,12 +30,12 @@ const buttonVariants = cva(
         subtle: 'bg-ink-7 text-ink-1 hover:bg-ink-6 active:scale-[0.98]',
       },
       size: {
-        sm: 'h-8 px-3 text-body-sm rounded-sm',
-        md: 'h-9 px-4 text-body rounded-sm',
-        lg: 'h-11 px-5 text-body-lg rounded-md',
-        xl: 'h-12 px-6 text-body-lg rounded-md',
-        icon: 'size-9 rounded-sm',
-        'icon-sm': 'size-8 rounded-sm',
+        sm: 'h-8 px-3 text-body-sm rounded-lg',
+        md: 'h-9 px-4 text-body rounded-lg',
+        lg: 'h-11 px-5 text-body-lg rounded-lg',
+        xl: 'h-12 px-6 text-body-lg rounded-lg',
+        icon: 'size-9 rounded-lg',
+        'icon-sm': 'size-8 rounded-lg',
       },
     },
     defaultVariants: { variant: 'primary', size: 'md' },
@@ -74,7 +74,7 @@ Button.displayName = 'Button';
 // INPUT
 // ============================================
 const inputVariants = cva(
-        'flex w-full rounded-xs border bg-paper text-ink-1 placeholder:text-ink-4 transition-colors duration-200 focus-visible:outline-none focus-visible:border-ink-1 focus-visible:ring-2 focus-visible:ring-volt/40 disabled:opacity-50 disabled:cursor-not-allowed',
+        'flex w-full rounded-lg border bg-paper text-ink-1 placeholder:text-ink-4 transition-colors duration-200 focus-visible:outline-none focus-visible:border-ink-1 focus-visible:ring-2 focus-visible:ring-volt/40 disabled:opacity-50 disabled:cursor-not-allowed',
   {
     variants: {
       size: { sm: 'h-8 px-2.5 text-body-sm', md: 'h-9 px-3 text-body', lg: 'h-11 px-4 text-body-lg' },
@@ -223,7 +223,7 @@ SectionCard.displayName = 'SectionCard';
 // BADGE
 // ============================================
 const badgeVariants = cva(
-  'inline-flex items-center gap-1 px-2 py-0.5 rounded-xs text-caption font-medium transition-colors',
+  'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-caption font-medium transition-colors',
   {
     variants: {
       variant: {
@@ -390,7 +390,7 @@ export const DialogContent = forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border border-line bg-paper p-6 shadow-5 focus:outline-none',
+        'fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-line bg-paper p-6 shadow-5 focus:outline-none',
         className
       )}
       {...props}
@@ -524,7 +524,7 @@ export const SelectTrigger = forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex h-9 w-full items-center justify-between rounded-md border border-line bg-paper px-3 py-2 text-body text-ink-1 placeholder:text-ink-4 focus-visible:outline-none focus-visible:border-cyan-deep focus-visible:ring-2 focus-visible:ring-cyan/30 disabled:opacity-50 [&>span]:line-clamp-1',
+      'flex h-9 w-full items-center justify-between rounded-lg border border-line bg-paper px-3 py-2 text-body text-ink-1 placeholder:text-ink-4 focus-visible:outline-none focus-visible:border-cyan-deep focus-visible:ring-2 focus-visible:ring-cyan/30 disabled:opacity-50 [&>span]:line-clamp-1',
       className
     )}
     {...props}
@@ -545,7 +545,7 @@ export const SelectContent = forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border border-line bg-paper shadow-4 text-ink-1',
+        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-lg border border-line bg-paper shadow-4 text-ink-1',
         position === 'popper' && 'data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1',
         className
       )}

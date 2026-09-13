@@ -58,6 +58,27 @@
     outline: 2px solid var(--vyro-copper);
     outline-offset: 3px;
   }
+
+  /* Site-wide soft corners. Utilities like rounded-full / rounded-none still win. */
+  [class~='border']:not([class*='rounded']):not(table):not(thead):not(tbody):not(tr):not(th):not(td):not(hr) {
+    border-radius: 12px;
+  }
+
+  [class~='border-2']:not([class*='rounded']):not(table):not(thead):not(tbody):not(tr):not(th):not(td) {
+    border-radius: 12px;
+  }
+
+  button:not([class*='rounded']),
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([class*='rounded']),
+  textarea:not([class*='rounded']),
+  select:not([class*='rounded']) {
+    border-radius: 8px;
+  }
+
+  button[class~='border']:not([class*='rounded']),
+  a[class~='border']:not([class*='rounded']) {
+    border-radius: 8px;
+  }
 }
 
 @layer components {
@@ -107,7 +128,7 @@
     @apply relative inline-flex items-center justify-center gap-2 overflow-hidden whitespace-nowrap font-medium;
     font-family: var(--font-display);
     letter-spacing: -0.02em;
-    border-radius: 2px;
+    border-radius: 8px;
     transition: transform 180ms var(--ease-vyro), background 220ms var(--ease-vyro), color 220ms var(--ease-vyro);
   }
 
@@ -163,22 +184,26 @@
 
   .vyro-surface {
     background: var(--vyro-paper);
+    border-radius: 12px;
     box-shadow: inset 0 0 0 1px rgba(12, 14, 11, 0.08);
   }
 
   .vyro-elevated {
     background: var(--vyro-paper);
+    border-radius: 12px;
     box-shadow: 0 16px 40px -16px rgba(12, 14, 11, 0.18), inset 0 0 0 1px rgba(12, 14, 11, 0.06);
   }
 
   .vyro-floating {
     background: var(--vyro-paper);
+    border-radius: 12px;
     box-shadow: 0 28px 64px -24px rgba(12, 14, 11, 0.32), inset 0 0 0 1px rgba(12, 14, 11, 0.08);
   }
 
   .vyro-split {
     display: grid;
     background: var(--vyro-paper);
+    border-radius: 12px;
     box-shadow: inset 0 0 0 1px rgba(12, 14, 11, 0.08);
   }
 

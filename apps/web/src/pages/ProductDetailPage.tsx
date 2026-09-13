@@ -24,6 +24,7 @@ import {
 } from '@/components/icons';
 import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, ProductImage, Surface } from '@/components/brand/Surface';
+import { resolveCatalogImage } from '@/lib/catalogImages';
 
 function availabilityLabel(status: string | undefined): { label: string; tone: 'good' | 'warn' | 'bad' | 'neutral' } {
   switch (status) {
@@ -115,12 +116,12 @@ export function ProductDetailPage() {
     try {
       await api.post('/cart/items', { businessId, supplierProductId: offerId, quantity });
       await qc.invalidateQueries({ queryKey: ['cart'] });
-      toast.success('Added to cart');
+      toast.show(toast.success('Added to cart'));
       navigate('/cart');
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Failed to add item to cart';
       setErr(msg);
-      toast.error(msg);
+      toast.show(toast.error(msg));
     } finally {
       setSubmittingId(null);
     }
@@ -212,18 +213,23 @@ export function ProductDetailPage() {
           />
           {data.product.images && data.product.images.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1">
-              {data.product.images.map((img) => {
-                const isSelected = (activeImage || data.product.imageUrl || data.product.images?.[0]?.url) === img.url;
+              {data.product.images.map((img, i) => {
+                const src = resolveCatalogImage(data.product.id, img.url, i) ?? img.url;
+                const current =
+                  activeImage ||
+                  resolveCatalogImage(data.product.id, data.product.imageUrl || data.product.images?.[0]?.url) ||
+                  src;
+                const isSelected = current === src;
                 return (
                   <button
                     key={img.id}
                     type="button"
-                    onClick={() => setActiveImage(img.url)}
-                    className={`relative shrink-0 w-16 h-16 overflow-hidden border-2 transition-all ${
+                    onClick={() => setActiveImage(src)}
+                    className={`relative shrink-0 w-16 h-16 overflow-hidden border-2 transition-all rounded-lg ${
                       isSelected ? 'border-ink shadow-sm scale-105' : 'border-transparent opacity-60 hover:opacity-100'
                     }`}
                   >
-                    <img src={img.url} alt={img.altText || data.product.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                    <img src={src} alt={img.altText || data.product.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   </button>
                 );
               })}

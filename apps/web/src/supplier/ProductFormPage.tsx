@@ -59,6 +59,8 @@ type Product = {
   packSize?: string | null;
   imageUrl?: string | null;
   categoryId: string;
+  hsCode?: string | null;
+  countryOfOrigin?: string | null;
 };
 
 type Offer = {
@@ -174,6 +176,9 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const [unit, setUnit] = useState('unit');
   const [packSize, setPackSize] = useState('');
   const [description, setDescription] = useState('');
+  // Cross-border trade — declared by supplier for customs docs + HS tariff lookup.
+  const [hsCode, setHsCode] = useState('');
+  const [countryOfOrigin, setCountryOfOrigin] = useState('LK');
 
   // Image upload state
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
@@ -241,6 +246,8 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
     setUnit(p.unit ?? 'unit');
     setPackSize(p.packSize ?? '');
     setDescription(p.description ?? '');
+    setHsCode(p.hsCode ?? '');
+    setCountryOfOrigin((p.countryOfOrigin ?? 'LK').toUpperCase());
     if (p.imageUrl) setExistingImageUrl(p.imageUrl);
   }, [productQuery.data]);
 
@@ -381,6 +388,8 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
           brand?: string;
           packSize?: string;
           description?: string;
+          hsCode?: string;
+          countryOfOrigin?: string;
         } = {
           name: productName.trim(),
           categoryId,
@@ -389,6 +398,8 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
         if (brand.trim()) prodPayload.brand = brand.trim();
         if (packSize.trim()) prodPayload.packSize = packSize.trim();
         if (description.trim()) prodPayload.description = description.trim();
+        if (hsCode.trim()) prodPayload.hsCode = hsCode.trim();
+        if (countryOfOrigin.trim()) prodPayload.countryOfOrigin = countryOfOrigin.trim().toUpperCase();
 
         const prodRes = await api.post<{ id: string }>('/products', prodPayload);
         targetProductId = prodRes.id;
@@ -400,6 +411,8 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
           brand?: string;
           packSize?: string;
           description?: string;
+          hsCode?: string;
+          countryOfOrigin?: string;
         } = {
           name: productName.trim(),
           categoryId,
@@ -408,6 +421,9 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
         if (brand.trim()) updatePayload.brand = brand.trim();
         if (packSize.trim()) updatePayload.packSize = packSize.trim();
         if (description.trim()) updatePayload.description = description.trim();
+        if (hsCode.trim()) updatePayload.hsCode = hsCode.trim();
+        if (countryOfOrigin.trim())
+          updatePayload.countryOfOrigin = countryOfOrigin.trim().toUpperCase();
 
         await api.patch(`/products/${targetProductId}`, updatePayload);
       }
@@ -713,6 +729,39 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                   className="bg-paper"
                 />
               </Field>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field
+                  label="HS / tariff code"
+                  optional
+                  hint="Required for cross-border customs — 6 digits minimum (e.g. 0901.21 for roasted coffee)"
+                >
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0901.21"
+                    value={hsCode}
+                    onChange={(e) => setHsCode(e.target.value)}
+                    className="bg-paper font-mono"
+                  />
+                </Field>
+                <Field
+                  label="Country of origin"
+                  optional
+                  hint="ISO-3166 alpha-2 — required for COO document"
+                >
+                  <Input
+                    type="text"
+                    placeholder="LK"
+                    maxLength={2}
+                    value={countryOfOrigin}
+                    onChange={(e) =>
+                      setCountryOfOrigin(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))
+                    }
+                    className="bg-paper font-mono uppercase"
+                  />
+                </Field>
+              </div>
 
               <Field label="Product specifications & details" optional hint="Detailed specs, material origin, certifications">
                 <Textarea

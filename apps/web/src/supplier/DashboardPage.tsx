@@ -117,6 +117,40 @@ export function SupplierDashboardPage() {
   const isInitialLoading = profileQuery.isLoading && !profileQuery.data;
   const isFatalError = profileQuery.isError && !profileQuery.data && ordersQuery.isError && !ordersQuery.data;
 
+  // Hooks must run before any early return (React Rules of Hooks).
+  // Top customers (by total revenue)
+  const topCustomers = useMemo(
+    () => [...custList].sort((a, b) => (b.totalCents ?? 0) - (a.totalCents ?? 0)).slice(0, 5),
+    [custList],
+  );
+
+  // Top products (revenue)
+  const topProducts = useMemo(
+    () => [...offerList].sort((a, b) => (b.revenueCents ?? 0) - (a.revenueCents ?? 0)).slice(0, 5),
+    [offerList],
+  );
+
+  // Filtered orders queue
+  const filteredOrders = useMemo(
+    () =>
+      orderList
+        .filter((o) => {
+          if (orderFilter === 'pending') {
+            return ['pending', 'confirmed', 'accepted', 'preparing', 'ready_for_pickup'].includes(o.status);
+          }
+          if (orderFilter === 'in_transit') {
+            return ['dispatched', 'out_for_delivery', 'shipped'].includes(o.status);
+          }
+          if (orderFilter === 'completed') {
+            return ['delivered', 'received', 'completed'].includes(o.status);
+          }
+          return true;
+        })
+        .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+        .slice(0, 8),
+    [orderList, orderFilter],
+  );
+
   if (isInitialLoading) {
     return <SupplierLoadingState label="Connecting to wholesale supplier console…" />;
   }
@@ -160,39 +194,6 @@ export function SupplierDashboardPage() {
   ).length;
   const outOfStockCount = offerList.filter((o) => o.availabilityStatus === 'out_of_stock').length;
   const activeOffers = offerList.filter((o) => o.availabilityStatus === 'in_stock').length;
-
-  // Top customers (by total revenue)
-  const topCustomers = useMemo(
-    () => [...custList].sort((a, b) => (b.totalCents ?? 0) - (a.totalCents ?? 0)).slice(0, 5),
-    [custList],
-  );
-
-  // Top products (revenue)
-  const topProducts = useMemo(
-    () => [...offerList].sort((a, b) => (b.revenueCents ?? 0) - (a.revenueCents ?? 0)).slice(0, 5),
-    [offerList],
-  );
-
-  // Filtered orders queue
-  const filteredOrders = useMemo(
-    () =>
-      orderList
-        .filter((o) => {
-          if (orderFilter === 'pending') {
-            return ['pending', 'confirmed', 'accepted', 'preparing', 'ready_for_pickup'].includes(o.status);
-          }
-          if (orderFilter === 'in_transit') {
-            return ['dispatched', 'out_for_delivery', 'shipped'].includes(o.status);
-          }
-          if (orderFilter === 'completed') {
-            return ['delivered', 'received', 'completed'].includes(o.status);
-          }
-          return true;
-        })
-        .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
-        .slice(0, 8),
-    [orderList, orderFilter],
-  );
 
   const handleRefresh = () => {
     profileQuery.refetch();

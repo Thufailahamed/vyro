@@ -379,6 +379,14 @@ function ProductsTab() {
                         <div className="mt-0.5 flex items-center gap-2 text-[11px] text-ink-4">
                           {p.brand && <span>Brand: {p.brand}</span>}
                           {p.brand && <span>•</span>}
+                          {p.hsCode && (
+                            <span className="font-mono text-amber-700">HS {p.hsCode}</span>
+                          )}
+                          {p.hsCode && p.countryOfOrigin && <span>•</span>}
+                          {p.countryOfOrigin && (
+                            <span className="font-mono">COO {p.countryOfOrigin}</span>
+                          )}
+                          {(p.brand || p.hsCode || p.countryOfOrigin) && <span>•</span>}
                           <span className="font-mono text-[10px]">ID: {p.id.slice(0, 8)}</span>
                         </div>
                       </td>

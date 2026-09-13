@@ -72,7 +72,7 @@ export function Input({ className = '', ...props }: InputHTMLAttributes<HTMLInpu
   return (
     <input
       {...props}
-      className={`w-full h-11 bg-paper px-3.5 text-sm text-ink placeholder:text-ink-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] transition-shadow duration-200 focus:outline-none focus:shadow-[inset_0_0_0_1px_#0C0E0B,0_0_0_3px_rgba(198,220,74,0.35)] disabled:cursor-not-allowed disabled:bg-bone disabled:text-ink-4 ${className}`}
+      className={`w-full h-11 bg-paper px-3.5 text-sm text-ink placeholder:text-ink-4 rounded-lg shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] transition-shadow duration-200 focus:outline-none focus:shadow-[inset_0_0_0_1px_#0C0E0B,0_0_0_3px_rgba(198,220,74,0.35)] disabled:cursor-not-allowed disabled:bg-bone disabled:text-ink-4 ${className}`}
     />
   );
 }
@@ -81,7 +81,7 @@ export function Textarea({ className = '', ...props }: TextareaHTMLAttributes<HT
   return (
     <textarea
       {...props}
-      className={`w-full bg-paper px-3.5 py-3 text-sm text-ink placeholder:text-ink-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] transition-shadow duration-200 focus:outline-none focus:shadow-[inset_0_0_0_1px_#0C0E0B,0_0_0_3px_rgba(198,220,74,0.35)] disabled:cursor-not-allowed disabled:bg-bone ${className}`}
+      className={`w-full bg-paper px-3.5 py-3 text-sm text-ink placeholder:text-ink-4 rounded-lg shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] transition-shadow duration-200 focus:outline-none focus:shadow-[inset_0_0_0_1px_#0C0E0B,0_0_0_3px_rgba(198,220,74,0.35)] disabled:cursor-not-allowed disabled:bg-bone ${className}`}
     />
   );
 }
@@ -91,7 +91,7 @@ export function Select({ className = '', children, ...props }: SelectHTMLAttribu
     <div className="relative w-full">
       <select
         {...props}
-        className={`w-full appearance-none h-11 bg-paper px-3.5 pr-9 text-sm text-ink shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] focus:outline-none focus:shadow-[inset_0_0_0_1px_#0C0E0B,0_0_0_3px_rgba(198,220,74,0.35)] ${className}`}
+        className={`w-full appearance-none h-11 bg-paper px-3.5 pr-9 text-sm text-ink rounded-lg shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] focus:outline-none focus:shadow-[inset_0_0_0_1px_#0C0E0B,0_0_0_3px_rgba(198,220,74,0.35)] ${className}`}
       >
         {children}
       </select>
@@ -151,7 +151,7 @@ export function Badge({
   }[variant];
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] uppercase ${styles} ${className}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] uppercase rounded-md ${styles} ${className}`}>
       {children}
     </span>
   );
@@ -213,7 +213,7 @@ export function StatusBadge({ status, children }: { status: string; children?: R
 export function ErrorBanner({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <div className="flex items-start gap-3 bg-rose/10 text-rose text-sm p-4 animate-fade-in">
+    <div className="flex items-start gap-3 bg-rose/10 text-rose text-sm p-4 animate-fade-in rounded-xl">
       <AlertCircleIcon size={18} className="shrink-0 mt-0.5" />
       <div className="font-medium">{message}</div>
     </div>
@@ -223,7 +223,7 @@ export function ErrorBanner({ message }: { message?: string }) {
 export function SuccessBanner({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <div className="flex items-start gap-3 bg-mint/10 text-mint text-sm p-4 animate-fade-in">
+    <div className="flex items-start gap-3 bg-mint/10 text-mint text-sm p-4 animate-fade-in rounded-xl">
       <CheckCircleIcon size={18} className="shrink-0 mt-0.5" />
       <div className="font-medium">{message}</div>
     </div>
@@ -247,7 +247,7 @@ export function EmptyState({
         <FlowCanvas density="dense" />
       </div>
       <div className="relative">
-        {icon && <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center bg-ink text-volt">{icon}</div>}
+        {icon && <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center bg-ink text-volt rounded-lg">{icon}</div>}
         <h3 className="vyro-display text-2xl text-ink">{title}</h3>
         {description && <p className="mt-2 text-sm text-ink-4 max-w-sm mx-auto">{description}</p>}
         {action && <div className="mt-6">{action}</div>}

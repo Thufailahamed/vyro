@@ -10,6 +10,8 @@ export type ProductRow = {
   brand: string | null;
   unit: string;
   packSize: string | null;
+  hsCode: string | null;
+  countryOfOrigin: string | null;
   active: boolean;
   featured: boolean;
   moderationNotes: string | null;

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { Hono } from 'hono';
 import fxRouter from './fx';
 import { errorEnvelope } from '../lib/errors';
+import type { Env } from '../env';
 
 function makeApp() {
   const app = new Hono<{ Bindings: Env }>();
