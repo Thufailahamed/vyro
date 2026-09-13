@@ -16,8 +16,14 @@ export const checkoutSchema = z
   .object({
     businessId: z.string().min(1),
     notes: z.string().max(2000).optional(),
+    paymentMethod: z.enum(['paynow', 'credit']).optional().default('paynow'),
+    creditTerms: z.enum(['net14', 'net30']).optional(),
+    idempotencyKey: z.string().min(8).max(100).optional(),
   })
-  .strict();
+  .strict()
+  .refine((d) => d.paymentMethod !== 'credit' || !!d.creditTerms, {
+    message: 'creditTerms required when paymentMethod=credit',
+  });
 
 export type AddCartItemInput = z.infer<typeof addCartItemSchema>;
 export type UpdateCartItemInput = z.infer<typeof updateCartItemSchema>;

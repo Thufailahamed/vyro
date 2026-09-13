@@ -35,6 +35,8 @@ import { notifyOrderParties } from '../notifications/dispatcher';
 import { isCrossBorderEnabled } from '../../lib/crossBorderEnv';
 import { preOrderCreateCheck } from '../cross-border/service';
 import { metric } from '../../lib/metrics';
+import { availableCents, createDrawdownsForCheckout, dueAtForTerms, evaluateEligibility } from '../credit/service';
+import { countOverdue, countPaidOrders, ensureAutoFacility, getFacility } from '../credit/repository';
 import type { Env } from '../../env';
 
 interface QueueLike {
@@ -262,6 +264,43 @@ export const checkoutService = {
       );
     }
 
+    let credit: { terms: 'net14' | 'net30'; drawdownIds: string[]; dueAt: number } | null = null;
+    if ((input as { paymentMethod?: string }).paymentMethod === 'credit') {
+      const terms = (input as { creditTerms?: 'net14' | 'net30' }).creditTerms;
+      if (terms !== 'net14' && terms !== 'net30') throw httpError(400, 'VALIDATION_ERROR', 'creditTerms required when paymentMethod=credit');
+      const nowCredit = Date.now();
+      let facility = await getFacility(d1, business.id);
+      if (!facility) facility = await ensureAutoFacility(d1, business.id, nowCredit);
+      if (!facility) throw httpError(403, 'credit_not_eligible', 'Business not eligible for credit');
+      const [paidCount, overdueCount] = await Promise.all([countPaidOrders(d1, business.id), countOverdue(d1, business.id)]);
+      const evalRes = evaluateEligibility({ paidOrderCount: paidCount, overdueCount, facility });
+      if (!evalRes.eligible) {
+        await rollbackCreated();
+        throw httpError(403, evalRes.reason as never, evalRes.reason === 'credit_overdue_blocked' ? 'Overdue credit balance must be repaid first' : 'Business not eligible for credit');
+      }
+      const poTotals = await db
+        .select({ id: purchaseOrders.id, totalCents: purchaseOrders.totalCents })
+        .from(purchaseOrders)
+        .where(inArray(purchaseOrders.id, created.map((c) => c.poId)))
+        .all();
+      const poAmounts = (poTotals as Array<{ id: string; totalCents: number }>).map((p) => ({ poId: p.id, amountCents: p.totalCents }));
+      const cartTotal = poAmounts.reduce((s, p) => s + p.amountCents, 0);
+      if (availableCents(facility) < cartTotal) {
+        await rollbackCreated();
+        throw httpError(402, 'credit_limit_exceeded', 'Exceeds credit limit');
+      }
+      try {
+        await db.transaction(async (tx: any) => {
+          await createDrawdownsForCheckout(tx, { businessId: business.id, userId, terms, poAmounts, now: nowCredit });
+        });
+      } catch (err) {
+        await rollbackCreated();
+        throw err;
+      }
+      const dueAt = dueAtForTerms(terms, nowCredit);
+      credit = { terms, drawdownIds: poAmounts.map((p) => p.poId), dueAt };
+    }
+
     await db.delete(cartItems).where(eq(cartItems.cartId, cart.id));
     await db.update(carts).set({ status: 'converted', updatedAt: Date.now() }).where(eq(carts.id, cart.id));
     await recordAudit(d1, {
@@ -276,6 +315,7 @@ export const checkoutService = {
       poIds: created.map((c) => c.poId),
       count: created.length,
       crossBorder: created.map((c) => ({ poId: c.poId, direction: c.direction, paymentMethod: c.paymentMethod })),
+      credit,
     };
   },
 
