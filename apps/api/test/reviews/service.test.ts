@@ -14,6 +14,11 @@ describe('reviews service shape', () => {
     expect(typeof svc.resolveFlag).toBe('function');
   });
 
+  it('exports dispute hooks', () => {
+    expect(typeof svc.markOrderDisputed).toBe('function');
+    expect(typeof svc.markOrderResolved).toBe('function');
+  });
+
   it('ReviewError carries a code', () => {
     const e = new svc.ReviewError('not_buyer');
     expect(e.code).toBe('not_buyer');

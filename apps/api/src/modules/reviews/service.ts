@@ -144,3 +144,45 @@ export async function resolveFlag(
   const review = await repo.findReviewById(d1, flagRow.reviewId);
   if (review) await recomputeAggregate(d1, review.supplierId);
 }
+
+/**
+ * Hide all currently-published reviews for an order when a dispute opens.
+ * Idempotent: only flips rows currently `published`, leaving flag/admin
+ * removals untouched. Returns number of rows updated.
+ */
+export async function markOrderDisputed(d1: D1Database, orderId: string): Promise<number> {
+  const now = nowMs();
+  const n = await repo.updateReviewsForOrderByStatus(
+    d1,
+    orderId,
+    'published',
+    'hidden_by_dispute',
+    now,
+  );
+  if (n > 0) {
+    const supplierIds = await repo.distinctSupplierIdsForOrder(d1, orderId);
+    for (const sid of supplierIds) await recomputeAggregate(d1, sid);
+  }
+  return n;
+}
+
+/**
+ * Restore dispute-hidden reviews when dispute resolves. Idempotent:
+ * only flips rows currently `hidden_by_dispute`; never un-hides
+ * `removed_by_admin` or `hidden_by_flag`.
+ */
+export async function markOrderResolved(d1: D1Database, orderId: string): Promise<number> {
+  const now = nowMs();
+  const n = await repo.updateReviewsForOrderByStatus(
+    d1,
+    orderId,
+    'hidden_by_dispute',
+    'published',
+    now,
+  );
+  if (n > 0) {
+    const supplierIds = await repo.distinctSupplierIdsForOrder(d1, orderId);
+    for (const sid of supplierIds) await recomputeAggregate(d1, sid);
+  }
+  return n;
+}
