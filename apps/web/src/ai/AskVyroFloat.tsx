@@ -50,11 +50,9 @@ export function AskVyroFloat() {
     await send(text, { businessId, context: context as unknown });
   };
 
-  const lastTurn = state.turns[state.turns.length - 1];
-
   return (
     <>
-      {!open && (
+      {location.pathname !== '/ask' && !open && (
         <button
           type="button"
           aria-label="Open Ask VYRO"
@@ -65,7 +63,7 @@ export function AskVyroFloat() {
         </button>
       )}
 
-      {open && (
+      {location.pathname !== '/ask' && open && (
         <div
           role="dialog"
           aria-label="Ask VYRO"

@@ -1,31 +1,37 @@
 import { Link } from 'react-router-dom';
 import type { ComponentEnvelope, Action } from '@vyro/ai';
+import { cn } from '@vyro/ui';
 import { ConfirmationPanel } from './ConfirmationPanel';
-import {
-  CheckCircleIcon,
-  StoreIcon,
-  TruckIcon,
-  TrendingUpIcon,
-  SparklesIcon,
-  ArrowRightIcon,
-  ShieldCheckIcon,
-} from '@/components/icons';
+import { displayChipLabel } from '../displayChipLabel';
+import { Surface } from '@/components/brand/Surface';
+import { StoreIcon, TrendingUpIcon, ArrowRightIcon } from '@/components/icons';
 
 export function formatLKR(cents: number | null | undefined): string {
   if (cents == null) return '—';
   return `Rs. ${(cents / 100).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function Source({ children }: { children: React.ReactNode }) {
+function CardShell({
+  children,
+  className,
+  kind = 'flat',
+}: {
+  children: React.ReactNode;
+  className?: string;
+  kind?: 'flat' | 'elevated' | 'ink';
+}) {
   return (
-    <div className="mt-3 flex items-start gap-1.5 border-t border-ink/10 pt-2.5 text-[11px] font-mono leading-snug text-ink-4">
-      <span aria-hidden className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-copper" />
-      <span>{children}</span>
-    </div>
+    <Surface kind={kind} className={cn('p-4 sm:p-5', className)}>
+      {children}
+    </Surface>
   );
 }
 
-function Eyebrow({ children }: { children: React.ReactNode }) {
+function Source({ children }: { children: React.ReactNode }) {
+  return <p className="mt-3 text-[11px] leading-snug text-ink-4">{children}</p>;
+}
+
+function Kicker({ children }: { children: React.ReactNode }) {
   return (
     <div className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-copper">{children}</div>
   );
@@ -39,10 +45,10 @@ function ActionRow({ actions }: { actions: Action[] }) {
         <Link
           key={i}
           to={a.href}
-          className="inline-flex items-center gap-1.5 h-7 px-3 text-xs font-mono font-bold uppercase tracking-wider bg-paper border border-ink/15 hover:border-ink text-ink transition-colors shadow-xs"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-ink/15 bg-paper px-3 text-xs font-medium text-ink hover:border-ink"
         >
           <span>{a.label}</span>
-          <ArrowRightIcon size={11} className="text-volt-deep" />
+          <ArrowRightIcon size={11} className="text-ink-4" />
         </Link>
       ))}
     </div>
@@ -51,82 +57,128 @@ function ActionRow({ actions }: { actions: Action[] }) {
 
 function leadText(days: number | null | undefined): string | null {
   if (days == null) return null;
-  return days === 1 ? '1 day dispatch' : `${days}d dispatch`;
+  return days === 1 ? '1 day dispatch' : `${days} days dispatch`;
+}
+
+function rowHref(row: { productId?: string; supplierId?: string }): string | null {
+  if (row.productId) return `/products/${row.productId}`;
+  if (row.supplierId) return `/suppliers/${row.supplierId}`;
+  return null;
+}
+
+function NameLink({
+  href,
+  children,
+  className,
+}: {
+  href: string | null;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  if (!href) return <span className={className}>{children}</span>;
+  return (
+    <Link to={href} className={cn(className, 'hover:underline')}>
+      {children}
+    </Link>
+  );
 }
 
 export function RecommendationCard({ data }: { data: any }) {
-  if (data.message && !data.supplierName) {
+  const lines: Array<{ supplierName?: string; coverage?: number; invited?: boolean }> = data.lines ?? [];
+  const isNotice = !data.supplierName && (data.message || data.disclaimer || data.title) && !data.productName;
+
+  if (isNotice || (data.message && !data.supplierName && !data.productName)) {
     return (
-      <div className="p-4 bg-amber/10 border border-amber/30 text-ink shadow-sm space-y-2">
-        <Eyebrow>Catalog Notice</Eyebrow>
-        <div className="font-display font-semibold text-ink text-base">{data.productName ?? 'Notice'}</div>
-        <div className="text-xs text-ink-3 leading-relaxed">{data.message}</div>
-        <Source>Based on current wholesale supplier offers.</Source>
-      </div>
+      <CardShell>
+        {data.title ? <div className="font-display text-base font-semibold text-ink">{data.title}</div> : null}
+        <p className="text-sm leading-relaxed text-ink-2">{data.message ?? data.disclaimer ?? 'Nothing to show yet.'}</p>
+        {lines.length > 0 ? (
+          <ul className="mt-3 space-y-2">
+            {lines.map((line, i) => (
+              <li key={i} className="flex items-center justify-between gap-3 text-sm">
+                <span className="font-medium text-ink">{line.supplierName}</span>
+                <span className="text-xs text-ink-3">
+                  {[line.coverage != null ? `${line.coverage}% coverage` : null, line.invited ? 'already invited' : null]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {data.disclaimer && data.message ? (
+          <p className="mt-2 text-xs leading-relaxed text-ink-3">{data.disclaimer}</p>
+        ) : null}
+      </CardShell>
     );
   }
+
+  if (data.message && !data.supplierName) {
+    const href = data.productId ? `/products/${data.productId}` : null;
+    return (
+      <CardShell>
+        <Kicker>Catalog</Kicker>
+        <NameLink href={href} className="mt-1 block font-display text-base font-semibold text-ink">
+          {data.productName ?? 'Notice'}
+        </NameLink>
+        <p className="mt-1 text-sm leading-relaxed text-ink-3">{data.message}</p>
+      </CardShell>
+    );
+  }
+
   const reasons: string[] = [];
-  if (data.offerCount && data.offerCount > 1) reasons.push(`Lowest landed rate across ${data.offerCount} live suppliers`);
-  if (data.savingVsHighestCents > 0) reasons.push(`${formatLKR(data.savingVsHighestCents)} cheaper than standard wholesale list`);
-  if (data.deliveryAvailable) reasons.push('Direct freight delivery available');
-  else if (data.deliveryAvailable === false) reasons.push('Dock pickup only — confirm freight logistics');
+  if (data.offerCount && data.offerCount > 1) reasons.push(`Lowest of ${data.offerCount} live quotes`);
+  if (data.savingVsHighestCents > 0) reasons.push(`${formatLKR(data.savingVsHighestCents)} below the highest quote`);
+  if (data.deliveryAvailable) reasons.push('Delivery available');
+  else if (data.deliveryAvailable === false) reasons.push('Pickup only');
   if (data.leadTimeDays != null) reasons.push(leadText(data.leadTimeDays)!);
-  if (data.availabilityStatus === 'low') reasons.push('Low inventory at mill — recommend immediate PO');
-  if (data.minOrderQty > 1) reasons.push(`Minimum purchase batch: ${data.minOrderQty} units`);
+  if (data.availabilityStatus === 'low') reasons.push('Low stock — order soon');
+  if (data.minOrderQty > 1) reasons.push(`Minimum order ${data.minOrderQty}`);
+
+  const productHref = data.productId ? `/products/${data.productId}` : null;
+  const millHref = data.supplierId ? `/suppliers/${data.supplierId}` : null;
 
   return (
-    <div className="bg-paper border border-ink/20 shadow-sm overflow-hidden">
-      <div className="flex items-start justify-between gap-3 bg-ink px-4 py-3.5 text-paper">
-        <div>
-          <div className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-volt">
-            Prime Value Recommendation
-          </div>
-          <div className="mt-0.5 font-display text-lg font-bold tracking-tight">{data.productName}</div>
+    <CardShell className="p-0 sm:p-0">
+      <div className="flex items-start justify-between gap-3 border-b border-ink/10 px-4 py-4 sm:px-5">
+        <div className="min-w-0">
+          {data.offerCount > 1 ? <Kicker>Best price</Kicker> : <Kicker>Quote</Kicker>}
+          <NameLink href={productHref} className="mt-0.5 block font-display text-lg font-semibold tracking-tight text-ink">
+            {data.productName}
+          </NameLink>
         </div>
-        <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 bg-volt text-ink text-[10px] font-mono font-bold uppercase tracking-wider shadow-xs">
-          <SparklesIcon size={11} />
-          Best Landed Value
-        </span>
+        <div className="shrink-0 text-right">
+          <div className="vyro-metric text-2xl font-bold text-ink num-tabular">{formatLKR(data.priceCents)}</div>
+          <div className="text-[11px] text-ink-4">per unit</div>
+        </div>
       </div>
 
-      <div className="p-5 space-y-4">
-        <div className="flex items-baseline justify-between gap-3 pb-3 border-b border-ink/10">
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4">Authorized Wholesale Mill</div>
-            <div className="text-sm font-display font-semibold text-ink flex items-center gap-1.5 mt-0.5">
-              <StoreIcon size={13} className="text-copper" />
-              <span>{data.supplierName}</span>
-            </div>
+      <div className="space-y-3 px-4 py-4 sm:px-5">
+        {data.supplierName ? (
+          <div className="flex items-center gap-1.5 text-sm text-ink-2">
+            <StoreIcon size={13} className="shrink-0 text-copper" />
+            <NameLink href={millHref} className="font-medium text-ink">
+              {data.supplierName}
+            </NameLink>
           </div>
-          <div className="text-right">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4">Wholesale Unit Price</div>
-            <div className="vyro-metric text-2xl font-bold text-ink num-tabular">
-              {formatLKR(data.priceCents)}
-            </div>
-          </div>
-        </div>
+        ) : null}
 
-        {reasons.length > 0 && (
-          <div className="space-y-2">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-ink-3 font-bold">
-              Procurement Audit Highlights
-            </div>
-            <ul className="space-y-1.5">
-              {reasons.map((r, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-ink-2 font-sans">
-                  <span aria-hidden className="text-mint font-bold shrink-0">✓</span>
-                  <span>{r}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {reasons.length > 0 ? (
+          <ul className="space-y-1.5">
+            {reasons.slice(0, 3).map((r) => (
+              <li key={r} className="flex items-start gap-2 text-sm text-ink-2">
+                <span aria-hidden className="mt-0.5 text-mint">
+                  ✓
+                </span>
+                <span>{r}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
 
-        <Source>
-          Audited against current wholesale catalog{data.offerCount ? ` across ${data.offerCount} certified suppliers` : ''}.
-        </Source>
+        <Source>Live catalog prices{data.offerCount > 1 ? ` · ${data.offerCount} suppliers` : ''}.</Source>
       </div>
-    </div>
+    </CardShell>
   );
 }
 
@@ -137,240 +189,230 @@ export function SupplierListCard({ data }: { data: any }) {
   const list: Array<any> = suppliers ?? hits ?? [];
 
   return (
-    <div className="bg-paper border border-ink/15 p-5 shadow-sm space-y-3">
-      <div className="flex items-center justify-between">
-        <Eyebrow>{isSearch ? 'Catalog Matches' : 'Multi-Supplier Comparison'}</Eyebrow>
-        <span className="text-[10px] font-mono text-ink-4 uppercase">
-          {list.length} Verified Facilities
-        </span>
+    <CardShell className="p-0 sm:p-0">
+      <div className="px-4 pt-4 sm:px-5 sm:pt-5">
+        <Kicker>{isSearch ? 'Matches' : 'Quotes'}</Kicker>
+        <div className="mt-1 font-display text-base font-semibold text-ink">
+          {data.title ?? (isSearch ? 'Catalog matches' : 'Compare quotes')}
+        </div>
       </div>
 
-      <div className="font-display font-bold text-ink text-base">
-        {data.title ?? 'Wholesale Benchmark Rates'}
-      </div>
+      <div className="mt-3 divide-y divide-ink/10">
+        {list.map((row, i) => {
+          const href = rowHref(row);
+          const mill =
+            row.bestSupplierName ?? (row.productName && row.supplierName ? row.supplierName : null);
+          const meta = [
+            mill ? (row.bestSupplierName ? `via ${mill}` : mill) : null,
+            row.leadTimeDays != null ? leadText(row.leadTimeDays) : null,
+            row.deliveryAvailable === true ? 'delivery' : row.deliveryAvailable === false ? 'pickup' : null,
+            row.minOrderQty > 1 ? `min ${row.minOrderQty}` : null,
+            row.savingVsHighestCents > 0 ? `saves ${formatLKR(row.savingVsHighestCents)}` : null,
+            typeof row.fillRate === 'number' ? `${Math.round(row.fillRate * 100)}% fill` : null,
+          ].filter(Boolean);
 
-      <div className="divide-y divide-ink/10 border-t border-b border-ink/10">
-        {list.map((row, i) => (
-          <div key={i} className="flex items-center justify-between gap-3 py-3 text-sm hover:bg-bone/40 transition-colors">
-            <div className="min-w-0 space-y-0.5">
-              <div className="flex items-center gap-2">
-                {row.rank != null && !isSearch && (
-                  <span className="inline-flex size-5 shrink-0 items-center justify-center bg-ink text-[10px] font-mono font-bold text-paper">
-                    #{row.rank}
+          const inner = (
+            <>
+              <div className="min-w-0 space-y-0.5">
+                <div className="flex items-center gap-2">
+                  {row.rank != null && !isSearch ? (
+                    <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-bone text-[10px] font-mono font-bold text-ink-3">
+                      {row.rank}
+                    </span>
+                  ) : null}
+                  <span className="truncate text-sm font-semibold text-ink">
+                    {row.productName ?? row.supplierName}
                   </span>
-                )}
-                <span className="truncate font-semibold text-ink text-sm">
-                  {row.supplierName ?? row.productName}
-                </span>
-                {row.badge && (
-                  <span className="shrink-0 px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider bg-volt/20 text-ink border border-volt/35">
-                    {row.badge.replace('_', ' ')}
-                  </span>
-                )}
+                  {row.badge ? (
+                    <span className="shrink-0 rounded-md bg-volt/25 px-1.5 py-0.5 text-[10px] font-medium text-ink">
+                      {displayChipLabel(String(row.badge).replace(/_/g, ' '))}
+                    </span>
+                  ) : null}
+                </div>
+                {meta.length ? <div className="truncate text-[11px] text-ink-4">{meta.join(' · ')}</div> : null}
               </div>
-              <div className="text-[11px] font-mono text-ink-4 flex flex-wrap items-center gap-x-2">
-                {[
-                  row.bestSupplierName ? `via ${row.bestSupplierName}` : null,
-                  row.leadTimeDays != null ? leadText(row.leadTimeDays) : null,
-                  row.deliveryAvailable === true ? 'freight dispatch' : row.deliveryAvailable === false ? 'dock pickup' : null,
-                  row.minOrderQty > 1 ? `min ${row.minOrderQty} units` : null,
-                  row.savingVsHighestCents > 0 ? `saves ${formatLKR(row.savingVsHighestCents)}` : null,
-                  typeof row.fillRate === 'number' ? `${Math.round(row.fillRate * 100)}% fill rate` : null,
-                  row.availabilityStatus ? String(row.availabilityStatus).replace(/_/g, ' ') : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
+              <div className="shrink-0 text-right">
+                <div className="font-mono text-sm font-bold text-ink num-tabular">
+                  {formatLKR(row.priceCents ?? row.bestPriceCents)}
+                </div>
               </div>
-            </div>
-            <div className="shrink-0 text-right">
-              <div className="font-mono text-sm font-bold text-ink num-tabular">
-                {formatLKR(row.priceCents ?? row.bestPriceCents)}
-              </div>
-              <div className="text-[9px] font-mono text-ink-4 uppercase">per wholesale unit</div>
-            </div>
-          </div>
-        ))}
-        {!list.length && <div className="py-4 text-xs font-mono text-ink-4">No matching suppliers located.</div>}
-      </div>
+            </>
+          );
 
-      <Source>
-        {isSearch ? 'Matched against live commodity lots.' : 'Ranked by unit price, fulfillment velocity, and supplier tier status.'}
-      </Source>
-    </div>
+          const rowClass =
+            'flex items-center justify-between gap-3 px-4 py-3 text-sm sm:px-5 hover:bg-bone/50 transition-colors';
+
+          return href ? (
+            <Link key={i} to={href} className={rowClass}>
+              {inner}
+            </Link>
+          ) : (
+            <div key={i} className={rowClass}>
+              {inner}
+            </div>
+          );
+        })}
+        {!list.length ? (
+          <div className="px-4 py-6 text-sm text-ink-4 sm:px-5">No matching quotes right now.</div>
+        ) : null}
+      </div>
+      <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+        <Source>{isSearch ? 'From the live catalog.' : 'Ranked by unit price.'}</Source>
+      </div>
+    </CardShell>
   );
 }
 
 export function SpendSummaryCard({ data }: { data: any }) {
   if (data.scope === 'price_changes') {
     return (
-      <div className="bg-paper border border-ink/15 p-5 shadow-sm space-y-3">
-        <Eyebrow>Wholesale Price Volatility</Eyebrow>
-        <div className="font-display font-semibold text-ink text-base">Commodity Shifts</div>
-        <div className="space-y-2 text-sm border-t border-ink/10 pt-3">
+      <CardShell>
+        <Kicker>Price moves</Kicker>
+        <div className="mt-1 font-display text-base font-semibold text-ink">What changed</div>
+        <div className="mt-3 space-y-2">
           {(data.movers ?? []).map((m: any, i: number) => (
-            <div key={i} className="flex items-center justify-between gap-3 p-2 bg-bone/40 border border-ink/5">
-              <span className="font-medium text-ink text-xs">{m.productName}</span>
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-mono text-ink-4">
+            <div key={i} className="flex items-center justify-between gap-3 rounded-lg bg-bone/50 px-3 py-2.5">
+              <span className="text-sm font-medium text-ink">{m.productName}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-ink-4 num-tabular">
                   {formatLKR(m.from)} → {formatLKR(m.to)}
                 </span>
                 <span
-                  className={`inline-flex px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider ${
-                    m.pct >= 0 ? 'bg-rose/15 text-rose border border-rose/30' : 'bg-mint/15 text-mint border border-mint/30'
-                  }`}
+                  className={cn(
+                    'rounded-md px-1.5 py-0.5 text-[11px] font-mono font-bold num-tabular',
+                    m.pct >= 0 ? 'bg-rose/10 text-rose' : 'bg-mint/15 text-mint',
+                  )}
                 >
-                  {m.pct >= 0 ? '+' : ''}{m.pct}%
+                  {m.pct >= 0 ? '+' : ''}
+                  {m.pct}%
                 </span>
               </div>
             </div>
           ))}
           {(!data.movers || data.movers.length === 0) && (
-            <div className="text-xs font-mono text-ink-4">No price fluctuations detected over this period.</div>
+            <div className="text-sm text-ink-4">No price changes in this period.</div>
           )}
         </div>
-        <Source>Computed from settled commercial purchase orders in the last {data.period ?? 'month'}.</Source>
-      </div>
+        <Source>From settled orders in the last {data.period ?? 'month'}.</Source>
+      </CardShell>
     );
   }
 
   const title =
-    data.scope === 'product' ? 'Product Spend Volume' : data.scope === 'supplier' ? 'Supplier Spend Volume' : 'Total Procurement Spend';
+    data.scope === 'product' ? 'Product spend' : data.scope === 'supplier' ? 'Supplier spend' : 'Total spend';
 
   return (
-    <div className="bg-ink text-paper p-6 border border-ink/20 shadow-sm space-y-3 relative overflow-hidden">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-volt font-bold">
-          {title}
-        </span>
-        <span className="text-[10px] font-mono text-paper/50">
-          Last {data.period || '30 days'}
-        </span>
+    <CardShell kind="ink" className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-volt">{title}</span>
+        <span className="text-[11px] text-paper/55">Last {data.period || '30 days'}</span>
       </div>
-
       <div className="vyro-metric text-4xl font-bold tracking-tight text-paper num-tabular">
         {formatLKR(data.totalCents)}
       </div>
-
       {(data.productName || data.supplierName) && (
-        <div className="text-xs text-paper/80 font-mono">
-          Entity focus: <span className="text-volt font-semibold">{data.productName ?? data.supplierName}</span>
-        </div>
+        <div className="text-sm text-paper/80">{data.productName ?? data.supplierName}</div>
       )}
-
-      <div className="pt-3 border-t border-paper/10 text-[11px] font-mono text-paper/60 flex items-center justify-between">
-        <span>Grounded on {data.orderCount ?? 0} settled Purchase Order{data.orderCount === 1 ? '' : 's'}.</span>
-        <span className="text-paper/40">SVAT Audited</span>
-      </div>
-    </div>
+      <p className="border-t border-paper/15 pt-3 text-[11px] text-paper/55">
+        {data.orderCount ?? 0} settled order{data.orderCount === 1 ? '' : 's'}.
+      </p>
+    </CardShell>
   );
 }
 
 export function SavingsCard({ data }: { data: any }) {
   const opps: any[] = data.opportunities ?? [];
   return (
-    <div className="bg-paper border border-mint/40 p-5 shadow-sm space-y-4">
-      <div className="flex items-center justify-between">
-        <Eyebrow>Procurement Arbitrage Opportunity</Eyebrow>
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-mint/15 text-mint border border-mint/30 text-[10px] font-mono font-bold uppercase tracking-wider">
+    <CardShell>
+      <div className="flex items-center justify-between gap-3">
+        <Kicker>Where you can save</Kicker>
+        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-mint">
           <TrendingUpIcon size={11} />
-          Cost Reduction
+          Cheaper quotes
         </span>
       </div>
 
-      <div className="space-y-2.5">
+      <div className="mt-3 space-y-2">
         {opps.slice(0, 5).map((o: any, i: number) => (
-          <div key={i} className="p-3.5 bg-bone/40 border border-ink/10 space-y-1.5">
+          <div key={i} className="rounded-lg bg-bone/50 px-3 py-3">
             <div className="flex items-baseline justify-between gap-2">
-              <div className="font-display font-semibold text-ink text-sm">{o.productName}</div>
+              <div className="font-display text-sm font-semibold text-ink">{o.productName}</div>
               <div className="shrink-0 font-mono text-sm font-bold text-mint num-tabular">
                 −{formatLKR(o.savingCents)}
               </div>
             </div>
-            <div className="text-[11px] font-mono text-ink-3 flex flex-wrap items-center gap-1.5">
-              <span>Currently {formatLKR(o.currentPriceCents)} ({o.currentSupplierName})</span>
-              <span>→</span>
-              <span className="text-ink font-semibold">{formatLKR(o.alternativePriceCents)} ({o.alternativeSupplierName})</span>
-            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-ink-3">
+              {formatLKR(o.currentPriceCents)} at {o.currentSupplierName}
+              <span className="text-ink-4"> → </span>
+              <span className="font-medium text-ink">
+                {formatLKR(o.alternativePriceCents)} at {o.alternativeSupplierName}
+              </span>
+            </p>
           </div>
         ))}
-        {!opps.length && <div className="text-xs font-mono text-ink-4">No viable savings opportunities identified.</div>}
+        {!opps.length ? <div className="text-sm text-ink-4">No cheaper quotes on your usual items right now.</div> : null}
       </div>
 
-      {data.disclaimer && <div className="text-[11px] font-mono italic text-ink-4">{data.disclaimer}</div>}
-      <Source>Calculated against live quotes vs your last invoice rates. Freight terms may vary.</Source>
-    </div>
+      {data.disclaimer ? <p className="mt-2 text-[11px] text-ink-4">{data.disclaimer}</p> : null}
+      <Source>Compared with your last invoice vs live mill rates.</Source>
+    </CardShell>
   );
 }
 
 export function ProcurementPlanCard({ data }: { data: any }) {
   const lines: any[] = data.lines ?? [];
   return (
-    <div className="bg-paper border border-ink/15 p-5 shadow-sm space-y-3">
-      <div className="flex items-center justify-between">
-        <Eyebrow>Recommended Replenishment Schedule</Eyebrow>
-        <span className="text-[10px] font-mono text-ink-4 uppercase">
-          {lines.length} Line Items
-        </span>
+    <CardShell>
+      <Kicker>Suggested reorder</Kicker>
+      <div className="mt-1 font-display text-base font-semibold text-ink">
+        {data.title ?? 'Based on what you usually buy'}
       </div>
-
-      <div className="font-display font-semibold text-ink text-base">
-        {data.title ?? 'Suggested Stock Reorder Plan'}
-      </div>
-
-      <div className="divide-y divide-ink/10 border-t border-b border-ink/10">
+      <ul className="mt-3 divide-y divide-ink/10">
         {lines.map((l: any, i: number) => (
-          <div key={i} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-            <div className="flex items-center gap-2 font-medium text-ink">
-              <span className="inline-flex size-5 shrink-0 items-center justify-center bg-bone text-[10px] font-mono font-bold text-ink-3 border border-ink/10">
-                {i + 1}
-              </span>
-              <span className="text-xs">{l.productName}</span>
-            </div>
-            <span className="shrink-0 font-mono text-xs font-bold text-copper bg-mist px-2 py-0.5 border border-line">
-              Qty: {l.typicalQuantity}
-            </span>
-          </div>
+          <li key={i} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+            <span className="font-medium text-ink">{l.productName}</span>
+            <span className="shrink-0 font-mono text-xs font-semibold text-ink-3">× {l.typicalQuantity}</span>
+          </li>
         ))}
-        {!lines.length && <div className="py-3 text-xs font-mono text-ink-4">No replenishment items suggested.</div>}
-      </div>
-
-      {data.disclaimer && <div className="text-[11px] font-mono text-ink-4 italic">{data.disclaimer}</div>}
-      <Source>Model calculates typical order rhythm from past deliveries. Review quantities in cart.</Source>
-    </div>
+        {!lines.length ? <li className="py-3 text-sm text-ink-4">No reorder items to suggest.</li> : null}
+      </ul>
+      {data.disclaimer ? <p className="mt-2 text-[11px] text-ink-4">{data.disclaimer}</p> : null}
+      <Source>Quantities follow your past deliveries. Review before adding to cart.</Source>
+    </CardShell>
   );
 }
 
 export function ClarificationCard({ data, onPick }: { data: any; onPick?: ((opt: string) => void) | undefined }) {
+  const options: string[] = data.options ?? [];
   return (
-    <div className="p-4 bg-paper border border-copper/40 shadow-sm space-y-3">
-      <div className="flex items-center gap-2">
-        <span className="size-2 rounded-full bg-copper animate-pulse" />
-        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-copper">
-          Clarification Required
-        </span>
-      </div>
-      <div className="text-sm font-display font-semibold text-ink">{data.question ?? 'Please select your target parameter:'}</div>
-      {data.options?.length ? (
-        <div className="flex flex-wrap gap-2 pt-1">
-          {data.options.map((o: string, i: number) =>
+    <CardShell>
+      <p className="font-display text-base font-semibold leading-snug text-ink">
+        {data.question ?? 'What do you need help with?'}
+      </p>
+      {options.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {options.map((o: string, i: number) =>
             onPick ? (
               <button
                 key={i}
                 type="button"
                 onClick={() => onPick(o)}
-                className="px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wider bg-ink text-paper hover:bg-charcoal hover:text-volt transition-colors shadow-xs"
+                className="inline-flex min-h-11 items-center rounded-lg border border-ink/15 bg-paper px-3 text-xs font-medium text-ink hover:border-ink"
               >
-                {o}
+                {displayChipLabel(o)}
               </button>
             ) : (
-              <span key={i} className="px-3 py-1.5 text-xs font-mono bg-bone text-ink border border-ink/15">
-                {o}
+              <span
+                key={i}
+                className="inline-flex min-h-11 items-center rounded-lg border border-ink/15 bg-bone px-3 text-xs text-ink"
+              >
+                {displayChipLabel(o)}
               </span>
             ),
           )}
         </div>
       ) : null}
-    </div>
+    </CardShell>
   );
 }
 
@@ -381,30 +423,24 @@ export { ActionRow };
 export function WhyCard({ data }: { data: any }) {
   const evidence: Array<{ label: string; value: string }> = data.evidence ?? [];
   return (
-    <div className="bg-paper border border-copper/30 p-5 shadow-sm space-y-3">
-      <div className="flex items-center justify-between">
-        <Eyebrow>VYRO · Why</Eyebrow>
-        <span className="text-[10px] font-mono text-ink-4 uppercase">Evidence-backed</span>
-      </div>
-      <div className="font-display text-lg font-bold tracking-tight text-ink">{data.question ?? 'Why?'}</div>
-      <p className="text-sm leading-relaxed text-ink-2">{data.answer ?? ''}</p>
-      {evidence.length > 0 && (
-        <ul className="border-t border-ink/10 pt-3 space-y-1.5">
+    <CardShell>
+      <div className="font-display text-lg font-semibold tracking-tight text-ink">{data.question ?? 'Why?'}</div>
+      <p className="mt-2 text-sm leading-relaxed text-ink-2">{data.answer ?? ''}</p>
+      {evidence.length > 0 ? (
+        <dl className="mt-3 space-y-1.5 border-t border-ink/10 pt-3">
           {evidence.map((e, i) => (
-            <li key={i} className="flex items-baseline justify-between gap-3 text-xs">
-              <span className="font-mono uppercase tracking-wider text-ink-4">{e.label}</span>
-              <span className="font-mono font-bold text-ink num-tabular">{e.value}</span>
-            </li>
+            <div key={i} className="flex items-baseline justify-between gap-3 text-sm">
+              <dt className="text-ink-4">{e.label}</dt>
+              <dd className="font-mono font-semibold text-ink num-tabular">{e.value}</dd>
+            </div>
           ))}
-        </ul>
-      )}
-      {data.recommendation && (
-        <div className="text-xs font-mono text-mint border-t border-ink/10 pt-3">
-          → {data.recommendation}
-        </div>
-      )}
-      <Source>Sourced from your live procurement history and current wholesale offers.</Source>
-    </div>
+        </dl>
+      ) : null}
+      {data.recommendation ? (
+        <p className="mt-3 border-t border-ink/10 pt-3 text-sm text-ink-2">{data.recommendation}</p>
+      ) : null}
+      <Source>From your order history and current mill quotes.</Source>
+    </CardShell>
   );
 }
 
@@ -414,45 +450,50 @@ export function SimulationCard({ data }: { data: any }) {
   const annual = Math.abs(Number(data.annualDeltaCents ?? 0) / 100);
   const pct = Number(data.savingsPct ?? 0);
   const leadDelta = Number(data.leadDeltaDays ?? 0);
-  const confidence = String(data.confidence ?? 'medium');
   return (
-    <div className="bg-paper border border-ink/20 p-5 shadow-sm space-y-4">
-      <div className="flex items-center justify-between">
-        <Eyebrow>VYRO · Supplier Switch Simulation</Eyebrow>
-        <span className="text-[10px] font-mono text-ink-4 uppercase">confidence: {confidence}</span>
+    <CardShell>
+      <Kicker>If you switch</Kicker>
+      <div className="mt-1 font-display text-lg font-semibold tracking-tight text-ink">
+        {data.productName ?? 'This product'}
       </div>
-      <div className="font-display text-lg font-bold tracking-tight text-ink">
-        Switch {data.productName ?? 'product'} suppliers
-      </div>
-      <div className="grid grid-cols-2 gap-3 border-y border-ink/10 py-3">
+      <div className="mt-3 grid grid-cols-2 gap-3 border-y border-ink/10 py-3">
         <div>
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4">Current</div>
+          <div className="text-[11px] text-ink-4">Now</div>
           <div className="text-sm font-display font-semibold text-ink">{data.currentSupplier ?? '—'}</div>
         </div>
         <div>
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4">Alternative</div>
+          <div className="text-[11px] text-ink-4">Alternative</div>
           <div className="text-sm font-display font-semibold text-ink">{data.alternativeSupplier ?? '—'}</div>
         </div>
       </div>
-      <div className="flex items-baseline justify-between gap-3">
+      <div className="mt-3 flex items-baseline justify-between gap-3">
         <div>
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4">
-            {saving ? 'Estimated saving' : 'Estimated cost'}
-          </div>
-          <div className={`font-display text-3xl font-bold tracking-tight num-tabular ${saving ? 'text-mint' : 'text-rose'}`}>
+          <div className="text-[11px] text-ink-4">{saving ? 'Estimated saving' : 'Estimated extra cost'}</div>
+          <div className={cn('font-display text-3xl font-bold tracking-tight num-tabular', saving ? 'text-mint' : 'text-rose')}>
             {`${pct.toFixed(1)}%`}
           </div>
         </div>
-        <div className="text-right space-y-0.5 text-xs font-mono text-ink-2">
-          <div>Monthly: <span className="num-tabular font-bold">Rs. {monthly.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
-          <div>Annual: <span className="num-tabular font-bold">Rs. {annual.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+        <div className="space-y-0.5 text-right text-xs text-ink-2">
+          <div>
+            Monthly{' '}
+            <span className="font-mono font-bold num-tabular">
+              Rs. {monthly.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+          <div>
+            Annual{' '}
+            <span className="font-mono font-bold num-tabular">
+              Rs. {annual.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
         </div>
       </div>
-      <div className="text-[11px] font-mono text-ink-4">
-        Lead time {leadDelta >= 0 ? '+' : ''}{leadDelta}d · {data.monthlyQuantity ?? 0} units/mo
-      </div>
-      <Source>Pricing uses your live cadence and current wholesale offers — review before converting.</Source>
-    </div>
+      <p className="mt-2 text-[11px] text-ink-4">
+        Lead time {leadDelta >= 0 ? '+' : ''}
+        {leadDelta}d · {data.monthlyQuantity ?? 0} units/month
+      </p>
+      <Source>Uses your usual cadence and live mill rates — review before switching.</Source>
+    </CardShell>
   );
 }
 
@@ -495,17 +536,12 @@ export function MetricTile({
   suffix?: string;
 }) {
   return (
-    <div className="border border-ink/15 bg-paper p-3 shadow-xs">
-      <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-ink-3">
-        {kicker}
-      </div>
+    <div className="rounded-xl border border-ink/15 bg-paper p-3 shadow-xs">
+      <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-ink-3">{kicker}</div>
       <div className="mt-1 flex items-baseline gap-1.5">
         <span className="vyro-metric text-2xl text-ink tabular-nums">{value}</span>
-        {suffix && (
-          <span className="text-[10px] font-mono text-ink-3">{suffix}</span>
-        )}
+        {suffix && <span className="text-[10px] font-mono text-ink-3">{suffix}</span>}
       </div>
     </div>
   );
 }
-

@@ -5,7 +5,7 @@ import { ProductHoverPreview, type ProductPreviewItem } from '@/components/produ
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui';
-import { TruckIcon, PackageIcon, CheckCircleIcon, ArrowRightIcon, ClockIcon } from '@/components/icons';
+import { TruckIcon, PackageIcon, CheckCircleIcon, ArrowRightIcon, ClockIcon, PlusIcon, MinusIcon } from '@/components/icons';
 import { FlowCanvas, FlowLine } from '@/components/brand/FlowLine';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { CatalogSearch } from '@/components/CatalogSearch';
@@ -895,24 +895,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* 8. FAQ SECTION */}
-      <section className="bg-paper border-t border-ink/10 py-12 sm:py-16 lg:py-20">
-        <div className="max-w-stage mx-auto px-5 sm:px-8">
-          <div className="max-w-2xl mb-12">
-            <div className="vyro-kicker text-copper">Questions & Answers</div>
-            <h2 className="mt-2 vyro-display text-3xl sm:text-5xl text-ink">Everything you need to know.</h2>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            {FAQ.map((item) => (
-              <div key={item.q} className="p-6 bg-bone border border-ink/15 space-y-3 rounded-xl">
-                <h3 className="font-display text-xl text-ink font-semibold">{item.q}</h3>
-                <p className="text-sm text-ink-3 leading-relaxed">{item.a}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <FaqSection signedIn={Boolean(user)} />
 
       {/* 9. BOTTOM DUAL-AUDIENCE CTA WITH PHOTOGRAPHY */}
       <section className="bg-ink text-paper grain relative overflow-hidden">
@@ -985,6 +968,78 @@ export function HomePage() {
         </div>
       </section>
     </div>
+  );
+}
+
+function FaqSection({ signedIn }: { signedIn: boolean }) {
+  const [open, setOpen] = useState(0);
+
+  return (
+    <section id="faq" className="border-t border-ink/10 bg-paper py-12 sm:py-16 lg:py-20">
+      <div className="mx-auto grid max-w-stage gap-10 px-5 sm:px-8 lg:grid-cols-12 lg:gap-16 lg:items-start">
+        <div className="lg:col-span-5">
+          <p className="vyro-kicker text-copper">Questions & answers</p>
+          <h2 className="mt-2 vyro-display text-3xl text-ink sm:text-5xl text-balance">
+            Everything you need to know.
+          </h2>
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-ink-3">
+            The catalog is public. You only register when you are ready to issue a purchase order.
+          </p>
+          <Link
+            to={signedIn ? '/search' : '/how-it-works'}
+            className="mt-6 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink hover:text-copper"
+          >
+            {signedIn ? 'Browse the catalog' : 'See how it works'}
+            <ArrowRightIcon size={14} />
+          </Link>
+        </div>
+
+        <div className="lg:col-span-7">
+          <div className="vyro-elevated divide-y divide-ink/10 px-2 sm:px-4">
+            {FAQ.map((item, idx) => {
+              const expanded = open === idx;
+              const panelId = `home-faq-${idx}`;
+              return (
+                <div key={item.q}>
+                  <h3>
+                    <button
+                      type="button"
+                      aria-expanded={expanded}
+                      aria-controls={panelId}
+                      onClick={() => setOpen(expanded ? -1 : idx)}
+                      className="flex w-full min-h-11 items-start gap-4 px-3 py-5 text-left sm:px-4"
+                    >
+                      <span className="mt-0.5 w-7 shrink-0 font-mono text-[11px] font-bold tabular-nums text-copper">
+                        {String(idx + 1).padStart(2, '0')}
+                      </span>
+                      <span className="min-w-0 flex-1 font-display text-base font-semibold leading-snug text-ink sm:text-lg">
+                        {item.q}
+                      </span>
+                      <span
+                        className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-ink text-volt"
+                        aria-hidden
+                      >
+                        {expanded ? <MinusIcon size={14} /> : <PlusIcon size={14} />}
+                      </span>
+                    </button>
+                  </h3>
+                  <div
+                    id={panelId}
+                    role="region"
+                    hidden={!expanded}
+                    className={expanded ? 'px-3 pb-5 sm:px-4 sm:pl-[3.25rem]' : undefined}
+                  >
+                    {expanded ? (
+                      <p className="max-w-prose text-sm leading-relaxed text-ink-3">{item.a}</p>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 

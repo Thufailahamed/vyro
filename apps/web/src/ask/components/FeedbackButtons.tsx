@@ -55,21 +55,21 @@ export function FeedbackButtons({ requestId, intentHint }: { requestId: string; 
 
   if (sent) {
     return (
-      <div className="mt-2 text-[10px] font-mono uppercase tracking-wider text-mint">
-        Thanks — feedback captured{sent.reason ? ` (${REASON_LABEL[sent.reason]})` : ''}.
+      <div className="text-[11px] text-ink-4">
+        Thanks{sent.reason ? ` — ${REASON_LABEL[sent.reason].toLowerCase()}` : ''}.
       </div>
     );
   }
 
   return (
-    <div className="mt-2 inline-flex items-center gap-2 text-[11px] font-mono text-ink-3">
-      <span className="text-[10px] uppercase tracking-wider">Helpful?</span>
+    <div className="inline-flex flex-wrap items-center gap-1 text-[11px] text-ink-4">
+      <span>Useful?</span>
       <button
         type="button"
         aria-label="Helpful"
         disabled={sending}
         onClick={() => sendFeedback(true)}
-        className="px-2 py-0.5 border border-ink/15 hover:border-mint hover:text-mint transition-colors"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg px-2 hover:bg-ink/5 hover:text-ink"
       >
         Yes
       </button>
@@ -78,14 +78,14 @@ export function FeedbackButtons({ requestId, intentHint }: { requestId: string; 
         aria-label="Not helpful"
         disabled={sending}
         onClick={() => setShowReason((s) => !s)}
-        className="px-2 py-0.5 border border-ink/15 hover:border-rose hover:text-rose transition-colors"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg px-2 hover:bg-ink/5 hover:text-ink"
       >
         No
       </button>
       {showReason && (
         <select
           aria-label="Reason"
-          className="text-[11px] border border-ink/20 bg-paper px-2 py-0.5"
+          className="h-11 rounded-lg border border-ink/15 bg-paper px-2 text-[11px] text-ink"
           onChange={(e) => {
             const r = e.target.value as FeedbackReason | '';
             if (r) sendFeedback(false, r);

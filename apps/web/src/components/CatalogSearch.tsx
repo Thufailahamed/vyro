@@ -31,7 +31,7 @@ export function CatalogSearch({
   placeholder = 'Search rice, sugar, tea, oil, packaging, cement…',
   autoFocus = false,
 }: {
-  variant: 'hero' | 'bar';
+  variant: 'hero' | 'bar' | 'header';
   value: string;
   onChange: (next: string) => void;
   onSubmit: (query: string) => void;
@@ -131,7 +131,9 @@ export function CatalogSearch({
       className={
         variant === 'hero'
           ? 'w-full h-14 bg-transparent pl-12 pr-4 text-ink placeholder:text-ink-4 text-sm sm:text-base focus:outline-none font-medium'
-          : 'w-full min-w-0 bg-transparent py-2 text-sm sm:text-base font-sans text-ink placeholder:text-ink-4 outline-none'
+          : variant === 'header'
+            ? 'w-full min-w-0 bg-transparent py-2 text-sm text-ink placeholder:text-ink-4 outline-none'
+            : 'w-full min-w-0 bg-transparent py-2 text-sm sm:text-base font-sans text-ink placeholder:text-ink-4 outline-none'
       }
     />
   );
@@ -141,7 +143,7 @@ export function CatalogSearch({
       id={listId}
       role="listbox"
       className={cn(
-        'absolute z-50 mt-1.5 w-full overflow-hidden border border-ink/15 bg-paper shadow-lg rounded-xl',
+        'absolute z-[60] mt-1.5 w-full overflow-hidden border border-ink/15 bg-paper shadow-lg rounded-xl',
         variant === 'hero' && 'left-0 right-0',
       )}
     >
@@ -222,12 +224,54 @@ export function CatalogSearch({
     );
   }
 
+  if (variant === 'header') {
+    return (
+      <div ref={rootRef} className="relative w-full min-w-0">
+        <form onSubmit={handleSubmit} className="w-full">
+          <label htmlFor={inputId} className="sr-only">
+            Search the wholesale catalog
+          </label>
+          <div className="flex items-center gap-2 h-10 px-3 bg-paper border border-ink/15 rounded-lg focus-within:border-ink focus-within:ring-2 focus-within:ring-volt/40 transition-shadow duration-200">
+            <SearchIcon size={16} className="text-ink-4 shrink-0 pointer-events-none" />
+            {input}
+          </div>
+        </form>
+        {panel}
+      </div>
+    );
+  }
+
   return (
     <div ref={rootRef} className="relative flex-1 min-w-0">
       <form onSubmit={handleSubmit} className="w-full">
         {input}
       </form>
       {panel}
+    </div>
+  );
+}
+
+export function HeaderCatalogSearch({
+  className,
+  placeholder = 'Search rice, sugar, tea, packaging…',
+}: {
+  className?: string;
+  placeholder?: string;
+}) {
+  const [value, setValue] = useState('');
+  const navigate = useNavigate();
+
+  return (
+    <div className={cn('w-full min-w-0', className)}>
+      <CatalogSearch
+        variant="header"
+        value={value}
+        onChange={setValue}
+        onSubmit={(query) => {
+          navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
+        }}
+        placeholder={placeholder}
+      />
     </div>
   );
 }

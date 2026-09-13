@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import type { ComponentEnvelope } from '@vyro/ai';
 import { formatLKR } from '@/lib/format';
-import { ShoppingCartIcon, CheckCircleIcon, ArrowRightIcon } from '@/components/icons';
+import { Button } from '@/components/ui';
+import { Surface } from '@/components/brand/Surface';
+import { CheckCircleIcon } from '@/components/icons';
 
 interface ConfirmationItem {
   product: string;
@@ -34,7 +36,7 @@ export function ConfirmationPanel({ card }: ConfirmationCardProps) {
     setState('submitting');
     setError(null);
     try {
-      const res = await fetch((import.meta.env.VITE_API_URL?.replace(/\/$/,'') || '') + '/api/ai/confirm', {
+      const res = await fetch((import.meta.env.VITE_API_URL?.replace(/\/$/, '') || '') + '/api/ai/confirm', {
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json', 'idempotency-key': card.data.idempotencyKey },
@@ -54,74 +56,57 @@ export function ConfirmationPanel({ card }: ConfirmationCardProps) {
   };
 
   return (
-    <div className="bg-paper border border-ink/20 shadow-sm p-5 space-y-4">
-      <div className="flex items-center justify-between pb-2 border-b border-ink/10">
-        <div className="flex items-center gap-2">
-          <ShoppingCartIcon size={16} className="text-copper" />
-          <div className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-copper">
-            Draft Purchase Order Batch
-          </div>
+    <Surface kind="flat" className="p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-copper">Draft order</div>
+          <p className="mt-0.5 text-sm text-ink-3">Nothing is placed until you confirm.</p>
         </div>
-        {state === 'confirmed' && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-mint/15 text-mint border border-mint/30">
+        {state === 'confirmed' ? (
+          <span className="inline-flex items-center gap-1 rounded-lg bg-mint/15 px-2 py-1 text-[11px] font-medium text-mint">
             <CheckCircleIcon size={11} />
-            Issued · {card.data.poRef ?? 'Committed'}
+            {card.data.poRef ?? 'Placed'}
           </span>
-        )}
+        ) : null}
       </div>
 
-      <div className="divide-y divide-ink/10">
+      <div className="mt-3 divide-y divide-ink/10 border-y border-ink/10">
         {card.data.items.map((item, i) => (
-          <div key={i} className="py-2.5 flex items-baseline justify-between gap-3 text-sm">
+          <div key={i} className="flex items-baseline justify-between gap-3 py-2.5 text-sm">
             <div className="min-w-0">
-              <div className="font-semibold text-ink text-xs sm:text-sm truncate">
-                {item.product}
-              </div>
-              <div className="text-[11px] font-mono text-ink-4">
-                Qty: {item.quantity} {item.unit} · Mill: {item.supplier}
+              <div className="truncate font-semibold text-ink">{item.product}</div>
+              <div className="text-[11px] text-ink-4">
+                {item.quantity} {item.unit} · {item.supplier}
               </div>
             </div>
-            <div className="shrink-0 font-mono text-xs sm:text-sm font-semibold text-ink num-tabular">
+            <div className="shrink-0 font-mono text-sm font-semibold text-ink num-tabular">
               {formatLKR(item.priceCents * item.quantity)}
             </div>
           </div>
         ))}
       </div>
 
-      <div className="pt-3 border-t border-ink/15 space-y-1.5 bg-bone/40 p-3">
-        <div className="flex items-baseline justify-between">
-          <span className="text-xs font-mono uppercase tracking-wider text-ink-3 font-semibold">
-            Gross Estimated Total
-          </span>
-          <span className="font-mono text-lg font-bold text-ink num-tabular">
-            {formatLKR(card.data.totalCents)}
-          </span>
+      <div className="mt-3 rounded-lg bg-bone/60 px-3 py-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-xs text-ink-3">Estimated total</span>
+          <span className="font-mono text-lg font-bold text-ink num-tabular">{formatLKR(card.data.totalCents)}</span>
         </div>
-        <div className="text-[11px] font-mono text-ink-4">
-          Estimated dispatch delivery: <span className="text-ink font-medium">{card.data.estimatedDelivery}</span>
-        </div>
+        <p className="mt-1 text-[11px] text-ink-4">
+          Dispatch {card.data.estimatedDelivery}
+        </p>
       </div>
 
-      {error && (
-        <div className="p-3 bg-rose/10 border border-rose/30 text-rose text-xs font-mono">
-          {error}
-        </div>
-      )}
+      {error ? (
+        <div className="mt-3 rounded-lg border border-rose/30 bg-rose/10 px-3 py-2 text-xs text-rose">{error}</div>
+      ) : null}
 
-      {state !== 'confirmed' && (
-        <div className="pt-2 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={submit}
-            disabled={state === 'submitting'}
-            data-testid="confirm-button"
-            className="inline-flex items-center gap-2 h-9 px-4 text-xs font-mono font-bold uppercase tracking-wider bg-ink text-paper hover:bg-charcoal disabled:opacity-50 transition-colors shadow-sm"
-          >
-            <span>{state === 'submitting' ? 'Transmitting PO…' : 'Issue Purchase Order'}</span>
-            <ArrowRightIcon size={12} className="text-volt" />
-          </button>
+      {state !== 'confirmed' ? (
+        <div className="mt-4">
+          <Button type="button" onClick={submit} disabled={state === 'submitting'} data-testid="confirm-button">
+            {state === 'submitting' ? 'Placing…' : 'Place order'}
+          </Button>
         </div>
-      )}
-    </div>
+      ) : null}
+    </Surface>
   );
 }

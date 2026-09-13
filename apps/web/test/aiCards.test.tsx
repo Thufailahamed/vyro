@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
-import { WhyCard, SimulationCard, renderComponent } from '../src/ask/components';
+import {
+  WhyCard,
+  SimulationCard,
+  ClarificationCard,
+  RecommendationCard,
+  renderComponent,
+} from '../src/ask/components';
 
 describe('Phase 3 cards', () => {
   it('renders WhyCard with evidence + recommendation', () => {
@@ -66,5 +72,38 @@ describe('Phase 3 cards', () => {
     );
     expect(whyEl).toBeTruthy();
     expect(simEl).toBeTruthy();
+  });
+
+  it('clarification chips are sentence-case, not an error banner', () => {
+    const html = renderToStaticMarkup(
+      createElement(ClarificationCard, {
+        data: {
+          question: 'What do you need help with?',
+          options: ['FIND MY CHEAPEST SUPPLIERS', 'WHAT SHOULD I REORDER?'],
+        },
+      }),
+    );
+    expect(html).not.toMatch(/Clarification Required/i);
+    expect(html).not.toMatch(/CLARIFICATION REQUIRED/);
+    expect(html).toMatch(/Find my cheapest suppliers/);
+    expect(html).toMatch(/What should I reorder\?/);
+  });
+
+  it('recommendation card leads with product and price, not ops jargon', () => {
+    const html = renderToStaticMarkup(
+      createElement(RecommendationCard, {
+        data: {
+          productName: 'Samba Rice 25kg',
+          supplierName: 'Kurunegala Mill',
+          priceCents: 1250000,
+          offerCount: 3,
+          savingVsHighestCents: 15000,
+        },
+      }),
+    );
+    expect(html).toMatch(/Samba Rice 25kg/);
+    expect(html).toMatch(/Kurunegala Mill/);
+    expect(html).not.toMatch(/Prime Value Recommendation/);
+    expect(html).not.toMatch(/Procurement Audit Highlights/);
   });
 });

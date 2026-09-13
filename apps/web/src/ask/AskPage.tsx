@@ -1,53 +1,177 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Link } from 'react-router-dom';
-import { useVyroAI } from './hooks/useVyroAI';
-import { renderComponent, ToolTimeline, MetricTile } from './components';
+import { cn } from '@vyro/ui';
+import { useVyroAI, type ChatTurn, type ToolEntry } from './hooks/useVyroAI';
+import { renderComponent, ToolTimeline } from './components';
 import { FeedbackButtons } from './components/FeedbackButtons';
-import { PageHeader } from '@/components/ui';
+import { Button } from '@/components/ui';
+import { Surface } from '@/components/brand/Surface';
+import { FlowCanvas } from '@/components/brand/FlowLine';
 import { useAuth } from '@/lib/auth';
+import { usePageTitle } from '@/lib/usePageTitle';
 import {
   SparklesIcon,
-  SearchIcon,
-  TrendingUpIcon,
   ArrowRightIcon,
   RefreshCwIcon,
-  ShieldCheckIcon,
   XIcon,
+  TrendingUpIcon,
+  PackageIcon,
   StoreIcon,
+  ShieldCheckIcon,
+  CheckIcon,
 } from '@/components/icons';
 
 const CORE_SUGGESTIONS = [
   {
     label: 'Find cheapest suppliers',
     payload: 'find cheapest suppliers for bulk staples',
-    category: 'Market Intelligence',
-    desc: 'Compare wholesale mill rates across 25 Sri Lankan districts',
+    category: 'Prices',
+    desc: 'Compare mill rates across districts',
+    icon: TrendingUpIcon,
   },
   {
     label: 'Build my usual order',
     payload: 'build my usual reorder from past history',
-    category: 'Smart Reordering',
-    desc: 'Draft purchase order matched to consumption velocity',
+    category: 'Reorder',
+    desc: 'Draft a PO from what you usually buy',
+    icon: PackageIcon,
   },
   {
     label: 'What should I reorder?',
     payload: 'what should I reorder this week',
-    category: 'Stock Replenishment',
-    desc: 'Identifies inventory safety thresholds & lead times',
+    category: 'Stock',
+    desc: 'Flag items that are due based on past deliveries',
+    icon: RefreshCwIcon,
   },
   {
     label: 'Where can I save?',
     payload: 'where can I save money on recent purchases',
-    category: 'Spend Arbitrage',
-    desc: 'Spot lower cost wholesale tier substitutions',
+    category: 'Savings',
+    desc: 'Spot cheaper equivalent mill lots',
+    icon: StoreIcon,
   },
 ];
 
+const TRUST = [
+  { icon: StoreIcon, label: 'Live mill prices' },
+  { icon: ShieldCheckIcon, label: 'Verified suppliers' },
+  { icon: CheckIcon, label: 'Confirm before any PO' },
+];
+
+function clarificationQuestions(turn: ChatTurn): string[] {
+  return turn.components
+    .filter((c) => c.type === 'clarification_card')
+    .map((c) => String((c.data as { question?: string } | undefined)?.question ?? '').trim())
+    .filter(Boolean);
+}
+
+function assistantNarrative(turn: ChatTurn): string | null {
+  const text = turn.text.trim();
+  if (!text) return null;
+  const questions = clarificationQuestions(turn);
+  if (questions.some((q) => q === text)) return null;
+  return text;
+}
+
+function toolsStillRunning(tools: ToolEntry[]): boolean {
+  return tools.some((t) => t.durationMs === undefined);
+}
+
+function friendlyStatus(stage?: string): string {
+  if (!stage) return 'Looking at the catalog…';
+  if (stage === 'Understanding your request') return 'Reading your question…';
+  if (stage === 'Preparing recommendation') return 'Putting this together…';
+  return stage.endsWith('…') ? stage : `${stage}…`;
+}
+
+function AskComposer({
+  variant,
+  prompt,
+  setPrompt,
+  onSubmit,
+  loading,
+  inputRef,
+  autoFocus,
+}: {
+  variant: 'hero' | 'dock';
+  prompt: string;
+  setPrompt: (value: string) => void;
+  onSubmit: (text: string) => void;
+  loading: boolean;
+  inputRef: RefObject<HTMLInputElement | null>;
+  autoFocus?: boolean;
+}) {
+  const hero = variant === 'hero';
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit(prompt);
+      }}
+      className={cn(
+        'rounded-xl border bg-paper transition-shadow duration-200',
+        hero
+          ? 'border-ink/10 p-2.5 shadow-[0_28px_56px_-24px_rgba(12,14,11,0.65)]'
+          : 'border-ink/15 p-1.5 shadow-md backdrop-blur-md bg-paper/95',
+        'focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(198,220,74,0.35)]',
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <SparklesIcon size={16} className="ml-3 shrink-0 text-copper" />
+        <label htmlFor="ask-vyro-input" className="sr-only">
+          Ask VYRO
+        </label>
+        <input
+          id="ask-vyro-input"
+          ref={inputRef}
+          autoFocus={autoFocus}
+          aria-label="Ask VYRO"
+          className={cn(
+            'w-full min-h-12 bg-transparent text-sm text-ink placeholder:text-ink-4 focus:outline-none',
+            hero && 'sm:text-base',
+          )}
+          placeholder={
+            hero
+              ? 'Cheapest 25kg samba rice, usual reorder, compare sugar…'
+              : 'Ask a follow-up…'
+          }
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setPrompt('');
+          }}
+          disabled={loading}
+        />
+        {prompt ? (
+          <button
+            type="button"
+            onClick={() => setPrompt('')}
+            className="inline-flex size-11 shrink-0 items-center justify-center text-ink-4 hover:text-ink"
+            aria-label="Clear question"
+          >
+            <XIcon size={14} />
+          </button>
+        ) : null}
+        <Button
+          type="submit"
+          size={hero ? 'lg' : 'md'}
+          className="shrink-0"
+          disabled={loading || !prompt.trim()}
+          loading={loading}
+        >
+          {loading ? 'Looking…' : 'Ask'}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export function AskPage() {
+  usePageTitle('Ask VYRO');
   const { user } = useAuth();
-  const business = user?.memberships?.[0];
-  const businessId = business?.businessId;
-  const businessName = business?.businessName ?? 'Commercial Workspace';
+  const membership = user?.memberships?.[0];
+  const businessId = membership?.businessId;
+  const workspaceName = membership?.businessName;
 
   const { state, send, clear, regenerate } = useVyroAI();
   const [prompt, setPrompt] = useState('');
@@ -55,22 +179,26 @@ export function AskPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const inConversation = state.turns.length > 0;
 
   useEffect(() => {
-    fetch((import.meta.env.VITE_API_URL?.replace(/\/$/,'') || '') + '/api/ai/suggestions', { credentials: 'include' })
+    fetch((import.meta.env.VITE_API_URL?.replace(/\/$/, '') || '') + '/api/ai/suggestions', {
+      credentials: 'include',
+    })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        const list = (d as { prompts?: Array<{ kind: 'product' | 'intent'; label: string; payload: string }> } | null)?.prompts;
-        if (list?.length) {
-          const items = list
-            .filter((it) => it.kind === 'product' || !CORE_SUGGESTIONS.some((c) => c.label.toLowerCase() === it.label.toLowerCase()))
-            .slice(0, 5)
-            .map((item) => ({
-              label: item.label,
-              payload: item.payload,
-            }));
-          if (items.length > 0) setCatalogPrompts(items);
-        }
+        const list = (d as { prompts?: Array<{ kind: 'product' | 'intent'; label: string; payload: string }> } | null)
+          ?.prompts;
+        if (!list?.length) return;
+        const items = list
+          .filter(
+            (it) =>
+              it.kind === 'product' ||
+              !CORE_SUGGESTIONS.some((c) => c.label.toLowerCase() === it.label.toLowerCase()),
+          )
+          .slice(0, 3)
+          .map((item) => ({ label: item.label, payload: item.payload }));
+        if (items.length > 0) setCatalogPrompts(items);
       })
       .catch(() => undefined);
   }, []);
@@ -92,477 +220,277 @@ export function AskPage() {
     return '';
   })();
 
-  // Session-level aggregate for the metric tile grid. Honest scope:
-  // reflects the current Ask session only, not the day's tenant totals.
-  const sessionMetrics = (() => {
-    const assistantTurns = state.turns.filter((t) => t.role === 'assistant');
-    const completed = assistantTurns.filter((t) => t.meta && !t.error);
-    const latencies = completed.map((t) => t.meta!.latencyMs);
-    const totalLatency = latencies.reduce((a, b) => a + b, 0);
-    const avgLatencyMs = latencies.length ? Math.round(totalLatency / latencies.length) : 0;
-    const successRate = assistantTurns.length
-      ? completed.length / assistantTurns.length
-      : 0;
-    const tokensIn = completed.reduce((a, t) => a + (t.meta?.tokensIn ?? 0), 0);
-    const tokensOut = completed.reduce((a, t) => a + (t.meta?.tokensOut ?? 0), 0);
-    // Approx USD: 0.02/1k in + 0.06/1k out (Workers AI class model).
-    const costUsd = (tokensIn / 1000) * 0.02 + (tokensOut / 1000) * 0.06;
-    return {
-      turns: completed.length,
-      avgLatencyMs,
-      successRate,
-      costUsd: Math.round(costUsd * 100) / 100,
-    };
-  })();
-
   return (
-    <div className="mx-auto max-w-4xl px-4 pb-16 pt-6 space-y-8">
-      {/* Executive Page Header */}
-      <PageHeader
-        kicker={
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="vyro-kicker text-copper">Procurement Intelligence</span>
-            <span className="text-ink-4">/</span>
-            <span className="text-[11px] font-mono text-ink-3">{businessName}</span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider">
-              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Real-Time Catalog Engine
+    <div className={cn('pb-8', inConversation ? 'mx-auto max-w-3xl' : 'mx-auto max-w-4xl')}>
+      {inConversation ? (
+        <header className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-ink text-volt" aria-hidden>
+              <SparklesIcon size={16} />
             </span>
+            <div className="min-w-0">
+              <h1 className="vyro-display text-xl text-ink sm:text-2xl">Ask VYRO</h1>
+              <p className="text-xs text-ink-3">Live mill prices · nothing is ordered until you confirm</p>
+            </div>
           </div>
-        }
-        title="Ask VYRO"
-        sub="Your autonomous procurement co-pilot — grounded in live Sri Lankan wholesale supplier quotes, verified stock allotments, and your historical purchasing ledger. Zero hallucination; every recommendation cites real prices."
-        actions={
-          state.turns.length > 0 ? (
-            <button
-              type="button"
-              onClick={clear}
-              className="inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-mono font-bold bg-paper border border-ink/20 hover:border-ink text-ink transition-colors shadow-xs"
-            >
-              <RefreshCwIcon size={12} />
-              <span>Reset Session</span>
-            </button>
-          ) : (
-            <Link
-              to="/search"
-              className="hidden sm:inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-mono font-bold bg-paper border border-ink/15 hover:border-ink text-ink transition-colors shadow-xs"
-            >
-              <StoreIcon size={13} className="text-copper" />
-              <span>Browse Catalog →</span>
-            </Link>
-          )
-        }
-      />
+          <Button type="button" variant="ghost" size="sm" onClick={clear} icon={<RefreshCwIcon size={13} />}>
+            New chat
+          </Button>
+        </header>
+      ) : null}
 
-      {/* Session Metrics Tile Grid — only meaningful after first turn */}
-      {sessionMetrics.turns > 0 && (
-        <div
-          className="grid grid-cols-2 sm:grid-cols-4 gap-3"
-          data-testid="session-metrics"
-        >
-          <MetricTile
-            kicker="Session"
-            value={sessionMetrics.turns.toString()}
-            suffix={sessionMetrics.turns === 1 ? 'request' : 'requests'}
-          />
-          <MetricTile
-            kicker="Avg latency"
-            value={sessionMetrics.avgLatencyMs.toString()}
-            suffix="ms"
-          />
-          <MetricTile
-            kicker="Success"
-            value={`${Math.round(sessionMetrics.successRate * 100)}`}
-            suffix="%"
-          />
-          <MetricTile
-            kicker="Session cost"
-            value={`$${sessionMetrics.costUsd.toFixed(2)}`}
-            suffix="approx"
-          />
-        </div>
-      )}
-
-      {/* Empty State: Centered Hero Command Console & Intelligence Deck */}
-      {state.turns.length === 0 && (
-        <div className="space-y-8">
-          {/* Hero Tactical Command Console */}
-          <div className="bg-paper border border-ink/25 shadow-md p-2 space-y-2.5 transition-all focus-within:border-ink focus-within:shadow-lg">
-            <div className="relative flex items-center gap-2">
-              <div className="pl-3 text-copper flex items-center shrink-0">
-                <SparklesIcon size={18} />
+      {!inConversation ? (
+        <div className="space-y-6">
+          <Surface kind="ink" className="relative overflow-hidden grain p-6 sm:p-8 lg:p-10">
+            <div className="pointer-events-none absolute inset-0 opacity-30">
+              <FlowCanvas tone="paper" density="hero" />
+            </div>
+            <div className="relative z-10 space-y-6">
+              <div className="max-w-2xl">
+                <div className="inline-flex items-center gap-2 rounded-md border border-paper/15 bg-paper/10 px-3 py-1">
+                  <span className="size-1.5 rounded-full bg-volt motion-safe:animate-pulse" />
+                  <p className="vyro-kicker text-volt">
+                    Ask VYRO{workspaceName ? ` · ${workspaceName}` : ''}
+                  </p>
+                </div>
+                <h1 className="mt-4 vyro-display text-4xl leading-[0.92] text-paper sm:text-5xl">
+                  What do you need?
+                </h1>
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-paper/75">
+                  Ask in plain language. Quotes come from the live wholesale catalog — nothing is purchased until you confirm.
+                </p>
               </div>
-              <input
-                ref={inputRef}
+
+              <AskComposer
+                variant="hero"
+                prompt={prompt}
+                setPrompt={setPrompt}
+                onSubmit={submit}
+                loading={state.loading}
+                inputRef={inputRef}
                 autoFocus
-                aria-label="Ask VYRO Procurement AI"
-                className="w-full h-13 text-sm sm:text-base bg-transparent placeholder:text-ink-4 text-ink font-sans focus:outline-none"
-                placeholder="Ask VYRO e.g. cheapest 25kg samba rice, build my usual reorder, compare sugar prices…"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') submit(prompt);
-                  if (e.key === 'Escape') setPrompt('');
-                }}
-                disabled={state.loading}
               />
-              {prompt && (
-                <button
-                  type="button"
-                  onClick={() => setPrompt('')}
-                  className="p-1.5 text-ink-4 hover:text-ink transition-colors shrink-0"
-                  aria-label="Clear input"
-                >
-                  <XIcon size={14} />
-                </button>
-              )}
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 h-11 px-5 bg-ink text-paper hover:bg-charcoal disabled:opacity-40 disabled:pointer-events-none text-xs font-mono font-bold uppercase tracking-wider transition-all shrink-0 shadow-sm"
-                onClick={() => submit(prompt)}
-                disabled={state.loading || !prompt.trim()}
-              >
-                {state.loading ? (
-                  <>
-                    <span className="size-2 rounded-full bg-volt animate-ping" />
-                    <span>Analyzing…</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Consult</span>
-                    <span className="text-[10px] px-1.5 py-0.5 bg-paper/20 text-paper font-mono">↵</span>
-                  </>
-                )}
-              </button>
-            </div>
 
-            <div className="pt-2 pb-1 px-3 border-t border-ink/10 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-ink-4">
-              <div className="flex items-center gap-2">
-                <span className="size-1.5 rounded-full bg-emerald-500" />
-                <span>Grounded in active Sri Lanka wholesale catalog &amp; historical ledger</span>
-              </div>
-              <span>Zero hallucination · 25 districts</span>
-            </div>
-          </div>
+              {catalogPrompts.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-paper/65">
+                    From your catalog
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {catalogPrompts.map((cp) => (
+                      <button
+                        key={cp.payload}
+                        type="button"
+                        onClick={() => submit(cp.payload)}
+                        disabled={state.loading}
+                        className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-paper/20 bg-paper/10 px-3 text-xs text-paper hover:border-volt hover:text-volt"
+                      >
+                        <span>{cp.label}</span>
+                        <ArrowRightIcon size={11} className="opacity-70" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
-          {/* Trending Live Inquiries (if loaded from catalog) */}
-          {catalogPrompts.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-[10px] font-mono uppercase tracking-wider font-bold text-ink-3">
-                Live Commodity Inquiries
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {catalogPrompts.map((cp, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => submit(cp.payload)}
-                    disabled={state.loading}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono bg-paper hover:bg-bone border border-ink/15 hover:border-ink text-ink transition-all shadow-xs group"
+              <ul className="grid gap-2 sm:grid-cols-3">
+                {TRUST.map((item) => (
+                  <li
+                    key={item.label}
+                    className="flex items-center gap-2.5 rounded-lg border border-paper/10 bg-paper/5 px-3 py-2.5"
                   >
-                    <span>{cp.label}</span>
-                    <ArrowRightIcon size={11} className="text-ink-4 group-hover:text-ink transition-colors" />
-                  </button>
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-volt/20 text-volt">
+                      <item.icon size={13} />
+                    </span>
+                    <span className="text-xs font-medium text-paper/85">{item.label}</span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
-          )}
+          </Surface>
 
-          {/* Quick Trigger Cards (Curated 2x2 Matrix) */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-ink-3">
-                Rapid Procurement Inquiries
-              </span>
-              <span className="text-[10px] font-mono text-ink-4">
-                Click to initiate conversational execution
-              </span>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              {CORE_SUGGESTIONS.map((s, i) => (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {CORE_SUGGESTIONS.map((s) => {
+              const Icon = s.icon;
+              return (
                 <button
-                  key={i}
+                  key={s.payload}
                   type="button"
                   onClick={() => submit(s.payload)}
                   disabled={state.loading}
-                  className="group relative p-4 bg-paper border border-ink/15 hover:border-ink text-left shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3"
+                  className="group vyro-elevated p-5 text-left transition duration-200 hover:-translate-y-0.5 motion-reduce:transform-none"
                 >
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-copper font-bold">
-                        {s.category}
-                      </span>
-                      <ArrowRightIcon
-                        size={13}
-                        className="text-ink-4 group-hover:text-ink group-hover:translate-x-0.5 transition-all"
-                      />
-                    </div>
-                    <div className="font-display font-semibold text-ink text-sm group-hover:text-copper transition-colors">
-                      {s.label}
-                    </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="flex size-10 items-center justify-center rounded-lg bg-ink text-volt">
+                      <Icon size={16} />
+                    </span>
+                    <ArrowRightIcon
+                      size={14}
+                      className="mt-1 shrink-0 text-ink-4 transition-transform group-hover:translate-x-0.5 group-hover:text-ink"
+                    />
                   </div>
-                  <div className="text-[11px] text-ink-4 font-mono leading-relaxed">
-                    {s.desc}
-                  </div>
+                  <span className="mt-4 block text-[10px] font-mono font-bold uppercase tracking-wider text-copper">
+                    {s.category}
+                  </span>
+                  <div className="mt-1 font-display text-base font-semibold text-ink">{s.label}</div>
+                  <p className="mt-1 text-sm leading-relaxed text-ink-3">{s.desc}</p>
                 </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Intelligence Capabilities Architecture */}
-          <div className="grid sm:grid-cols-3 gap-3 pt-2">
-            <div className="p-3.5 bg-paper border border-ink/15 shadow-xs space-y-1.5">
-              <div className="flex items-center gap-2">
-                <div className="size-6 bg-bone border border-ink/10 flex items-center justify-center text-copper">
-                  <TrendingUpIcon size={13} />
-                </div>
-                <div className="font-display font-semibold text-ink text-xs">Price Arbitrage</div>
-              </div>
-              <p className="text-[11px] text-ink-4 leading-relaxed font-sans">
-                Evaluates multi-mill quotes across Colombo, Kurunegala, and Kandy to locate lowest landed wholesale cost.
-              </p>
-            </div>
-
-            <div className="p-3.5 bg-paper border border-ink/15 shadow-xs space-y-1.5">
-              <div className="flex items-center gap-2">
-                <div className="size-6 bg-bone border border-ink/10 flex items-center justify-center text-volt-deep">
-                  <SparklesIcon size={13} />
-                </div>
-                <div className="font-display font-semibold text-ink text-xs">Automated Reordering</div>
-              </div>
-              <p className="text-[11px] text-ink-4 leading-relaxed font-sans">
-                Constructs complete multi-line purchase orders from previous orders and applies live supplier pack sizes.
-              </p>
-            </div>
-
-            <div className="p-3.5 bg-paper border border-ink/15 shadow-xs space-y-1.5">
-              <div className="flex items-center gap-2">
-                <div className="size-6 bg-bone border border-ink/10 flex items-center justify-center text-mint">
-                  <ShieldCheckIcon size={13} />
-                </div>
-                <div className="font-display font-semibold text-ink text-xs">Verified Suppliers Only</div>
-              </div>
-              <p className="text-[11px] text-ink-4 leading-relaxed font-sans">
-                Strict guardrails prevent unverified vendors from bidding. Every SKU is tied to active fulfillment routes.
-              </p>
-            </div>
+              );
+            })}
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Conversation Thread */}
-      <div className="space-y-6" aria-live="polite">
-        {state.turns.map((turn, index) =>
-          turn.role === 'user' ? (
-            <div key={turn.id} className="flex justify-end">
-              <div className="max-w-[85%] bg-ink text-paper border border-ink/20 px-4 py-3 shadow-sm">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-paper/50 mb-1">
-                  Buyer Query
-                </div>
-                <div className="text-sm font-medium leading-relaxed font-sans">{turn.text}</div>
-              </div>
-            </div>
-          ) : (
-            <div key={turn.id} className="space-y-4">
-              {turn.error && (
-                <div className="p-4 bg-paper border border-rose/30 shadow-sm space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-rose animate-pulse" />
-                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-rose">
-                        {turn.error.code}
-                      </span>
-                    </div>
-                    {lastUserPrompt && (
-                      <button
-                        type="button"
-                        onClick={() => submit(lastUserPrompt)}
-                        disabled={state.loading}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-bold bg-bone hover:bg-bone-dark border border-ink/15 text-ink transition-colors"
-                      >
-                        <RefreshCwIcon size={11} className={state.loading ? 'animate-spin' : ''} />
-                        <span>Retry Query</span>
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs text-ink leading-relaxed font-sans">
-                    {turn.error.message}
-                  </p>
-                </div>
-              )}
-
-              {/* Tool Execution Timeline */}
-              {turn.tools.length > 0 && <ToolTimeline tools={turn.tools} />}
-
-              {/* Dynamic Interactive Cards (Recommendations, Supplier comparison, Savings, etc.) */}
-              {turn.components.map((c, i) => renderComponent(c, i, (opt) => submit(opt)))}
-
-              {/* Telemetry Bar */}
-              {turn.meta && (
-                <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-bone/60 border border-ink/10 text-[10px] font-mono text-ink-4 uppercase tracking-wider">
-                  <div className="flex items-center gap-2">
-                    <span className="text-copper font-semibold">{turn.meta.intent}</span>
-                    <span>·</span>
-                    <span>{turn.meta.provider}</span>
-                    <span>·</span>
-                    <span>{turn.meta.model.replace(/^@cf\/[^/]+\//, '')}</span>
-                    <span>·</span>
-                    <span className="num-tabular">{turn.meta.latencyMs}ms</span>
-                    <span>·</span>
-                    <span className="num-tabular">{turn.meta.tokensIn + turn.meta.tokensOut} tokens</span>
-                  </div>
-                  {index === state.turns.length - 1 && lastUserPrompt && (
-                    <button
-                      type="button"
-                      onClick={() => regenerate()}
-                      disabled={state.loading}
-                      className="text-ink hover:text-copper font-semibold transition-colors"
-                    >
-                      ↺ Regenerate Analysis
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Assistant Plain Narrative */}
-              {turn.text && (
-                <div className="p-5 bg-paper border border-ink/15 shadow-sm space-y-3">
-                  <div className="flex items-center gap-2">
-                    <SparklesIcon size={14} className="text-volt-deep" />
-                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-ink-3">
-                      Procurement Verdict
-                    </span>
-                  </div>
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed text-ink font-sans">
+      {inConversation ? (
+        <div className="mt-6 space-y-5" aria-live="polite">
+          {state.turns.map((turn, index) => {
+            if (turn.role === 'user') {
+              return (
+                <div key={turn.id} className="flex justify-end">
+                  <div className="max-w-[min(85%,28rem)] rounded-xl bg-ink px-4 py-2.5 text-sm leading-relaxed text-paper">
                     {turn.text}
                   </div>
-                  {turn.actions.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-ink/10 flex flex-wrap gap-2">
-                      {turn.actions.map((a, i) => (
-                        <Link
-                          key={i}
-                          to={a.href}
-                          className="inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-mono font-bold uppercase tracking-wider bg-ink text-paper hover:bg-charcoal transition-colors shadow-sm"
-                        >
-                          <span>{a.label}</span>
-                          <ArrowRightIcon size={11} className="text-volt" />
-                        </Link>
-                      ))}
-                    </div>
-                  )}
                 </div>
-              )}
+              );
+            }
+            const pending =
+              state.loading &&
+              index === state.turns.length - 1 &&
+              !turn.error &&
+              !turn.text &&
+              turn.components.length === 0 &&
+              turn.tools.length === 0;
+            if (pending) return null;
+            return (
+              <AssistantTurn
+                key={turn.id}
+                turn={turn}
+                isLast={index === state.turns.length - 1}
+                loading={state.loading}
+                lastUserPrompt={lastUserPrompt}
+                onRetry={() => submit(lastUserPrompt)}
+                onRegenerate={() => regenerate()}
+                onPick={(opt) => submit(opt)}
+              />
+            );
+          })}
 
-              {/* Feedback (final, successful turn only). */}
-              {index === state.turns.length - 1 && !turn.error && turn.requestId && !state.loading && (
-                <FeedbackButtons
-                  requestId={turn.requestId}
-                  {...(turn.meta?.intent ? { intentHint: turn.meta.intent } : {})}
-                />
-              )}
-            </div>
-          ),
-        )}
-
-        {/* Live Streaming Indicator */}
-        {state.loading && (
-          <div className="p-4 bg-paper border border-ink/15 shadow-sm flex items-center justify-between gap-3 animate-pulse">
-            <div className="flex items-center gap-3">
-              <span className="size-2 rounded-full bg-volt-deep animate-ping" />
-              <span className="text-xs font-mono text-ink font-medium">
-                {state.status ? `${state.status}…` : 'Synthesizing wholesale market data…'}
+          {state.loading ? (
+            <div className="flex items-center gap-3 text-sm text-ink-3">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-volt/25" aria-hidden>
+                <SparklesIcon size={14} className="text-ink" />
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="size-1.5 rounded-full bg-volt motion-safe:animate-pulse" />
+                {friendlyStatus(state.status)}
               </span>
             </div>
-            <span className="text-[10px] font-mono uppercase text-ink-4">VYRO AI v2.4</span>
+          ) : null}
+          <div ref={bottomRef} />
+        </div>
+      ) : null}
+
+      {inConversation ? (
+        <div className="sticky bottom-20 z-20 mt-6 lg:bottom-4">
+          <AskComposer
+            variant="dock"
+            prompt={prompt}
+            setPrompt={setPrompt}
+            onSubmit={submit}
+            loading={state.loading}
+            inputRef={inputRef}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AssistantTurn({
+  turn,
+  isLast,
+  loading,
+  lastUserPrompt,
+  onRetry,
+  onRegenerate,
+  onPick,
+}: {
+  turn: ChatTurn;
+  isLast: boolean;
+  loading: boolean;
+  lastUserPrompt: string;
+  onRetry: () => void;
+  onRegenerate: () => void;
+  onPick: (opt: string) => void;
+}) {
+  const narrative = assistantNarrative(turn);
+  const showTools = turn.tools.length > 0 && (loading || toolsStillRunning(turn.tools));
+  const actionLinks = turn.actions.map((a, i) => (
+    <Link
+      key={`${a.href}-${i}`}
+      to={a.href}
+      className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-ink/15 bg-paper px-3 text-xs font-medium text-ink hover:border-ink"
+    >
+      {a.label}
+      <ArrowRightIcon size={11} className="text-ink-4" />
+    </Link>
+  ));
+
+  return (
+    <div className="flex items-start gap-3">
+      <span
+        className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-volt/25 text-ink"
+        aria-hidden
+      >
+        <SparklesIcon size={14} />
+      </span>
+      <div className="min-w-0 flex-1 space-y-3">
+        {turn.error ? (
+          <Surface kind="flat" className="space-y-2 border-rose/25 p-4">
+            <p className="text-sm leading-relaxed text-ink">{turn.error.message}</p>
+            {lastUserPrompt ? (
+              <button
+                type="button"
+                onClick={onRetry}
+                disabled={loading}
+                className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-ink hover:text-copper"
+              >
+                <RefreshCwIcon size={11} className={loading ? 'animate-spin' : ''} />
+                Try again
+              </button>
+            ) : null}
+          </Surface>
+        ) : null}
+
+        {showTools ? <ToolTimeline tools={turn.tools} /> : null}
+
+        {narrative ? (
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{narrative}</p>
+        ) : null}
+
+        {turn.components.map((c, i) => renderComponent(c, i, onPick))}
+
+        {turn.actions.length > 0 ? <div className="flex flex-wrap gap-2">{actionLinks}</div> : null}
+
+        {isLast && !turn.error && turn.requestId && !loading ? (
+          <div className="flex flex-wrap items-center gap-1">
+            <FeedbackButtons
+              requestId={turn.requestId}
+              {...(turn.meta?.intent ? { intentHint: turn.meta.intent } : {})}
+            />
+            {lastUserPrompt ? (
+              <button
+                type="button"
+                onClick={onRegenerate}
+                disabled={loading}
+                className="inline-flex min-h-11 items-center px-2 text-[11px] text-ink-4 hover:text-ink"
+              >
+                Ask again
+              </button>
+            ) : null}
           </div>
-        )}
-        <div ref={bottomRef} />
+        ) : null}
       </div>
-
-      {/* Suggested Follow-ups after interaction */}
-      {state.turns.length > 0 && !state.loading && (
-        <div className="space-y-2 pt-2">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            Suggested Next Inquiries
-          </span>
-          <div className="flex flex-wrap gap-2">
-            {CORE_SUGGESTIONS.map((s, i) => (
-              <button
-                key={`followup-${i}`}
-                type="button"
-                onClick={() => submit(s.payload)}
-                className="px-3 py-1.5 text-xs font-mono bg-paper hover:bg-bone border border-ink/15 hover:border-ink text-ink transition-colors shadow-xs"
-              >
-                {s.label} →
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Floating Tactical Command Console (Only active when in conversation) */}
-      {state.turns.length > 0 && (
-        <div className="sticky bottom-6 z-20">
-          <div className="p-2 bg-paper/95 backdrop-blur-md border border-ink/20 shadow-xl">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <SearchIcon
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-4"
-                />
-                <input
-                  ref={inputRef}
-                  aria-label="Ask VYRO Procurement AI"
-                  className="w-full h-11 pl-10 pr-8 text-sm bg-transparent placeholder:text-ink-4 text-ink font-sans focus:outline-none"
-                  placeholder="Ask a follow-up e.g. compare with Pettah mills, draft purchase order…"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') submit(prompt);
-                    if (e.key === 'Escape') setPrompt('');
-                  }}
-                  disabled={state.loading}
-                />
-                {prompt && (
-                  <button
-                    type="button"
-                    onClick={() => setPrompt('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-ink-4 hover:text-ink transition-colors"
-                    aria-label="Clear input"
-                  >
-                    <XIcon size={13} />
-                  </button>
-                )}
-              </div>
-
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 h-11 px-5 bg-ink text-paper hover:bg-charcoal disabled:opacity-40 disabled:pointer-events-none text-xs font-mono font-bold uppercase tracking-wider transition-all shrink-0 shadow-sm"
-                onClick={() => submit(prompt)}
-                disabled={state.loading || !prompt.trim()}
-              >
-                {state.loading ? (
-                  <>
-                    <span className="size-2 rounded-full bg-volt animate-ping" />
-                    <span>Analyzing…</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Consult</span>
-                    <span className="text-[10px] px-1.5 py-0.5 bg-paper/20 text-paper font-mono">↵</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-2 flex items-center justify-between px-2 text-[10px] font-mono text-ink-4">
-            <span>Grounding: Active Sri Lanka Wholesale Catalog &amp; Past Ledger</span>
-            <span>Confirmation required before issuing Purchase Orders</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

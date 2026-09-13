@@ -13,6 +13,9 @@ vi.mock('../src/modules/supplierProducts/repository', () => ({
   listOffersForProduct: vi.fn(async (_d1, productId) => offers.filter((o) => o.productId === productId && !o.deletedAt)),
   listOffersForSupplier: vi.fn(async (_d1, supplierId) => offers.filter((o) => o.supplierId === supplierId && !o.deletedAt)),
   findOffer: vi.fn(async (_d1, id) => offers.find((o) => o.id === id && !o.deletedAt) ?? null),
+  findOfferForSupplierProduct: vi.fn(async (_d1, supplierId, productId) =>
+    offers.find((o) => o.supplierId === supplierId && o.productId === productId) ?? null,
+  ),
   createOffer: vi.fn(async (_d1, input) => {
     const id = 'sp-' + (offers.length + 1);
     offers.push({ id, ...input, active: true, createdAt: Date.now(), updatedAt: Date.now() });
@@ -114,6 +117,17 @@ describe('supplier products module', () => {
       { DB: D1_STUB, ENVIRONMENT: 'test' } as any,
     );
     expect(res.status).toBe(401);
+  });
+
+  it('POST duplicate listing is 409', async () => {
+    offers.push({ id: 'sp-1', supplierId: 'sup-1', productId: 'p1', priceCents: 100, active: true });
+    sessionCtx = { userId: 'u-owner', memberships: [], isAdmin: false };
+    const res = await app.request(
+      '/api/supplier-products',
+      { method: 'POST', body: JSON.stringify({ supplierId: 'sup-1', productId: 'p1', priceCents: 2500 }) },
+      { DB: D1_STUB, ENVIRONMENT: 'test' } as any,
+    );
+    expect(res.status).toBe(409);
   });
 
   it('POST as supplier member creates offer + audit row', async () => {

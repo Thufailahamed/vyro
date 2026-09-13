@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button } from '@vyro/ui';
+import { Button } from './ui';
 
 const KEY = 'vyro_consent';
 
@@ -35,7 +35,7 @@ export function CookieConsentBanner() {
     <div
       role="dialog"
       aria-live="polite"
-      className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md z-50 bg-paper border border-ink/15 rounded-lg shadow-lg p-4 space-y-3"
+      className="fixed top-[4.25rem] left-4 right-4 mx-auto max-w-md z-40 bg-paper border border-ink/15 rounded-lg shadow-lg p-4 space-y-3"
     >
       <p className="text-sm text-ink">
         VYRO uses essential cookies to keep you signed in. We do not load analytics or marketing scripts in this version.

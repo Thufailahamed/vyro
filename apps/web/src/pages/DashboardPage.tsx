@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@vyro/ui';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { useAuth } from '@/lib/auth';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { TimeSeries, Button, MetricStack, StatusDots, PageHeader } from '@/components/ui';
 import type { OrderStatus } from '@/components/ui';
 import {
@@ -18,6 +19,7 @@ import {
   SparklesIcon,
   TrendingUpIcon,
   MapPinIcon,
+  RefreshCwIcon,
 } from '@/components/icons';
 import { formatCompactLKR, formatLKR, greetingForNow } from '@/lib/format';
 import { FlowLine, FlowCanvas } from '@/components/brand/FlowLine';
@@ -117,9 +119,12 @@ const DEFAULT_SUPPLIER_PHOTO =
 export function DashboardPage() {
   usePageTitle('Command');
   const { user } = useAuth();
+  const qc = useQueryClient();
+  const toast = useToast();
   const businessId = user?.memberships?.[0]?.businessId;
   const businessName = user?.memberships?.[0]?.businessName;
   const { addToCart, pendingKey } = useAddToCart();
+  const [reordering, setReordering] = useState(false);
 
   // 1. Real Purchase Orders Query
   const { data: ordersData } = useQuery({
@@ -176,6 +181,35 @@ export function DashboardPage() {
   });
 
   const orders = ordersData?.orders ?? [];
+  const lastPo = useMemo(() => {
+    const eligible = orders.filter((o) =>
+      ['delivered', 'completed'].includes(o.status.toLowerCase()),
+    );
+    if (!eligible.length) return null;
+    return eligible.reduce((a, b) => (a.createdAt >= b.createdAt ? a : b));
+  }, [orders]);
+
+  async function repeatLastPo() {
+    if (!lastPo) return;
+    setReordering(true);
+    try {
+      await api.post(`/purchase-orders/${lastPo.id}/reorder`);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['business-orders-dash'] }),
+        qc.invalidateQueries({ queryKey: ['orders'] }),
+      ]);
+      toast.show(toast.success('Reorder placed', 'New order(s) are now in your orders list.'));
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? e.message
+          : 'Could not reorder — some items may no longer be available.';
+      toast.show(toast.error(msg));
+    } finally {
+      setReordering(false);
+    }
+  }
+
   const stats = useMemo(() => {
     const inFlight = orders.filter((o) =>
       ['pending', 'accepted', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'dispatched'].includes(o.status)
@@ -511,7 +545,7 @@ export function DashboardPage() {
                       <span className="vyro-metric font-bold text-base text-ink">
                         {best ? formatLKR(best.priceCents) : 'Quote only'}
                       </span>
-                      <span className="text-[11px] text-ink-4">/ {hit.product.unit}</span>
+                        <span className="text-xs text-ink-4">/ {hit.product.unit}</span>
                     </div>
                     <span className="text-[10px] text-ink-4 block truncate mt-1">
                       📍 {best?.supplier?.district ? `${best.supplier.district} Depot` : 'Island-wide Depot'}
@@ -570,6 +604,19 @@ export function DashboardPage() {
                 {supplier?.supplierName ?? 'Supplier console'}
               </Button>
             </Link>
+          )}
+          {lastPo && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="text-xs font-semibold"
+              loading={reordering}
+              onClick={() => void repeatLastPo()}
+            >
+              <RefreshCwIcon size={14} />
+              Repeat last PO
+            </Button>
           )}
           <Link to="/search">
             <Button variant="primary" size="sm" className="text-xs uppercase tracking-wider font-bold">
@@ -888,7 +935,7 @@ export function DashboardPage() {
                     <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 text-[9px] font-mono font-bold uppercase bg-ink/90 text-paper border border-paper/20 backdrop-blur-sm rounded-md">
                       {catName}
                     </span>
-                    <span className="absolute bottom-2.5 left-2.5 px-2.5 py-0.5 text-[10px] font-mono bg-paper/90 text-ink backdrop-blur-sm rounded-md">
+                    <span className="absolute bottom-2.5 left-2.5 px-2.5 py-0.5 text-xs font-mono bg-paper/90 text-ink backdrop-blur-sm rounded-md">
                       {best ? `${best.minOrderQty} ${hit.product.unit} min` : 'Custom MOQ'}
                     </span>
                   </Link>
@@ -913,9 +960,9 @@ export function DashboardPage() {
                         <span className="vyro-metric font-bold text-xl text-ink">
                           {best ? formatLKR(best.priceCents) : 'Quote only'}
                         </span>
-                        <span className="text-[11px] text-ink-4">/ {hit.product.unit}</span>
+                        <span className="text-xs text-ink-4">/ {hit.product.unit}</span>
                       </div>
-                      <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 border border-emerald-200 rounded-md">
+                      <span className="text-xs font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 border border-emerald-200 rounded-md">
                         {best ? `${best.leadTimeDays * 24}h dispatch` : 'Immediate'}
                       </span>
                     </div>

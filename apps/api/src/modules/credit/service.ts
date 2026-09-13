@@ -27,6 +27,9 @@ export function evaluateEligibility(args: {
     return { eligible: false, reason: 'credit_not_eligible' };
   }
   if (args.overdueCount > 0) return { eligible: false, reason: 'credit_overdue_blocked' };
+  // An active facility (auto-grant or admin/test grant) is enough to draw.
+  // Paid-order count only gates auto-creation when no facility exists yet.
+  if (args.facility?.status === 'active') return { eligible: true, reason: null };
   if (args.paidOrderCount < CREDIT_MIN_PAID_ORDERS) return { eligible: false, reason: 'credit_not_eligible' };
   return { eligible: true, reason: null };
 }

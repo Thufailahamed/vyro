@@ -36,7 +36,7 @@ export async function countPaidOrders(d1: D1Database, businessId: string): Promi
       and(
         eq(purchaseOrders.businessId, businessId),
         sql`${purchaseOrders.status} IN ('delivered', 'completed')`,
-        eq(payments.status, 'paid' as never),
+        sql`${payments.status} IN ('paid', 'confirmed')`,
       ),
     )
     .get()) as any;

@@ -41,6 +41,8 @@ import {
 } from '@/components/icons';
 import { formatLKR } from '@/lib/format';
 import { cn } from '@vyro/ui';
+import { existingOfferForProduct, listedOfferByProductId } from './catalogListing';
+import { CatalogProductPicker, SelectedCatalogProduct } from './CatalogProductPicker';
 
 type Category = {
   id: string;
@@ -133,6 +135,12 @@ const FORM_SECTIONS = [
   { key: 'delivery', label: 'Fulfillment', hint: 'Delivery & coverage', icon: TruckIcon },
 ] as const;
 
+const ATTACH_SECTIONS = [
+  { key: 'pricing', label: 'Pricing', hint: 'Wholesale & MOQ', icon: BanknoteIcon },
+  { key: 'tiers', label: 'Tiers', hint: 'Volume discounts', icon: PercentIcon },
+  { key: 'delivery', label: 'Fulfillment', hint: 'Delivery & coverage', icon: TruckIcon },
+] as const;
+
 export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const { supplierId, supplierName } = useSupplierId();
   const { id } = useParams();
@@ -142,12 +150,16 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const toast = useToast();
   const isEdit = mode === 'edit';
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const productIdParam = !isEdit ? searchParams.get('productId') : null;
+  const isCreateNew = !isEdit && searchParams.get('new') === '1';
+  const isSearch = !isEdit && !productIdParam && !isCreateNew;
+  const isAttach = Boolean(productIdParam);
 
   // Queries
   const offers = useQuery({
     queryKey: ['supplier', supplierId, 'offers'],
     queryFn: () => api.get<{ offers: Offer[] }>(`/supplier-products/by-supplier/${supplierId}`),
-    enabled: isEdit,
+    enabled: Boolean(supplierId),
   });
 
   const categoriesQuery = useQuery({
@@ -157,15 +169,19 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
   const categories = useMemo(() => categoriesQuery.data?.categories ?? [], [categoriesQuery.data]);
   const existingOffer = isEdit ? offers.data?.offers.find((o) => o.id === id) ?? null : null;
+  const listedByProductId = useMemo(
+    () => listedOfferByProductId(offers.data?.offers ?? []),
+    [offers.data],
+  );
+  const catalogProductId = isEdit ? existingOffer?.productId ?? null : productIdParam;
 
-  // If editing, fetch product details
   const productQuery = useQuery({
-    queryKey: ['product', existingOffer?.productId],
+    queryKey: ['product', catalogProductId],
     queryFn: () =>
       api.get<{ product: Product; images: { id: string; url: string }[] }>(
-        `/products/${existingOffer!.productId}`,
+        `/products/${catalogProductId}`,
       ),
-    enabled: isEdit && !!existingOffer?.productId,
+    enabled: Boolean(catalogProductId),
   });
 
   // Category & Product Specification state
@@ -236,9 +252,34 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
       setTier3DiscountPct(String(existingOffer.tier3DiscountPct));
   }, [isEdit, existingOffer]);
 
-  // Populate product details in edit mode
+  useEffect(() => {
+    if (!isAttach || !productIdParam || !offers.data) return;
+    const listed = existingOfferForProduct(offers.data.offers, productIdParam);
+    if (listed) {
+      navigate(`/supplier/products/${listed.id}/edit`, { replace: true });
+    }
+  }, [isAttach, productIdParam, offers.data, navigate]);
+
+  useEffect(() => {
+    if (!isCreateNew) return;
+    setCategoryId('');
+    setCategorySearch('');
+    setProductName('');
+    setBrand('');
+    setUnit('unit');
+    setPackSize('');
+    setDescription('');
+    setHsCode('');
+    setCountryOfOrigin('LK');
+    setSelectedImageFile(null);
+    setImagePreviewUrl(null);
+    setExistingImageUrl(null);
+  }, [isCreateNew]);
+
+  // Populate product details when editing or attaching an existing SKU
   useEffect(() => {
     if (!productQuery.data?.product) return;
+    if (!isEdit && !isAttach) return;
     const p = productQuery.data.product;
     setCategoryId(p.categoryId);
     setProductName(p.name);
@@ -249,7 +290,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
     setHsCode(p.hsCode ?? '');
     setCountryOfOrigin((p.countryOfOrigin ?? 'LK').toUpperCase());
     if (p.imageUrl) setExistingImageUrl(p.imageUrl);
-  }, [productQuery.data]);
+  }, [productQuery.data, isEdit, isAttach]);
 
   // Handle URL query parameter pre-selection for category
   useEffect(() => {
@@ -330,25 +371,41 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
     { key: 'moq', label: 'Minimum order quantity set', done: hasMoq },
     { key: 'image', label: 'Product photo uploaded', done: hasImage, optional: true },
   ];
-  const readinessScore = readinessItems.filter((r) => r.done).length;
-  const totalReadinessSteps = readinessItems.length;
-  const readinessPct = (readinessScore / totalReadinessSteps) * 100;
-  const canPublish = hasCategory && hasName && hasUnit && hasPrice && hasMoq;
+  const listingReadinessItems = isAttach
+    ? [
+        { key: 'price', label: 'Wholesale unit rate configured', done: hasPrice },
+        { key: 'moq', label: 'Minimum order quantity set', done: hasMoq },
+      ]
+    : readinessItems;
+  const readinessScore = listingReadinessItems.filter((r) => r.done).length;
+  const totalReadinessSteps = listingReadinessItems.length;
+  const readinessPct = (readinessScore / Math.max(totalReadinessSteps, 1)) * 100;
+  const canPublish = isSearch
+    ? false
+    : isAttach
+      ? hasPrice && hasMoq && Boolean(productQuery.data?.product)
+      : hasCategory && hasName && hasUnit && hasPrice && hasMoq;
 
   const handleSubmit = async (e?: FormEvent) => {
     e?.preventDefault();
     setErr(null);
+    if (isSearch) return;
 
-    if (!categoryId) {
-      setErr('Please select a category created by administrators for your product.');
-      return;
-    }
-    if (!productName.trim()) {
-      setErr('Please provide a product title / name.');
-      return;
-    }
-    if (!unit.trim()) {
-      setErr('Please specify the standard billing unit of measure (e.g. kg, bag, unit, set).');
+    if (!isAttach) {
+      if (!categoryId) {
+        setErr('Please select a category created by administrators for your product.');
+        return;
+      }
+      if (!productName.trim()) {
+        setErr('Please provide a product title / name.');
+        return;
+      }
+      if (!unit.trim()) {
+        setErr('Please specify the standard billing unit of measure (e.g. kg, bag, unit, set).');
+        return;
+      }
+    } else if (!productIdParam || !productQuery.data?.product) {
+      setErr('Select a catalog product before publishing your wholesale rate.');
       return;
     }
     const cents = priceCentsValue();
@@ -381,28 +438,32 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
       let targetProductId = existingOffer?.productId || '';
 
       if (!isEdit) {
-        const prodPayload: {
-          name: string;
-          categoryId: string;
-          unit: string;
-          brand?: string;
-          packSize?: string;
-          description?: string;
-          hsCode?: string;
-          countryOfOrigin?: string;
-        } = {
-          name: productName.trim(),
-          categoryId,
-          unit: unit.trim(),
-        };
-        if (brand.trim()) prodPayload.brand = brand.trim();
-        if (packSize.trim()) prodPayload.packSize = packSize.trim();
-        if (description.trim()) prodPayload.description = description.trim();
-        if (hsCode.trim()) prodPayload.hsCode = hsCode.trim();
-        if (countryOfOrigin.trim()) prodPayload.countryOfOrigin = countryOfOrigin.trim().toUpperCase();
+        if (isAttach && productIdParam) {
+          targetProductId = productIdParam;
+        } else {
+          const prodPayload: {
+            name: string;
+            categoryId: string;
+            unit: string;
+            brand?: string;
+            packSize?: string;
+            description?: string;
+            hsCode?: string;
+            countryOfOrigin?: string;
+          } = {
+            name: productName.trim(),
+            categoryId,
+            unit: unit.trim(),
+          };
+          if (brand.trim()) prodPayload.brand = brand.trim();
+          if (packSize.trim()) prodPayload.packSize = packSize.trim();
+          if (description.trim()) prodPayload.description = description.trim();
+          if (hsCode.trim()) prodPayload.hsCode = hsCode.trim();
+          if (countryOfOrigin.trim()) prodPayload.countryOfOrigin = countryOfOrigin.trim().toUpperCase();
 
-        const prodRes = await api.post<{ id: string }>('/products', prodPayload);
-        targetProductId = prodRes.id;
+          const prodRes = await api.post<{ id: string }>('/products', prodPayload);
+          targetProductId = prodRes.id;
+        }
       } else {
         const updatePayload: {
           name: string;
@@ -428,7 +489,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
         await api.patch(`/products/${targetProductId}`, updatePayload);
       }
 
-      if (selectedImageFile) {
+      if (selectedImageFile && !isAttach) {
         const base64 = await fileToBase64(selectedImageFile);
         await api.post(`/products/${targetProductId}/images`, {
           filename: selectedImageFile.name,
@@ -485,7 +546,15 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
       await qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'offers'] });
       await qc.invalidateQueries({ queryKey: ['products', 'catalog'] });
-      toast.show(toast.success(isEdit ? 'Product changes saved' : 'Wholesale product published'));
+      toast.show(
+        toast.success(
+          isEdit
+            ? 'Product changes saved'
+            : isAttach
+              ? 'Wholesale rate published'
+              : 'Wholesale product published',
+        ),
+      );
       navigate('/supplier/products');
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : 'Failed to save product listing. Please check inputs.');
@@ -494,7 +563,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
     }
   };
 
-  if (isEdit && (offers.isLoading || productQuery.isLoading)) {
+  if ((isEdit || isAttach) && (offers.isLoading || productQuery.isLoading)) {
     return <SupplierLoadingState label="Loading product listing specifications..." />;
   }
 
@@ -506,12 +575,23 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
     );
   }
 
+  if (isAttach && productQuery.isError) {
+    return (
+      <SupplierErrorState
+        message="That catalog product could not be found."
+        onRetry={() => {
+          void navigate('/supplier/products/new');
+        }}
+      />
+    );
+  }
+
   const displayImageUrl = imagePreviewUrl || existingImageUrl || null;
   const displayPriceCents = priceCentsValue();
   const displayMoq = Number(minQty) || 1;
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-32">
+    <div className={cn('space-y-8 max-w-7xl mx-auto', isSearch ? 'pb-8' : 'pb-32')}>
       {/* Top bar: back link + stepper */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-ink/10 pb-4">
         <Link
@@ -520,9 +600,22 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
         >
           <ArrowLeftIcon size={14} /> Back to Products
         </Link>
-        <div className="w-full sm:w-[36rem]">
-          <FormStepper sections={FORM_SECTIONS} state={readinessItems} />
-        </div>
+        {!isSearch && (
+          <div className="w-full sm:w-[36rem]">
+            <FormStepper
+              sections={isAttach ? ATTACH_SECTIONS : FORM_SECTIONS}
+              state={
+                isAttach
+                  ? [
+                      { key: 'pricing', done: hasPrice && hasMoq },
+                      { key: 'tiers', done: enableTiers },
+                      { key: 'delivery', done: true },
+                    ]
+                  : readinessItems
+              }
+            />
+          </div>
+        )}
       </div>
 
       {/* Header banner */}
@@ -536,14 +629,46 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                 Editing
               </span>
             )}
+            {isAttach && (
+              <span className="ml-1 font-mono text-[10px] font-semibold uppercase tracking-wider bg-volt/20 text-ink border border-volt/40 px-2 py-0.5">
+                Existing SKU
+              </span>
+            )}
+            {isCreateNew && (
+              <span className="ml-1 font-mono text-[10px] font-semibold uppercase tracking-wider bg-ink/10 text-ink-3 border border-ink/20 px-2 py-0.5">
+                New SKU
+              </span>
+            )}
           </div>
           <h1 className="vyro-display text-4xl sm:text-5xl text-balance text-ink">
-            {isEdit ? 'Edit Wholesale Product' : 'Create Wholesale Product'}
+            {isEdit
+              ? 'Edit Wholesale Product'
+              : isAttach
+                ? 'Add your wholesale rate'
+                : isCreateNew
+                  ? 'Create a new product'
+                  : 'Add a wholesale listing'}
           </h1>
           <p className="mt-3 text-body-lg text-ink-3 max-w-2xl">
-            Select an admin category, define your product details and imagery, and set your
-            wholesale commercial terms.
+            {isEdit
+              ? 'Update this listing’s identity and commercial terms.'
+              : isAttach
+                ? 'This SKU already exists on VYRO. Set only your mill-gate price, MOQ, and dispatch terms.'
+                : isCreateNew
+                  ? 'Add a new catalog SKU. Search first if buyers already shop this item.'
+                  : 'Search for a product already on VYRO, then publish your rate — or create a new SKU.'}
           </p>
+          {isCreateNew && (
+            <button
+              type="button"
+              onClick={() => {
+                void navigate('/supplier/products/new');
+              }}
+              className="mt-3 text-xs font-semibold text-ink-2 hover:text-ink underline-offset-2 hover:underline"
+            >
+              ← Search existing products instead
+            </button>
+          )}
         </div>
       </div>
 
@@ -554,7 +679,37 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
         className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
       >
         {/* LEFT — Form sections */}
-        <div className="lg:col-span-8 space-y-5">
+        <div className={cn('space-y-5', isSearch ? 'lg:col-span-12' : 'lg:col-span-8')}>
+          {isSearch && (
+            <CatalogProductPicker
+              listedByProductId={listedByProductId}
+              onSelect={(productId) => {
+                const offerId = listedByProductId.get(productId);
+                if (offerId) void navigate(`/supplier/products/${offerId}/edit`);
+                else void navigate(`/supplier/products/new?productId=${encodeURIComponent(productId)}`);
+              }}
+              onCreateNew={() => {
+                void navigate('/supplier/products/new?new=1');
+              }}
+            />
+          )}
+
+          {isAttach && productQuery.data?.product && (
+            <SelectedCatalogProduct
+              name={productQuery.data.product.name}
+              brand={productQuery.data.product.brand ?? null}
+              packSize={productQuery.data.product.packSize ?? null}
+              unit={productQuery.data.product.unit}
+              imageUrl={productQuery.data.product.imageUrl ?? null}
+              seed={productQuery.data.product.id}
+              onChange={() => {
+                void navigate('/supplier/products/new');
+              }}
+            />
+          )}
+
+          {(isEdit || isCreateNew) && (
+            <>
           {/* SECTION 1 — Category */}
           <SectionCard
             step={1}
@@ -854,10 +1009,14 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
               </div>
             )}
           </SectionCard>
+            </>
+          )}
 
+          {!isSearch && (
+            <>
           {/* SECTION 4 — Pricing & MOQ */}
           <SectionCard
-            step={4}
+            step={isAttach ? 1 : 4}
             eyebrow="Pricing"
             title="Wholesale pricing & minimum order (MOQ)"
             sub="Set your base wholesale unit rate and purchase commitment rules"
@@ -961,7 +1120,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
           {/* SECTION 5 — Volume tiers */}
           <SectionCard
-            step={5}
+            step={isAttach ? 2 : 5}
             eyebrow="Tiers"
             title="Volume discount ladders (optional)"
             sub="Reward buyers who order pallet or truckload quantities"
@@ -1027,7 +1186,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
           {/* SECTION 6 — Fulfillment & delivery */}
           <SectionCard
-            step={6}
+            step={isAttach ? 3 : 6}
             eyebrow="Fulfillment"
             title="Delivery & coverage"
             sub="Configure dock collection and supplier fleet delivery"
@@ -1114,9 +1273,12 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
               </div>
             </Surface>
           )}
+            </>
+          )}
         </div>
 
         {/* RIGHT — Live preview & readiness */}
+        {!isSearch && (
         <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-6">
           <div className="vyro-kicker text-copper">Marketplace Live Preview</div>
 
@@ -1285,7 +1447,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
             </div>
 
             <ul className="space-y-1.5 text-xs pt-1">
-              {readinessItems.map((r) => (
+              {listingReadinessItems.map((r) => (
                 <li
                   key={r.key}
                   className={cn(
@@ -1329,9 +1491,11 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
             </ul>
           </div>
         </div>
+        )}
       </form>
 
       {/* Sticky bottom action bar */}
+      {!isSearch && (
       <div className="sticky bottom-4 z-30 -mx-4 sm:mx-0">
         <div className="bg-paper border border-ink/15 shadow-float rounded-2xl px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3 text-xs">
@@ -1370,12 +1534,13 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
               disabled={!canPublish}
               className="font-bold uppercase tracking-wider"
             >
-              {isEdit ? 'Save changes' : 'Publish wholesale product'}
+              {isEdit ? 'Save changes' : isAttach ? 'Publish wholesale rate' : 'Publish wholesale product'}
               <ArrowRightIcon size={14} />
             </Button>
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

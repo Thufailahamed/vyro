@@ -8,6 +8,7 @@ import type { Env } from '../../env';
 import {
   createOffer,
   findOffer,
+  findOfferForSupplierProduct,
   listOffersForProduct,
   listOffersForSupplier,
   recordAudit,
@@ -61,6 +62,21 @@ router.post('/', session(), async (c) => {
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
 
   await ensureSupplierMember(c.env.DB, parsed.data.supplierId, ctx.userId);
+  const existing = await findOfferForSupplierProduct(
+    c.env.DB,
+    parsed.data.supplierId,
+    parsed.data.productId,
+  );
+  if (existing) {
+    throw httpError(
+      409,
+      'CONFLICT',
+      existing.deletedAt
+        ? 'You previously listed this product. Restore that listing instead of creating a duplicate.'
+        : 'You already list this product. Update your existing wholesale rate instead.',
+      { offerId: existing.id },
+    );
+  }
   const { supplierId, ...rest } = parsed.data;
   const id = await createOffer(c.env.DB, { supplierId, ...rest });
   await recordAudit(c.env.DB, {

@@ -24,6 +24,21 @@ export async function findOffer(d1: D1Database, id: string) {
     .get() ?? null;
 }
 
+export async function findOfferForSupplierProduct(
+  d1: D1Database,
+  supplierId: string,
+  productId: string,
+) {
+  const db = getDb(d1);
+  return (
+    db
+      .select()
+      .from(supplierProducts)
+      .where(and(eq(supplierProducts.supplierId, supplierId), eq(supplierProducts.productId, productId)))
+      .get() ?? null
+  );
+}
+
 type TierFields = {
   tier1MinQty?: number | undefined;
   tier1DiscountPct?: number | undefined;

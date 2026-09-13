@@ -358,7 +358,7 @@ export function SearchPage() {
 
                   {/* Dispatch Badge */}
                   {leadTime !== undefined && (
-                    <span className="absolute bottom-3 right-3 px-2.5 py-1 text-[10px] font-mono font-semibold bg-void/85 text-paper backdrop-blur-sm border border-paper/15 flex items-center gap-1.5 shadow-sm rounded-md">
+                    <span className="absolute bottom-3 right-3 px-2.5 py-1 text-xs font-mono font-semibold bg-void/85 text-paper backdrop-blur-sm border border-paper/15 flex items-center gap-1.5 shadow-sm rounded-md">
                       <ClockIcon size={12} className="text-volt" />
                       <span>{leadTime === 0 ? 'Same-day dispatch' : `${leadTime}d dispatch`}</span>
                     </span>
@@ -374,7 +374,7 @@ export function SearchPage() {
                 {/* Content Section */}
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px] font-mono">
+                    <div className="flex items-center justify-between text-xs font-mono">
                       <span className="text-copper uppercase tracking-wider font-bold">
                         {h.product.unit} {h.product.packSize ? `· ${h.product.packSize}` : ''}
                       </span>
@@ -393,7 +393,7 @@ export function SearchPage() {
                       <>
                         <div className="flex items-baseline justify-between">
                           <div>
-                            <span className="text-[10px] font-mono uppercase tracking-wider text-ink-4 block">
+                            <span className="text-xs font-mono uppercase tracking-wider text-ink-4 block">
                               Best Spot Rate
                             </span>
                             <div className="vyro-metric text-2xl sm:text-3xl text-ink font-bold mt-0.5">
@@ -401,7 +401,7 @@ export function SearchPage() {
                             </div>
                           </div>
 
-                          <span className="text-[11px] font-mono px-2 py-0.5 bg-volt/20 text-ink font-bold border border-volt/30 rounded-md">
+                          <span className="text-xs font-mono px-2 py-0.5 bg-volt/20 text-ink font-bold border border-volt/30 rounded-md">
                             {h.offerCount} live offer{h.offerCount === 1 ? '' : 's'}
                           </span>
                         </div>
@@ -412,7 +412,7 @@ export function SearchPage() {
                             <StoreIcon size={14} className="text-copper shrink-0" />
                             <span className="truncate font-medium">{h.bestOffer!.supplier.name}</span>
                           </div>
-                          <span className="text-[10px] font-mono text-ink-4 shrink-0 flex items-center gap-1">
+                          <span className="text-xs font-mono text-ink-4 shrink-0 flex items-center gap-1">
                             <ShieldCheckIcon size={12} className="text-volt-deep" /> Verified
                           </span>
                         </div>
@@ -536,7 +536,7 @@ export function SearchPage() {
                     </td>
 
                     <td className="py-3.5 px-4 text-center">
-                      <span className="text-[11px] font-mono px-2 py-0.5 bg-volt/20 text-ink font-semibold">
+                      <span className="text-xs font-mono px-2 py-0.5 bg-volt/20 text-ink font-semibold">
                         {h.offerCount} offer{h.offerCount === 1 ? '' : 's'}
                       </span>
                     </td>

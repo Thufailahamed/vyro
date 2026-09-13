@@ -259,7 +259,7 @@ export function ProductDetailPage() {
           {data.priceStats.count > 0 && (
             <div className="p-4 bg-bone border border-line flex items-center justify-between flex-wrap gap-4">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.14em] text-ink-4">Starting rate from</div>
+                <div className="text-xs uppercase tracking-[0.14em] text-ink-4">Starting rate from</div>
                 <MetricNumber size="md" className="text-ink mt-0.5">{formatLKR(data.priceStats.min)}</MetricNumber>
                 <p className="mt-1 text-xs text-ink-4">{data.priceStats.count} live supplier quotes verified</p>
               </div>
@@ -292,7 +292,7 @@ export function ProductDetailPage() {
             <p className="text-sm font-medium text-ink">Sign in to place wholesale orders with certified mills.</p>
             <p className="text-xs text-ink-4 mt-0.5">Unlock verified trade credit, automated purchase orders, and direct vendor dispatch.</p>
           </div>
-          <Link to="/login">
+          <Link to={`/login?next=${encodeURIComponent(`/products/${id}`)}`}>
             <Button size="sm">Sign in</Button>
           </Link>
         </Surface>
@@ -351,7 +351,7 @@ export function ProductDetailPage() {
                     <span className="text-xs text-ink-4">/ {data.product.unit}</span>
                   </div>
                   <div className="mt-1 text-xs font-medium text-ink truncate">{bestPriceOffer.supplier.name}</div>
-                  <div className="mt-1 flex items-center gap-2 text-[11px] text-ink-4">
+                  <div className="mt-1 flex items-center gap-2 text-xs text-ink-4">
                     <span>MOQ {bestPriceOffer.offer.minOrderQty} {data.product.unit}</span>
                     <span>•</span>
                     <span>{bestPriceOffer.offer.leadTimeDays}d lead</span>
@@ -383,7 +383,7 @@ export function ProductDetailPage() {
                     </span>
                   </div>
                   <div className="mt-1 text-xs font-medium text-ink truncate">{fastestOffer.supplier.name}</div>
-                  <div className="mt-1 flex items-center gap-2 text-[11px] text-ink-4">
+                  <div className="mt-1 flex items-center gap-2 text-xs text-ink-4">
                     <span>{formatLKR(fastestOffer.offer.priceCents)} / {data.product.unit}</span>
                     <span>•</span>
                     <span>Express Fulfillment</span>
@@ -597,7 +597,7 @@ export function ProductDetailPage() {
                               <PlusIcon size={12} />
                             </button>
                           </div>
-                          <div className="text-[10px] text-ink-4 mt-0.5">Min {row.offer.minOrderQty}</div>
+                          <div className="text-xs text-ink-4 mt-0.5">Min {row.offer.minOrderQty}</div>
                         </td>
                         <td className="p-3.5 font-mono">
                           <div className="font-semibold text-sm text-ink">{formatLKR(subtotal)}</div>
@@ -615,8 +615,8 @@ export function ProductDetailPage() {
                               {row.offer.availabilityStatus === 'out_of_stock' ? 'Out' : 'Add'}
                             </Button>
                           ) : (
-                            <Link to="/login">
-                              <Button size="sm" variant="secondary">Order</Button>
+                            <Link to={user ? '/onboarding/business' : `/login?next=${encodeURIComponent(`/products/${id}`)}`}>
+                              <Button size="sm" variant="secondary">{user ? 'Profile' : 'Order'}</Button>
                             </Link>
                           )}
                         </td>
@@ -832,9 +832,9 @@ export function ProductDetailPage() {
                           </div>
                         ) : (
                           <div className="w-full sm:w-auto">
-                            <Link to="/login" className="block">
+                            <Link to={user ? '/onboarding/business' : `/login?next=${encodeURIComponent(`/products/${id}`)}`} className="block">
                               <Button size="sm" variant="secondary" className="w-full">
-                                Sign in to Order
+                                {user ? 'Complete profile' : 'Sign in to order'}
                               </Button>
                             </Link>
                           </div>

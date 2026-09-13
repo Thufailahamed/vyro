@@ -17,6 +17,7 @@ import {
   ShieldCheckIcon,
   SparklesIcon,
   BanknoteIcon,
+  ClockIcon,
   MenuIcon,
   XIcon,
 } from './icons';
@@ -26,6 +27,8 @@ import { FlowPathMini } from './brand/FlowLine';
 import { cn } from '@vyro/ui';
 import { CookieConsentBanner } from './CookieConsentBanner';
 import { AskVyroFloat } from '@/ai/AskVyroFloat';
+import { MarketingHeader, OnboardingHeader, chromeBarClass, useChromeElevated } from './SiteHeader';
+import { HeaderCatalogSearch } from './CatalogSearch';
 
 function LegalLinks({ className = '' }: { className?: string }) {
   return (
@@ -63,31 +66,7 @@ function OnboardingShell() {
       >
         Skip to main content
       </a>
-      <header className="sticky top-0 z-40 border-b border-ink/10 bg-bone/95 backdrop-blur-sm">
-        <div className="max-w-stage mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-4">
-          <Link to="/" className="flex items-center gap-3">
-            <BrandMark size={28} />
-            <BrandWordmark size="sm" />
-          </Link>
-          <div className="flex items-center gap-4 text-xs">
-            <Link to="/search" className="text-ink-4 hover:text-ink transition-colors">
-              Browse Catalog
-            </Link>
-            {user && (
-              <div className="hidden sm:flex items-center gap-3 pl-4 border-l border-ink/10">
-                <span className="text-ink-3">{user.email}</span>
-                <button
-                  type="button"
-                  onClick={() => signOut()}
-                  className="text-copper hover:text-ink transition-colors cursor-pointer"
-                >
-                  Sign out
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      <OnboardingHeader user={user} onSignOut={() => void signOut()} />
       <main id="main-content" className="flex-1 max-w-stage mx-auto w-full px-5 sm:px-8 py-8 sm:py-12">
         <Outlet />
       </main>
@@ -105,30 +84,6 @@ function OnboardingShell() {
 
 function MarketingShell() {
   const { user } = useAuth();
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const location = useLocation();
-
-  useEffect(() => {
-    setMobileNavOpen(false);
-  }, [location.pathname]);
-
-  useEffect(() => {
-    if (mobileNavOpen) {
-      const prev = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = prev;
-      };
-    }
-  }, [mobileNavOpen]);
-
-  const navLinks = [
-    { to: '/how-it-works', label: 'How it works' },
-    { to: '/about', label: 'About' },
-    { to: '/search', label: 'Catalog' },
-    { to: '/onboarding/supplier', label: 'For suppliers' },
-    { to: '/onboarding/business', label: 'For buyers' },
-  ];
 
   return (
     <div className="min-h-dvh bg-bone text-ink">
@@ -138,124 +93,7 @@ function MarketingShell() {
       >
         Skip to main content
       </a>
-      <header className="sticky top-0 z-40 border-b border-ink/10 bg-bone/90 backdrop-blur-md">
-        <div className="max-w-stage mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-3 sm:gap-4">
-          <Link to="/" className="flex items-center gap-3 min-w-0">
-            <BrandMark size={28} />
-            <BrandWordmark size="sm" />
-          </Link>
-          <nav className="hidden md:flex items-center gap-8 text-sm">
-            {navLinks.slice(0, 4).map((link) => (
-              <Link key={link.to} to={link.to} className="text-ink-3 hover:text-ink transition-colors">
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {user ? (
-              <Link to="/dashboard">
-                <Button size="sm">Open workspace</Button>
-              </Link>
-            ) : (
-              <>
-                <Link to="/login" className="hidden sm:inline-flex">
-                  <Button variant="ghost" size="sm">
-                    Sign in
-                  </Button>
-                </Link>
-                <Link to="/signup">
-                  <Button size="sm">Start procuring</Button>
-                </Link>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={() => setMobileNavOpen(true)}
-              aria-label="Open navigation"
-              className="md:hidden size-10 -mr-2 inline-flex items-center justify-center text-ink hover:bg-ink/5 active:bg-ink/10 transition-colors rounded-md"
-            >
-              <MenuIcon size={22} />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Mobile marketing drawer */}
-      <div
-        className={cn(
-          'md:hidden fixed inset-0 z-50 transition-opacity duration-200',
-          mobileNavOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
-        )}
-        aria-hidden={!mobileNavOpen}
-      >
-        <button
-          type="button"
-          onClick={() => setMobileNavOpen(false)}
-          aria-label="Close navigation"
-          className="absolute inset-0 bg-ink/60 backdrop-blur-sm"
-        />
-        <aside
-          role="dialog"
-          aria-modal="true"
-          aria-label="Marketing navigation"
-          className={cn(
-            'absolute inset-y-0 right-0 w-[88%] max-w-sm bg-paper shadow-2xl flex flex-col transition-transform duration-300 ease-out rounded-l-xl',
-            mobileNavOpen ? 'translate-x-0' : 'translate-x-full',
-          )}
-        >
-          <div className="flex items-center justify-between px-5 h-16 border-b border-ink/10 shrink-0">
-            <Link to="/" onClick={() => setMobileNavOpen(false)} className="flex items-center gap-3 min-w-0">
-              <BrandMark size={26} />
-              <BrandWordmark size="sm" />
-            </Link>
-            <button
-              type="button"
-              onClick={() => setMobileNavOpen(false)}
-              aria-label="Close"
-              className="size-10 -mr-2 inline-flex items-center justify-center text-ink hover:bg-ink/5 rounded-md"
-            >
-              <XIcon size={20} />
-            </button>
-          </div>
-
-          <nav className="flex-1 overflow-y-auto px-3 py-4">
-            <div className="space-y-1">
-              {navLinks.map((link) => (
-                <NavLink
-                  key={link.to}
-                  to={link.to}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors min-h-[44px]',
-                      isActive ? 'bg-ink text-paper' : 'text-ink hover:bg-bone',
-                    )
-                  }
-                >
-                  {link.label}
-                </NavLink>
-              ))}
-            </div>
-          </nav>
-
-          <div className="p-4 border-t border-ink/10 space-y-2 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            {user ? (
-              <Link to="/dashboard" onClick={() => setMobileNavOpen(false)} className="block">
-                <Button size="sm" className="w-full">Open workspace</Button>
-              </Link>
-            ) : (
-              <>
-                <Link to="/signup" onClick={() => setMobileNavOpen(false)} className="block">
-                  <Button size="sm" className="w-full">Start procuring</Button>
-                </Link>
-                <Link to="/login" onClick={() => setMobileNavOpen(false)} className="block">
-                  <Button variant="ghost" size="sm" className="w-full">Sign in</Button>
-                </Link>
-              </>
-            )}
-          </div>
-        </aside>
-      </div>
-
+      <MarketingHeader user={user} />
       <main id="main-content">
         <Outlet />
       </main>
@@ -350,6 +188,7 @@ function WorkspaceShell() {
   const isSupplier = (user?.supplierMemberships?.length ?? 0) > 0;
   const supplier = user?.supplierMemberships?.[0];
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const elevated = useChromeElevated();
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -396,6 +235,7 @@ function WorkspaceShell() {
     { to: '/search', label: 'Marketplace', icon: SearchIcon, show: true },
     { to: '/orders', label: 'Purchase Orders', icon: PackageIcon, show: !!user },
     { to: '/accounts', label: 'Accounts', icon: BanknoteIcon, show: !!businessId },
+    { to: '/credit', label: 'Credit', icon: ClockIcon, show: !!businessId },
     { to: '/rfqs', label: 'Bulk Quotes', icon: FileTextIcon, show: !!businessId },
     { to: '/cart', label: 'Active Cart', icon: ShoppingCartIcon, show: true, badge: cartCount },
   ].filter((i) => i.show);
@@ -423,15 +263,14 @@ function WorkspaceShell() {
         Skip to main content
       </a>
       <aside className="hidden lg:flex w-sidebar shrink-0 flex-col bg-ink text-paper h-dvh sticky top-0 border-r border-paper/10 select-none">
-        <div className="flex items-center justify-between px-5 h-16 border-b border-paper/10 shrink-0">
-          <Link to="/" className="flex items-center gap-3">
+        <div className="flex items-center px-5 h-16 border-b border-paper/10 shrink-0">
+          <Link
+            to="/"
+            className="flex items-center gap-3 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt"
+          >
             <BrandMark size={28} tone="volt" />
             <BrandWordmark tone="paper" size="sm" />
           </Link>
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-volt/10 border border-volt/20 text-[10px] font-mono text-volt">
-            <span className="size-1.5 rounded-full bg-volt animate-pulse" />
-            <span>ONLINE</span>
-          </div>
         </div>
 
         <div className="px-3.5 pt-4 pb-2 shrink-0">
@@ -520,38 +359,82 @@ function WorkspaceShell() {
       </aside>
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="lg:hidden sticky top-0 z-40 h-14 px-4 flex items-center justify-between gap-2 bg-bone/95 backdrop-blur border-b border-ink/10">
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen(true)}
-            aria-label="Open navigation"
-            className="size-10 -ml-2 inline-flex items-center justify-center text-ink hover:bg-ink/5 active:bg-ink/10 transition-colors rounded-md"
-          >
-            <MenuIcon size={22} />
-          </button>
-          <Link to="/" className="flex items-center gap-2 min-w-0">
-            <BrandMark size={22} />
-            <span className="vyro-display text-base sm:text-lg truncate">VYRO</span>
-          </Link>
-          <div className="flex items-center gap-1">
-            <Link to="/notifications" aria-label="Notifications" className="relative size-10 inline-flex items-center justify-center hover:bg-ink/5 active:bg-ink/10 transition-colors rounded-md">
-              <BellIcon size={18} />
-              {unread > 0 && <span className="absolute top-2 right-2 size-1.5 bg-volt rounded-full" />}
-              {aiUnread > 0 && (
-                <span
-                  title={`${aiUnread} AI insight${aiUnread === 1 ? '' : 's'} unread`}
-                  className="absolute bottom-2 right-2 size-2 bg-copper rounded-full"
-                />
-              )}
+        <header className={chromeBarClass(elevated)}>
+          <div className="h-16 px-4 lg:px-6 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              aria-label="Open navigation"
+              className="lg:hidden size-11 -ml-1.5 inline-flex items-center justify-center text-ink hover:bg-ink/5 active:bg-ink/10 transition-colors rounded-md cursor-pointer"
+            >
+              <MenuIcon size={22} />
+            </button>
+            <Link
+              to="/"
+              className="lg:hidden flex items-center gap-2 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt"
+            >
+              <BrandMark size={24} />
+              <BrandWordmark size="sm" className="hidden sm:inline-flex" />
             </Link>
-            <Link to="/cart" aria-label="Cart" className="relative size-10 inline-flex items-center justify-center hover:bg-ink/5 active:bg-ink/10 transition-colors rounded-md">
-              <ShoppingCartIcon size={18} />
-              {cartCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 min-w-4 h-4 px-1 bg-ink text-volt text-[10px] font-mono inline-flex items-center justify-center">
-                  {cartCount}
-                </span>
+
+            <div className="hidden lg:block flex-1 max-w-xl">
+              <HeaderCatalogSearch placeholder="Search mill lots, brands, SKUs…" />
+            </div>
+
+            <div className="ml-auto flex items-center gap-0.5">
+              <Link
+                to="/search"
+                aria-label="Search catalog"
+                className="lg:hidden size-11 inline-flex items-center justify-center text-ink hover:bg-ink/5 active:bg-ink/10 transition-colors rounded-md cursor-pointer"
+              >
+                <SearchIcon size={18} />
+              </Link>
+              {user && (
+                <Link
+                  to="/notifications"
+                  aria-label="Notifications"
+                  className="relative size-11 inline-flex items-center justify-center text-ink hover:bg-ink/5 active:bg-ink/10 transition-colors rounded-md cursor-pointer"
+                >
+                  <BellIcon size={18} />
+                  {unread > 0 && <span className="absolute top-2.5 right-2.5 size-1.5 bg-volt rounded-full" />}
+                  {aiUnread > 0 && (
+                    <span
+                      title={`${aiUnread} AI insight${aiUnread === 1 ? '' : 's'} unread`}
+                      className="absolute bottom-2.5 right-2.5 size-2 bg-copper rounded-full"
+                    />
+                  )}
+                </Link>
               )}
-            </Link>
+              <Link
+                to="/cart"
+                aria-label={cartCount > 0 ? `Cart, ${cartCount} items` : 'Cart'}
+                className="relative size-11 inline-flex items-center justify-center text-ink hover:bg-ink/5 active:bg-ink/10 transition-colors rounded-md cursor-pointer"
+              >
+                <ShoppingCartIcon size={18} />
+                {cartCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 min-w-4 h-4 px-1 bg-ink text-volt text-[10px] font-mono inline-flex items-center justify-center rounded-full">
+                    {cartCount}
+                  </span>
+                )}
+              </Link>
+              {user ? (
+                <Link
+                  to="/profile"
+                  className="hidden lg:flex items-center gap-2 h-10 pl-2.5 pr-1.5 ml-1 border-l border-ink/10 rounded-md hover:bg-ink/5 transition-colors duration-200 cursor-pointer"
+                >
+                  <span className="size-7 rounded bg-ink text-volt text-[11px] font-bold inline-flex items-center justify-center font-mono shrink-0">
+                    {(user.name || 'U').slice(0, 2).toUpperCase()}
+                  </span>
+                  <span className="text-sm font-medium text-ink truncate max-w-[9rem]">
+                    {user.name || 'Account'}
+                  </span>
+                </Link>
+              ) : (
+                <Link to="/login" className="hidden lg:inline-flex ml-2">
+                  <Button size="sm">Sign in</Button>
+                </Link>
+              )}
+            </div>
           </div>
         </header>
 
@@ -683,6 +566,7 @@ function MobileNavDrawer({
               { to: '/search', label: 'Marketplace', icon: SearchIcon, show: true },
               { to: '/orders', label: 'Purchase Orders', icon: PackageIcon, show: !!user },
               { to: '/accounts', label: 'Accounts', icon: BanknoteIcon, show: !!business?.businessId },
+              { to: '/credit', label: 'Credit', icon: ClockIcon, show: !!business?.businessId },
               { to: '/rfqs', label: 'Bulk Quotes', icon: FileTextIcon, show: !!business?.businessId },
               { to: '/cart', label: 'Active Cart', icon: ShoppingCartIcon, show: true, badge: cartCount },
             ]}
