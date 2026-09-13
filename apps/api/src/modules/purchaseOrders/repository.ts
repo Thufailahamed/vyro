@@ -23,10 +23,17 @@ export async function insertPo(
     createdByUserId: string;
     createdAt: number;
     updatedAt: number;
+    direction?: 'domestic' | 'export' | 'import';
+    fxSnapshotId?: string | null;
   },
 ) {
   const db = getDb(d1);
-  await db.insert(purchaseOrders).values(row);
+  const { direction, fxSnapshotId, ...rest } = row;
+  await db.insert(purchaseOrders).values({
+    ...rest,
+    direction: direction ?? 'domestic',
+    fxSnapshotId: fxSnapshotId ?? null,
+  });
 }
 
 export async function insertPoItem(

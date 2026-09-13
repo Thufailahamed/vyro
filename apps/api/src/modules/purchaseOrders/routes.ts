@@ -43,6 +43,7 @@ router.post('/checkout', session(), async (c) => {
 
   const out = await checkoutService.checkout(
     c.env.DB,
+    c.env,
     ctx.userId,
     parsed.data,
     c.env.NOTIFICATIONS_QUEUE,
