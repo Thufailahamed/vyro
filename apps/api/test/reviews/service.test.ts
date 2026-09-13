@@ -8,6 +8,12 @@ describe('reviews service shape', () => {
     expect(typeof svc.submitReview).toBe('function');
   });
 
+  it('exports reply/flag/admin-resolve', () => {
+    expect(typeof svc.postReply).toBe('function');
+    expect(typeof svc.flagReview).toBe('function');
+    expect(typeof svc.resolveFlag).toBe('function');
+  });
+
   it('ReviewError carries a code', () => {
     const e = new svc.ReviewError('not_buyer');
     expect(e.code).toBe('not_buyer');

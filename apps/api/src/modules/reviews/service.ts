@@ -80,3 +80,67 @@ export async function recomputeAggregate(d1: D1Database, supplierId: string) {
 
 // Re-export for downstream callers.
 export type { FlagReason, FlaggerRole };
+
+type SupplierSession = { userId: string; supplierId: string; role: 'supplier' };
+type AdminSession = { userId: string; role: 'admin' };
+
+export async function postReply(
+  d1: D1Database,
+  supplierId: string,
+  reviewId: string,
+  body: string,
+  session: SupplierSession,
+) {
+  if (session.supplierId !== supplierId) throw new ReviewError('not_supplier_owner');
+  const review = await repo.findReviewById(d1, reviewId);
+  if (!review || review.supplierId !== supplierId) throw new ReviewError('not_found');
+  const existing = await repo.findReplyByReview(d1, reviewId);
+  if (existing) throw new ReviewError('already_reviewed'); // already replied
+  const now = nowMs();
+  return repo.insertReply(d1, { reviewId, supplierId, body, now });
+}
+
+export async function flagReview(
+  d1: D1Database,
+  supplierId: string,
+  reviewId: string,
+  input: { reason: FlagReason; note?: string },
+  session: SupplierSession,
+) {
+  if (session.supplierId !== supplierId) throw new ReviewError('not_supplier_owner');
+  const review = await repo.findReviewById(d1, reviewId);
+  if (!review || review.supplierId !== supplierId) throw new ReviewError('not_found');
+  const now = nowMs();
+  const flag = await repo.insertFlag(d1, {
+    reviewId,
+    flaggedBy: 'supplier' as FlaggerRole,
+    flaggedByUserId: session.userId,
+    reason: input.reason,
+    ...(input.note ? { note: input.note } : {}),
+    now,
+  });
+  await repo.updateReviewStatus(d1, reviewId, 'hidden_by_flag', now);
+  return flag;
+}
+
+export async function resolveFlag(
+  d1: D1Database,
+  flagId: string,
+  input: { decision: 'keep' | 'remove'; note?: string },
+  session: AdminSession,
+) {
+  if (session.role !== 'admin') throw new ReviewError('not_admin');
+  const flagRow = await repo.findFlagById(d1, flagId);
+  if (!flagRow) throw new ReviewError('not_found');
+  const now = nowMs();
+  const decision = input.decision === 'keep' ? 'resolved_keep' : 'resolved_remove';
+  await repo.updateFlag(d1, flagId, decision, session.userId, now);
+  if (input.decision === 'keep') {
+    await repo.updateReviewStatus(d1, flagRow.reviewId, 'published', now);
+  } else {
+    await repo.updateReviewStatus(d1, flagRow.reviewId, 'removed_by_admin', now);
+  }
+  // Look up supplierId via review for aggregate recompute.
+  const review = await repo.findReviewById(d1, flagRow.reviewId);
+  if (review) await recomputeAggregate(d1, review.supplierId);
+}
