@@ -276,6 +276,20 @@ export const checkoutService = {
     if (!canTransition(po.status as OrderStatus, input.to, input.actor.role)) {
       throw httpError(409, 'CONFLICT', `Illegal transition ${po.status} -> ${input.to} for ${input.actor.role}`);
     }
+
+    // Cross-border customs-doc gate: ship transitions for cross-border orders
+    // require uploaded invoice + (if export) COO. Domestic orders are unaffected.
+    if (input.to === 'ready_for_pickup' && po.direction !== 'domestic') {
+      const { listDocsForOrder } = await import('../cross-border/repository');
+      const docs = await listDocsForOrder(db, po.id);
+      const kinds = new Set(docs.map((d) => d.kind));
+      if (!kinds.has('invoice')) {
+        throw httpError(422, 'MISSING_CUSTOMS_DOC', 'Commercial invoice required for cross-border shipment');
+      }
+      if (po.direction === 'export' && !kinds.has('coo')) {
+        throw httpError(422, 'MISSING_CUSTOMS_DOC', 'Certificate of origin required for export');
+      }
+    }
     // Persist the reason on the order itself for rejected / cancelled moves.
     const reasonColumns: Record<string, string | null> =
       input.to === 'rejected'
@@ -286,6 +300,10 @@ export const checkoutService = {
     await updatePoStatus(d1, po.id, input.to, {
       ...tsForStatus(input.to),
       ...reasonColumns,
+      // Stamp customs status + invoice number when shipping a cross-border order.
+      ...(input.to === 'ready_for_pickup' && po.direction !== 'domestic'
+        ? { customsStatus: 'pending' as const, commercialInvoiceNo: `INV-${po.poNumber}` }
+        : {}),
     });
     // Settlement eligibility follows order state (spec §21): completion,
     // disputes, and cancellations all change what is payable. Best-effort —

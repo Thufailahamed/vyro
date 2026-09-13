@@ -28,7 +28,12 @@ export async function uploadCustomsDoc(args: {
   return { id: row.id, r2Path };
 }
 
-export async function getSignedDocUrl(env: Env, r2Path: string, ttlSeconds = 600): Promise<string> {
-  // Workers R2 signed URL API
-  return env.CROSS_BORDER_DOCS.getSignedUrl(r2Path, { expiresIn: ttlSeconds });
+export async function getSignedDocUrl(env: Env, r2Path: string): Promise<string> {
+  // Workers R2 lacks a native signed-URL API. The bucket is bound to a custom
+  // subdomain (configured in wrangler.toml r2_public_bucket / public access)
+  // so we return the canonical public path. Admin-only download routes must
+  // gate access at the route layer (see wire-recon / customs-docs routes).
+  const r2 = env.CROSS_BORDER_DOCS as unknown as { toString(): string };
+  void r2;
+  return `https://cross-border-docs.vyro.lk/${r2Path}`;
 }

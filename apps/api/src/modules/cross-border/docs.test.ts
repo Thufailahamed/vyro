@@ -6,7 +6,6 @@ import type { Db } from '@vyro/db';
 const env = {
   CROSS_BORDER_DOCS: {
     put: vi.fn().mockResolvedValue({}),
-    getSignedUrl: vi.fn().mockResolvedValue('https://signed.example/x'),
   },
 } as unknown as Env;
 
@@ -32,8 +31,8 @@ describe('uploadCustomsDoc', () => {
 });
 
 describe('getSignedDocUrl', () => {
-  it('returns signed url', async () => {
+  it('returns public url', async () => {
     const url = await getSignedDocUrl(env, 'cross-border-docs/o1/invoice.pdf');
-    expect(url).toBe('https://signed.example/x');
+    expect(url).toMatch(/^https:\/\/cross-border-docs\.vyro\.lk\//);
   });
 });
