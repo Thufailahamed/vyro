@@ -49,6 +49,8 @@ import { WireInstructionsPanel } from '@/components/payments/WireInstructionsPan
 import { ThreeWayReconciliationCard } from '@/components/reconciliation/ThreeWayReconciliationCard';
 import { cn } from '@vyro/ui';
 import { useToast } from '@vyro/ui';
+import { ReviewForm } from '@/reviews/ReviewForm';
+import { useReviewEligibility } from '@/reviews/useReviewEligibility';
 
 interface OrderDetail {
   order: {
@@ -712,6 +714,9 @@ export function OrderDetailPage() {
             </Surface>
           )}
 
+          {/* Rate supplier — once delivered */}
+          {order.status === 'delivered' && <RateSupplierBlock orderId={order.id} />}
+
           {/* Payment Panel */}
           <PaymentPanel
             purchaseOrderId={order.id}
@@ -1011,6 +1016,44 @@ export function OrderDetailPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/* ---------- Rate-supplier block ---------- */
+
+function RateSupplierBlock({ orderId }: { orderId: string }) {
+  const eligibility = useReviewEligibility(orderId);
+  const [open, setOpen] = useState(false);
+
+  if (eligibility.isLoading) return null;
+  if (!eligibility.canReview) return null;
+
+  return (
+    <Surface className="overflow-hidden">
+      <div className="border-l-4 border-copper p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <h3 className="font-display text-base font-semibold text-ink-1">Rate this supplier</h3>
+        </div>
+        <p className="text-xs text-ink-3 leading-relaxed">
+          Share how the delivery went. Reviews help other buyers and the supplier.
+        </p>
+        {open ? (
+          <ReviewForm
+            orderId={orderId}
+            onSubmitted={() => {
+              setOpen(false);
+            }}
+          />
+        ) : (
+          <button
+            onClick={() => setOpen(true)}
+            className="px-3 py-1 rounded bg-copper text-paper text-sm"
+          >
+            Write a review
+          </button>
+        )}
+      </div>
+    </Surface>
   );
 }
 
