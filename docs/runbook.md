@@ -326,3 +326,105 @@ pnpm --filter @vyro/db migrate -- 0023_admin_audit_batch
 
 Adds `admin_audit_logs.batch_id` (text, nullable) + index for batch
 grouping. No data backfill required.
+
+## Observability, alerting & public status
+
+The SLO sweep runs every 5 minutes (cron `*/5 * * * *`). It evaluates 11
+rules against CF Analytics Engine + D1 health, fires Slack/email alerts
+when thresholds trip (respecting cooldown + silence), and rewrites the
+public status KV.
+
+### Components tracked
+
+`api`, `payments`, `queues`, `cron`, `web`. Each gets a
+`operational | degraded | down | unknown` badge on `/status`.
+
+### Required env + secrets
+
+| Setting          | Where                | Purpose                                |
+|------------------|----------------------|----------------------------------------|
+| `CF_ACCOUNT_ID`  | already in vars      | Analytics Engine SQL API auth          |
+| `CF_API_TOKEN`   | already in secrets   | Analytics Engine SQL API auth          |
+| `ALERT_SLACK_WEBHOOK_URL` | secret     | Slack incoming webhook (Block Kit)     |
+| `RESEND_API_KEY` | secret               | Outbound email via Resend              |
+| `OPS_EMAIL`      | var                  | Default recipient for critical emails  |
+| `STATUS_PAGE_ORIGIN` | var              | CORS allow-list for `/status.json`     |
+| `ALERTS_KV`      | binding              | Silence + cooldown + status storage    |
+| `UPTIMEROBOT_WEBHOOK_SECRET` | secret    | HMAC for UptimeRobot incident webhook  |
+
+### Public status page
+
+- SPA: `https://<WEB_ORIGIN>/status` (polls `/status.json` every 30s)
+- JSON: `GET /status.json` (no auth, CORS-allowed for status-page origin)
+- 5 components + open incidents + freshness banner (stale after 15 min)
+
+```bash
+curl -s https://vyro-api.thufailahamed627.workers.dev/status.json | jq .
+```
+
+### Admin alerts UI
+
+`/admin/observability/alerts` — list rules + recent history. Silence
+anything by name + duration + reason. Permission: `observability:read` /
+`observability:write`.
+
+### Silencing a rule
+
+```bash
+curl -X POST https://vyro-api.thufailahamed627.workers.dev/api/admin/observability/alerts/silence \
+  -H 'content-type: application/json' \
+  -H 'Cookie: <admin session>' \
+  -d '{"ruleName":"api.error_rate_5xx","durationMinutes":30,"reason":"deploy"}'
+
+# Unsilence
+curl -X DELETE https://vyro-api.thufailahamed627.workers.dev/api/admin/observability/alerts/silence/api.error_rate_5xx \
+  -H 'Cookie: <admin session>'
+```
+
+Silences live in the `ALERTS_KV` binding under `silenced:<rule>`. Expires
+automatically after the requested duration; manually unsilencing removes
+the key.
+
+### Declaring a manual incident
+
+```bash
+curl -X POST https://vyro-api.thufillahamed627.workers.dev/api/admin/observability/incidents \
+  -H 'content-type: application/json' \
+  -H 'Cookie: <admin session>' \
+  -d '{"title":"PayHere notify endpoint degraded","severity":"major","affected":["payments"],"body":"Investigating elevated 5xx rates."}'
+```
+
+To resolve:
+
+```bash
+curl -X POST .../api/admin/observability/incidents/<id>/resolve \
+  -H 'Cookie: <admin session>' \
+  -H 'content-type: application/json' \
+  -d '{"note":"PayHere acknowledged."}'
+```
+
+### UptimeRobot integration
+
+Point an UptimeRobot alert contact (Webhook) at:
+
+```
+https://vyro-api.thufillahamed627.workers.dev/api/admin/observability/uptime-webhook
+```
+
+with custom header `X-Uptime-Signature: <HMAC-SHA256(UPTIMEROBOT_WEBHOOK_SECRET, body)>`.
+Down/up events auto-create and resolve `uptime` incidents on the status
+page.
+
+### Synthetic load test
+
+```bash
+# 200 sequential RUM beacon writes; expects p95 < 50ms and 100% 204s
+node scripts/load/sweep.js http://localhost:8787 200
+```
+
+Use this against staging before changing the metrics web handler.
+
+### Smoke
+
+`scripts/smoke-test.sh` now also asserts `/status.json → 200` and
+`/api/metrics/web → 204`. Run after every deploy.
