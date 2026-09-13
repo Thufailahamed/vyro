@@ -19,11 +19,15 @@ export const products = sqliteTable(
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
     deletedAt: integer('deleted_at'),
+    hsCode: text('hs_code'),
+    countryOfOrigin: text('country_of_origin'),
+    isExportControlled: integer('is_export_controlled', { mode: 'boolean' }).notNull().default(false),
   },
   (t) => ({
     categoryIdx: index('products_category_idx').on(t.categoryId),
     nameIdx: index('products_name_idx').on(t.name),
     featuredIdx: index('products_featured_idx').on(t.featured),
+    hsIdx: index('products_hs_idx').on(t.hsCode),
   }),
 );
 
