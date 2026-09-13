@@ -27,4 +27,28 @@ router.patch('/suppliers/me/slug', async (c) => {
   return c.json({ slug: updated?.slug ?? parsed.data.slug });
 });
 
+router.get('/suppliers/by-slug/:slug', async (c) => {
+  const slug = c.req.param('slug');
+  const supplier = await repo.findBySlug(c.env.DB, slug);
+  if (!supplier) throw httpError(404, 'NOT_FOUND', 'Supplier not found');
+  if (supplier.verificationStatus !== 'verified') {
+    throw httpError(404, 'NOT_FOUND', 'Supplier not found');
+  }
+  const offers = await repo.listPublishedOffersBySupplierId(c.env.DB, supplier.id);
+  return c.json({
+    supplier: {
+      id: supplier.id,
+      name: supplier.name,
+      slug: supplier.slug,
+      city: supplier.city,
+      district: supplier.district,
+      verificationStatus: supplier.verificationStatus,
+      businessTypeName: supplier.businessTypeName ?? null,
+      ratingCount: supplier.reviewCount ?? 0,
+      ratingAvg: supplier.reviewAvg ? supplier.reviewAvg / 100 : null,
+    },
+    offers,
+  });
+});
+
 export default router;
