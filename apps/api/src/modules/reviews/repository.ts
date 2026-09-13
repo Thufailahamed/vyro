@@ -270,6 +270,30 @@ export async function listPendingFlags(d1: D1Database, limit: number, cursor?: s
     .all()) as any[];
 }
 
+export async function flagBurstBySupplier(
+  d1: D1Database,
+  sinceMs: number,
+  minCount: number,
+): Promise<Array<{ supplierId: string; flagCount: number }>> {
+  const db = getDb(d1);
+  return (await db
+    .select({
+      supplierId: supplierReviews.supplierId,
+      flagCount: sql<number>`COUNT(*)`.as('flag_count'),
+    })
+    .from(supplierReviewFlags)
+    .innerJoin(supplierReviews, eq(supplierReviewFlags.reviewId, supplierReviews.id))
+    .where(
+      and(
+        sql`${supplierReviewFlags.createdAt} >= ${sinceMs}`,
+        eq(supplierReviewFlags.status, 'pending' as never),
+      ),
+    )
+    .groupBy(supplierReviews.supplierId)
+    .having(sql`COUNT(*) >= ${minCount}`)
+    .all()) as any[];
+}
+
 export async function updateFlag(
   d1: D1Database,
   id: string,
