@@ -3,6 +3,7 @@ import { fetchRate } from '../../lib/fxProvider';
 import { httpError } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import type { Db } from '@vyro/db';
+import type { Env } from '../../env';
 
 const KV_TTL = 3600;
 const KV_KEY_PREFIX = 'fx:';
@@ -40,6 +41,7 @@ export async function snapshotRate(
       provider: fetched.provider,
     })
     .returning();
+  if (!row) throw httpError(500, 'INTERNAL', 'Failed to write fx snapshot');
   return { id: row.id, rateScaled: row.rateScaled };
 }
 

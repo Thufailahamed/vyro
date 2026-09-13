@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fetchRate, FX_RATE_SCALE } from './fxProvider';
+import type { Env } from '../env';
 
 const env = {} as Env;
 

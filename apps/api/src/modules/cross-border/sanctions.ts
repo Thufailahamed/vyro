@@ -3,6 +3,8 @@
 // Seed list covers only the most-restrictive jurisdictions; comprehensive
 // weekly refresh runs in cron.
 
+import type { Env } from '../../env';
+
 const KV_KEY = 'sanctions:list';
 const TTL_SECONDS = 604800; // 7 days
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { isCountrySanctioned, refreshSanctionsList } from './sanctions';
+import type { Env } from '../../env';
 
 const env = {
   CROSS_BORDER_KV: {

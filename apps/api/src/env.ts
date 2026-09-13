@@ -67,4 +67,8 @@ export interface Env {
   VYRO_AI_NARRATE_MODE?: string;
   /** Cross-border trade master switch. "true" enables. Defaults off. */
   CROSS_BORDER_ENABLED?: string;
+  /** KV namespace for FX rates + sanctions list cache. */
+  CROSS_BORDER_KV: KVNamespace;
+  /** R2 bucket for commercial invoice + COO PDFs. */
+  CROSS_BORDER_DOCS: R2Bucket;
 }

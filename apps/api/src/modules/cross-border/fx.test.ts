@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { snapshotRate, convertCents } from './fx';
 import { HttpError } from '../../lib/errors';
+import type { Env } from '../../env';
+import type { Db } from '@vyro/db';
 
 vi.mock('../../lib/fxProvider', () => ({
   fetchRate: vi.fn(),

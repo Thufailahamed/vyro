@@ -1,6 +1,8 @@
 // FX rate fetcher. CBSL first, exchangerate.host fallback.
 // Rate stored as integer-scaled string (rate * 1e8) — no float drift.
 
+import type { Env } from '../env';
+
 const CBSL_URL = 'https://www.cbsl.gov.lk/api/v1/exchangerates';
 const EXCHANGERATE_URL = 'https://api.exchangerate.host/latest';
 

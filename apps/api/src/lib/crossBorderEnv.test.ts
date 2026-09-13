@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { isCrossBorderEnabled, assertCrossBorderEnabled } from './crossBorderEnv';
 import { HttpError } from './errors';
+import type { Env } from '../env';
 
 const env = (flag?: string) => ({ CROSS_BORDER_ENABLED: flag } as unknown as Env);
 

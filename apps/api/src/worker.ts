@@ -7,6 +7,8 @@ import {
   handleAuditExportRunner,
   handleRefundStuckChecker,
   handleQueueDlqScan,
+  handleSanctionsRefresh,
+  handleFxRefresh,
 } from './cron/handlers';
 import { handleQueueEventsPrune } from './cron/queue-events-prune';
 import { runObservabilitySweep } from './cron/observabilitySweep';
@@ -55,6 +57,13 @@ export default {
       }
       case '*/5 * * * *': {
         ctx.waitUntil(runObservabilitySweep(env));
+        break;
+      }
+      case '0 2 * * *': {
+        // Cross-border: nightly FX refresh + weekly sanctions refresh.
+        ctx.waitUntil(handleFxRefresh(env));
+        const dayOfWeek = new Date().getUTCDay();
+        if (dayOfWeek === 1) ctx.waitUntil(handleSanctionsRefresh(env));
         break;
       }
       default:
