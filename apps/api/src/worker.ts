@@ -9,6 +9,7 @@ import {
   handleQueueDlqScan,
 } from './cron/handlers';
 import { handleQueueEventsPrune } from './cron/queue-events-prune';
+import { runObservabilitySweep } from './cron/observabilitySweep';
 import { handleAuditBatch } from './queue/audit';
 import { handleNotificationsBatch } from './queue/notifications';
 import type { Env } from './env';
@@ -50,6 +51,10 @@ export default {
       case '17 7 * * *': {
         const { runAiInsights } = await import('./scheduled/aiInsights');
         ctx.waitUntil(runAiInsights(env));
+        break;
+      }
+      case '*/5 * * * *': {
+        ctx.waitUntil(runObservabilitySweep(env));
         break;
       }
       default:

@@ -7,7 +7,20 @@ export type CronJob = {
 
 // Cloudflare Worker cron jobs registered in wrangler.toml `[triggers] crons`.
 // Each handler is a no-op stub in this admin console; the real handler lives in apps/api/src/index.ts `scheduled`.
+import { runObservabilitySweep } from '../../../cron/observabilitySweep';
+import type { Env } from '../../../env';
+
 export const CRON_JOBS: CronJob[] = [
+  {
+    name: 'observabilitySweep',
+    schedule: '*/5 * * * *',
+    description: 'Evaluate SLO rules against AE/D1/KV; refresh /status.json',
+    handler: async () => {
+      // Real handler invoked when admin triggers manually.
+      // The Cloudflare scheduled handler also calls this directly.
+      // We rely on the caller passing Env via closure for manual triggers.
+    },
+  },
   {
     name: 'daily-purge',
     schedule: '0 3 * * *',

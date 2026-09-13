@@ -33,6 +33,25 @@ check "/api/search/products?q=rice"  "200" "search"
 # Auth: protected endpoint without session should 401, not 500.
 check "/api/cart?businessId=x"  "401" "cart requires auth"
 
+# Observability: public status payload is fetchable without auth.
+check "/status.json"        "200" "public status payload (SLO aggregator)"
+
+# Observability: metricsWeb accepts POST with empty CSRF (CSRF-exempt) and
+# returns 204. Use a single sample for the smoke; load testing is a separate
+# script.
+code=$(curl -s -o /tmp/smoke_body -w "%{http_code}" \
+  -X POST "${API}/api/metrics/web" \
+  -H 'content-type: application/json' \
+  --data '{"route":"/","lcp_ms":1234}' || echo "000")
+if [[ "$code" == "204" ]]; then
+  echo "  ok  ${code}  /api/metrics/web  — RUM beacon accepts"
+else
+  echo "  FAIL  ${code}  /api/metrics/web  expected 204 — RUM beacon accepts"
+  head -c 200 /tmp/smoke_body
+  echo
+  FAIL=$((FAIL+1))
+fi
+
 echo
 if [[ $FAIL -eq 0 ]]; then
   echo "smoke: all checks passed"

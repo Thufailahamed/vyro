@@ -71,7 +71,9 @@ const TrustSafetyPage = lazy(() => import('./admin/TrustSafetyPage').then((m) =>
 const PlatformPage = lazy(() => import('./admin/PlatformPage').then((m) => ({ default: m.PlatformPage })));
 const SecurityPage = lazy(() => import('./admin/SecurityPage').then((m) => ({ default: m.SecurityPage })));
 const ObservabilityPage = lazy(() => import('./admin/ObservabilityPage').then((m) => ({ default: m.ObservabilityPage })));
+const ObservabilityAlertsPage = lazy(() => import('./admin/ObservabilityAlertsPage').then((m) => ({ default: m.ObservabilityAlertsPage })));
 const QueuesPage = lazy(() => import('./admin/QueuesPage').then((m) => ({ default: m.QueuesPage })));
+const StatusPage = lazy(() => import('./pages/StatusPage').then((m) => ({ default: m.StatusPage })));
 const AdminNotificationsPage = lazy(() => import('./admin/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
 const AdminRfqsPage = lazy(() => import('./admin/RfqsPage').then((m) => ({ default: m.AdminRfqsPage })));
 const SupplierDashboardPage = lazy(() => import('./supplier/DashboardPage').then((m) => ({ default: m.SupplierDashboardPage })));
@@ -104,6 +106,7 @@ export default function App() {
       {/* Public web SPA */}
       <Route element={<Layout />}>
         <Route path="/" element={<HomePage />} />
+        <Route path="/status" element={<StatusPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
         <Route path="/login" element={<RedirectIfAuthed><LoginPage /></RedirectIfAuthed>} />
@@ -186,6 +189,7 @@ export default function App() {
           <Route path="platform" element={<RequireAdmin><PlatformPage /></RequireAdmin>} />
           <Route path="security" element={<RequireAdmin><SecurityPage /></RequireAdmin>} />
           <Route path="observability" element={<RequireAdmin><ObservabilityPage /></RequireAdmin>} />
+          <Route path="observability/alerts" element={<RequireAdmin><ObservabilityAlertsPage /></RequireAdmin>} />
           <Route path="observability/queues" element={<RequireAdmin><QueuesPage /></RequireAdmin>} />
           <Route path="ai-usage" element={<RequireAdmin><AdminAIUsagePage /></RequireAdmin>} />
           <Route path="rfqs" element={<RequireAdmin><AdminRfqsPage /></RequireAdmin>} />

@@ -18,6 +18,13 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Syne:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
+    <!-- Cloudflare Web Analytics beacon (free, no cookies, GDPR-friendly).
+         Set VITE_CF_ANALYTICS_BEACON in the build environment to enable.
+         Leave unset for local dev / preview environments. -->
+    <script defer
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon='{!!import.meta.env.VITE_CF_ANALYTICS_BEACON ? JSON.stringify({ token: import.meta.env.VITE_CF_ANALYTICS_BEACON }) : "{}"}'
+            crossorigin="anonymous"></script>
   </head>
   <body class="bg-bone text-ink">
     <div id="root"></div>

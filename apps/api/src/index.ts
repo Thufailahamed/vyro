@@ -188,4 +188,17 @@ app.route('/api/rfqs', rfqRouter);
 app.route('/api/kyc', kycSellerRouter);
 app.route('/api', whatsappRouter);
 
+import publicStatusRouter from './routes/publicStatus';
+import metricsWebRouter from './routes/metricsWeb';
+import adminAlertsRouter from './routes/adminAlerts';
+import adminIncidentsRouter from './routes/adminIncidents';
+import adminTestHarnessRouter from './routes/adminTestHarness';
+import adminUptimeWebhookRouter from './routes/adminUptimeWebhook';
+app.route('/', publicStatusRouter);
+app.route('/', metricsWebRouter);
+app.route('/', adminAlertsRouter);
+app.route('/', adminIncidentsRouter);
+app.route('/', adminTestHarnessRouter);
+app.route('/', adminUptimeWebhookRouter);
+
 export default app;

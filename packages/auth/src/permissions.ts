@@ -33,6 +33,7 @@ export const PERMISSION_KEYS = [
   'cron:read', 'cron:trigger',
   'queues:read', 'queues:write',
   'notification:read', 'notification:write', 'notification:dismiss',
+  'observability:read', 'observability:write',
 ] as const;
 
 export type Permission = (typeof PERMISSION_KEYS)[number];

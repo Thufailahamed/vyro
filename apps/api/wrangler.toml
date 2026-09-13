@@ -31,6 +31,10 @@ bucket_name = "vyro-invoices"
 binding = "CACHE"
 id = "5a6075baf1834db294abf12405ced2b8"
 
+[[kv_namespaces]]
+binding = "ALERTS_KV"
+id = "local-alerts-kv"
+
 
 [[queues.producers]]
 binding = "AUDIT_QUEUE"
@@ -74,6 +78,9 @@ VYRO_AI_ENABLED = "true"
 VYRO_AI_CLASSIFY_MODEL = "@cf/zai-org/glm-5.3-flash"
 VYRO_AI_NARRATE_MODEL = "@cf/zai-org/glm-5.3-flash"
 VYRO_AI_DAILY_TOKEN_CAP = "200000"
+STATUS_PAGE_ORIGIN = "http://localhost:5173"
+OPS_EMAIL = "ops@example.test"
+UPTIMEROBOT_WEBHOOK_SECRET = "dev-uptime-secret"
 # BETTER_AUTH_SECRET is intentionally NOT set in `[vars]` — set it as a local
 # secret so it never accidentally ships to production:
 #   npx wrangler secret put BETTER_AUTH_SECRET --config apps/api/wrangler.toml
@@ -83,8 +90,9 @@ BETTER_AUTH_URL = "https://vyro-api.thufailahamed627.workers.dev"
 
 [triggers]
 # Audit retention + daily housekeeping, webhook retry (every 15m),
-# session cleanup (hourly), audit export runner (4am).
-crons = ["0 3 * * *", "*/15 * * * *", "0 * * * *", "0 4 * * *", "0 5 * * *", "17 7 * * *"]
+# session cleanup (hourly), audit export runner (4am),
+# observability sweep every 5 minutes.
+crons = ["0 3 * * *", "*/15 * * * *", "0 * * * *", "0 4 * * *", "0 5 * * *", "17 7 * * *", "*/5 * * * *"]
 
 [env.production]
 name = "vyro-api"
@@ -111,6 +119,10 @@ bucket_name = "vyro-invoices"
 [[env.production.kv_namespaces]]
 binding = "CACHE"
 id = "5a6075baf1834db294abf12405ced2b8"
+
+[[env.production.kv_namespaces]]
+binding = "ALERTS_KV"
+id = "REPLACE_WITH_PROD_KV_ID"
 
 [[env.production.queues.producers]]
 binding = "AUDIT_QUEUE"
@@ -158,5 +170,10 @@ VYRO_AI_ENABLED = "true"
 VYRO_AI_CLASSIFY_MODEL = "@cf/zai-org/glm-5.3-flash"
 VYRO_AI_NARRATE_MODEL = "@cf/zai-org/glm-5.3-flash"
 VYRO_AI_DAILY_TOKEN_CAP = "200000"
+STATUS_PAGE_ORIGIN = "https://status.vyro.lk"
+OPS_EMAIL = "ops@vyro.lk"
 # BETTER_AUTH_SECRET is NOT set here on purpose — set it as a secret:
 #   npx wrangler secret put BETTER_AUTH_SECRET --env production --config apps/api/wrangler.toml
+
+[env.production.triggers]
+crons = ["0 3 * * *", "*/15 * * * *", "0 * * * *", "0 4 * * *", "0 5 * * *", "17 7 * * *", "*/5 * * * *"]
