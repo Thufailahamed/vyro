@@ -4,6 +4,7 @@ import { getDb } from '@vyro/db';
 import { httpError } from '../../lib/errors';
 import { convertCents, snapshotRate } from '../cross-border/fx';
 import { logger } from '../../lib/logger';
+import { metric } from '../../lib/metrics';
 import { recordAudit } from '../supplierProducts/repository';
 import type { Env } from '../../env';
 
@@ -41,6 +42,7 @@ export async function handleWireReceived(env: Env, input: WireReceivedInput): Pr
   const orderTotalLkrCents = order.totalCents;
   const deltaBps = Math.round(((receivedLkrCents - orderTotalLkrCents) / orderTotalLkrCents) * 10000);
   if (Math.abs(deltaBps) > MISMATCH_BPS && !input.acknowledgeMismatch) {
+    metric(env, 'cross_border.wire_mismatch', 1, { currency: input.receivedCurrency, delta_bps_bucket: bucketBps(deltaBps) });
     throw httpError(422, 'WIRE_RECONCILIATION_MISMATCH', `Delta ${(deltaBps / 100).toFixed(2)}% exceeds 1%`);
   }
 
@@ -64,6 +66,15 @@ export async function handleWireReceived(env: Env, input: WireReceivedInput): Pr
     resourceId: input.orderId,
     metadata: { wireRef: input.wireRef, receivedLkrCents, deltaBps, ack: !!input.acknowledgeMismatch },
   });
+  metric(env, 'cross_border.wire_received', 1, { currency: input.receivedCurrency, ack: input.acknowledgeMismatch ? 'yes' : 'no' });
   logger.info('cross_border.wire_received', { orderId: input.orderId, deltaBps });
   return { status: 'paid', deltaBps };
+}
+
+function bucketBps(bps: number): string {
+  const abs = Math.abs(bps);
+  if (abs <= 100) return '0_1pct';
+  if (abs <= 500) return '1_5pct';
+  if (abs <= 1000) return '5_10pct';
+  return 'gt_10pct';
 }

@@ -34,6 +34,7 @@ import { inventoryService } from '../inventory/service';
 import { notifyOrderParties } from '../notifications/dispatcher';
 import { isCrossBorderEnabled } from '../../lib/crossBorderEnv';
 import { preOrderCreateCheck } from '../cross-border/service';
+import { metric } from '../../lib/metrics';
 import type { Env } from '../../env';
 
 interface QueueLike {
@@ -158,6 +159,7 @@ export const checkoutService = {
         const buyerCountry = (business.countryCode ?? 'LK').toUpperCase();
         const supplierCountry = (map.get(poItemsRaw[0]?.supplierProductId ?? '')?.supplier.countryCode ?? 'LK').toUpperCase();
         if (buyerCountry !== 'LK' && business.kycLevel === 'none') {
+          metric(env, 'cross_border.kyc_required', 1, { buyer_country: buyerCountry });
           throw httpError(422, 'KYC_REQUIRED', 'Foreign buyers require KYC verification');
         }
         const hsCodes = poItemsRaw
