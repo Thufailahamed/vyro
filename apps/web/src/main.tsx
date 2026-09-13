@@ -7,7 +7,10 @@ import { AuthProvider } from './lib/auth';
 import { ToastProvider } from '@vyro/ui';
 import { PageTransition } from './components/PageTransition';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { bootRum } from './lib/rum';
 import './index.css';
+
+bootRum();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
