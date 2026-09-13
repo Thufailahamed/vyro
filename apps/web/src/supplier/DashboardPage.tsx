@@ -27,6 +27,7 @@ import { formatCompactLKR, formatLKR } from '@/lib/format';
 import { useSupplierId } from './useSupplierId';
 import { SupplierLoadingState, SupplierErrorState } from './SupplierPageState';
 import { SupplierReviewsPanel } from '@/reviews/SupplierReviewsPanel';
+import { StorefrontSettingsSection } from './StorefrontSettingsSection';
 import { cn } from '@vyro/ui';
 
 type Po = {
@@ -65,6 +66,7 @@ interface SupplierProfile {
   verificationStatus?: string;
   status?: string;
   businessTypeName?: string;
+  slug?: string | null;
 }
 
 const POLL_MS = 30_000;
@@ -875,6 +877,9 @@ export function SupplierDashboardPage() {
         <div className="vyro-kicker text-copper">Buyer Reviews</div>
         <SupplierReviewsPanel supplierId={supplierId} />
       </Surface>
+
+      {/* Storefront settings */}
+      <StorefrontSettingsSection currentSlug={supplierDetails?.slug ?? null} />
 
       {/* Footer Status Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-ink-4 pt-4 border-t border-ink/10 gap-2">
