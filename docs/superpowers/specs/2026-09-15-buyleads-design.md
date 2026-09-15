@@ -42,17 +42,21 @@
 
 ```
                           ┌────────────────────────────────────┐
-cron @ 07:00 Colombo ───►│ buyLeads.runDailyDigest(d1)        │
-                          │   1. findSuppliersWithSubs(d1)     │
+cron @ 07:00 Colombo ───►│ buyLeads.runDailyDigest(env)        │
+                          │   1. enabledSubscriptions(d1)      │
                           │   2. for each supplier:            │
-                          │      a. matchNewRfqs(subs, since)  │
-                          │      b. buildDigestEmail(...)      │
-                          │      c. queue.send(email job)      │
+                          │      a. deriveCategoryIds(d1, rfq) │
+                          │         via rfq_items.productId →  │
+                          │         products.categoryId        │
+                          │      b. intersect w/ sub categoryIds│
+                          │      c. top 10 by created_at DESC  │
+                          │      d. buildDigestPayload(...)    │
+                          │      e. queue.send(email job)      │
                           └────────────────────────────────────┘
                                         │
                                         ▼
                           ┌────────────────────────────────────┐
-supplier settings tab ──►│ PATCH /api/supplier/buyleads/subs   │
+supplier settings page ─►│ GET/PUT /api/supplier/buyleads/subs │
                           │   body: { enabled, categoryIds }   │
                           │   persists to supplier_buy_lead_   │
                           │   subscriptions                    │
@@ -112,7 +116,7 @@ Unique index: `(supplier_id)`. One row per supplier (overwrite on update).
 | GET | `/api/supplier/buyleads/subs` | session + supplier role | — | `{ enabled, categoryIds: string[] }` |
 | PUT | `/api/supplier/buyleads/subs` | session + supplier role | `{ enabled: boolean, categoryIds: string[] }` | `{ enabled, categoryIds }` |
 
-`PUT` upserts a single row per `supplierId` (one subscription record per supplier, not many).
+`PUT` upserts a single row per `supplierId` (one subscription record per supplier, not many). `supplierId` taken from `?supplierId=` query param + `requireSupplierRole(ctx, supplierId, ['owner','sales','operations'])` (mirrors `repeatOffers/supplierRoutes.ts`).
 
 ## Cron handler
 
@@ -145,23 +149,31 @@ async function topMatchesForSupplier(
   supplierId: string,
   since: number,
   limit: number,
-): Promise<RfqRow[]> {
+): Promise<RfqMatch[]> {
   const sub = await repo.getSubscription(d1, supplierId);
   if (!sub?.enabled || sub.categoryIds.length === 0) return [];
-  return repo.newRfqsForCategories(d1, sub.categoryIds, since, limit);
+  return repo.newRfqsMatchingCategories(d1, sub.categoryIds, since, limit);
 }
 ```
 
-`newRfqsForCategories` selects from `rfqs` where:
-- `status = 'open'`
-- `created_at >= since`
-- `category_id IN (...)`
-- ordered by `created_at DESC`
-- limit 10
+`newRfqsMatchingCategories` selects from `rfqs` joined to `rfq_items` + `products`:
+- `rfqs.status = 'open'`
+- `rfqs.created_at >= since`
+- `rfqs.published_at IS NOT NULL`
+- At least one of its `rfq_items.productId → products.categoryId` ∈ sub.categoryIds
+- Group by rfq, ordered by `rfqs.created_at DESC`, limit 10
+
+NOTE: `rfqs` has no `categoryId` column. Category set is derived from the union of all line items' product categories. An RFQ spanning multiple categories matches all subs in any of those. Acceptable for MVP — buyers typically single-category per RFQ.
+
+## Email payload
+
+Built directly in `runDailyDigest` (cron handler). Subject: `${count} new RFQs matching your categories`. Body: pre-rendered HTML with matched RFQ list + link to `/supplier/rfqs/${id}` for each. Sent via `env.NOTIFICATIONS_QUEUE.send({ kind: 'buyleads_digest', recipientUserId, recipientEmail, subject, body, link })`.
+
+NOTE: existing `email_templates` config section is NOT read by the queue consumer (`queue/notifications.ts` hardcodes supplier-event copy). Plan implements a new queue message `kind: 'buyleads_digest'` in the consumer handler that uses the pre-rendered subject/body from the cron job. Future: generalise consumer to read templates.
 
 ## Email template
 
-Key: `BUYLEADS_DIGEST`. Stored in `email_templates` table; editable via `/admin/platform/email-templates`. Subject template: `{{count}} new RFQs matching your categories`. Body: list of matched RFQs with title, category, qty, budget, link to `/supplier/rfqs/{{id}}`.
+Subject template: `{{count}} new RFQs matching your categories`. Body: list of matched RFQs with title, category, qty, budget, link to `/supplier/rfqs/{{id}}`. Built in `runDailyDigest` cron handler; passed via queue payload. Admin override deferred (DB template config is not currently read by consumer).
 
 ## UI surfaces
 
