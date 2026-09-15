@@ -10,7 +10,14 @@ vi.mock('../../src/env', () => ({
 }));
 
 const flagOn = { on: true };
-let sessionCtx: any = { userId: 'u-1', supplierId: 'sup-1', isAdmin: false, adminRole: null };
+let sessionCtx: any = {
+  userId: 'u-1',
+  email: 'u@x',
+  isAdmin: false,
+  adminRole: null,
+  businesses: [],
+  suppliers: [{ supplierId: 'sup-1', supplierName: 'S', role: 'owner' }],
+};
 
 vi.mock('../../src/lib/featureFlags', () => ({
   isFeatureEnabled: vi.fn(async () => flagOn.on),
@@ -69,25 +76,32 @@ const D1 = {} as D1Database;
 
 beforeEach(() => {
   flagOn.on = true;
-  sessionCtx = { userId: 'u-1', supplierId: 'sup-1', isAdmin: false, adminRole: null };
+  sessionCtx = {
+    userId: 'u-1',
+    email: 'u@x',
+    isAdmin: false,
+    adminRole: null,
+    businesses: [],
+    suppliers: [{ supplierId: 'sup-1', supplierName: 'S', role: 'owner' }],
+  };
 });
 
 describe('learning routes', () => {
   it('returns 404 when flag is off', async () => {
     flagOn.on = false;
-    const res = await app.fetch(new Request('http://x/api/supplier/learning'), { DB: D1 } as any);
+    const res = await app.fetch(new Request('http://x/api/supplier/learning?supplierId=sup-1'), { DB: D1 } as any);
     expect(res.status).toBe(404);
   });
 
   it('GET /api/supplier/learning lists lessons with progress', async () => {
-    const res = await app.fetch(new Request('http://x/api/supplier/learning'), { DB: D1 } as any);
+    const res = await app.fetch(new Request('http://x/api/supplier/learning?supplierId=sup-1'), { DB: D1 } as any);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.lessons.length).toBe(1);
   });
 
   it('GET /api/supplier/learning/:slug strips isCorrect', async () => {
-    const res = await app.fetch(new Request('http://x/api/supplier/learning/welcome'), { DB: D1 } as any);
+    const res = await app.fetch(new Request('http://x/api/supplier/learning/welcome?supplierId=sup-1'), { DB: D1 } as any);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.quiz.questions[0].options[0]).not.toHaveProperty('isCorrect');
@@ -95,7 +109,7 @@ describe('learning routes', () => {
 
   it('POST quiz returns pass/fail', async () => {
     const res = await app.fetch(
-      new Request('http://x/api/supplier/learning/welcome/quiz', {
+      new Request('http://x/api/supplier/learning/welcome/quiz?supplierId=sup-1', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ answers: [{ questionId: 'q1-1', optionId: 'o1' }] }),
@@ -108,7 +122,7 @@ describe('learning routes', () => {
   });
 
   it('GET gate returns missing list', async () => {
-    const res = await app.fetch(new Request('http://x/api/supplier/learning/gate'), { DB: D1 } as any);
+    const res = await app.fetch(new Request('http://x/api/supplier/learning/gate?supplierId=sup-1'), { DB: D1 } as any);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.required).toBe(true);
