@@ -25,9 +25,18 @@ export const submitReviewSchema = z
     orderId: z.string().uuid(),
     rating: ratingSchema,
     body: z.string().min(1).max(2000),
+    imageR2Keys: z.array(z.string().min(1).max(500)).max(3).optional(),
   })
   .strict();
 export type SubmitReviewInput = z.infer<typeof submitReviewSchema>;
+
+export const editReviewSchema = z
+  .object({
+    rating: ratingSchema,
+    body: z.string().min(1).max(2000),
+  })
+  .strict();
+export type EditReviewInput = z.infer<typeof editReviewSchema>;
 
 export const replySchema = z
   .object({

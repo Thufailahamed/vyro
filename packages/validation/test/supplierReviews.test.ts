@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   submitReviewSchema,
+  editReviewSchema,
   replySchema,
   flagSchema,
   resolveFlagSchema,
@@ -139,6 +140,36 @@ describe('supplierReviews validation', () => {
       const r = adminFlagsQuerySchema.safeParse({});
       expect(r.success).toBe(true);
       if (r.success) expect(r.data.status).toBe('pending');
+    });
+  });
+
+  describe('editReviewSchema', () => {
+    it('accepts rating + body', () => {
+      expect(editReviewSchema.safeParse({ rating: 4, body: 'updated' }).success).toBe(true);
+    });
+    it('rejects rating 6', () => {
+      expect(editReviewSchema.safeParse({ rating: 6, body: 'x' }).success).toBe(false);
+    });
+  });
+
+  describe('submit image keys', () => {
+    it('accepts max 3 image keys', () => {
+      const ok = submitReviewSchema.safeParse({
+        orderId: '00000000-0000-0000-0000-000000000001',
+        rating: 5,
+        body: 'great',
+        imageR2Keys: ['a', 'b', 'c'],
+      });
+      expect(ok.success).toBe(true);
+    });
+    it('rejects 4 image keys', () => {
+      const bad = submitReviewSchema.safeParse({
+        orderId: '00000000-0000-0000-0000-000000000001',
+        rating: 5,
+        body: 'great',
+        imageR2Keys: ['a', 'b', 'c', 'd'],
+      });
+      expect(bad.success).toBe(false);
     });
   });
 });
