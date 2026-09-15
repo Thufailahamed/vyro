@@ -7,6 +7,7 @@ import { usePageTitle } from '@/lib/usePageTitle';
 import { useToast } from '@vyro/ui';
 import { useSupplierId } from './useSupplierId';
 import { useSellerKyc, useSubmitKyc } from './useSellerKyc';
+import { LearningCta } from './learning/LearningCta';
 import {
   ShieldCheckIcon,
   CheckCircle2Icon,
@@ -200,6 +201,7 @@ export function SupplierVerificationPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
+      <LearningCta variant="inline" />
       {/* Top breadcrumb / stepper */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-ink/10 pb-4">
         <Link

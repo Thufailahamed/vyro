@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { api } from '@/lib/api';
 import { useSupplierId } from './useSupplierId';
+import { LearningCta } from './learning/LearningCta';
 import { Button, EmptyState } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
 import { StatusPill } from '@/pages/RfqsPage';
@@ -34,6 +35,7 @@ export function QuoteRequestsPage() {
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="text-xs uppercase tracking-[0.2em] text-ink-4">Supplier</div>
       <h1 className="mt-1 text-3xl font-bold">Quote requests</h1>
+      <LearningCta variant="inline" />
       <div className="mt-4 flex flex-wrap gap-2">
         {(['all', 'new', 'viewed', 'in_progress', 'submitted', 'expiring', 'expired', 'awarded', 'not_selected'] as const).map((f) => (
           <button key={f} onClick={() => setFilter(f)} className={`rounded-full border px-3 py-1 text-sm ${filter === f ? 'bg-ink text-white border-ink' : 'border-line'}`}>{f.replace(/_/g, ' ')}</button>

@@ -14,6 +14,7 @@ import {
 import { Surface } from '@/components/brand/Surface';
 import { useSupplierId } from './useSupplierId';
 import { SupplierErrorState, SupplierLoadingState } from './SupplierPageState';
+import { LearningCta } from './learning/LearningCta';
 import { useToast } from '@vyro/ui';
 import {
   PackageIcon,
@@ -673,6 +674,8 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
       </div>
 
       {err && <ErrorBanner message={err} />}
+
+      <LearningCta />
 
       <form
         onSubmit={handleSubmit}

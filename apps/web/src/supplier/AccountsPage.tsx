@@ -6,6 +6,7 @@ import { PageHeader, Button, EmptyState, ErrorBanner, Input, Label } from '@/com
 import { useToast } from '@vyro/ui';
 import { Money, Stat, StatusPill, time, useConfirm } from '@/accounts/shared';
 import { useSupplierId } from './useSupplierId';
+import { LearningCta } from './learning/LearningCta';
 
 type Tab = 'earnings' | 'settlements' | 'payouts' | 'transactions' | 'bank';
 
@@ -30,6 +31,7 @@ export function SupplierAccountsPage() {
   return (
     <div className="mx-auto max-w-7xl pb-12">
       <PageHeader kicker="Supplier" title="Accounts" sub="How much you sold, what VYRO took, what you are owed, what was paid out." />
+      <LearningCta variant="inline" />
       {overview.data && (
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
           <Stat label="Gross sales" cents={overview.data.grossCents} />
