@@ -1,6 +1,6 @@
-import { and, eq, desc, lt, gte } from 'drizzle-orm';
+import { and, eq, desc, lt, gte, inArray } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
-import { rfqSuppliers, rfqSupplierNotes } from '@vyro/db/schema';
+import { businesses, rfqs, rfqSuppliers, rfqSupplierNotes } from '@vyro/db/schema';
 import type { LeadsListQuery, Tag, ConversionStatus } from '@vyro/validation';
 
 export interface LeadRow {
@@ -14,6 +14,11 @@ export interface LeadRow {
   quotedAt: number | null;
   orderId: string | null;
   orderValueCents: number | null;
+  buyerBusinessId: string;
+  buyerName: string;
+  buyerKycLevel: 'none' | 'basic' | 'enhanced';
+  buyerVerifiedAt: number | null;
+  buyerVerified: boolean;
 }
 
 export interface NoteRow {
@@ -37,6 +42,54 @@ export interface SummaryRow {
 }
 
 const TERMINAL_STATUSES = new Set<ConversionStatus>(['won', 'lost']);
+
+type RawLead = Omit<LeadRow, 'buyerBusinessId' | 'buyerName' | 'buyerKycLevel' | 'buyerVerifiedAt' | 'buyerVerified'>;
+
+// Attach buyer verification state (derived from businesses.kycLevel +
+// kycVerifiedAt via rfqs.businessId). Missing rfq/business degrades to
+// unverified rather than throwing — the badge is a signal, not a gate.
+async function enrichLeads(
+  d1: D1Database,
+  raw: RawLead[],
+): Promise<LeadRow[]> {
+  if (raw.length === 0) return [];
+  const db = getDb(d1);
+  const rfqIds = [...new Set(raw.map((l) => l.rfqId))];
+  const rfqRows = await db
+    .select({ id: rfqs.id, businessId: rfqs.businessId })
+    .from(rfqs)
+    .where(inArray(rfqs.id, rfqIds));
+  const rfqById = new Map(rfqRows.map((r) => [r.id, r.businessId] as const));
+  const bizIds = [...new Set([...rfqById.values()])];
+  const bizRows =
+    bizIds.length === 0
+      ? []
+      : await db
+          .select({
+            id: businesses.id,
+            name: businesses.name,
+            kycLevel: businesses.kycLevel,
+            kycVerifiedAt: businesses.kycVerifiedAt,
+          })
+          .from(businesses)
+          .where(inArray(businesses.id, bizIds));
+  const bizById = new Map(bizRows.map((b) => [b.id, b] as const));
+  return raw.map((lead) => {
+    const businessId = rfqById.get(lead.rfqId);
+    const biz = businessId ? bizById.get(businessId) : undefined;
+    const level =
+      biz?.kycLevel === 'basic' || biz?.kycLevel === 'enhanced' ? biz.kycLevel : ('none' as const);
+    const verifiedAt = biz?.kycVerifiedAt ?? null;
+    return {
+      ...lead,
+      buyerBusinessId: businessId ?? '',
+      buyerName: biz?.name ?? 'Unknown buyer',
+      buyerKycLevel: level,
+      buyerVerifiedAt: verifiedAt,
+      buyerVerified: level !== 'none' && verifiedAt != null,
+    };
+  });
+}
 
 export const crmRepository = {
   async listLeadsForSupplier(
@@ -62,9 +115,10 @@ export const crmRepository = {
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
-    const slice = rows.slice(0, limit) as unknown as LeadRow[];
+    const slice = rows.slice(0, limit) as unknown as RawLead[];
+    const leads = await enrichLeads(d1, slice);
     const nextCursor = hasMore ? String(rows[limit - 1]!.invitedAt) : null;
-    return { leads: slice, nextCursor };
+    return { leads, nextCursor };
   },
 
   async getLeadForSupplier(
@@ -78,7 +132,9 @@ export const crmRepository = {
       .from(rfqSuppliers)
       .where(and(eq(rfqSuppliers.id, leadId), eq(rfqSuppliers.supplierId, supplierId)))
       .limit(1);
-    return (row as unknown as LeadRow | undefined) ?? null;
+    if (!row) return null;
+    const [enriched] = await enrichLeads(d1, [row as unknown as RawLead]);
+    return enriched ?? null;
   },
 
   async findLeadByRfqAndSupplier(
@@ -92,7 +148,9 @@ export const crmRepository = {
       .from(rfqSuppliers)
       .where(and(eq(rfqSuppliers.rfqId, rfqId), eq(rfqSuppliers.supplierId, supplierId)))
       .limit(1);
-    return (row as unknown as LeadRow | undefined) ?? null;
+    if (!row) return null;
+    const [enriched] = await enrichLeads(d1, [row as unknown as RawLead]);
+    return enriched ?? null;
   },
 
   async updateLeadTag(
