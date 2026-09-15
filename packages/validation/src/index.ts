@@ -32,3 +32,4 @@ export * from './credit';
 export * from './supplierReviews';
 export * from './suppliers';
 export * from './trustSeal';
+export * from './learningCenter';

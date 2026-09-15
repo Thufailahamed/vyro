@@ -71,3 +71,4 @@ export * from './supplierReviewHelpfulVotes';
 export * from './rfqSupplierNotes';
 export * from './buyLeads';
 export * from './trustSeal';
+export * from './learningCenter';
