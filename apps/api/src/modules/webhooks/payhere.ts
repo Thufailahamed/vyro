@@ -76,6 +76,24 @@ async function handlePayHereNotify(c: Context<{ Bindings: Env }>) {
   }
 
   const db = getDb(env.DB);
+  // TrustSEAL: order_id like ts_* maps to trust_seal_subscriptions.payment_id.
+  if (event.gatewayRef.startsWith('ts_')) {
+    const { trustSealRepository } = await import('../trustSeal/repository');
+    const { TRUST_SEAL_TERM_MS } = await import('@vyro/shared');
+    if (event.type !== 'payment.success') {
+      return c.json({ ok: true, ignored: 'trustseal-non-success' });
+    }
+    const activated = await trustSealRepository.activateFromWebhook(env.DB, event.gatewayRef, TRUST_SEAL_TERM_MS);
+    if (!activated) throw httpError(400, 'VALIDATION_ERROR', 'Unknown TrustSEAL payment');
+    await recordAudit(env.DB, {
+      actorUserId: null,
+      action: 'TRUSTSEAL_ACTIVATED',
+      resourceType: 'trust_seal_subscription',
+      resourceId: activated.id,
+      metadata: { provider, paymentId: event.gatewayRef },
+    });
+    return c.json({ ok: true, trustSeal: 'activated' });
+  }
   // Primary lookup: order_id == payment.id (unique per attempt, Task 2).
   // Legacy fallback: gatewayRef match for rows created before the switch.
   const byId = (await db
