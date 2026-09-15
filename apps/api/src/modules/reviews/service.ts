@@ -43,8 +43,8 @@ export async function checkEligibility(
 ): Promise<{ canReview: boolean; reason: ReviewErrorCode | null; supplierId?: string; buyerBusinessId?: string }> {
   const order = await loadOrderForBuyer(d1, orderId, session.allowedBusinessIds);
   if (!buyerOwnsOrder(order, session.allowedBusinessIds)) return { canReview: false, reason: 'not_buyer' };
+  if (order.status === 'disputed' || (order as any).disputeId) return { canReview: false, reason: 'dispute_open' };
   if (order.status !== 'delivered') return { canReview: false, reason: 'not_delivered' };
-  if (order.status === 'disputed') return { canReview: false, reason: 'dispute_open' };
   const existing = await repo.findReviewByOrder(d1, order.supplierId, orderId);
   if (existing) return { canReview: false, reason: 'already_reviewed' };
   return { canReview: true, reason: null, supplierId: order.supplierId, buyerBusinessId: order.businessId };
@@ -115,6 +115,8 @@ export async function flagReview(
   if (session.supplierId !== supplierId) throw new ReviewError('not_supplier_owner');
   const review = await repo.findReviewById(d1, reviewId);
   if (!review || review.supplierId !== supplierId) throw new ReviewError('not_found');
+  const open = await repo.findOpenFlagByReview(d1, reviewId);
+  if (open) throw new ReviewError('already_reviewed');
   const now = nowMs();
   const flag = await repo.insertFlag(d1, {
     reviewId,
@@ -148,6 +150,59 @@ export async function resolveFlag(
   // Look up supplierId via review for aggregate recompute.
   const review = await repo.findReviewById(d1, flagRow.reviewId);
   if (review) await recomputeAggregate(d1, review.supplierId);
+}
+
+export async function editReview(
+  d1: D1Database,
+  reviewId: string,
+  input: { rating: number; body: string },
+  session: { userId: string; allowedBusinessIds: string[] },
+) {
+  const review = await repo.findReviewById(d1, reviewId);
+  if (!review) throw new ReviewError('not_found');
+  const db = getDb(d1);
+  const order = (await db
+    .select()
+    .from(purchaseOrders)
+    .where(eq(purchaseOrders.id, review.orderId))
+    .get()) as any;
+  if (!order || !session.allowedBusinessIds.includes(order.businessId)) throw new ReviewError('not_buyer');
+  if (review.status !== 'published') throw new ReviewError('not_found');
+  if (Date.now() - review.createdAt > 7 * 24 * 3600 * 1000) throw new ReviewError('already_reviewed');
+  const now = nowMs();
+  const updated = await repo.updateReview(d1, reviewId, {
+    rating: input.rating,
+    body: input.body,
+    editedAt: now,
+    updatedAt: now,
+  });
+  await recomputeAggregate(d1, review.supplierId);
+  return updated;
+}
+
+export async function deleteReviewByBuyer(
+  d1: D1Database,
+  reviewId: string,
+  session: { userId: string; allowedBusinessIds: string[] },
+) {
+  const review = await repo.findReviewById(d1, reviewId);
+  if (!review) throw new ReviewError('not_found');
+  const db = getDb(d1);
+  const order = (await db
+    .select()
+    .from(purchaseOrders)
+    .where(eq(purchaseOrders.id, review.orderId))
+    .get()) as any;
+  if (!order || !session.allowedBusinessIds.includes(order.businessId)) throw new ReviewError('not_buyer');
+  await repo.updateReviewStatus(d1, reviewId, 'removed_by_admin', nowMs());
+  await recomputeAggregate(d1, review.supplierId);
+}
+
+export async function toggleHelpful(d1: D1Database, reviewId: string, userId: string, on: boolean) {
+  const review = await repo.findReviewById(d1, reviewId);
+  if (!review) throw new ReviewError('not_found');
+  if (on) await repo.addHelpful(d1, reviewId, userId, nowMs());
+  else await repo.removeHelpful(d1, reviewId, userId);
 }
 
 /**

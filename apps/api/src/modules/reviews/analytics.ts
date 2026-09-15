@@ -7,7 +7,10 @@ export type ReviewEvent =
   | 'review_replied'
   | 'review_flagged'
   | 'review_flag_resolved'
-  | 'review_deleted';
+  | 'review_deleted'
+  | 'review_edited'
+  | 'review_helpful'
+  | 'review_photo_added';
 
 export function emit(event: ReviewEvent, props: Record<string, unknown>): void {
   try {
