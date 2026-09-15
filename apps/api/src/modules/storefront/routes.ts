@@ -35,6 +35,9 @@ router.get('/suppliers/by-slug/:slug', async (c) => {
     throw httpError(404, 'NOT_FOUND', 'Supplier not found');
   }
   const offers = await repo.listPublishedOffersBySupplierId(c.env.DB, supplier.id);
+  const { trustSealRepository } = await import('../trustSeal/repository');
+  const trustMap = await trustSealRepository.batchStatus(c.env.DB, [supplier.id]);
+  const trust = trustMap.get(supplier.id);
   return c.json({
     supplier: {
       id: supplier.id,
@@ -46,6 +49,9 @@ router.get('/suppliers/by-slug/:slug', async (c) => {
       businessTypeName: supplier.businessTypeName ?? null,
       ratingCount: supplier.reviewCount ?? 0,
       ratingAvg: supplier.reviewAvg ? supplier.reviewAvg / 100 : null,
+      trustSealed: trust?.trustSealed ?? false,
+      trustSealExpiresAt: trust?.trustSealExpiresAt ?? null,
+      memberSinceYear: trust?.memberSinceYear ?? null,
     },
     offers,
   });

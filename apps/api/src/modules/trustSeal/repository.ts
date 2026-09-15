@@ -1,7 +1,7 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
-import { newId } from '@vyro/shared';
-import { trustSealSubscriptions } from '@vyro/db/schema';
+import { newId, isTrustSealed, memberSinceYear } from '@vyro/shared';
+import { trustSealSubscriptions, suppliers } from '@vyro/db/schema';
 
 export const trustSealRepository = {
   async getBySupplier(d1: D1Database, supplierId: string) {
@@ -86,5 +86,37 @@ export const trustSealRepository = {
       .update(trustSealSubscriptions)
       .set({ status: 'cancelled', updatedAt: Date.now() })
       .where(eq(trustSealSubscriptions.supplierId, supplierId));
+  },
+  async batchStatus(d1: D1Database, supplierIds: string[]) {
+    if (supplierIds.length === 0) return new Map<string, { trustSealed: boolean; trustSealExpiresAt: number | null; memberSinceYear: number | null }>();
+    const db = getDb(d1);
+    const subs = await db
+      .select()
+      .from(trustSealSubscriptions)
+      .where(inArray(trustSealSubscriptions.supplierId, supplierIds))
+      .all();
+    const sups = await db
+      .select()
+      .from(suppliers)
+      .where(inArray(suppliers.id, supplierIds))
+      .all();
+    const supById = new Map(sups.map((s: any) => [s.id, s]));
+    const subById = new Map(subs.map((r: any) => [r.supplierId, r]));
+    const now = Date.now();
+    const out = new Map<string, { trustSealed: boolean; trustSealExpiresAt: number | null; memberSinceYear: number | null }>();
+    for (const id of supplierIds) {
+      const sub: any = subById.get(id) ?? null;
+      const sup: any = supById.get(id) ?? null;
+      out.set(id, {
+        trustSealed: isTrustSealed(
+          sup ? { verificationStatus: sup.verificationStatus, status: sup.status } : null,
+          sub ? { status: sub.status, expiresAt: sub.expiresAt } : null,
+          now,
+        ),
+        trustSealExpiresAt: sub?.expiresAt ?? null,
+        memberSinceYear: memberSinceYear(sub?.startedAt ?? null),
+      });
+    }
+    return out;
   },
 };

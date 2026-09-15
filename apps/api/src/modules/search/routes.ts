@@ -122,6 +122,23 @@ router.get('/products', async (c) => {
     };
   });
 
+  // TrustSEAL enrichment for best-offer suppliers (batched, no N+1).
+  const { trustSealRepository } = await import('../trustSeal/repository');
+  const bestSupplierIds = [...new Set(hits.map((h) => (h.bestOffer as any)?.supplier?.id).filter(Boolean))] as string[];
+  const trustMap = await trustSealRepository.batchStatus(c.env.DB, bestSupplierIds);
+  for (const h of hits) {
+    const sid = (h.bestOffer as any)?.supplier?.id as string | undefined;
+    if (sid && trustMap.has(sid)) {
+      const t = trustMap.get(sid)!;
+      (h.bestOffer as any).supplier = {
+        ...(h.bestOffer as any).supplier,
+        trustSealed: t.trustSealed,
+        trustSealExpiresAt: t.trustSealExpiresAt,
+        memberSinceYear: t.memberSinceYear,
+      };
+    }
+  }
+
   return c.json({ hits, nextCursor });
 });
 

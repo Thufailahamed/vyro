@@ -15,6 +15,7 @@ export interface RankingInputSupplier {
   reviewCount: number;
   reviewAvgX100: number; // 0..500
   lastReviewAt: number | null;
+  trustSealed?: boolean;
 }
 
 export interface RankingInput {
@@ -35,6 +36,7 @@ const LEAD_WEIGHT = 0.25;
 const RATING_WEIGHT = 0.2;
 const VERIFIED_WEIGHT = 0.1;
 const FRESHNESS_WEIGHT = 0.1;
+const TRUSTSEAL_WEIGHT = 0.15;
 
 interface Scored {
   index: number;
@@ -46,12 +48,14 @@ interface Scored {
     rating: number;
     verified: number;
     freshness: number;
+    trust: number;
   };
   supplier: RankingInputSupplier;
 }
 
 function buildReasons(s: Scored): string[] {
   const reasons: string[] = [];
+  if (s.contributions.trust > 0) reasons.push('TrustSEAL');
   if (s.contributions.price > 0.2) reasons.push('Best price');
   if (s.contributions.lead > 0.15) reasons.push('Fast delivery');
   if (s.contributions.verified > 0) reasons.push('Verified');
@@ -81,6 +85,7 @@ export function computeRanking(offers: RankingInput[]): RankingResult[] {
         ? Math.max(0, Math.min(1, o.supplier.reviewAvgX100 / 500))
         : 0.5;
     const verifiedBonus = o.supplier.verificationStatus === 'verified' ? 1 : 0;
+    const trustBonus = o.supplier.trustSealed ? 1 : 0;
     const freshnessScore =
       o.supplier.lastReviewAt === null
         ? 0.5
@@ -91,7 +96,8 @@ export function computeRanking(offers: RankingInput[]): RankingResult[] {
       LEAD_WEIGHT * leadScore +
       RATING_WEIGHT * ratingScore +
       VERIFIED_WEIGHT * verifiedBonus +
-      FRESHNESS_WEIGHT * freshnessScore;
+      FRESHNESS_WEIGHT * freshnessScore +
+      TRUSTSEAL_WEIGHT * trustBonus;
 
     return {
       index: i,
@@ -103,6 +109,7 @@ export function computeRanking(offers: RankingInput[]): RankingResult[] {
         rating: RATING_WEIGHT * ratingScore,
         verified: VERIFIED_WEIGHT * verifiedBonus,
         freshness: FRESHNESS_WEIGHT * freshnessScore,
+        trust: TRUSTSEAL_WEIGHT * trustBonus,
       },
       supplier: o.supplier,
     };

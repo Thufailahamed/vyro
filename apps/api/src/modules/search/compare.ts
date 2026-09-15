@@ -44,6 +44,11 @@ router.get('/products/:id/offers', async (c) => {
     .all();
 
   const activeOffers = offers.filter((r) => r.offer.active);
+  const { trustSealRepository } = await import('../trustSeal/repository');
+  const trustMap = await trustSealRepository.batchStatus(
+    c.env.DB,
+    [...new Set(activeOffers.map((r) => r.supplier.id))],
+  );
   const ranking = computeRanking(
     activeOffers.map((r) => ({
       priceCents: r.offer.priceCents,
@@ -53,11 +58,21 @@ router.get('/products/:id/offers', async (c) => {
         reviewCount: r.supplier.reviewCount ?? 0,
         reviewAvgX100: r.supplier.reviewAvg ?? 0,
         lastReviewAt: r.supplier.lastReviewAt ?? null,
+        trustSealed: trustMap.get(r.supplier.id)?.trustSealed ?? false,
       },
     })),
   );
   const ranked = activeOffers
-    .map((r, i) => ({ ...r, ranking: ranking[i] ?? { index: i, score: 0, rank: i + 1, reasons: [] } }))
+    .map((r, i) => ({
+      ...r,
+      supplier: {
+        ...r.supplier,
+        trustSealed: trustMap.get(r.supplier.id)?.trustSealed ?? false,
+        trustSealExpiresAt: trustMap.get(r.supplier.id)?.trustSealExpiresAt ?? null,
+        memberSinceYear: trustMap.get(r.supplier.id)?.memberSinceYear ?? null,
+      },
+      ranking: ranking[i] ?? { index: i, score: 0, rank: i + 1, reasons: [] },
+    }))
     .sort((a, b) => (a.ranking?.rank ?? 0) - (b.ranking?.rank ?? 0));
 
   const priceStats = offers.length
