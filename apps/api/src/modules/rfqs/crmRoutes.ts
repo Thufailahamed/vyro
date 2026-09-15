@@ -12,6 +12,7 @@ import {
 import { requireSupplierRole } from '@vyro/auth';
 import { crm } from './crm';
 import { isFeatureEnabled } from '../../lib/featureFlags';
+import { recordAudit } from '../supplierProducts/repository';
 
 const router = new Hono<{ Bindings: Env }>();
 const S_ROLES = ['owner', 'sales', 'operations'] as const;
@@ -62,34 +63,58 @@ router.get('/leads/:id', async (c) => {
 });
 
 router.patch('/leads/:id/tag', async (c) => {
-  const { supplierId } = requireSupplier(c);
+  const { ctx, supplierId } = requireSupplier(c);
+  const leadId = c.req.param('id');
   const body = setTagSchema.parse(await c.req.json().catch(() => null));
   try {
-    await crm.crmSetTag(c.env.DB, supplierId, c.req.param('id'), body.tag);
+    await crm.crmSetTag(c.env.DB, supplierId, leadId, body.tag);
   } catch (e) {
     throw httpError(400, 'VALIDATION_ERROR', (e as Error).message);
   }
+  await recordAudit(c.env.DB, {
+    actorUserId: ctx.userId,
+    action: 'crm.tag_set',
+    resourceType: 'lead',
+    resourceId: leadId,
+    metadata: { supplierId, tag: body.tag },
+  });
   return c.json({ tag: body.tag });
 });
 
 router.patch('/leads/:id/status', async (c) => {
-  const { supplierId } = requireSupplier(c);
+  const { ctx, supplierId } = requireSupplier(c);
+  const leadId = c.req.param('id');
   const body = setStatusSchema.parse(await c.req.json().catch(() => null));
   try {
-    await crm.crmSetStatus(c.env.DB, supplierId, c.req.param('id'), body.status);
+    await crm.crmSetStatus(c.env.DB, supplierId, leadId, body.status);
   } catch (e) {
     const msg = (e as Error).message;
     if (/terminal/i.test(msg)) throw httpError(409, 'CONFLICT', msg);
     throw httpError(400, 'VALIDATION_ERROR', msg);
   }
+  await recordAudit(c.env.DB, {
+    actorUserId: ctx.userId,
+    action: 'crm.status_set',
+    resourceType: 'lead',
+    resourceId: leadId,
+    metadata: { supplierId, status: body.status },
+  });
   return c.json({ status: body.status });
 });
 
 router.post('/leads/:id/notes', async (c) => {
   const { ctx, supplierId } = requireSupplier(c);
+  const leadId = c.req.param('id');
   const body = addNoteSchema.parse(await c.req.json().catch(() => null));
   try {
-    const note = await crm.crmAddNote(c.env.DB, supplierId, c.req.param('id'), ctx.userId, body.body);
+    const note = await crm.crmAddNote(c.env.DB, supplierId, leadId, ctx.userId, body.body);
+    await recordAudit(c.env.DB, {
+      actorUserId: ctx.userId,
+      action: 'crm.note_added',
+      resourceType: 'lead',
+      resourceId: leadId,
+      metadata: { supplierId, notePreview: body.body.slice(0, 80) },
+    });
     return c.json({ note }, 201);
   } catch (e) {
     throw httpError(400, 'VALIDATION_ERROR', (e as Error).message);
