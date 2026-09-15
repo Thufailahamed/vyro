@@ -264,10 +264,9 @@ function CrmLeadCard({ rfqId, supplierId }: { rfqId: string; supplierId: string 
     queryKey: ['crm-lead-by-rfq', supplierId, rfqId],
     queryFn: async () => {
       const result = await api.get<{ leads: { id: string; rfqId: string }[]; nextCursor: string | null }>(
-        `/supplier/crm/leads?supplierId=${supplierId}&limit=100`,
+        `/supplier/crm/leads?supplierId=${supplierId}&rfqId=${encodeURIComponent(rfqId)}&limit=1`,
       );
-      const match = result.leads.find((l) => l.rfqId === rfqId);
-      return match?.id ?? null;
+      return result.leads[0]?.id ?? null;
     },
     retry: false,
   });

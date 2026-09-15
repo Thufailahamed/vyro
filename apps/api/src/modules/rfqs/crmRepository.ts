@@ -49,6 +49,7 @@ export const crmRepository = {
     const where = [eq(rfqSuppliers.supplierId, supplierId)];
     if (filter.tag) where.push(eq(rfqSuppliers.tag, filter.tag));
     if (filter.status) where.push(eq(rfqSuppliers.conversionStatus, filter.status));
+    if (filter.rfqId) where.push(eq(rfqSuppliers.rfqId, filter.rfqId));
     if (filter.from !== undefined) where.push(gte(rfqSuppliers.invitedAt, filter.from));
     if (filter.to !== undefined) where.push(lt(rfqSuppliers.invitedAt, filter.to));
     if (filter.cursor !== undefined) where.push(lt(rfqSuppliers.invitedAt, Number(filter.cursor)));

@@ -17,6 +17,7 @@ export const leadsListQuerySchema = z.object({
   to: z.coerce.number().int().nonnegative().optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
+  rfqId: z.string().min(1).optional(),
 });
 
 export const setTagSchema = z.object({
