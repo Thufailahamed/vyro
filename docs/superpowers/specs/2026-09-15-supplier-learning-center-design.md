@@ -173,12 +173,12 @@ CTA components check `LEARNING_CENTER_ENABLED` via shared feature-flag hook (`ap
 
 `apps/api/src/modules/supplierProducts/service.ts` (`publishProduct` flow):
 
-- Before persisting a publish for a supplier who currently has 0 published products, call `learningService.getOnboardingGate(supplierId)`.
-- If `required === true && missing.length > 0`: throw `TrainingRequiredError` (extends `DomainError` with `code: 'TRAINING_REQUIRED'` + `missing` payload).
+- Before persisting the **first ever** publish for a supplier, call `learningService.getOnboardingGate(supplierId)`. "First ever" is tracked by a per-supplier boolean `onboarding_gate_cleared_at INTEGER` on `suppliers` (added by migration `0043_learning_gate.sql`): if non-null, skip the gate on every subsequent publish/unpublish cycle.
+- If `onboarding_gate_cleared_at IS NULL && missing.length > 0`: throw `TrainingRequiredError` (extends `DomainError` with `code: 'TRAINING_REQUIRED'` + `missing` payload). On first successful pass-through (i.e. supplier has no missing lessons), persist `onboarding_gate_cleared_at = now` and proceed.
 - HTTP layer maps to **422 Unprocessable Entity** with `{ error: 'TRAINING_REQUIRED', missing: [{ slug, title }] }`.
 - Frontend surfaces this via existing `<TrainingGateNotice>` banner on the publish form.
 
-Note: the check is only enforced when `LEARNING_CENTER_ENABLED = true`. If flag is off, products publish normally.
+Note: the check is only enforced when `LEARNING_CENTER_ENABLED = true`. If flag is off, products publish normally and `onboarding_gate_cleared_at` is never read.
 
 ## 8. Error handling
 
@@ -283,6 +283,7 @@ apps/api/src/routes/supplier/learning.ts (re-exports routes)
 apps/api/src/routes/admin/learning.ts (re-exports routes)
 apps/api/migrations/0042_learning_seed.sql
 apps/api/migrations/0041_learning_schema.sql  (or rolled into 0042)
+apps/api/migrations/0043_learning_gate.sql   (adds suppliers.onboarding_gate_cleared_at)
 apps/web/src/supplier/learning/
   LearningIndex.tsx
   LessonPage.tsx
