@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@vyro/ui';
 import { useSupplierId } from './useSupplierId';
 import { SupplierErrorState, SupplierLoadingState } from './SupplierPageState';
+import { BuyLeadsSettingsSection } from './BuyLeadsSettingsSection';
 import {
   Building2Icon,
   WarehouseIcon,
@@ -26,6 +27,7 @@ import {
   PhoneIcon,
   MailIcon,
   UsersIcon,
+  SparklesIcon,
 } from '@/components/icons';
 
 type Supplier = { id: string; name: string; description: string | null; createdAt: number };
@@ -120,7 +122,7 @@ function Toggle({
   );
 }
 
-type TabKey = 'general' | 'logistics' | 'payouts' | 'notifications' | 'team';
+type TabKey = 'general' | 'logistics' | 'payouts' | 'notifications' | 'team' | 'buyleads';
 
 export function SupplierSettingsPage() {
   const { supplierId, role, supplierName } = useSupplierId();
@@ -319,6 +321,7 @@ export function SupplierSettingsPage() {
           { key: 'payouts', label: 'Payouts & Banking', icon: BanknoteIcon },
           { key: 'notifications', label: 'Notifications', icon: BellIcon },
           { key: 'team', label: 'Team & Session', icon: UsersIcon },
+          { key: 'buyleads', label: 'BuyLeads', icon: SparklesIcon },
         ].map((t) => {
           const Icon = t.icon;
           const isActive = tab === t.key;
@@ -738,6 +741,27 @@ export function SupplierSettingsPage() {
                   Sign Out
                 </Button>
               </div>
+            </Surface>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 6: BuyLeads (daily RFQ digest) */}
+      {tab === 'buyleads' && (
+        <div className="grid lg:grid-cols-3 gap-8">
+          <div className="space-y-2">
+            <h2 className="vyro-display text-lg font-bold text-ink flex items-center gap-2">
+              <SparklesIcon size={18} className="text-copper" />
+              BuyLeads Digest
+            </h2>
+            <p className="text-xs text-ink-3 leading-relaxed">
+              Receive a daily email at 07:00 Colombo listing new RFQs whose line items
+              fall under your subscribed categories. Free, unlimited, no dedup across days.
+            </p>
+          </div>
+          <div className="lg:col-span-2">
+            <Surface kind="elevated" className="p-6 border border-ink/10 shadow-soft-sm rounded-lg">
+              <BuyLeadsSettingsSection supplierId={supplierId} />
             </Surface>
           </div>
         </div>
