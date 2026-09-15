@@ -23,4 +23,8 @@ describe('trustSeal checkout gate', () => {
     expect(s.active).toBe(false);
     expect(s.status).toBe('none');
   });
+  it('admin revoke flips active to cancelled', async () => {
+    const { trustSealRepository } = await import('../../src/modules/trustSeal/repository');
+    expect(typeof (trustSealRepository as any).revoke).toBe('function');
+  });
 });

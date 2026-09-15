@@ -373,4 +373,23 @@ router.get('/disputed', async (c) => {
   return c.json({ orders: rows });
 });
 
+router.get('/trust-seal', async (c) => {
+  const { trustSealSubscriptions } = await import('@vyro/db/schema');
+  const db = getDb(c.env.DB);
+  const rows = await db.select().from(trustSealSubscriptions).limit(200).all();
+  return c.json({ subscriptions: rows });
+});
+
+router.post('/trust-seal/:supplierId/revoke', async (c) => {
+  const { trustSealRepository } = await import('../trustSeal/repository');
+  const supplierId = c.req.param('supplierId');
+  await trustSealRepository.revoke(c.env.DB, supplierId);
+  await auditAdmin({
+    ctx: c,
+    action: 'trustseal.revoke',
+    target: { type: 'supplier', id: supplierId },
+  });
+  return c.json({ ok: true });
+});
+
 export default router;
