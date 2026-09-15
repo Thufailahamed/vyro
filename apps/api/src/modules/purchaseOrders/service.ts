@@ -37,6 +37,9 @@ import { preOrderCreateCheck } from '../cross-border/service';
 import { metric } from '../../lib/metrics';
 import { availableCents, createDrawdownsForCheckout, dueAtForTerms, evaluateEligibility } from '../credit/service';
 import { countOverdue, countPaidOrders, ensureAutoFacility, getFacility } from '../credit/repository';
+import { isFeatureEnabled } from '../../lib/featureFlags';
+import { repeatOffers } from '../repeatOffers/service';
+import { REPEAT_OFFER_FLAG, REPEAT_OFFER_PERCENT } from '../repeatOffers/constants';
 import type { Env } from '../../env';
 
 interface QueueLike {
@@ -127,6 +130,14 @@ export const checkoutService = {
 
     const created: Array<{ poId: string; direction: 'domestic' | 'export' | 'import'; paymentMethod: 'payhere' | 'wire' }> = [];
     const now = Date.now();
+
+    // Repeat Offers: pre-compute eligibility once. Discount applied per-PO below.
+    const repeatOffersActive = await isFeatureEnabled(d1, REPEAT_OFFER_FLAG);
+    const repeatOfferList = repeatOffersActive
+      ? await repeatOffers.computeEligibility(d1, business.id, now)
+      : [];
+    const repeatOfferBySupplier = new Map(repeatOfferList.map((o) => [o.supplierId, o]));
+    const repeatDiscountBySupplier = new Map<string, number>();
     /** Undo POs already written when a later supplier's stock reservation fails. */
     const rollbackCreated = async () => {
       for (const c of created) {
@@ -198,15 +209,22 @@ export const checkoutService = {
           lineTotalCents: lineTotal,
         });
       }
+      // Repeat Offer discount: best-discount-wins (no existing PO-level discount source today).
+      const repeatOffer = repeatOfferBySupplier.get(supplierId);
+      const repeatDiscount = repeatOffer
+        ? Math.floor((subtotal * repeatOffer.percent) / 100)
+        : 0;
+      if (repeatDiscount > 0) repeatDiscountBySupplier.set(supplierId, repeatDiscount);
+      const finalSubtotal = subtotal - repeatDiscount;
       await insertPo(d1, {
         id: poId,
         poNumber,
         businessId: business.id,
         supplierId,
         status: 'pending',
-        subtotalCents: subtotal,
+        subtotalCents: finalSubtotal,
         deliveryFeeCents: 0,
-        totalCents: subtotal,
+        totalCents: finalSubtotal,
         currency: 'LKR',
         deliveryAddress: business.address,
         deliveryCity: business.city,
@@ -315,6 +333,11 @@ export const checkoutService = {
       poIds: created.map((c) => c.poId),
       count: created.length,
       crossBorder: created.map((c) => ({ poId: c.poId, direction: c.direction, paymentMethod: c.paymentMethod })),
+      repeatOfferDiscounts: Array.from(repeatDiscountBySupplier.entries()).map(([supplierId, discountCents]) => ({
+        supplierId,
+        discountCents,
+        percent: REPEAT_OFFER_PERCENT,
+      })),
       credit,
     };
   },

@@ -25,6 +25,7 @@ export * from './businessTypes';
 export * from './supplierTypes';
 export * from './rfq';
 export * from './rfqCrm';
+export * from './repeatOffers';
 export * from './kyc';
 export * from './credit';
 export * from './supplierReviews';

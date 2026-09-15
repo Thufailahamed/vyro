@@ -81,6 +81,8 @@ import storefrontRouter from './modules/storefront/routes';
 import kycSellerRouter from './modules/kyc/routes';
 import reconciliationRouter from './modules/reconciliation/routes';
 import whatsappRouter from './modules/whatsapp/routes';
+import repeatOffersRouter from './modules/repeatOffers';
+import repeatOffersSupplierRouter from './modules/repeatOffers/supplierIndex';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -196,6 +198,8 @@ app.route('/api/csp-report', cspReportRouter);
 app.route('/api/documents', documentsRouter);
 app.route('/api/rfqs', rfqRouter);
 app.route('/api/supplier/crm', crmRouter);
+app.route('/api/checkout/repeat-offers', repeatOffersRouter);
+app.route('/api/supplier/repeat-offers', repeatOffersSupplierRouter);
 app.route('/api/credit', creditRouter);
 app.route('/api/admin/credit', creditAdminRouter);
 app.route('/api', reviewsRouter);
