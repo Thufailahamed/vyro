@@ -19,3 +19,24 @@ export function ensureUniqueSlug(base: string, taken: Set<string>): string {
   }
   return `${base}-${Date.now()}`;
 }
+
+export interface SupplierTenure {
+  supplierSinceYear: number | null;
+  supplierSinceDate: string | null;
+  supplierMemberYears: number | null;
+}
+
+const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+
+export function getSupplierTenure(createdAt: unknown, now: number = Date.now()): SupplierTenure {
+  const nulls: SupplierTenure = { supplierSinceYear: null, supplierSinceDate: null, supplierMemberYears: null };
+  if (typeof createdAt !== 'number' || !Number.isFinite(createdAt)) return nulls;
+  const d = new Date(createdAt);
+  if (Number.isNaN(d.getTime())) return nulls;
+  if (createdAt > now) return nulls;
+  return {
+    supplierSinceYear: d.getUTCFullYear(),
+    supplierSinceDate: d.toISOString(),
+    supplierMemberYears: Math.max(0, Math.floor((now - createdAt) / YEAR_MS)),
+  };
+}

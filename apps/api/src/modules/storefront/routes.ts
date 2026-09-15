@@ -4,6 +4,7 @@ import type { Env } from '../../env';
 import { httpError } from '../../lib/errors';
 import { updateSupplierSlugSchema } from '@vyro/validation';
 import * as repo from './repository';
+import { getSupplierTenure } from './service';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -38,6 +39,7 @@ router.get('/suppliers/by-slug/:slug', async (c) => {
   const { trustSealRepository } = await import('../trustSeal/repository');
   const trustMap = await trustSealRepository.batchStatus(c.env.DB, [supplier.id]);
   const trust = trustMap.get(supplier.id);
+  const tenure = getSupplierTenure(supplier.createdAt, Date.now());
   return c.json({
     supplier: {
       id: supplier.id,
@@ -52,6 +54,9 @@ router.get('/suppliers/by-slug/:slug', async (c) => {
       trustSealed: trust?.trustSealed ?? false,
       trustSealExpiresAt: trust?.trustSealExpiresAt ?? null,
       memberSinceYear: trust?.memberSinceYear ?? null,
+      supplierSinceYear: tenure.supplierSinceYear,
+      supplierSinceDate: tenure.supplierSinceDate,
+      supplierMemberYears: tenure.supplierMemberYears,
     },
     offers,
   });
