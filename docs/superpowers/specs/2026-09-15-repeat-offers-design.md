@@ -37,28 +37,27 @@
 
 ```
                           ┌────────────────────────────────────┐
-checkout.cart ───────────►│ repeatOffers.computeEligibility     │
-                          │   (db query: trailing 90d spend    │
-                          │    per (supplier, business))       │
-                          └─────────────┬──────────────────────┘
-                                        │ list of {supplierId, percent}
-                                        ▼
-                          ┌────────────────────────────────────┐
-checkout.checkout ───────►│ repeatOffers.applyEligible          │
-                          │   injects discount on supplier's    │
-                          │   cart items before total compute   │
+checkout.checkout ───────►│ repeatOffers.applyForCart           │
+                          │   1. computeEligibility(businessId) │
+                          │   2. applyEligible(cartItems)       │
+                          │   3. return discounted cartItems   │
                           └────────────────────────────────────┘
                                         │
                                         ▼
                           ┌────────────────────────────────────┐
 supplier analytics ─────►│ repeatOffers.analyticsForSupplier   │
+                          │   (aggregated trailing-30d stats)  │
                           └────────────────────────────────────┘
+
+Web buyer surfaces:
+  cart page  ─► GET /api/checkout/repeat-offers (preview eligibility)
+  checkout   ─► POST /api/purchase-orders/checkout applies via service
 ```
 
 ### Module boundary
 
 - **NEW** `apps/api/src/modules/repeatOffers/`: eligibility + apply + analytics.
-- `checkoutService.checkout` calls `repeatOffers.applyEligible(d1, businessId, cartItems)` once after cart items are resolved but before totals are computed.
+- `checkoutService.checkout` calls `repeatOffers.applyForCart(d1, businessId, cartItems)` once after cart items are resolved but before totals are computed. Function call, no HTTP round-trip.
 - Eligibility is read-only against `purchase_orders` + `purchase_order_items` — no new tables, no writes.
 - Analytics reads from same tables aggregated.
 
@@ -76,10 +75,10 @@ Currency is LKR (Vyro's primary currency); threshold chosen as ~€500-equivalen
 
 **API:**
 - NEW `apps/api/src/modules/repeatOffers/repository.ts` — trailing-spend query.
-- NEW `apps/api/src/modules/repeatOffers/service.ts` — eligibility + apply + analytics.
-- NEW `apps/api/src/modules/repeatOffers/routes.ts` — 3 endpoints.
+- NEW `apps/api/src/modules/repeatOffers/service.ts` — `applyForCart` (eligibility + apply), `previewForBuyer` (read-only), `analyticsForSupplier`.
+- NEW `apps/api/src/modules/repeatOffers/routes.ts` — 2 HTTP endpoints (buyer preview + supplier analytics).
 - NEW `apps/api/src/modules/repeatOffers/index.ts` — Hono composition.
-- MODIFY `apps/api/src/modules/purchaseOrders/service.ts` — call `applyEligible` from `checkoutService.checkout`.
+- MODIFY `apps/api/src/modules/purchaseOrders/service.ts` — call `applyForCart` from `checkoutService.checkout`.
 - MODIFY `apps/api/src/index.ts` — register `repeatOffersRouter`.
 
 **Tests:**
@@ -106,13 +105,12 @@ No new tables. All eligibility computed from existing:
 
 ## API surface
 
-| Method | Path | Returns |
-|---|---|---|
-| GET | `/api/checkout/repeat-offers` | `{ offers: Array<{ supplierId: string; supplierName: string; percent: number; trailingSpendCents: number }> }` |
-| POST | `/api/checkout/apply-repeat-offers` | `{ applied: Array<{ supplierId: string; percent: number; discountCents: number }> }` — internal hook from checkout service |
-| GET | `/api/supplier/repeat-offers/analytics` | `{ triggeredCount, totalSavingsCents, byRetailer: Array<{ businessId, trailingSpendCents, triggeredAt }> }` |
+| Method | Path | Auth | Returns |
+|---|---|---|---|
+| GET | `/api/checkout/repeat-offers` | session | `{ offers: Array<{ supplierId: string; supplierName: string; percent: number; trailingSpendCents: number }> }` — preview eligibility for current buyer's cart suppliers |
+| GET | `/api/supplier/repeat-offers/analytics` | session + supplier role | `{ triggeredCount, totalSavingsCents, byRetailer: Array<{ businessId, trailingSpendCents, triggeredAt }> }` |
 
-`POST /api/checkout/apply-repeat-offers` is technically idempotent if called twice; intended for internal service-to-service only. Optionally gated by auth + flag.
+Internal: `repeatOffers.applyForCart(d1, businessId, cartItems)` — function call from `checkoutService.checkout`, no HTTP. Idempotent.
 
 ### Eligibility computation
 
@@ -149,8 +147,10 @@ async function computeEligibility(d1: D1Database, businessId: string):
 function applyEligible(cartItems: CartItem[], offers: RepeatOffer[]) {
   const offersBySupplier = new Map(offers.map(o => [o.supplierId, o]));
   return cartItems.map(item => {
+    // Best-discount-wins: skip lines that already carry a discount from another source.
+    if (item.discountCents && item.discountCents > 0) return item;
     const offer = offersBySupplier.get(item.supplierId);
-    if (!offer) return { ...item, discountCents: 0 };
+    if (!offer) return item;
     const discount = Math.floor(item.subtotalCents * offer.percent / 100);
     return { ...item, discountCents: discount, appliedOffer: { percent: offer.percent } };
   });
@@ -183,7 +183,7 @@ Two metrics: number of repeat offers triggered in trailing 30d + total savings e
 | 2 | 10% of suppliers, opt-in via email | Random sample + explicit opt-in |
 | 3 | All suppliers | One-shot flip |
 
-Flag gates `/api/checkout/repeat-offers` (404 if off) + `/api/supplier/repeat-offers/analytics` (404 if off). Hook into checkout service still runs (server-side opt-out via flag too, controlled separately to allow gradual enablement).
+Flag gates `/api/checkout/repeat-offers` (404 if off) + `/api/supplier/repeat-offers/analytics` (404 if off). Hook into checkout service reads flag at call-site too — if off, `applyForCart` returns cartItems unchanged.
 
 ## Tests
 
