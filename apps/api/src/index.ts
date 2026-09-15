@@ -85,6 +85,7 @@ import repeatOffersRouter from './modules/repeatOffers';
 import repeatOffersSupplierRouter from './modules/repeatOffers/supplierIndex';
 import buyLeadsRouter from './modules/buyLeads';
 import trustSealRouter from './modules/trustSeal';
+import learningRouter from './modules/learning';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -204,6 +205,7 @@ app.route('/api/checkout/repeat-offers', repeatOffersRouter);
 app.route('/api/supplier/repeat-offers', repeatOffersSupplierRouter);
 app.route('/api/supplier/buyleads/subs', buyLeadsRouter);
 app.route('/api/suppliers/trust-seal', trustSealRouter);
+app.route('/api/supplier/learning', learningRouter);
 app.route('/api/credit', creditRouter);
 app.route('/api/admin/credit', creditAdminRouter);
 app.route('/api', reviewsRouter);
