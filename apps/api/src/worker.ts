@@ -71,6 +71,7 @@ export default {
       case '30 1 * * *': {
         // BuyLeads daily digest. Lanka = UTC+5:30, so 01:30 UTC = 07:00 Colombo.
         ctx.waitUntil(runBuyLeadsDigest(env));
+        ctx.waitUntil(import('./cron/trustSeal').then((m) => m.handleTrustSealExpiry(env)));
         break;
       }
       default:

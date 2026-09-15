@@ -57,6 +57,12 @@ export const CRON_JOBS: CronJob[] = [
     description: 'Daily BuyLeads digest emailed to subscribed suppliers',
     handler: async () => undefined,
   },
+  {
+    name: 'trustSeal.expiry',
+    schedule: '30 1 * * *',
+    description: 'Expire past-due TrustSEAL subs + 30d/7d renewal reminders',
+    handler: async () => undefined,
+  },
 ];
 
 export function getCronJob(name: string): CronJob | undefined {
