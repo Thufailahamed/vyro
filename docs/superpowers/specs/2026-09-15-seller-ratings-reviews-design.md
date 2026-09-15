@@ -33,7 +33,7 @@ Notifications: reuse `modules/notifications/dispatcher.ts` (`notifySupplierOrg`,
 
 Backend `apps/api/src/modules/reviews/`:
 - `repository.ts`: fix sort, add `findImagesByReviewIds`, `findRepliesByReviewIds`, `countHelpful`, `toggleHelpful` (insert-or-ignore), `updateReview` (rating/body/editedAt), `findOpenFlagByReview`, `setHelpfulCount`.
-- `service.ts`: fix eligibility (explicit disputed -> dispute_open, allow delivered/completed), `editReview` (owner + <=7d + published only), `deleteReviewByBuyer` (owner soft -> removed_by_admin? new `removed_by_buyer` or reuse removed_by_admin — pick `removed_by_admin` to avoid enum churn, recompute agg), `toggleHelpful`, `addImages` (limit 3, mime image/*, <=5MB), `flagReview` add duplicate guard + allow buyer role.
+- `service.ts`: fix eligibility (explicit `disputed` -> `dispute_open` checked first, then allow `delivered` only), `editReview` (owner + <=7d + published only), `deleteReviewByBuyer` (owner soft-delete reusing `removed_by_admin` status to avoid enum churn, recompute agg), `toggleHelpful`, `addImages` (limit 3, mime image/*, <=5MB), `flagReview` add duplicate pending-flag guard (409) + allow buyer role via `POST /api/reviews/:id/flag`.
 - `routes.ts`: `PATCH /api/reviews/:id`, `DELETE /api/reviews/:id`, `POST /api/reviews/:id/helpful` + `DELETE`, extend `GET /suppliers/:id/reviews` to include `reply, images[], helpfulCount, canEdit`, `POST /api/reviews/images/upload-direct`. Rate-limit 60/min/user on POST/PATCH/helpful/flag (reuse CRM pattern).
 - `validation supplierReviews.ts`: `editReviewSchema`, `helpfulSchema` (empty), `uploadDirect` handled as multipart not Zod, extend `submitReviewSchema` with optional `imageR2Keys: z.array(z.string().max(500)).max(3)`.
 
