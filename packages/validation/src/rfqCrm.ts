@@ -47,6 +47,11 @@ export const leadRowSchema = z.object({
   quotedAt: z.number().nullable(),
   orderId: z.string().nullable(),
   orderValueCents: z.number().nullable(),
+  buyerBusinessId: z.string(),
+  buyerName: z.string(),
+  buyerKycLevel: z.enum(['none', 'basic', 'enhanced']),
+  buyerVerifiedAt: z.number().nullable(),
+  buyerVerified: z.boolean(),
 });
 
 export const leadNoteRowSchema = z.object({
