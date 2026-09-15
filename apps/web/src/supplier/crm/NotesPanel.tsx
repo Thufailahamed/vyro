@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAddLeadNote, useLeadNotes } from '../useLeadManager';
 import { useToast } from '@vyro/ui';
+import type { LeadNoteRow } from '@vyro/validation';
 
 interface Props {
   supplierId: string;
@@ -28,6 +29,12 @@ export function NotesPanel({ supplierId, leadId }: Props) {
     );
   }
 
+  // Aggregate paginated pages into a single list.
+  type NotesPage = { notes: LeadNoteRow[]; nextCursor: string | null };
+  const pages = ((notes.data as unknown as { pages?: NotesPage[] } | undefined)?.pages ?? []) as NotesPage[];
+  const flatNotes = pages.flatMap((p) => p.notes);
+  const hasMore = !!notes.hasNextPage;
+
   return (
     <div className="space-y-3">
       <div className="text-xs font-semibold uppercase tracking-wide text-ink-4">Notes</div>
@@ -35,15 +42,25 @@ export function NotesPanel({ supplierId, leadId }: Props) {
       <div className="space-y-2">
         {notes.isLoading ? (
           <div className="text-xs text-ink-4">Loading notes…</div>
-        ) : (notes.data?.notes ?? []).length === 0 ? (
+        ) : flatNotes.length === 0 ? (
           <div className="text-xs text-ink-4">No notes yet.</div>
         ) : (
-          (notes.data?.notes ?? []).map((n) => (
+          flatNotes.map((n: LeadNoteRow) => (
             <div key={n.id} className="rounded-md border border-ink-3 bg-paper p-2 text-sm">
               <div className="text-xs text-ink-4">{new Date(n.createdAt).toLocaleString()}</div>
               <div className="whitespace-pre-wrap text-ink-1">{n.body}</div>
             </div>
           ))
+        )}
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => notes.fetchNextPage()}
+            disabled={notes.isFetchingNextPage}
+            className="text-xs text-ink-2 underline hover:text-ink-1 disabled:opacity-50"
+          >
+            {notes.isFetchingNextPage ? 'Loading…' : 'Load older'}
+          </button>
         )}
       </div>
 

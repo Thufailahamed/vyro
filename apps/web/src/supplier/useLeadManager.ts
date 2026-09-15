@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type {
   LeadsListQuery,
@@ -60,12 +60,15 @@ export function useCrmSummary(supplierId: string) {
   });
 }
 
-export function useLeadNotes(supplierId: string, leadId: string, cursor?: string) {
-  return useQuery({
-    queryKey: ['crm-lead-notes', supplierId, leadId, cursor ?? null],
-    queryFn: () =>
+export function useLeadNotes(supplierId: string, leadId: string) {
+  return useInfiniteQuery({
+    queryKey: ['crm-lead-notes', supplierId, leadId],
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage: { notes: LeadNoteRow[]; nextCursor: string | null }) =>
+      lastPage.nextCursor ?? undefined,
+    queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
       api.get<{ notes: LeadNoteRow[]; nextCursor: string | null }>(
-        `/supplier/crm/leads/${leadId}/notes${withSupplierId(supplierId, { cursor, limit: 25 })}`,
+        `/supplier/crm/leads/${leadId}/notes${withSupplierId(supplierId, { cursor: pageParam, limit: 25 })}`,
       ),
     enabled: !!supplierId && !!leadId,
     retry: false,
