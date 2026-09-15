@@ -73,13 +73,12 @@ export async function reviewBuyerKyc(args: {
 
 export async function listPendingKycBusinesses(env: Env): Promise<unknown[]> {
   const db = getDb(env.DB);
-  // Pending = has kycLevel='none' but countryCode != 'LK' (foreign buyer who started flow).
-  // In v1 the submission path always writes kycLevel='none' and stamps kycVerifiedAt=null.
+  // Pending = kycLevel='none'. Since the Verified buyer badge opened KYC to
+  // domestic businesses too, LK rows are included (not only foreign buyers).
   // Admin surfaces this list via /api/admin/kyc/queue.
   return db
     .select()
     .from(businesses)
     .where(eq(businesses.kycLevel, 'none'))
-    .all()
-    .then((rows) => rows.filter((r) => r.countryCode !== 'LK'));
+    .all();
 }

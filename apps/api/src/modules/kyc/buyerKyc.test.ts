@@ -130,11 +130,23 @@ describe('buyer KYC', () => {
     expect(fakeUpdates[0]!.values).toMatchObject({ kycLevel: 'none' });
   });
 
-  it('listPendingKycBusinesses filters to foreign only', async () => {
+  it('listPendingKycBusinesses includes domestic LK too', async () => {
     fakeRows.push({ id: 'b1', countryCode: 'US', kycLevel: 'none' });
     fakeRows.push({ id: 'b2', countryCode: 'LK', kycLevel: 'none' });
     fakeRows.push({ id: 'b3', countryCode: 'GB', kycLevel: 'none' });
     const rows = (await listPendingKycBusinesses({} as Env)) as any[];
-    expect(rows.map((r) => r.id).sort()).toEqual(['b1', 'b3']);
+    expect(rows.map((r) => r.id).sort()).toEqual(['b1', 'b2', 'b3']);
+  });
+
+  it('submitBuyerKyc accepts domestic LK business', async () => {
+    fakeRows.push({ id: 'bLK', countryCode: 'LK', taxId: 'TAX-1' });
+    await submitBuyerKyc({
+      env: {} as Env,
+      businessId: 'bLK',
+      level: 'basic',
+      documentUrls: ['https://docs.example/d.pdf'],
+      submittedBy: 'u1',
+    });
+    expect(fakeUpdates[0]!.values).toMatchObject({ kycLevel: 'none', kycVerifiedAt: null, kycVerifiedBy: null });
   });
 });

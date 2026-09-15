@@ -49,7 +49,6 @@ export function BuyerKycPage() {
   const kycLevel = business.data?.business?.kycLevel ?? 'none';
   const verifiedAt = business.data?.business?.kycVerifiedAt;
   const country = business.data?.business?.countryCode ?? 'LK';
-  const isForeign = country !== 'LK';
 
   return (
     <div className="max-w-3xl mx-auto py-10 space-y-6">
@@ -66,7 +65,7 @@ export function BuyerKycPage() {
         </span>
         <h1 className="text-3xl font-bold text-ink-1 tracking-tight">Buyer KYC</h1>
         <p className="text-sm text-ink-3 max-w-2xl">
-          Required once before checkout for businesses domiciled outside Sri Lanka.
+          Verify once to earn the Verified buyer badge suppliers see on your RFQs.
           Submitted documents are reviewed manually within 1 business day.
         </p>
       </header>
@@ -80,8 +79,8 @@ export function BuyerKycPage() {
             </div>
             <div className="text-[11px] font-mono text-ink-4 mt-1">
               Country: <span className="font-bold">{country}</span>
-              {!isForeign && (
-                <span className="ml-2 text-emerald-700">(domestic — KYC not required)</span>
+              {kycLevel === 'none' && (
+                <span className="ml-2 text-amber">(unverified)</span>
               )}
             </div>
           </div>
@@ -89,7 +88,7 @@ export function BuyerKycPage() {
         </div>
       </section>
 
-      {isForeign && kycLevel === 'none' && (
+      {kycLevel === 'none' && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
