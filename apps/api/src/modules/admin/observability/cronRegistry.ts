@@ -51,6 +51,12 @@ export const CRON_JOBS: CronJob[] = [
     description: 'Prune queue_events rows older than QUEUE_EVENTS_RETENTION_DAYS',
     handler: async () => undefined,
   },
+  {
+    name: 'buyLeads.dailyDigest',
+    schedule: '30 1 * * *',
+    description: 'Daily BuyLeads digest emailed to subscribed suppliers',
+    handler: async () => undefined,
+  },
 ];
 
 export function getCronJob(name: string): CronJob | undefined {

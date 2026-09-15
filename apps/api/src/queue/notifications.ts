@@ -39,6 +39,12 @@ export async function handleNotificationsBatch(
         recordQueueMetric(env, 'queue.ack', 'notifications', Date.now() - t0);
         continue;
       }
+      if (body.kind === 'buyleads_digest') {
+        await handleBuyLeadsDigest(env, body);
+        msg.ack();
+        recordQueueMetric(env, 'queue.ack', 'notifications', Date.now() - t0);
+        continue;
+      }
       // Shape A: buyer/supplier notification
       const notificationId = body.notificationId;
       const userId = body.userId;
@@ -123,6 +129,31 @@ async function handleAdminAlertEmail(env: Env, body: Record<string, unknown>): P
     severity: sev,
   });
   await sendEmailOrThrow(env, { to: recipientEmail, subject, html, text: `${title}\n\n${text}` });
+}
+
+/**
+ * BuyLeads digest: pre-rendered HTML body + subject, single recipient per supplier.
+ */
+async function handleBuyLeadsDigest(env: Env, body: Record<string, unknown>): Promise<void> {
+  const recipientUserId = body.recipientUserId;
+  const recipientEmail = body.recipientEmail;
+  const subject = body.subject;
+  const html = body.body;
+  const link = body.link;
+  if (
+    typeof recipientUserId !== 'string' ||
+    typeof recipientEmail !== 'string' ||
+    typeof subject !== 'string' ||
+    typeof html !== 'string'
+  ) {
+    return;
+  }
+  await sendEmailOrThrow(env, {
+    to: recipientEmail,
+    subject,
+    html,
+    text: typeof link === 'string' ? `${html.replace(/<[^>]+>/g, '')}\n\n${link}` : html.replace(/<[^>]+>/g, ''),
+  });
 }
 
 /**

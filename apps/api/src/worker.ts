@@ -12,6 +12,7 @@ import {
 } from './cron/handlers';
 import { handleQueueEventsPrune } from './cron/queue-events-prune';
 import { runObservabilitySweep } from './cron/observabilitySweep';
+import { runBuyLeadsDigest } from './cron/buyLeads';
 import { handleAuditBatch } from './queue/audit';
 import { handleNotificationsBatch } from './queue/notifications';
 import type { Env } from './env';
@@ -65,6 +66,11 @@ export default {
         ctx.waitUntil(handleFxRefresh(env));
         const dayOfWeek = new Date().getUTCDay();
         if (dayOfWeek === 1) ctx.waitUntil(handleSanctionsRefresh(env));
+        break;
+      }
+      case '30 1 * * *': {
+        // BuyLeads daily digest. Lanka = UTC+5:30, so 01:30 UTC = 07:00 Colombo.
+        ctx.waitUntil(runBuyLeadsDigest(env));
         break;
       }
       default:
