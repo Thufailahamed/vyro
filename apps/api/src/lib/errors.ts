@@ -6,6 +6,7 @@ export type ErrorCode =
   | 'CONFIRM_FAILED'
   | 'FORBIDDEN'
   | 'NOT_FOUND'
+  | 'FEATURE_DISABLED'
   | 'CONFLICT'
   | 'RATE_LIMITED'
   | 'PAYLOAD_TOO_LARGE'

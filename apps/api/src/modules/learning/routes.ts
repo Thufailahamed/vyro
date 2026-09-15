@@ -38,7 +38,7 @@ async function ensureSupplierRole(c: any): Promise<{ ctx: Ctx; supplierId: strin
 router.use('*', session());
 router.use('*', async (c, next) => {
   if (!(await isFeatureEnabled(c.env.DB, FLAG))) {
-    throw httpError(404, 'NOT_FOUND', 'Learning center disabled');
+    throw httpError(404, 'FEATURE_DISABLED', 'Learning center disabled');
   }
   await next();
 });

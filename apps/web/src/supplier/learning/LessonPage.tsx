@@ -4,6 +4,7 @@ import { useSupplierId } from '../useSupplierId';
 import { useLesson, useCompleteArticle } from './hooks/useLearning';
 import { renderLessonMarkdown } from './markdownSafe';
 import { QuizForm } from './QuizForm';
+import { ApiError } from '@/lib/api';
 
 export function LessonPage() {
   const { supplierId } = useSupplierId();
@@ -21,6 +22,24 @@ export function LessonPage() {
   }
 
   if (isError) {
+    if (error instanceof ApiError && error.code === 'FEATURE_DISABLED') {
+      return (
+        <div className="space-y-3">
+          <Link
+            to="/supplier/learning"
+            className="inline-flex items-center gap-1 text-xs text-ink-3 hover:text-volt transition-colors"
+          >
+            <ArrowLeftIcon size={12} /> Back to training
+          </Link>
+          <div className="rounded-2xl border border-ink/10 bg-paper p-8 text-center">
+            <h1 className="text-lg font-semibold text-ink">Training center unavailable</h1>
+            <p className="mt-1 text-sm text-ink-3">
+              The training center is not enabled in this environment yet.
+            </p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="rounded-2xl border border-rose/30 bg-rose/5 p-6 text-sm text-rose">
         Failed to load lesson: {(error as Error)?.message ?? 'unknown error'}

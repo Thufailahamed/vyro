@@ -3,6 +3,7 @@ import { GraduationCapIcon, CheckCircleIcon, CheckIcon, ClockIcon } from '@/comp
 import { useSupplierId } from '../useSupplierId';
 import { useLessons, useOnboardingGate } from './hooks/useLearning';
 import type { LessonSummary } from '@vyro/validation';
+import { ApiError } from '@/lib/api';
 
 type Status = 'not_started' | 'article' | 'passed';
 const STATUS: Record<Status, { label: string; chip: string; dot: string }> = {
@@ -191,6 +192,32 @@ export function LearningIndex() {
   }
 
   if (isError) {
+    if (error instanceof ApiError && error.code === 'FEATURE_DISABLED') {
+      return (
+        <div className="space-y-6">
+          <div className="relative overflow-hidden rounded-2xl border border-ink/10 bg-gradient-to-br from-void to-ink p-6 text-paper">
+            <div className="flex items-start gap-4">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-volt/15 text-volt border border-volt/30">
+                <GraduationCapIcon size={22} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-volt">
+                  Supplier training
+                </div>
+                <h1 className="mt-1 text-2xl font-semibold">Training center</h1>
+                <p className="mt-1 text-sm text-paper/70 max-w-2xl">
+                  The training center is not enabled for this environment yet. Short articles
+                  and quick quizzes will appear here once it ships.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-xl border border-dashed border-ink/15 bg-paper/50 p-6 text-center text-sm text-ink-3">
+            Coming soon — check back shortly.
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="rounded-2xl border border-rose/30 bg-rose/5 p-6 text-sm text-rose">
         Failed to load training: {(error as Error)?.message ?? 'unknown error'}
