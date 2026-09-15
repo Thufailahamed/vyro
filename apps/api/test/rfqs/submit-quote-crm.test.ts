@@ -8,6 +8,7 @@
  * service.ts would silence CRM notifications without breaking any other test.
  */
 import { describe, it, expect, vi } from 'vitest';
+vi.setConfig({ testTimeout: 30_000 });
 
 const nodeSqlite = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports

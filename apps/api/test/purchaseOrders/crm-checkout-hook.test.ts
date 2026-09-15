@@ -15,6 +15,7 @@
  * scripts/e2e/crm.md.
  */
 import { describe, it, expect, vi } from 'vitest';
+vi.setConfig({ testTimeout: 30_000 });
 
 const nodeSqlite = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports

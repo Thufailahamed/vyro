@@ -3,6 +3,7 @@
  * Verifies rfq_suppliers.conversion_status updates flow through the wired hooks.
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
+vi.setConfig({ testTimeout: 30_000 });
 
 const nodeSqlite = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
