@@ -19,6 +19,9 @@ interface StorefrontData {
     trustSealed?: boolean;
     trustSealExpiresAt?: number | null;
     memberSinceYear?: number | null;
+    supplierSinceYear?: number | null;
+    supplierSinceDate?: string | null;
+    supplierMemberYears?: number | null;
   };
   offers: StorefrontOffer[];
 }
@@ -60,6 +63,9 @@ export function StorefrontPage(): JSX.Element {
         trustSealed={data.supplier.trustSealed}
         trustSealExpiresAt={data.supplier.trustSealExpiresAt}
         memberSinceYear={data.supplier.memberSinceYear}
+        supplierSinceYear={data.supplier.supplierSinceYear}
+        supplierMemberYears={data.supplier.supplierMemberYears}
+        supplierSinceDate={data.supplier.supplierSinceDate}
       />
       <section>
         <div className="vyro-kicker text-copper mb-3">Published products</div>

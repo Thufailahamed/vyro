@@ -1,6 +1,7 @@
 import type { JSX } from 'react';
 import { RatingStars } from '@/reviews/RatingStars';
 import { TrustSealBadge } from '@/components/TrustSealBadge';
+import { MemberSinceBadge } from '@/components/MemberSinceBadge';
 
 export interface SupplierHeroProps {
   name: string;
@@ -12,6 +13,9 @@ export interface SupplierHeroProps {
   trustSealed?: boolean | undefined;
   trustSealExpiresAt?: number | null | undefined;
   memberSinceYear?: number | null | undefined;
+  supplierSinceYear?: number | null | undefined;
+  supplierMemberYears?: number | null | undefined;
+  supplierSinceDate?: string | null | undefined;
 }
 
 export function SupplierHero(props: SupplierHeroProps): JSX.Element {
@@ -29,6 +33,11 @@ export function SupplierHero(props: SupplierHeroProps): JSX.Element {
               active={!!props.trustSealed}
               memberSinceYear={props.memberSinceYear ?? null}
               expiresAt={props.trustSealExpiresAt ?? null}
+            />
+            <MemberSinceBadge
+              sinceYear={props.supplierSinceYear ?? null}
+              memberYears={props.supplierMemberYears ?? null}
+              sinceDate={props.supplierSinceDate ?? null}
             />
           </div>
         </div>
