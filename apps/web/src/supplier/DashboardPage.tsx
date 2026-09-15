@@ -22,6 +22,7 @@ import {
   UsersIcon,
   FileTextIcon,
   ChevronRightIcon,
+  TargetIcon,
 } from '@/components/icons';
 import { formatCompactLKR, formatLKR } from '@/lib/format';
 import { useSupplierId } from './useSupplierId';
@@ -283,6 +284,17 @@ export function SupplierDashboardPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <Link to="/supplier/leads">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="bg-paper/10 text-paper border-paper/20 hover:bg-paper/15 hover:border-volt/50 text-xs font-semibold"
+                data-testid="dashboard-leads-link"
+              >
+                <TargetIcon size={13} />
+                <span>Leads Inbox</span>
+              </Button>
+            </Link>
             <Link to="/supplier/orders">
               <Button
                 variant="secondary"

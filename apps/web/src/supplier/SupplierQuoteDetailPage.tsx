@@ -11,6 +11,9 @@ import { useToast } from '@vyro/ui';
 import { RfqDocsUpload } from '@/components/RfqDocsUpload';
 import { AiQuoteCopilotCard } from './components/AiQuoteCopilotCard';
 import type { AiQuoteDraft } from '@vyro/ai';
+import { useLead, useSetLeadStatus, useSetLeadTag } from './useLeadManager';
+import { TagPicker } from './crm/TagPicker';
+import { ConversionBadge } from './crm/ConversionBadge';
 
 interface QuoteLine {
   rfqItemId?: string | undefined;
@@ -156,6 +159,10 @@ export function SupplierQuoteDetailPage() {
       </div>
       {error && <div className="mt-4"><ErrorBanner message={error} /></div>}
 
+      <Surface className="mt-4 p-5">
+        <CrmLeadCard rfqId={rfqId!} supplierId={supplierId} />
+      </Surface>
+
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <Surface className="p-5">
           <h2 className="font-semibold">Delivery & terms</h2>
@@ -242,6 +249,71 @@ export function SupplierQuoteDetailPage() {
           </div>
         </Surface>
       )}
+    </div>
+  );
+}
+
+function CrmLeadCard({ rfqId, supplierId }: { rfqId: string; supplierId: string }) {
+  const lead = useLead(supplierId, '');
+  const setStatus = useSetLeadStatus(supplierId);
+  const setTag = useSetLeadTag(supplierId);
+
+  // Look up lead by rfqId via the list endpoint. Keep this lazy and tolerant —
+  // if LEAD_MANAGER_ENABLED is off we just hide the card.
+  const lookup = useQuery({
+    queryKey: ['crm-lead-by-rfq', supplierId, rfqId],
+    queryFn: async () => {
+      const result = await api.get<{ leads: { id: string; rfqId: string }[]; nextCursor: string | null }>(
+        `/supplier/crm/leads?supplierId=${supplierId}&limit=100`,
+      );
+      const match = result.leads.find((l) => l.rfqId === rfqId);
+      return match?.id ?? null;
+    },
+    retry: false,
+  });
+
+  const leadId = lookup.data ?? null;
+  const detail = useLead(supplierId, leadId ?? '');
+
+  if (lookup.isError || (lookup.data === null && !lookup.isLoading)) {
+    return (
+      <div className="space-y-2">
+        <h2 className="font-semibold">Lead</h2>
+        <p className="text-sm text-ink-3">Lead Manager is not enabled on your platform.</p>
+      </div>
+    );
+  }
+
+  if (lookup.isLoading || !leadId || !detail.data?.lead) {
+    return (
+      <div className="space-y-2">
+        <h2 className="font-semibold">Lead</h2>
+        <p className="text-sm text-ink-3">Loading lead…</p>
+      </div>
+    );
+  }
+
+  const row = detail.data.lead;
+  void lead; // reference to keep the hook call stable
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold">Lead</h2>
+        <ConversionBadge status={row.conversionStatus} />
+      </div>
+      <TagPicker
+        value={row.tag}
+        onChange={(next) => setTag.mutate({ leadId, tag: next })}
+        disabled={setTag.isPending}
+      />
+      <div className="text-xs text-ink-3">
+        Quoted {row.quotedAt ? new Date(row.quotedAt).toLocaleString() : '—'}{' '}
+        · Order {row.orderId ?? '—'}
+      </div>
+      <Link to="/supplier/leads" className="inline-block text-xs font-semibold text-ink-1 underline">
+        Open in Leads Inbox →
+      </Link>
     </div>
   );
 }

@@ -26,6 +26,7 @@ import {
   XIcon,
   SparklesIcon,
   FileTextIcon,
+  TargetIcon,
 } from '@/components/icons';
 
 interface SupplierNavItem {
@@ -56,6 +57,7 @@ const NAV_GROUPS: SupplierNavGroup[] = [
       { to: '/supplier', label: 'Dashboard', icon: LayoutGridIcon, end: true },
       { to: '/supplier/orders', label: 'Orders', icon: PackageIcon },
       { to: '/supplier/quotes', label: 'Quote Requests', icon: FileTextIcon },
+      { to: '/supplier/leads', label: 'Leads', icon: TargetIcon },
       { to: '/supplier/deliveries', label: 'Deliveries', icon: TruckIcon },
       { to: '/supplier/payments', label: 'Payments', icon: BanknoteIcon },
       { to: '/supplier/accounts', label: 'Accounts', icon: BanknoteIcon },
