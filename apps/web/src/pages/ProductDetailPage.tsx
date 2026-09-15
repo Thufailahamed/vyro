@@ -26,6 +26,7 @@ import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, ProductImage, Surface } from '@/components/brand/Surface';
 import { resolveCatalogImage } from '@/lib/catalogImages';
 import { SupplierStarsLine } from '@/reviews/SupplierStarsLine';
+import { SupplierReviewsPanel } from '@/reviews/SupplierReviewsPanel';
 
 function availabilityLabel(status: string | undefined): { label: string; tone: 'good' | 'warn' | 'bad' | 'neutral' } {
   switch (status) {
@@ -861,6 +862,11 @@ export function ProductDetailPage() {
             </div>
           )}
         </PageSection>
+        {sortedOffers.length > 0 && sortedOffers[0] && (
+          <PageSection title="Supplier reviews">
+            <SupplierReviewsPanel supplierId={sortedOffers[0].supplier.id} />
+          </PageSection>
+        )}
       </section>
     </div>
   );
