@@ -62,6 +62,17 @@ router.post('/', session(), async (c) => {
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
 
   await ensureSupplierMember(c.env.DB, parsed.data.supplierId, ctx.userId);
+
+  // First-ever publish gate: require onboarding lessons completed when flag is on.
+  const { isFeatureEnabled } = await import('../../lib/featureFlags');
+  if (await isFeatureEnabled(c.env.DB, 'LEARNING_CENTER_ENABLED')) {
+    const { getOnboardingGate, clearOnboardingGateIfPassed } = await import('../learning/service');
+    const gate = await getOnboardingGate(c.env.DB, parsed.data.supplierId);
+    if (gate.required) {
+      throw httpError(422, 'VALIDATION_ERROR', 'TRAINING_REQUIRED', { missing: gate.missing });
+    }
+    await clearOnboardingGateIfPassed(c.env.DB, parsed.data.supplierId);
+  }
   const existing = await findOfferForSupplierProduct(
     c.env.DB,
     parsed.data.supplierId,
