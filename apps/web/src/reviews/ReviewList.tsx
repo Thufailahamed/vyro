@@ -1,10 +1,15 @@
 import { useEffect, useState, type JSX } from 'react';
+import { HelpfulButton } from './HelpfulButton';
+import { ReviewImageGrid } from './ReviewImageGrid';
 
 export interface ReviewItem {
   id: string;
   rating: number;
   body: string;
   createdAt: number;
+  helpfulCount?: number;
+  images?: Array<{ url: string; r2Key?: string }>;
+  reply?: { body: string; createdAt: number } | null;
 }
 
 export type ReviewSort = 'recent' | 'highest' | 'lowest';
@@ -15,27 +20,31 @@ export function ReviewList({ supplierId }: { supplierId: string }): JSX.Element 
   const [loading, setLoading] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  async function load(cursor: string | null, currentSort: ReviewSort, append: boolean) {
     setLoading(true);
-    const params = new URLSearchParams({ sort, limit: '10' });
-    if (nextCursor) params.set('cursor', nextCursor);
-    fetch(`/api/suppliers/${supplierId}/reviews?${params.toString()}`, { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j: unknown) => {
-        if (cancelled || !j || typeof j !== 'object') return;
-        const obj = j as { reviews?: ReviewItem[]; nextCursor?: string | null };
-        setItems(obj.reviews ?? []);
-        setNextCursor(obj.nextCursor ?? null);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+    try {
+      const params = new URLSearchParams({ sort: currentSort, limit: '10' });
+      if (cursor) params.set('cursor', cursor);
+      const res = await fetch(`/api/suppliers/${supplierId}/reviews?${params.toString()}`, {
+        credentials: 'include',
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [supplierId, sort, nextCursor]);
+      if (!res.ok) return;
+      const j = (await res.json()) as { reviews?: ReviewItem[]; nextCursor?: string | null };
+      setItems((prev) => (append ? [...prev, ...(j.reviews ?? [])] : (j.reviews ?? [])));
+      setNextCursor(j.nextCursor ?? null);
+    } catch {
+      /* ignore */
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    setItems([]);
+    setNextCursor(null);
+    void load(null, sort, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supplierId, sort]);
 
   return (
     <div className="space-y-3">
@@ -67,11 +76,28 @@ export function ReviewList({ supplierId }: { supplierId: string }): JSX.Element 
               <span className="text-gray-500">
                 {new Date(r.createdAt).toLocaleDateString()}
               </span>
+              <HelpfulButton reviewId={r.id} initialCount={r.helpfulCount ?? 0} />
             </div>
             <p className="text-sm text-gray-800">{r.body}</p>
+            <ReviewImageGrid images={r.images ?? []} />
+            {r.reply && (
+              <div className="mt-2 ml-4 border-l-2 border-gray-200 pl-3">
+                <p className="text-xs text-gray-500">Supplier reply</p>
+                <p className="text-sm text-gray-700">{r.reply.body}</p>
+              </div>
+            )}
           </li>
         ))}
       </ul>
+      {nextCursor && (
+        <button
+          onClick={() => load(nextCursor, sort, true)}
+          disabled={loading}
+          className="text-sm text-blue-600 underline disabled:opacity-50"
+        >
+          Load more
+        </button>
+      )}
     </div>
   );
 }
