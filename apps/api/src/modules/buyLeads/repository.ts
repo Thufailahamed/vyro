@@ -125,7 +125,7 @@ export const buyLeadsRepository = {
       .innerJoin(products, eq(products.id, rfqItems.productId))
       .where(and(
         eq(rfqs.status, 'open'),
-        eq(rfqs.isOpen, true),
+        eq(rfqs.isOpen, 1),
         gte(rfqs.createdAt, sinceMs),
         isNotNull(rfqs.publishedAt),
         isNotNull(rfqItems.productId),
