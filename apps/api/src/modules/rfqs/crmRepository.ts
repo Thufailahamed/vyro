@@ -62,7 +62,7 @@ export const crmRepository = {
 
     const hasMore = rows.length > limit;
     const slice = rows.slice(0, limit) as unknown as LeadRow[];
-    const nextCursor = hasMore ? String(rows[limit - 1].invitedAt) : null;
+    const nextCursor = hasMore ? String(rows[limit - 1]!.invitedAt) : null;
     return { leads: slice, nextCursor };
   },
 
@@ -157,7 +157,7 @@ export const crmRepository = {
       .limit(limit + 1);
     const hasMore = rows.length > limit;
     const slice = rows.slice(0, limit) as unknown as NoteRow[];
-    const nextCursor = hasMore ? String(rows[limit - 1].createdAt) : null;
+    const nextCursor = hasMore ? String(rows[limit - 1]!.createdAt) : null;
     return { notes: slice, nextCursor };
   },
 
