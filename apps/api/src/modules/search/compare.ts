@@ -4,6 +4,7 @@ import { getDb } from '@vyro/db';
 import { products, supplierProducts, suppliers, productImages } from '@vyro/db/schema';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
+import { computeRanking } from '../searchRanking/score';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -42,10 +43,22 @@ router.get('/products/:id/offers', async (c) => {
     .where(and(eq(supplierProducts.productId, productId), isNull(supplierProducts.deletedAt)))
     .all();
 
-  const ranked = offers
-    .filter((r) => r.offer.active)
-    .sort((a, b) => a.offer.priceCents - b.offer.priceCents)
-    .map((r, i) => ({ rank: i + 1, ...r }));
+  const activeOffers = offers.filter((r) => r.offer.active);
+  const ranking = computeRanking(
+    activeOffers.map((r) => ({
+      priceCents: r.offer.priceCents,
+      leadTimeDays: r.offer.leadTimeDays,
+      supplier: {
+        verificationStatus: r.supplier.verificationStatus,
+        reviewCount: r.supplier.reviewCount ?? 0,
+        reviewAvgX100: r.supplier.reviewAvg ?? 0,
+        lastReviewAt: r.supplier.lastReviewAt ?? null,
+      },
+    })),
+  );
+  const ranked = activeOffers
+    .map((r, i) => ({ ...r, ranking: ranking[i] ?? { index: i, score: 0, rank: i + 1, reasons: [] } }))
+    .sort((a, b) => (a.ranking?.rank ?? 0) - (b.ranking?.rank ?? 0));
 
   const priceStats = offers.length
     ? {
