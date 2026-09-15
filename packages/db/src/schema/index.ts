@@ -66,3 +66,4 @@ export * from './creditDrawdowns';
 export * from './supplierReviews';
 export * from './supplierReviewReplies';
 export * from './supplierReviewFlags';
+export * from './rfqSupplierNotes';

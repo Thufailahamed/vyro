@@ -91,10 +91,25 @@ export const rfqSuppliers = sqliteTable(
     invitedAt: integer('invited_at').notNull(),
     viewedAt: integer('viewed_at'),
     respondedAt: integer('responded_at'),
+    tag: text('tag'),
+    conversionStatus: text('conversion_status'),
+    quotedAt: integer('quoted_at'),
+    orderId: text('order_id'),
+    orderValueCents: integer('order_value_cents'),
   },
   (t) => ({
     rfqSupplierUniq: uniqueIndex('rfq_suppliers_uniq').on(t.rfqId, t.supplierId),
     supplierStatusIdx: index('rfq_suppliers_supplier_idx').on(t.supplierId, t.status),
+    supplierTagIdx: index('rfq_suppliers_supplier_tag_idx').on(
+      t.supplierId,
+      t.tag,
+      t.invitedAt,
+    ),
+    supplierConversionIdx: index('rfq_suppliers_supplier_status_idx').on(
+      t.supplierId,
+      t.conversionStatus,
+      t.invitedAt,
+    ),
   }),
 );
 
