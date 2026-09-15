@@ -94,6 +94,8 @@ const QuoteRequestsPage = lazy(() => import('./supplier/QuoteRequestsPage').then
 const SupplierQuoteDetailPage = lazy(() => import('./supplier/SupplierQuoteDetailPage').then((m) => ({ default: m.SupplierQuoteDetailPage })));
 const SupplierLeadsPage = lazy(() => import('./supplier/crm/LeadsPage').then((m) => ({ default: m.LeadsPage })));
 const SupplierVerificationPage = lazy(() => import('./supplier/VerificationPage').then((m) => ({ default: m.SupplierVerificationPage })));
+const SupplierLearningIndex = lazy(() => import('./supplier/learning/LearningIndex').then((m) => ({ default: m.LearningIndex })));
+const SupplierLessonPage = lazy(() => import('./supplier/learning/LessonPage').then((m) => ({ default: m.LessonPage })));
 
 function PageFallback() {
   return (
@@ -226,6 +228,8 @@ export default function App() {
         <Route path="quotes/:rfqId" element={<SupplierQuoteDetailPage />} />
         <Route path="leads" element={<SupplierLeadsPage />} />
         <Route path="verification" element={<SupplierVerificationPage />} />
+        <Route path="learning" element={<SupplierLearningIndex />} />
+        <Route path="learning/:slug" element={<SupplierLessonPage />} />
         <Route path="*" element={<Navigate to="/supplier" replace />} />
       </Route>
 

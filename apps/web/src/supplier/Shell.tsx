@@ -27,6 +27,7 @@ import {
   SparklesIcon,
   FileTextIcon,
   TargetIcon,
+  GraduationCapIcon,
 } from '@/components/icons';
 
 interface SupplierNavItem {
@@ -61,6 +62,7 @@ const NAV_GROUPS: SupplierNavGroup[] = [
       { to: '/supplier/deliveries', label: 'Deliveries', icon: TruckIcon },
       { to: '/supplier/payments', label: 'Payments', icon: BanknoteIcon },
       { to: '/supplier/accounts', label: 'Accounts', icon: BanknoteIcon },
+      { to: '/supplier/learning', label: 'Training center', icon: GraduationCapIcon },
     ],
   },
   {

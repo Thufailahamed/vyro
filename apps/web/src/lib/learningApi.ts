@@ -1,10 +1,10 @@
 import { api } from './api';
-import type {
-  LessonSummary,
-  LessonDetail,
-  QuizSubmissionResult,
-  OnboardingGate,
-  LearningTrack,
+import {
+  learningLessonDetailSchema,
+  type LessonSummary,
+  type QuizSubmissionResult,
+  type OnboardingGate,
+  type LearningTrack,
 } from '@vyro/validation';
 
 export const learningApi = {
@@ -15,7 +15,9 @@ export const learningApi = {
   },
   getLesson(supplierId: string, slug: string) {
     const qs = new URLSearchParams({ supplierId });
-    return api.get<LessonDetail>(`/supplier/learning/${encodeURIComponent(slug)}?${qs.toString()}`);
+    return api
+      .get<unknown>(`/supplier/learning/${encodeURIComponent(slug)}?${qs.toString()}`)
+      .then((raw) => learningLessonDetailSchema.parse(raw));
   },
   completeArticle(supplierId: string, slug: string) {
     const qs = new URLSearchParams({ supplierId });
