@@ -67,3 +67,4 @@ export * from './supplierReviews';
 export * from './supplierReviewReplies';
 export * from './supplierReviewFlags';
 export * from './rfqSupplierNotes';
+export * from './buyLeads';
