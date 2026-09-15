@@ -17,7 +17,17 @@
 5. **Submit a quote.** Click "Open in Quote detail" (or visit `/supplier/quotes/:rfqId`). Submit any quote. After success, return to the drawer — conversion badge has flipped to `quoted` and `Quoted <timestamp>` is populated (this is the markQuoted hook wired in `apps/api/src/modules/rfqs/service.ts:submitQuote`).
 6. **Notes.** Add a note via the drawer's `NotesPanel` (≤1000 chars, trimmed). Note appears at top of the feed with author + timestamp. Refresh — persists.
 7. **Filter.** Back on `/supplier/leads`. Use the Tag chip group to filter to `warm`. Confirm only tagged-warm rows show. Use Status chip group to filter to `quoted`. Combinations stack. "clear filters" link resets both.
-8. **Terminal state.** Set a lead to `won`. Try to flip it back to `contacted`. Expect 409 `CONFLICT` from the API; the UI surfaces the toast "lead is in terminal state…". The hook setOrdered also writes `won` + order id + order value cents — the row reflects that once an order exists (no checkout hook yet, see `apps/api/src/modules/purchaseOrders/service.ts` TODO at the insertPo call site).
+8. **Terminal state.** Set a lead to `won`. Try to flip it back to `contacted`. Expect 409 `CONFLICT` from the API; the UI surfaces the toast "lead is in terminal state…". The hook `markOrdered` writes `won` + order id + order value cents the moment an RFQ-linked checkout completes (the checkout body must include `rfqId` for the wire to fire — see "Hook contract" below).
+
+## Negative cases
+
+### Audit visibility
+
+After any PATCH `/leads/:id/{tag,status}` or POST `/leads/:id/notes`, an `audit_logs` row appears with `action ∈ {crm.tag_set, crm.status_set, crm.note_added}`, `resource_type='lead'`, `resource_id=<rfqSupplierId>`, and `metadata` containing `{ supplierId, tag | status | notePreview }`. Verify in `audit_logs` (admin query: `SELECT * FROM audit_logs WHERE resource_type='lead' ORDER BY created_at DESC LIMIT 20`).
+
+### Rate limit
+
+`PATCH /leads/:id/{tag,status}` and `POST /leads/:id/notes` are rate-limited at 60 req/min/user (key `crm-mutate`). Burst 70 mutations from one session in 60s → expect 429 on the 61st, with `Retry-After: 60`. GETs (`/leads`, `/leads/:id`, `/leads/:id/notes`, `/summary`) are unmetered.
 
 ## Negative cases
 
@@ -36,7 +46,24 @@
 ## Hook contract
 
 - `crm.markQuoted(d1, rfqSupplierId)` — fires once per accepted supplier quote. Idempotent at the row level (sets conversion_status='quoted' and quotedAt=now regardless of prior value).
-- `crm.markOrdered(d1, rfqId, supplierId, orderId, orderValueCents)` — fires when an RFQ-linked checkout completes. **Currently NOT wired** — purchase_orders.rfq_id is nullable and the checkout flow doesn't pass it. The TODO comment at `apps/api/src/modules/purchaseOrders/service.ts` documents the future wiring. Until that ships, RFQ-sourced orders won't auto-mark `won`; suppliers can still do it manually via the drawer's status picker.
+- `crm.markOrdered(d1, rfqId, supplierId, orderId, orderValueCents)` — fires when an RFQ-linked checkout completes. The checkout body MUST include `rfqId` so the `if (input.rfqId)` guard in `apps/api/src/modules/purchaseOrders/service.ts` invokes `markOrdered`. Without it the lead stays at `quoted` until the supplier manually flips it to `won`. Silent skip when the rfqId→supplier lead doesn't exist (defensive — orders from non-RFQ paths are unaffected).
+
+## Production enablement
+
+1. **Apply migrations** (one-time, before traffic):
+   ```sh
+   pnpm --filter @vyro/db exec wrangler d1 migrations apply DB --env=production
+   ```
+   Confirms `0035_supplier_crm.sql` + `0036_buy_lead_subscriptions.sql` are present in the output.
+2. **Flip the flag on** via the admin endpoint (RBAC: `feature_flag:write`):
+   ```sh
+   curl -X PUT "$API/api/admin/platform/feature-flags" \
+     -H "Cookie: session=$ADMIN_SESSION" \
+     -H "Content-Type: application/json" \
+     -d '{"value":{"LEAD_MANAGER_ENABLED":true},"expectedVersion":0}'
+   ```
+   Returns the new version. Repeat with `expectedVersion: <new>` to toggle off.
+3. **Smoke** with the walk above (steps 1–8).
 
 ## Data model assumptions
 
