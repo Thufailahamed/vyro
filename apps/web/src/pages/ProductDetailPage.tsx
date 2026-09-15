@@ -101,7 +101,7 @@ export function ProductDetailPage() {
           imageUrl?: string | null;
           images?: Array<{ id: string; url: string; altText?: string | null }>;
         };
-        offers: Array<{ rank: number; offer: Offer['offer']; supplier: Offer['supplier'] }>;
+        offers: Array<{ rank: number; offer: Offer['offer']; supplier: Offer['supplier']; ranking?: { score: number; rank: number; reasons: string[] } }>;
         priceStats: { count: number; min: number; max: number };
       }>(`/search/products/${id}/offers`),
   });
@@ -531,8 +531,20 @@ export function ProductDetailPage() {
                           <div className="flex items-center gap-2">
                             <span className="font-mono text-xs font-semibold text-ink-3 w-5">#{row.rank}</span>
                             <div>
-                              <div className="font-semibold text-sm text-ink">{row.supplier.name}</div>
+                              <div className="font-semibold text-sm text-ink flex items-center gap-2">
+                                {row.supplier.name}
+                                {row.ranking?.rank === 1 && (
+                                  <span className="px-1.5 py-0.5 bg-volt/20 text-volt text-[10px] font-mono font-bold uppercase tracking-wider">
+                                    Best match
+                                  </span>
+                                )}
+                              </div>
                               <SupplierStarsLine supplierId={row.supplier.id} />
+                              {row.ranking?.reasons && row.ranking.reasons.length > 0 && (
+                                <div className="text-[10px] text-copper font-mono mt-0.5">
+                                  #{row.ranking.rank} · {row.ranking.reasons.join(' + ')}
+                                </div>
+                              )}
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 {isBestPrice && <Award>Best price</Award>}
                                 {isValue && <Award copper>Best value</Award>}
