@@ -31,6 +31,7 @@ import {
   MenuIcon,
   XIcon,
   FileTextIcon,
+  GraduationCapIcon,
 } from '@/components/icons';
 
 export interface AdminUser {
@@ -137,6 +138,7 @@ export function AdminShell() {
         { to: '/admin', label: 'Overview', icon: LayoutGridIcon, end: true },
         { to: '/admin/orders', label: 'Orders', icon: PackageIcon },
         { to: '/admin/rfqs', label: 'RFQs', icon: FileTextIcon },
+        { to: '/admin/learning', label: 'Training center', icon: GraduationCapIcon },
         { to: '/admin/deliveries', label: 'Deliveries', icon: TruckIcon },
         { to: '/admin/disputed', label: 'Disputes', icon: AlertTriangleIcon },
         { to: '/admin/reviews/flags', label: 'Review Flags', icon: AlertTriangleIcon },

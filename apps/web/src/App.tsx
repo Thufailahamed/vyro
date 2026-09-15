@@ -96,6 +96,8 @@ const SupplierLeadsPage = lazy(() => import('./supplier/crm/LeadsPage').then((m)
 const SupplierVerificationPage = lazy(() => import('./supplier/VerificationPage').then((m) => ({ default: m.SupplierVerificationPage })));
 const SupplierLearningIndex = lazy(() => import('./supplier/learning/LearningIndex').then((m) => ({ default: m.LearningIndex })));
 const SupplierLessonPage = lazy(() => import('./supplier/learning/LessonPage').then((m) => ({ default: m.LessonPage })));
+const AdminLessonsPage = lazy(() => import('./admin/learning/LessonsAdmin').then((m) => ({ default: m.LessonsAdmin })));
+const AdminLessonEditorPage = lazy(() => import('./admin/learning/LessonEditor').then((m) => ({ default: m.LessonEditor })));
 
 function PageFallback() {
   return (
@@ -204,6 +206,9 @@ export default function App() {
           <Route path="ai-usage" element={<RequireAdmin><AdminAIUsagePage /></RequireAdmin>} />
           <Route path="rfqs" element={<RequireAdmin><AdminRfqsPage /></RequireAdmin>} />
           <Route path="reviews/flags" element={<RequireAdmin><AdminReviewsPage /></RequireAdmin>} />
+          <Route path="learning" element={<RequireAdmin><AdminLessonsPage /></RequireAdmin>} />
+          <Route path="learning/new" element={<RequireAdmin><AdminLessonEditorPage /></RequireAdmin>} />
+          <Route path="learning/:id/edit" element={<RequireAdmin><AdminLessonEditorPage /></RequireAdmin>} />
           <Route path="notifications" element={<RequireAdmin><AdminNotificationsPage /></RequireAdmin>} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
