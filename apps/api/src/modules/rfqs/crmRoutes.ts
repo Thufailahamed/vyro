@@ -13,6 +13,7 @@ import { requireSupplierRole } from '@vyro/auth';
 import { crm } from './crm';
 import { isFeatureEnabled } from '../../lib/featureFlags';
 import { recordAudit } from '../supplierProducts/repository';
+import { rateLimit } from '../../middleware/rateLimit';
 
 const router = new Hono<{ Bindings: Env }>();
 const S_ROLES = ['owner', 'sales', 'operations'] as const;
@@ -42,6 +43,10 @@ router.use('*', async (c, next) => {
   await ensureCrmEnabled(c.env.DB);
   await next();
 });
+// Rate-limit CRM mutations: 60 req/min per user (key falls back to IP in
+// unauthenticated paths, which the session middleware would have rejected
+// before us anyway — defense in depth).
+const crmMutate = rateLimit({ key: 'crm-mutate', limit: 60, window: 60 });
 
 router.get('/leads', async (c) => {
   const { supplierId } = requireSupplier(c);
@@ -62,7 +67,7 @@ router.get('/leads/:id', async (c) => {
   return c.json({ lead });
 });
 
-router.patch('/leads/:id/tag', async (c) => {
+router.patch('/leads/:id/tag', crmMutate, async (c) => {
   const { ctx, supplierId } = requireSupplier(c);
   const leadId = c.req.param('id');
   const body = setTagSchema.parse(await c.req.json().catch(() => null));
@@ -81,7 +86,7 @@ router.patch('/leads/:id/tag', async (c) => {
   return c.json({ tag: body.tag });
 });
 
-router.patch('/leads/:id/status', async (c) => {
+router.patch('/leads/:id/status', crmMutate, async (c) => {
   const { ctx, supplierId } = requireSupplier(c);
   const leadId = c.req.param('id');
   const body = setStatusSchema.parse(await c.req.json().catch(() => null));
@@ -102,7 +107,7 @@ router.patch('/leads/:id/status', async (c) => {
   return c.json({ status: body.status });
 });
 
-router.post('/leads/:id/notes', async (c) => {
+router.post('/leads/:id/notes', crmMutate, async (c) => {
   const { ctx, supplierId } = requireSupplier(c);
   const leadId = c.req.param('id');
   const body = addNoteSchema.parse(await c.req.json().catch(() => null));
