@@ -3,6 +3,7 @@ import { useLead, useSetLeadTag, useSetLeadStatus } from '../useLeadManager';
 import type { LeadConversionStatus, LeadTag } from '@vyro/validation';
 import { useToast } from '@vyro/ui';
 import { ConversionBadge } from './ConversionBadge';
+import { VerifiedBuyerBadge } from './VerifiedBuyerBadge';
 import { TagPicker } from './TagPicker';
 import { NotesPanel } from './NotesPanel';
 import { XIcon } from '@/components/icons';
@@ -43,8 +44,15 @@ export function LeadDetailDrawer({ supplierId, leadId, onClose }: Props) {
             <div className="text-lg font-semibold text-ink-1">
               {data?.rfqId ?? leadId ?? 'Loading…'}
             </div>
-            <div className="mt-1">
+            <div className="mt-1 flex flex-wrap items-center gap-2">
               <ConversionBadge status={data?.conversionStatus ?? null} />
+              {data && (
+                <VerifiedBuyerBadge
+                  verified={data.buyerVerified}
+                  level={data.buyerKycLevel}
+                  verifiedAt={data.buyerVerifiedAt}
+                />
+              )}
             </div>
           </div>
           <button

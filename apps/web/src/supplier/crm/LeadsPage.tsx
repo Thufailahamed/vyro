@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useCrmSummary, useLeads } from '../useLeadManager';
 import { LeadDetailDrawer } from './LeadDetailDrawer';
 import { ConversionBadge } from './ConversionBadge';
+import { VerifiedBuyerBadge } from './VerifiedBuyerBadge';
 import { useSupplierId } from '../useSupplierId';
 import type { LeadsListQuery, LeadTag, LeadConversionStatus, LeadRow } from '@vyro/validation';
 
@@ -92,7 +93,12 @@ export function LeadsPage() {
                 >
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold text-ink-1">
-                      RFQ {l.rfqId}
+                      RFQ {l.rfqId}{' '}
+                      <VerifiedBuyerBadge
+                        verified={l.buyerVerified}
+                        level={l.buyerKycLevel}
+                        verifiedAt={l.buyerVerifiedAt}
+                      />
                     </div>
                     <div className="text-xs text-ink-4">
                       Invited {new Date(l.invitedAt).toLocaleString()}

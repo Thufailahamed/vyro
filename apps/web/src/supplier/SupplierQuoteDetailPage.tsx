@@ -14,6 +14,7 @@ import type { AiQuoteDraft } from '@vyro/ai';
 import { useLead, useSetLeadStatus, useSetLeadTag } from './useLeadManager';
 import { TagPicker } from './crm/TagPicker';
 import { ConversionBadge } from './crm/ConversionBadge';
+import { VerifiedBuyerBadge } from './crm/VerifiedBuyerBadge';
 
 interface QuoteLine {
   rfqItemId?: string | undefined;
@@ -299,7 +300,14 @@ function CrmLeadCard({ rfqId, supplierId }: { rfqId: string; supplierId: string 
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold">Lead</h2>
-        <ConversionBadge status={row.conversionStatus} />
+        <div className="flex items-center gap-2">
+          <VerifiedBuyerBadge
+            verified={row.buyerVerified}
+            level={row.buyerKycLevel}
+            verifiedAt={row.buyerVerifiedAt}
+          />
+          <ConversionBadge status={row.conversionStatus} />
+        </div>
       </div>
       <TagPicker
         value={row.tag}
