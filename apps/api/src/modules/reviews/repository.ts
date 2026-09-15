@@ -1,9 +1,11 @@
-import { and, asc, desc, eq, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
 import {
   supplierReviews,
   supplierReviewReplies,
   supplierReviewFlags,
+  supplierReviewImages,
+  supplierReviewHelpfulVotes,
   suppliers,
 } from '@vyro/db/schema';
 
@@ -64,9 +66,9 @@ export async function listReviews(
   const db = getDb(d1);
   const orderBy =
     opts.sort === 'highest'
-      ? [asc(supplierReviews.rating), desc(supplierReviews.createdAt)]
+      ? [desc(supplierReviews.rating), desc(supplierReviews.createdAt)]
       : opts.sort === 'lowest'
-        ? [desc(supplierReviews.rating), desc(supplierReviews.createdAt)]
+        ? [asc(supplierReviews.rating), desc(supplierReviews.createdAt)]
         : [desc(supplierReviews.createdAt)];
 
   const where = and(
@@ -325,4 +327,92 @@ export async function adminDeleteReview(
   // Note: supplierId for aggregate recompute is the caller's responsibility
   // (route layer reads review first then recomputes). Kept minimal here.
   void adminUserId; // reserved for future audit hook
+}
+
+export async function findImagesByReviewIds(d1: D1Database, ids: string[]) {
+  if (!ids.length) return [];
+  const db = getDb(d1);
+  return (await db
+    .select()
+    .from(supplierReviewImages)
+    .where(inArray(supplierReviewImages.reviewId, ids))
+    .all()) as any[];
+}
+
+export async function findRepliesByReviewIds(d1: D1Database, ids: string[]) {
+  if (!ids.length) return [];
+  const db = getDb(d1);
+  return (await db
+    .select()
+    .from(supplierReviewReplies)
+    .where(inArray(supplierReviewReplies.reviewId, ids))
+    .all()) as any[];
+}
+
+export async function findOpenFlagByReview(d1: D1Database, reviewId: string) {
+  const db = getDb(d1);
+  return (await db
+    .select()
+    .from(supplierReviewFlags)
+    .where(
+      and(
+        eq(supplierReviewFlags.reviewId, reviewId),
+        eq(supplierReviewFlags.status, 'pending' as never),
+      ),
+    )
+    .get()) as any;
+}
+
+export async function updateReview(
+  d1: D1Database,
+  id: string,
+  patch: { rating: number; body: string; editedAt: number; updatedAt: number },
+) {
+  const db = getDb(d1);
+  return (await db
+    .update(supplierReviews)
+    .set({
+      rating: patch.rating,
+      body: patch.body,
+      editedAt: patch.editedAt,
+      updatedAt: patch.updatedAt,
+    })
+    .where(eq(supplierReviews.id, id))
+    .returning()
+    .get()) as any;
+}
+
+export async function addHelpful(d1: D1Database, reviewId: string, userId: string, now: number) {
+  const db = getDb(d1);
+  try {
+    await db
+      .insert(supplierReviewHelpfulVotes)
+      .values({ reviewId, userId, createdAt: now })
+      .run();
+  } catch {
+    // duplicate = already voted
+  }
+  await db
+    .update(supplierReviews)
+    .set({ helpfulCount: sql`COALESCE(helpful_count,0)+1` })
+    .where(eq(supplierReviews.id, reviewId))
+    .run();
+}
+
+export async function removeHelpful(d1: D1Database, reviewId: string, userId: string) {
+  const db = getDb(d1);
+  await db
+    .delete(supplierReviewHelpfulVotes)
+    .where(
+      and(
+        eq(supplierReviewHelpfulVotes.reviewId, reviewId),
+        eq(supplierReviewHelpfulVotes.userId, userId),
+      ),
+    )
+    .run();
+  await db
+    .update(supplierReviews)
+    .set({ helpfulCount: sql`MAX(COALESCE(helpful_count,1)-1,0)` })
+    .where(eq(supplierReviews.id, reviewId))
+    .run();
 }
