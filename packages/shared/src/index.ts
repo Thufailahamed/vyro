@@ -10,5 +10,6 @@ export * from './lib/inventory';
 export * from './lib/dates';
 export * from './lib/ids';
 export * from './lib/buyerVerification';
+export * from './lib/trustSeal';
 export * from './slo';
 export * from './status';
