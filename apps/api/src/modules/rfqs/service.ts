@@ -32,6 +32,7 @@ import type { CreateRfqInput, SubmitQuoteInput, CounterOfferInput } from '@vyro/
 import { findRfq, insertRfqEvent, listQuoteItems, listRfqItems, nextQuoteNumber, nextRfqNumber } from './repository';
 import { recordAudit } from '../supplierProducts/repository';
 import { notifyBusinessOrg, notifySupplierOrg, notifyUsers, listBusinessMemberIds, listSupplierMemberIds } from '../notifications/dispatcher';
+import { crm } from './crm';
 
 interface QueueLike { send: (body: unknown) => Promise<unknown>; }
 
@@ -374,6 +375,7 @@ export const rfqService = {
     }
     const inv = await db.select().from(rfqSuppliers).where(and(eq(rfqSuppliers.rfqId, rfqId), eq(rfqSuppliers.supplierId, supplierId))).get();
     if (inv) await db.update(rfqSuppliers).set({ status: 'responded', respondedAt: now }).where(eq(rfqSuppliers.id, inv.id));
+    if (inv) await crm.markQuoted(d1, inv.id);
     if (['open', 'quoting'].includes(rfq.status)) {
       await db.update(rfqs).set({ status: 'quotes_received', updatedAt: now }).where(eq(rfqs.id, rfqId));
     }

@@ -235,6 +235,9 @@ export const checkoutService = {
         updatedAt: now,
         direction: crossBorder?.direction ?? 'domestic',
         fxSnapshotId: crossBorder?.fxSnapshotId ?? null,
+        // TODO(crm): persist rfqId from CheckoutInput when RFQ → Quote → Buy flow lands
+        //  on purchase_orders.rfq_id, then call crm.markOrdered(d1, rfqId, supplierId, poId, finalSubtotal)
+        //  after insertPoItem below.
       });
       for (const row of lineRows) await insertPoItem(d1, row);
       await insertOrderEvent(d1, {
