@@ -26,10 +26,11 @@ export async function insertPo(
     direction?: 'domestic' | 'export' | 'import';
     fxSnapshotId?: string | null;
     paymentMethod?: 'payhere' | 'wire';
+    rfqId?: string | null;
   },
 ) {
   const db = getDb(d1);
-  const { direction, fxSnapshotId, paymentMethod, ...rest } = row;
+  const { direction, fxSnapshotId, paymentMethod, rfqId, ...rest } = row;
   // Cross-border POs default to 'wire' — PayHere only charges LKR locally.
   // Domestic stays 'payhere' (existing flow preserved).
   const resolvedPaymentMethod =
@@ -39,6 +40,7 @@ export async function insertPo(
     direction: direction ?? 'domestic',
     fxSnapshotId: fxSnapshotId ?? null,
     paymentMethod: resolvedPaymentMethod,
+    rfqId: rfqId ?? null,
   });
 }
 

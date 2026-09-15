@@ -38,6 +38,7 @@ import { metric } from '../../lib/metrics';
 import { availableCents, createDrawdownsForCheckout, dueAtForTerms, evaluateEligibility } from '../credit/service';
 import { countOverdue, countPaidOrders, ensureAutoFacility, getFacility } from '../credit/repository';
 import { isFeatureEnabled } from '../../lib/featureFlags';
+import { crm } from '../rfqs/crm';
 import { repeatOffers } from '../repeatOffers/service';
 import { REPEAT_OFFER_FLAG, REPEAT_OFFER_PERCENT } from '../repeatOffers/constants';
 import type { Env } from '../../env';
@@ -235,11 +236,15 @@ export const checkoutService = {
         updatedAt: now,
         direction: crossBorder?.direction ?? 'domestic',
         fxSnapshotId: crossBorder?.fxSnapshotId ?? null,
-        // TODO(crm): persist rfqId from CheckoutInput when RFQ → Quote → Buy flow lands
-        //  on purchase_orders.rfq_id, then call crm.markOrdered(d1, rfqId, supplierId, poId, finalSubtotal)
-        //  after insertPoItem below.
+        rfqId: input.rfqId ?? null,
       });
       for (const row of lineRows) await insertPoItem(d1, row);
+      // CRM: mark the matching rfq_supplier lead as 'won' if this checkout is RFQ-linked.
+      // markOrdered silently no-ops when no rfq_supplier row matches (e.g. ad-hoc cart
+      // checkout, or a supplier invited to multiple RFQs — only the one matching rfqId wins).
+      if (input.rfqId) {
+        await crm.markOrdered(d1, input.rfqId, supplierId, poId, finalSubtotal);
+      }
       await insertOrderEvent(d1, {
         purchaseOrderId: poId,
         actorUserId: userId,

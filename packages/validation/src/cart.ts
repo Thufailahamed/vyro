@@ -19,6 +19,7 @@ export const checkoutSchema = z
     paymentMethod: z.enum(['paynow', 'credit']).optional().default('paynow'),
     creditTerms: z.enum(['net14', 'net30']).optional(),
     idempotencyKey: z.string().min(8).max(100).optional(),
+    rfqId: z.string().min(1).optional(),
   })
   .strict()
   .refine((d) => d.paymentMethod !== 'credit' || !!d.creditTerms, {
