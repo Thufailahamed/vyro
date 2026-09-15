@@ -66,5 +66,7 @@ export * from './creditDrawdowns';
 export * from './supplierReviews';
 export * from './supplierReviewReplies';
 export * from './supplierReviewFlags';
+export * from './supplierReviewImages';
+export * from './supplierReviewHelpfulVotes';
 export * from './rfqSupplierNotes';
 export * from './buyLeads';

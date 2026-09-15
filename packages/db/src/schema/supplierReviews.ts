@@ -25,6 +25,8 @@ export const supplierReviews = sqliteTable(
       .default('published'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
+    editedAt: integer('edited_at'),
+    helpfulCount: integer('helpful_count').notNull().default(0),
   },
   (t) => ({
     uniqPerOrder: uniqueIndex('supplier_reviews_supplier_order_uniq').on(t.supplierId, t.orderId),
