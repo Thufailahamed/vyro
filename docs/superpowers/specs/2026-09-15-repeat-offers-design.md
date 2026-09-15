@@ -99,9 +99,9 @@ No new tables. All eligibility computed from existing:
 
 | Source | Use |
 |---|---|
-| `purchase_orders` (status = `completed`) | trailing 90d order timestamps |
-| `purchase_order_items` (joined by `purchase_orders.id`) | per-supplier line totals |
-| `cart_items` (in cart session) | current supplier grouping for eligibility check |
+| `purchase_orders` (status = `completed`) | trailing 90d order timestamps + per-supplier PO subtotals (`subtotalCents`) |
+
+**Why per-PO, not per-line:** each checkout creates one PO per supplier (Vyro's existing model). The discount applies to the PO subtotal, not individual line items. `purchase_order_items` lacks `supplierId` (supplier lives on parent PO), and `cart_items` lacks `subtotalCents`/`supplierId` (UI derives on web). Per-PO scoping is the only level where all four numbers — supplierId, subtotal, existing discount, currency — are colocated.
 
 ## API surface
 
@@ -119,17 +119,16 @@ async function computeEligibility(d1: D1Database, businessId: string):
   Promise<RepeatOffer[]> {
   const since = Date.now() - REPEAT_OFFER_WINDOW_MS;
   const rows = await db.select({
-    supplierId: purchaseOrderItems.supplierId,
-    totalCents: sum(purchaseOrderItems.totalCents),
+    supplierId: purchaseOrders.supplierId,
+    totalCents: sum(purchaseOrders.subtotalCents),
   })
-  .from(purchaseOrderItems)
-  .innerJoin(purchaseOrders, eq(purchaseOrders.id, purchaseOrderItems.purchaseOrderId))
+  .from(purchaseOrders)
   .where(and(
     eq(purchaseOrders.businessId, businessId),
     eq(purchaseOrders.status, 'completed'),
     gte(purchaseOrders.completedAt, since),
   ))
-  .groupBy(purchaseOrderItems.supplierId);
+  .groupBy(purchaseOrders.supplierId);
 
   return rows
     .filter(r => r.totalCents >= REPEAT_OFFER_THRESHOLD_CENTS)
@@ -144,16 +143,36 @@ async function computeEligibility(d1: D1Database, businessId: string):
 ### Apply during checkout
 
 ```ts
-function applyEligible(cartItems: CartItem[], offers: RepeatOffer[]) {
+type CartSupplier = {
+  supplierId: string;
+  subtotalCents: number;
+  existingDiscountCents: number; // any pre-existing discount on this PO
+};
+
+type AppliedOffer = {
+  supplierId: string;
+  discountCents: number;
+  percent: number;
+};
+
+function applyForCart(
+  businessId: string,
+  offers: RepeatOffer[],
+  cartSuppliers: CartSupplier[],
+): AppliedOffer[] {
   const offersBySupplier = new Map(offers.map(o => [o.supplierId, o]));
-  return cartItems.map(item => {
-    // Best-discount-wins: skip lines that already carry a discount from another source.
-    if (item.discountCents && item.discountCents > 0) return item;
-    const offer = offersBySupplier.get(item.supplierId);
-    if (!offer) return item;
-    const discount = Math.floor(item.subtotalCents * offer.percent / 100);
-    return { ...item, discountCents: discount, appliedOffer: { percent: offer.percent } };
-  });
+  const out: AppliedOffer[] = [];
+  for (const s of cartSuppliers) {
+    if (s.existingDiscountCents > 0) continue; // best-discount-wins
+    const offer = offersBySupplier.get(s.supplierId);
+    if (!offer) continue;
+    out.push({
+      supplierId: s.supplierId,
+      discountCents: Math.floor(s.subtotalCents * offer.percent / 100),
+      percent: offer.percent,
+    });
+  }
+  return out;
 }
 ```
 
@@ -189,19 +208,19 @@ Flag gates `/api/checkout/repeat-offers` (404 if off) + `/api/supplier/repeat-of
 
 ### Unit (`apps/api/test/repeatOffers/service.test.ts`)
 
-- `computeEligibility` excludes orders in `draft`, `pending`, `cancelled` statuses — only `completed` counts.
+- `computeEligibility` excludes orders in `pending`, `accepted`, `cancelled` statuses — only `completed` counts.
 - `computeEligibility` excludes orders outside 90d window.
-- `computeEligibility` aggregates by supplier (multi-supplier cart, multiple suppliers qualify).
+- `computeEligibility` aggregates by supplier (multi-supplier trailing spend, multiple suppliers qualify).
 - `computeEligibility` returns empty when total per supplier < threshold.
-- `applyEligible` applies discount only to qualifying supplier lines.
-- `applyEligible` skips lines with existing discount (best-discount-wins).
-- `applyEligible` does not stack multiple repeat offers on the same supplier (single 10%).
+- `applyForCart` applies discount only to qualifying supplier POs.
+- `applyForCart` skips POs with existing discount (best-discount-wins).
+- `applyForCart` returns one entry per supplier (single 10%, no stacking).
 
 ### Integration (`apps/api/test/repeatOffers/checkout-integration.test.ts`)
 
-- Retailer with LKR 160,000 trailing spend with Supplier A: checkout applies 10% on Supplier A's cart items.
+- Retailer with LKR 160,000 trailing spend with Supplier A: checkout applies 10% discount on Supplier A's PO subtotal.
 - Retailer with LKR 100,000 trailing spend: no discount applied.
-- Multi-supplier cart where retailer qualifies with 1 of 3 suppliers: only that supplier's items discounted.
+- Multi-supplier checkout where retailer qualifies with 1 of 3 suppliers: only that supplier's PO discounted.
 
 ### Smoke e2e (`scripts/e2e/repeat-offers.md`)
 
