@@ -25,6 +25,7 @@ export function TagPicker({ value, onChange, disabled }: Props) {
             key={t}
             type="button"
             disabled={disabled}
+            aria-pressed={active}
             onClick={() => onChange(active ? null : t)}
             className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition ${
               active ? TAG_STYLES[t] : 'border-ink-3 bg-paper text-ink-3 hover:border-ink-2'
@@ -38,6 +39,7 @@ export function TagPicker({ value, onChange, disabled }: Props) {
         <button
           type="button"
           disabled={disabled}
+          aria-pressed={false}
           onClick={() => onChange(null)}
           className="text-xs text-ink-4 underline hover:text-ink-2"
         >
