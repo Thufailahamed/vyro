@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useRepeatOffersPreview } from '@/hooks/useRepeatOffersPreview';
 import { useNavigate, Link } from 'react-router-dom';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { useQuery } from '@tanstack/react-query';
@@ -220,6 +221,23 @@ export function CheckoutPage() {
   const supplierCount = cart.data?.supplierCount ?? grouped.length;
   const lineCount = cart.data?.items?.length ?? 0;
   const empty = !cart.data?.items?.length;
+
+  // Repeat Offers preview: surface expected per-PO discount in totals block.
+  const repeatOffersQ = useRepeatOffersPreview(activeBusinessId);
+  const repeatOfferBySupplier = useMemo(() => {
+    const m = new Map<string, import('@vyro/validation').RepeatOffer>();
+    for (const o of repeatOffersQ.data?.offers ?? []) m.set(o.supplierId, o);
+    return m;
+  }, [repeatOffersQ.data]);
+  const repeatOfferDiscountCents = useMemo(() => {
+    let total = 0;
+    for (const g of grouped) {
+      const offer = repeatOfferBySupplier.get(g.supplierId);
+      if (!offer) continue;
+      total += Math.floor((g.totalCents * offer.percent) / 100);
+    }
+    return total;
+  }, [grouped, repeatOfferBySupplier]);
 
   const appendInstructionTag = (tag: string) => {
     if (notes.includes(tag)) return;
@@ -618,6 +636,13 @@ export function CheckoutPage() {
                   <div className="flex items-baseline justify-between text-emerald-700 bg-emerald-500/10 px-2.5 py-1.5 rounded-lg border border-emerald-500/20">
                     <span className="font-semibold">Volume Bulk Savings</span>
                     <span className="font-mono font-bold">−{formatLKR(discountTotalCents)}</span>
+                  </div>
+                )}
+
+                {repeatOfferDiscountCents > 0 && (
+                  <div className="flex items-baseline justify-between text-emerald-700 bg-emerald-500/10 px-2.5 py-1.5 rounded-lg border border-emerald-500/20">
+                    <span className="font-semibold">Repeat Offer discount</span>
+                    <span className="font-mono font-bold">−{formatLKR(repeatOfferDiscountCents)}</span>
                   </div>
                 )}
 

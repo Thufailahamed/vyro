@@ -7,6 +7,7 @@ import { Surface, MetricNumber } from '@/components/brand/Surface';
 import { TimeSeries, BarChart } from '@vyro/ui';
 import { formatCompactLKR, formatLKR } from '@/lib/format';
 import { useSupplierId } from './useSupplierId';
+import { RepeatOfferTile } from './RepeatOfferTile';
 import { SupplierErrorState, SupplierLoadingState } from './SupplierPageState';
 import {
   TrendingUpIcon,
@@ -224,6 +225,7 @@ export function SupplierAnalyticsPage() {
           </MetricNumber>
           <div className="text-xs text-ink-4">Average dock pickup turnaround</div>
         </div>
+        <RepeatOfferTile supplierId={supplierId} />
       </div>
 
       {/* Trajectory Charts Section */}

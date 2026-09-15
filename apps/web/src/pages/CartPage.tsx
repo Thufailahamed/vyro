@@ -27,6 +27,8 @@ import { MetricNumber, ProductImage, Surface } from '@/components/brand/Surface'
 import { CartHintsBanner } from '@/ai/CartHintsBanner';
 import { BulkQuoteCta } from '@/components/BulkQuoteCta';
 import { useQuery as useRQ } from '@tanstack/react-query';
+import { useRepeatOffersPreview } from '@/hooks/useRepeatOffersPreview';
+import { RepeatOfferBadge } from '@/components/RepeatOfferBadge';
 
 interface LineHint {
   cartItemId: string;
@@ -135,6 +137,13 @@ export function CartPage() {
     for (const h of lineHintsQ.data?.hints ?? []) map.set(h.cartItemId, h);
     return map;
   }, [lineHintsQ.data]);
+
+  const repeatOffersQ = useRepeatOffersPreview(businessId);
+  const repeatOfferBySupplier = useMemo(() => {
+    const m = new Map<string, import('@vyro/validation').RepeatOffer>();
+    for (const o of repeatOffersQ.data?.offers ?? []) m.set(o.supplierId, o);
+    return m;
+  }, [repeatOffersQ.data]);
 
   if (!user || !businessId) {
     return (
@@ -299,9 +308,14 @@ export function CartPage() {
               const sub = lines.reduce((a, b) => a + b.lineTotalCents, 0);
               const maxLead = Math.max(...lines.map((l) => l.offer.leadTimeDays || 1));
               const supplierDiscount = lines.reduce((a, b) => a + (b.discountCents || 0), 0);
+              const repeatOffer = repeatOfferBySupplier.get(supplier.id);
 
               return (
-                <Surface key={supplierName} kind="flat" className="p-0 border border-line vyro-surface overflow-hidden">
+                <div key={supplierName}>
+                {repeatOffer && (
+                  <div className="mb-2"><RepeatOfferBadge offer={repeatOffer} /></div>
+                )}
+                <Surface kind="flat" className="p-0 border border-line vyro-surface overflow-hidden">
                   {/* Supplier PO Header */}
                   <div className="px-5 py-4 bg-bone border-b border-line flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="space-y-1">
@@ -567,6 +581,7 @@ export function CartPage() {
                     </div>
                   )}
                 </Surface>
+                </div>
               );
             })}
           </div>
