@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import { RatingStars } from '@/reviews/RatingStars';
+import { TrustSealBadge } from '@/components/TrustSealBadge';
 
 export interface SupplierHeroProps {
   name: string;
@@ -8,6 +9,9 @@ export interface SupplierHeroProps {
   ratingAvg: number | null;
   ratingCount: number;
   email: string | null | undefined;
+  trustSealed?: boolean | undefined;
+  trustSealExpiresAt?: number | null | undefined;
+  memberSinceYear?: number | null | undefined;
 }
 
 export function SupplierHero(props: SupplierHeroProps): JSX.Element {
@@ -21,6 +25,11 @@ export function SupplierHero(props: SupplierHeroProps): JSX.Element {
             {props.verificationStatus === 'verified' && (
               <span className="inline-flex items-center gap-1 text-mint font-medium">✓ Verified</span>
             )}
+            <TrustSealBadge
+              active={!!props.trustSealed}
+              memberSinceYear={props.memberSinceYear ?? null}
+              expiresAt={props.trustSealExpiresAt ?? null}
+            />
           </div>
         </div>
         <RatingStars avg={props.ratingAvg ?? 0} count={props.ratingCount ?? 0} size="md" />

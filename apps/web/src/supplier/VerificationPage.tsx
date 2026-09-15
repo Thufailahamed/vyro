@@ -24,6 +24,7 @@ import {
   RefreshCwIcon,
 } from '@/components/icons';
 import { cn } from '@vyro/ui';
+import { TrustSealBadge } from '@/components/TrustSealBadge';
 
 type KycStatus = 'pending' | 'approved' | 'rejected' | 'needs_more_info' | null;
 
@@ -517,6 +518,8 @@ export function SupplierVerificationPage() {
               </Link>
             </div>
           </div>
+
+          <TrustSealUpsell supplierId={supplierId} kycApproved={status === 'approved'} />
         </div>
       </div>
     </div>
@@ -524,6 +527,77 @@ export function SupplierVerificationPage() {
 }
 
 /* ---------- Local helpers ---------- */
+
+function TrustSealUpsell({ supplierId, kycApproved }: { supplierId: string | null; kycApproved: boolean }) {
+  const [st, setSt] = useState<{ active: boolean; status: string; expiresAt: number | null; memberSinceYear: number | null } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    if (!supplierId) return;
+    let cancelled = false;
+    fetch(`/api/suppliers/trust-seal/${encodeURIComponent(supplierId)}/status`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Status ${r.status}`))))
+      .then((j: unknown) => {
+        if (!cancelled) setSt(j as { active: boolean; status: string; expiresAt: number | null; memberSinceYear: number | null });
+      })
+      .catch(() => {
+        if (!cancelled) setSt(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [supplierId]);
+
+  async function pay() {
+    if (!supplierId) return;
+    setLoading(true);
+    setErr('');
+    try {
+      const r = await fetch(`/api/suppliers/trust-seal/${encodeURIComponent(supplierId)}/checkout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => null);
+        throw new Error((j as any)?.message ?? `Checkout failed (${r.status})`);
+      }
+      const j = (await r.json()) as { redirectUrl: string };
+      window.location.href = j.redirectUrl;
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Checkout failed');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="p-4 bg-paper border border-amber-500/30 space-y-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[10px] font-mono text-amber-700 uppercase tracking-wider font-bold">TrustSEAL · LKR 25,000/yr</div>
+        {st?.active && <TrustSealBadge active memberSinceYear={st.memberSinceYear} expiresAt={st.expiresAt} />}
+      </div>
+      <p className="text-xs text-ink-3 leading-relaxed">
+        Gold badge + priority ranking + Member Since on your storefront and offers. Requires verified KYC.
+      </p>
+      {!kycApproved ? (
+        <p className="text-[11px] text-ink-4">Verify KYC first to unlock TrustSEAL checkout.</p>
+      ) : st?.active ? (
+        <p className="text-[11px] text-ink-2">
+          Active{st.expiresAt ? ` until ${new Date(st.expiresAt).toLocaleDateString()}` : ''} ·{' '}
+          <button onClick={pay} disabled={loading} className="font-semibold text-copper hover:underline">
+            {loading ? 'Preparing…' : 'Renew'}
+          </button>
+        </p>
+      ) : (
+        <Button size="sm" onClick={pay} disabled={loading || !supplierId} className="font-bold uppercase tracking-wider">
+          {loading ? 'Preparing…' : st?.status === 'pending' ? 'Continue payment' : 'Get TrustSEAL'}
+        </Button>
+      )}
+      {err && <p className="text-[11px] text-rose">{err}</p>}
+    </div>
+  );
+}
 
 function Stepper({
   steps,

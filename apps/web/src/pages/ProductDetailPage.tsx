@@ -27,6 +27,7 @@ import { MetricNumber, ProductImage, Surface } from '@/components/brand/Surface'
 import { resolveCatalogImage } from '@/lib/catalogImages';
 import { SupplierStarsLine } from '@/reviews/SupplierStarsLine';
 import { SupplierReviewsPanel } from '@/reviews/SupplierReviewsPanel';
+import { TrustSealBadge } from '@/components/TrustSealBadge';
 
 function availabilityLabel(status: string | undefined): { label: string; tone: 'good' | 'warn' | 'bad' | 'neutral' } {
   switch (status) {
@@ -555,6 +556,11 @@ export function ProductDetailPage() {
                                     <ShieldCheckIcon size={11} /> Verified
                                   </span>
                                 )}
+                                <TrustSealBadge
+                                  active={!!(row.supplier as any).trustSealed}
+                                  memberSinceYear={(row.supplier as any).memberSinceYear ?? null}
+                                  expiresAt={(row.supplier as any).trustSealExpiresAt ?? null}
+                                />
                               </div>
                             </div>
                           </div>

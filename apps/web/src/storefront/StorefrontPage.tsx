@@ -16,6 +16,9 @@ interface StorefrontData {
     businessTypeName: string | null;
     ratingCount: number;
     ratingAvg: number | null;
+    trustSealed?: boolean;
+    trustSealExpiresAt?: number | null;
+    memberSinceYear?: number | null;
   };
   offers: StorefrontOffer[];
 }
@@ -54,6 +57,9 @@ export function StorefrontPage(): JSX.Element {
         ratingAvg={data.supplier.ratingAvg}
         ratingCount={data.supplier.ratingCount}
         email={null}
+        trustSealed={data.supplier.trustSealed}
+        trustSealExpiresAt={data.supplier.trustSealExpiresAt}
+        memberSinceYear={data.supplier.memberSinceYear}
       />
       <section>
         <div className="vyro-kicker text-copper mb-3">Published products</div>
