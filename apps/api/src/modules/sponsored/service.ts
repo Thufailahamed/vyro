@@ -38,16 +38,16 @@ export async function resolveSlots(
     if (candidates.length === 0) {
       // empty
     } else if (candidates.length === 1) {
-      winner = candidates[0];
+      winner = candidates[0] ?? null;
     } else {
       const pinned = candidates.find((c) => c.pinned === 1);
       if (pinned) {
-        winner = pinned;
+        winner = pinned ?? null;
       } else {
         const ordered = [...candidates].sort((a, b) => a.createdAt - b.createdAt);
         const seed = ordered.map((c) => c.id).join('|') + ':' + dayBucket;
         const idx = dailyHashInt(seed) % ordered.length;
-        winner = ordered[idx];
+        winner = ordered[idx] ?? null;
       }
     }
     out.push({
