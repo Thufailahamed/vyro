@@ -81,7 +81,7 @@ Public disclosure: `/sponsored` static page, content served from API (`GET /api/
 - `slot_id` uuid FK → sponsored_slots
 - `product_id` uuid FK → products (the listing promoted)
 - `starts_at`, `ends_at` int unix
-- `status` enum: `pending_payment` | `pending_approval` | `approved` | `rejected` | `live` | `expired` | `revoked` | `completed`
+- `status` enum: `pending_approval` | `pending_payment` | `approved` | `live` | `expired` | `rejected` | `revoked` | `cancelled`
 - `payment_invoice_id` uuid nullable FK → sponsored_invoices
 - `admin_notes` text
 - `pinned` int (0/1) admin override
@@ -97,6 +97,7 @@ Public disclosure: `/sponsored` static page, content served from API (`GET /api/
 - `request_id` text (dedupe key)
 - `user_id_hash` text (no PII; anon-id for unauth, session-hash for auth)
 - Index: `(campaign_id, event_type, occurred_at)`
+- UNIQUE INDEX: `request_id` (TTL cleanup by cron after 7 days)
 
 ### `sponsored_invoices` — admin-generated invoice per campaign
 - `id` uuid PK
@@ -130,7 +131,7 @@ Ledger entries reused from existing `packages/ledger/` (credit/debit on payment)
 - `GET /api/supplier/sponsored/campaigns?status=`
 - `GET /api/supplier/sponsored/campaigns/:id`
 - `PATCH /api/supplier/sponsored/campaigns/:id` → edit dates (only if status IN pending_payment/pending_approval/approved)
-- `DELETE /api/supplier/sponsored/campaigns/:id` → cancel (only if status NOT IN live/completed/expired)
+- `DELETE /api/supplier/sponsored/campaigns/:id` → cancel (only if status NOT IN live/expired) → status=`cancelled` + void invoice if unpaid / refund if paid
 - `GET /api/supplier/sponsored/invoices`
 - `POST /api/supplier/sponsored/invoices/:id/pay` → mark paid (manual; admin endpoint also exists)
 
@@ -139,7 +140,7 @@ Ledger entries reused from existing `packages/ledger/` (credit/debit on payment)
 - `GET/POST/PATCH/DELETE /api/admin/sponsored/slots`
 - `GET /api/admin/sponsored/campaigns?status=&surface=&supplierId=`
 - `GET /api/admin/sponsored/campaigns/:id`
-- `POST /api/admin/sponsored/campaigns/:id/approve` → status=`pending_payment` (creates invoice if not exists)
+- `POST /api/admin/sponsored/campaigns/:id/approve` → status=`pending_payment` + creates invoice (if not exists)
 - `POST /api/admin/sponsored/campaigns/:id/reject` → status=`rejected` + reason (refund if paid)
 - `POST /api/admin/sponsored/campaigns/:id/revoke` → status=`revoked` + admin_notes (prorated refund if mid-flight)
 - `POST /api/admin/sponsored/campaigns/:id/pin` → toggle pinned
@@ -233,8 +234,8 @@ New codes in `apps/api/src/lib/errors.ts` (extending existing SponsoredError cla
 | `NOT_ELIGIBLE` | 422 | Supplier fails KYC/product/category gate |
 | `SLOT_UNAVAILABLE` | 409 | Slot inactive |
 | `SLOT_DUPLICATE` | 409 | `(surface, position, category_id)` collision |
-| `CAMPAIGN_NOT_EDITABLE` | 409 | Edit attempted on live/completed/expired |
-| `CAMPAIGN_NOT_CANCELABLE` | 409 | Cancel attempted on live/completed/expired |
+| `CAMPAIGN_NOT_EDITABLE` | 409 | Edit attempted on live/expired/rejected/revoked/cancelled |
+| `CAMPAIGN_NOT_CANCELABLE` | 409 | Cancel attempted on live/expired/rejected/revoked/cancelled |
 | `INVOICE_ALREADY_PAID` | 409 | Mark-paid on already-paid invoice |
 | `INVALID_DATE_RANGE` | 422 | ends_at <= starts_at or starts_at in past |
 
@@ -249,8 +250,9 @@ All routed through existing `httpError()` helper.
 - Cron `sponsoredExpireSweep` hourly:
   - `live` AND `ends_at < now` → `expired`
   - `approved` AND `starts_at <= now` → `live`
-  - `approved` AND `ends_at < now` → `completed`
-  - Send "expiring soon" supplier notifications (3-day warning)
+  - `approved` AND `ends_at < now` → `expired` (paid but window fully passed without display)
+  - Send "expiring soon" supplier notifications (3-day warning for `live` campaigns)
+  - Cleanup `sponsored_events` rows older than 7 days
 - Disclosure page: `apps/web/src/pages/SponsoredDisclosure.tsx`, content from `/api/sponsored/disclosure`
 - Observability: log events via existing SLO rules pattern (`sponsored.campaign.created`, `sponsored.event.logged`, `sponsored.slot.resolved`)
 
