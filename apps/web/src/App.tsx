@@ -8,6 +8,7 @@ import { RedirectIfAuthed, RequireAuth, RequireBusiness } from './components/Req
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
 const AboutPage = lazy(() => import('./pages/MarketingPages').then((m) => ({ default: m.AboutPage })));
+const SponsoredDisclosurePage = lazy(() => import('./pages/SponsoredDisclosure').then((m) => ({ default: m.SponsoredDisclosure })));
 const StorefrontPage = lazy(() => import('./storefront/StorefrontPage').then((m) => ({ default: m.StorefrontPage })));
 const HowItWorksPage = lazy(() => import('./pages/MarketingPages').then((m) => ({ default: m.HowItWorksPage })));
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
@@ -117,6 +118,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/status" element={<StatusPage />} />
         <Route path="/about" element={<AboutPage />} />
+        <Route path="/sponsored" element={<SponsoredDisclosurePage />} />
         <Route path="/suppliers/:slug" element={<StorefrontPage />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
         <Route path="/login" element={<RedirectIfAuthed><LoginPage /></RedirectIfAuthed>} />
