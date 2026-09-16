@@ -67,7 +67,14 @@ export type ErrorCode =
   | 'credit_overdue_blocked'
   | 'credit_limit_exceeded'
   | 'credit_drawdown_exists'
-  | 'credit_limit_below_used';
+  | 'credit_limit_below_used'
+  | 'NOT_ELIGIBLE'
+  | 'SLOT_UNAVAILABLE'
+  | 'SLOT_DUPLICATE'
+  | 'CAMPAIGN_NOT_EDITABLE'
+  | 'CAMPAIGN_NOT_CANCELABLE'
+  | 'INVOICE_ALREADY_PAID'
+  | 'INVALID_DATE_RANGE';
 
 export class HttpError extends Error {
   constructor(
