@@ -191,3 +191,22 @@ export async function handleFxRefresh(env: Env): Promise<{ refreshed: number }> 
   }
   return { refreshed: count };
 }
+
+/**
+ * Sponsored listings expire sweep.
+ * - approved → live when startsAt <= now
+ * - live → expired when endsAt < now
+ * - approved → expired when endsAt < now (paid but never displayed)
+ * - cleanup sponsored_events older than 7 days
+ *
+ * Runs hourly.
+ */
+export async function handleSponsoredExpireSweep(env: Env): Promise<{
+  flippedToLive: number;
+  flippedToExpired: number;
+  cleanedEvents: number;
+}> {
+  const { sponsoredExpireSweep } = await import('../modules/sponsored/cron');
+  const result = await sponsoredExpireSweep(env.DB, Math.floor(Date.now() / 1000));
+  return result;
+}
