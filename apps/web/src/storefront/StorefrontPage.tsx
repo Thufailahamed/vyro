@@ -1,9 +1,18 @@
 import { useEffect, useState, type JSX } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { SupplierHero } from './SupplierHero';
 import { SupplierProductGrid, type StorefrontOffer } from './SupplierProductGrid';
 import { StorefrontMeta } from './useStorefrontMeta';
 import { SupplierReviewsPanel } from '@/reviews/SupplierReviewsPanel';
+import { SponsoredSlot } from '../components/SponsoredSlot';
+
+interface SponsoredUpsell {
+  slotId: string;
+  campaignId: string | null;
+  productId: string | null;
+  surface: 'search' | 'category' | 'homepage' | 'storefront';
+  position: number;
+}
 
 interface StorefrontData {
   supplier: {
@@ -24,6 +33,7 @@ interface StorefrontData {
     supplierMemberYears?: number | null;
   };
   offers: StorefrontOffer[];
+  otherSuppliersSponsored?: SponsoredUpsell[];
 }
 
 export function StorefrontPage(): JSX.Element {
@@ -75,6 +85,29 @@ export function StorefrontPage(): JSX.Element {
         <div className="vyro-kicker text-copper mb-3">Buyer reviews</div>
         <SupplierReviewsPanel supplierId={data.supplier.id} />
       </section>
+      {(data.otherSuppliersSponsored ?? []).filter((s) => s.campaignId && s.productId).length > 0 && (
+        <section>
+          <div className="vyro-kicker text-copper mb-3">Other suppliers, promoted</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {(data.otherSuppliersSponsored ?? [])
+              .filter((s) => s.campaignId && s.productId)
+              .slice(0, 3)
+              .map((s) => (
+                <SponsoredSlot
+                  key={s.slotId}
+                  campaignId={s.campaignId!}
+                  surface={s.surface}
+                  position={s.position}
+                >
+                  <Link to={`/products/${s.productId}`} className="block bg-paper border border-ink/15 rounded-xl p-4 hover:border-copper/40 transition">
+                    <p className="text-sm font-medium">Sponsored product</p>
+                    <p className="text-xs text-gray-500 mt-1">Slot #{s.position}</p>
+                  </Link>
+                </SponsoredSlot>
+              ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

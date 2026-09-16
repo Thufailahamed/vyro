@@ -139,7 +139,18 @@ router.get('/products', async (c) => {
     }
   }
 
-  return c.json({ hits, nextCursor });
+  // Inject sponsored slots above organic results (flag-gated; silently no-op when disabled).
+  let sponsored: unknown[] = [];
+  try {
+    const { isFeatureEnabled } = await import('../../lib/featureFlags');
+    const { resolveSlots } = await import('../sponsored/service');
+    if (await isFeatureEnabled(c.env.DB, 'SPONSORED_LISTINGS_ENABLED')) {
+      sponsored = await resolveSlots(c.env.DB, 'search', parsed.data.categoryId ?? null, Math.floor(Date.now() / 1000));
+    }
+  } catch {
+    sponsored = [];
+  }
+  return c.json({ hits, nextCursor, sponsored });
 });
 
 export default router;

@@ -59,6 +59,16 @@ router.get('/suppliers/by-slug/:slug', async (c) => {
       supplierMemberYears: tenure.supplierMemberYears,
     },
     offers,
+    otherSuppliersSponsored: await (async () => {
+      try {
+        const { isFeatureEnabled } = await import('../../lib/featureFlags');
+        const { resolveSlots } = await import('../sponsored/service');
+        if (await isFeatureEnabled(c.env.DB, 'SPONSORED_LISTINGS_ENABLED')) {
+          return await resolveSlots(c.env.DB, 'storefront', null, Math.floor(Date.now() / 1000));
+        }
+      } catch {}
+      return [];
+    })(),
   });
 });
 

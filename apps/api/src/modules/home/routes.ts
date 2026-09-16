@@ -108,6 +108,16 @@ router.get('/feed', async (c) => {
         a: 'Cash on delivery, bank transfer, and secure online payments via PayHere.',
       },
     ],
+    sponsored: await (async () => {
+      try {
+        const { isFeatureEnabled } = await import('../../lib/featureFlags');
+        const { resolveSlots } = await import('../sponsored/service');
+        if (await isFeatureEnabled(c.env.DB, 'SPONSORED_LISTINGS_ENABLED')) {
+          return await resolveSlots(c.env.DB, 'homepage', null, Math.floor(Date.now() / 1000));
+        }
+      } catch {}
+      return [];
+    })(),
   });
 });
 

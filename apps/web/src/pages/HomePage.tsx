@@ -345,6 +345,7 @@ export function HomePage() {
         featuredProducts: Array<{ id: string; name: string; image: string | null; categoryName?: string }>;
         verifiedSuppliers: Array<{ id: string; name: string; description?: string | null }>;
         trustStats: { districtsCovered: number; lifetimeGmvCents: number; activeBusinesses: number; activeSuppliers: number };
+        sponsored?: Array<{ slotId: string; campaignId: string | null; productId: string | null; surface: 'search'|'category'|'homepage'|'storefront'; position: number }>;
       }>('/home/feed'),
   });
 

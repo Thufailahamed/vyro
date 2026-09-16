@@ -22,6 +22,7 @@ import { CatalogSearch } from '@/components/CatalogSearch';
 import { buildSearchChips } from '@/ask/nlFilters.client';
 import { useAddToCart } from '@/lib/useAddToCart';
 import { SupplierStarsLine } from '@/reviews/SupplierStarsLine';
+import { SponsoredSlot } from '../components/SponsoredSlot';
 
 interface Hit {
   product: {
@@ -89,9 +90,9 @@ export function SearchPage() {
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<{ hits: Hit[]; sponsored?: Array<{ slotId: string; campaignId: string | null; productId: string | null; surface: 'search'|'category'|'homepage'|'storefront'; position: number }> }>({
     queryKey: ['search', q],
-    queryFn: () => api.get<{ hits: Hit[] }>(`/search/products?q=${encodeURIComponent(q)}`),
+    queryFn: () => api.get<{ hits: Hit[]; sponsored?: Array<{ slotId: string; campaignId: string | null; productId: string | null; surface: 'search'|'category'|'homepage'|'storefront'; position: number }> }>(`/search/products?q=${encodeURIComponent(q)}`),
     enabled: true,
   });
 
@@ -328,6 +329,17 @@ export function SearchPage() {
       {/* Grid View */}
       {!isLoading && viewMode === 'grid' && processedHits.length > 0 && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {(data?.sponsored ?? [])
+            .filter((s) => s.campaignId && s.productId)
+            .slice(0, 3)
+            .map((s) => (
+              <SponsoredSlot key={s.slotId} campaignId={s.campaignId} surface={s.surface} position={s.position}>
+                <Link to={`/products/${s.productId}`} className="block bg-paper border border-ink/15 rounded-xl p-4">
+                  <p className="text-sm font-medium">Sponsored product</p>
+                  <p className="text-xs text-gray-500">Slot #{s.position}</p>
+                </Link>
+              </SponsoredSlot>
+            ))}
           {processedHits.map((h) => {
             const hasOffers = Boolean(h.bestOffer);
             const leadTime = h.bestOffer?.leadTimeDays;
