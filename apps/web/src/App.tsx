@@ -106,6 +106,12 @@ const SponsoredCampaignsPage = lazy(() => import('./supplier/sponsored/Campaigns
 const SponsoredInvoicesPage = lazy(() => import('./supplier/sponsored/InvoicesPage').then((m) => ({ default: m.InvoicesPage })));
 const AdminLessonsPage = lazy(() => import('./admin/learning/LessonsAdmin').then((m) => ({ default: m.LessonsAdmin })));
 const AdminLessonEditorPage = lazy(() => import('./admin/learning/LessonEditor').then((m) => ({ default: m.LessonEditor })));
+const AdminSponsoredIndex = lazy(() => import('./admin/sponsored/AdminIndex').then((m) => ({ default: m.AdminIndex })));
+const AdminPlansAdmin = lazy(() => import('./admin/sponsored/PlansAdmin').then((m) => ({ default: m.PlansAdmin })));
+const AdminSlotsAdmin = lazy(() => import('./admin/sponsored/SlotsAdmin').then((m) => ({ default: m.SlotsAdmin })));
+const AdminApprovalQueue = lazy(() => import('./admin/sponsored/ApprovalQueue').then((m) => ({ default: m.ApprovalQueue })));
+const AdminCampaignsAdmin = lazy(() => import('./admin/sponsored/CampaignsAdmin').then((m) => ({ default: m.CampaignsAdmin })));
+const AdminAnalyticsAdmin = lazy(() => import('./admin/sponsored/AnalyticsAdmin').then((m) => ({ default: m.AnalyticsAdmin })));
 
 function PageFallback() {
   return (
@@ -218,6 +224,12 @@ export default function App() {
           <Route path="learning" element={<RequireAdmin><AdminLessonsPage /></RequireAdmin>} />
           <Route path="learning/new" element={<RequireAdmin><AdminLessonEditorPage /></RequireAdmin>} />
           <Route path="learning/:id/edit" element={<RequireAdmin><AdminLessonEditorPage /></RequireAdmin>} />
+          <Route path="sponsored" element={<RequireAdmin><AdminSponsoredIndex /></RequireAdmin>} />
+          <Route path="sponsored/plans" element={<RequireAdmin><AdminPlansAdmin /></RequireAdmin>} />
+          <Route path="sponsored/slots" element={<RequireAdmin><AdminSlotsAdmin /></RequireAdmin>} />
+          <Route path="sponsored/approvals" element={<RequireAdmin><AdminApprovalQueue /></RequireAdmin>} />
+          <Route path="sponsored/campaigns" element={<RequireAdmin><AdminCampaignsAdmin /></RequireAdmin>} />
+          <Route path="sponsored/analytics" element={<RequireAdmin><AdminAnalyticsAdmin /></RequireAdmin>} />
           <Route path="notifications" element={<RequireAdmin><AdminNotificationsPage /></RequireAdmin>} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
