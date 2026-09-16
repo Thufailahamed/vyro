@@ -97,6 +97,13 @@ const SupplierLeadsPage = lazy(() => import('./supplier/crm/LeadsPage').then((m)
 const SupplierVerificationPage = lazy(() => import('./supplier/VerificationPage').then((m) => ({ default: m.SupplierVerificationPage })));
 const SupplierLearningIndex = lazy(() => import('./supplier/learning/LearningIndex').then((m) => ({ default: m.LearningIndex })));
 const SupplierLessonPage = lazy(() => import('./supplier/learning/LessonPage').then((m) => ({ default: m.LessonPage })));
+const SponsoredIndexPage = lazy(() => import('./supplier/sponsored/Index').then((m) => ({ default: m.SponsoredIndex })));
+const SponsoredPlansPage = lazy(() => import('./supplier/sponsored/PlansPage').then((m) => ({ default: m.PlansPage })));
+const SponsoredSubsPage = lazy(() => import('./supplier/sponsored/SubscriptionsPage').then((m) => ({ default: m.SubscriptionsPage })));
+const SponsoredSlotsPage = lazy(() => import('./supplier/sponsored/BrowseSlotsPage').then((m) => ({ default: m.BrowseSlotsPage })));
+const SponsoredCampaignFormPage = lazy(() => import('./supplier/sponsored/CampaignFormPage').then((m) => ({ default: m.CampaignFormPage })));
+const SponsoredCampaignsPage = lazy(() => import('./supplier/sponsored/CampaignsListPage').then((m) => ({ default: m.CampaignsListPage })));
+const SponsoredInvoicesPage = lazy(() => import('./supplier/sponsored/InvoicesPage').then((m) => ({ default: m.InvoicesPage })));
 const AdminLessonsPage = lazy(() => import('./admin/learning/LessonsAdmin').then((m) => ({ default: m.LessonsAdmin })));
 const AdminLessonEditorPage = lazy(() => import('./admin/learning/LessonEditor').then((m) => ({ default: m.LessonEditor })));
 
@@ -237,6 +244,13 @@ export default function App() {
         <Route path="verification" element={<SupplierVerificationPage />} />
         <Route path="learning" element={<SupplierLearningIndex />} />
         <Route path="learning/:slug" element={<SupplierLessonPage />} />
+        <Route path="sponsored" element={<SponsoredIndexPage />} />
+        <Route path="sponsored/plans" element={<SponsoredPlansPage />} />
+        <Route path="sponsored/subscriptions" element={<SponsoredSubsPage />} />
+        <Route path="sponsored/slots" element={<SponsoredSlotsPage />} />
+        <Route path="sponsored/campaigns/new" element={<SponsoredCampaignFormPage />} />
+        <Route path="sponsored/campaigns" element={<SponsoredCampaignsPage />} />
+        <Route path="sponsored/invoices" element={<SponsoredInvoicesPage />} />
         <Route path="*" element={<Navigate to="/supplier" replace />} />
       </Route>
 
