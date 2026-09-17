@@ -74,7 +74,8 @@ export type ErrorCode =
   | 'CAMPAIGN_NOT_EDITABLE'
   | 'CAMPAIGN_NOT_CANCELABLE'
   | 'INVOICE_ALREADY_PAID'
-  | 'INVALID_DATE_RANGE';
+  | 'INVALID_DATE_RANGE'
+  | 'PO_NOT_REORDERABLE';
 
 export class HttpError extends Error {
   constructor(
