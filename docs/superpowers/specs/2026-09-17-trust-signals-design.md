@@ -45,9 +45,19 @@ New table `supplier_trust_signals`:
 | `disputed_supplier_fault_count` | integer | no | trailing 90d |
 | `computed_at` | integer | no | unix epoch seconds |
 
-**Window rule (delivery):** last 30 POs ordered by `delivered_at` desc where `status='delivered'`. `on_time = (delivered_at <= promised_delivery_at)`.
+### Schema amendment (required — confirmed before plan)
 
-**Window rule (disputes):** count rows in `disputes` table where supplier was found at fault and resolution timestamp is within last 90 days. (If `disputes` table does not have a clean fault column, fall back to `purchase_orders` with `disputed_at` and admin-set `dispute_outcome='supplier_fault'`. Lock exact source during planning.)
+Two columns added to `purchase_orders` in migration `0045_po_trust_columns.sql`:
+
+| Column | Type | Nullable | Notes |
+| --- | --- | --- | --- |
+| `delivery_promised_at` | integer | yes | set when PO transitions to `prepared` (= `accepted_at + supplier_product.lead_time_days * 86400`) |
+| `disputed_at` | integer | yes | set when status flips to `disputed` |
+| `dispute_outcome` | text | yes | one of `null`, `refund_business`, `release_supplier`; set on dispute resolve |
+
+**Window rule (delivery):** last 30 POs ordered by `delivered_at` desc where `status='delivered'`. `on_time = (delivered_at <= delivery_promised_at)`. POs with `delivery_promised_at IS NULL` are excluded from the numerator and denominator (set before the column existed → unknown).
+
+**Window rule (disputes):** count `purchase_orders` where `disputed_at IS NOT NULL` AND `disputed_at >= now - 90d` AND `dispute_outcome = 'refund_business'`. Buyer wins → supplier fault.
 
 **Sample gate:** `total_completed_pos < 5` → on-time badge suppressed (not failed). All signals default to null/false when `computed_at` missing.
 
@@ -114,6 +124,7 @@ Web app:
 Shared:
 - `packages/db/src/schema/trust.ts` — drizzle table def for `supplier_trust_signals`
 - `packages/db/migrations/0044_supplier_trust_signals.sql` — `CREATE TABLE IF NOT EXISTS` + indexes
+- `packages/db/migrations/0045_po_trust_columns.sql` — ALTER TABLE `purchase_orders` ADD columns `delivery_promised_at`, `disputed_at`, `dispute_outcome` (`ALTER TABLE ... ADD COLUMN` is idempotent on D1? — verify; use try/catch in raw migration or use Drizzle's `addColumn`)
 - `packages/validation/src/trust.ts` — zod schemas for admin DTOs (mostly no inputs but keep parity)
 
 ## Cron + triggers
