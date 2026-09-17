@@ -3,6 +3,7 @@ import { and, eq, gte, isNull, sql } from 'drizzle-orm';
 import { queueEvents, refunds } from '@vyro/db/schema';
 import type { Env } from '../env';
 import { processDeliveries } from '../lib/webhooks';
+import { isFeatureEnabled } from '../lib/featureFlags';
 import { notifyAdmins } from '../modules/notifications/dispatcher';
 
 /**
@@ -218,4 +219,102 @@ export async function handleSponsoredExpireSweep(env: Env): Promise<{
 export async function handleTrustSignalsRebuild(env: Env): Promise<{ rebuilt: number; failed: number }> {
   const { trustSignalsRebuild } = await import('../modules/trust/cron');
   return trustSignalsRebuild(env);
+}
+
+export type WeeklyPayoutBatchResult =
+  | { skipped: true }
+  | {
+      processed: number;
+      errors: number;
+      periodStart: number;
+      periodEnd: number;
+      perSupplier: Array<{
+        supplierId: string;
+        status: 'created' | 'duplicate' | 'empty' | 'error';
+        message?: string;
+      }>;
+    };
+
+/**
+ * Weekly payout batch cron (Fix C — P0 revenue sweep).
+ *
+ * Period: windowEnd → windowEnd - 7d. Worker registration uses cron string
+ * '30 21 * * 4' UTC = Friday 03:00 SL local. Iterates suppliers with at
+ * least one confirmed payment in the window and creates one payout row per
+ * supplier via the existing repository path. Idempotent: duplicates are
+ * rejected by payouts_period_uq on (supplier_id, period_start, period_end)
+ * and recorded as 'duplicate' rather than 'error'. Suppliers with zero
+ * eligible payments in the window are skipped without error.
+ *
+ * Gated on the `PAYOUTS_CRON_ENABLED` feature flag (defaults off). When the
+ * flag is off the cron is a no-op so admins can preview before flipping.
+ */
+export async function handleWeeklyPayoutBatch(
+  env: Env,
+  opts: { nowMs?: number; periodStart?: number; periodEnd?: number } = {},
+): Promise<WeeklyPayoutBatchResult> {
+  if (!(await isFeatureEnabled(env.DB, 'PAYOUTS_CRON_ENABLED'))) {
+    return { skipped: true };
+  }
+
+  const nowMs = opts.nowMs ?? Date.now();
+  const periodEnd = opts.periodEnd ?? nowMs;
+  const periodStart = opts.periodStart ?? periodEnd - 7 * 24 * 60 * 60 * 1000;
+
+  const { listSuppliersWithConfirmedPaymentsSince, aggregatePayableForSupplier, createPayout } =
+    await import('../modules/payouts/repository');
+  const { getOrCreateSupplierSettings } = await import('../modules/settings/supplierRepository');
+
+  const suppliers = await listSuppliersWithConfirmedPaymentsSince(env.DB, periodStart);
+  const perSupplier: WeeklyPayoutBatchResult extends infer R
+    ? R extends { perSupplier: infer P }
+      ? P
+      : never
+    : never = [];
+  let processed = 0;
+  let errors = 0;
+
+  for (const s of suppliers) {
+    try {
+      const aggregate = await aggregatePayableForSupplier(env.DB, {
+        supplierId: s.supplierId,
+        periodStart,
+        periodEnd,
+      });
+      if (aggregate.paymentCount === 0) {
+        perSupplier.push({ supplierId: s.supplierId, status: 'empty' });
+        continue;
+      }
+      const settings = await getOrCreateSupplierSettings(env.DB, s.supplierId, 'cron');
+      const method = (settings.payoutMethod ?? 'bank') as 'bank' | 'cash';
+      try {
+        await createPayout(env.DB, {
+          supplierId: s.supplierId,
+          amountCents: aggregate.amountCents,
+          feeCents: aggregate.feeCents,
+          netCents: aggregate.netCents,
+          currency: 'LKR',
+          periodStart,
+          periodEnd,
+          method,
+        });
+        processed++;
+        perSupplier.push({ supplierId: s.supplierId, status: 'created' });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (/UNIQUE|payouts_period_uq/.test(msg)) {
+          perSupplier.push({ supplierId: s.supplierId, status: 'duplicate' });
+        } else {
+          errors++;
+          perSupplier.push({ supplierId: s.supplierId, status: 'error', message: msg });
+        }
+      }
+    } catch (e) {
+      errors++;
+      const msg = e instanceof Error ? e.message : String(e);
+      perSupplier.push({ supplierId: s.supplierId, status: 'error', message: msg });
+    }
+  }
+
+  return { processed, errors, periodStart, periodEnd, perSupplier };
 }

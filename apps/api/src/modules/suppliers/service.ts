@@ -14,6 +14,14 @@ export const supplierService = {
     if (!type) throw httpError(400, 'VALIDATION_ERROR', 'Unknown business type');
     const id = newId();
     const now = nowMs();
+    const { generateSlug, ensureUniqueSlug } = await import('../storefront/service');
+    const { existingSlugsStartingWith } = await import('../storefront/repository');
+    const baseSlug = generateSlug(input.city, input.name) || `supplier-${id.slice(0, 8)}`;
+    const takenSlugs = (await existingSlugsStartingWith(d1, baseSlug))
+      .map((r: any) => (typeof r === 'string' ? r : r.slug))
+      .filter(Boolean);
+    const slug = ensureUniqueSlug(baseSlug, new Set(takenSlugs));
+
     await insertSupplier(d1, {
       id,
       name: input.name,
@@ -25,6 +33,7 @@ export const supplierService = {
       city: input.city,
       district: input.district,
       description: input.description ?? null,
+      slug,
       createdAt: now,
       updatedAt: now,
     });

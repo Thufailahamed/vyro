@@ -80,6 +80,17 @@ router.get('/me', session(), async (c) => {
 router.get('/:id', async (c) => {
   const row = await findSupplierById(c.env.DB, c.req.param('id'));
   if (!row) throw httpError(404, 'NOT_FOUND', 'Supplier not found');
+  if (!row.slug) {
+    const { generateSlug, ensureUniqueSlug } = await import('../storefront/service');
+    const { existingSlugsStartingWith, updateSupplierSlug } = await import('../storefront/repository');
+    const baseSlug = generateSlug(row.city, row.name) || `supplier-${row.id.slice(0, 8)}`;
+    const takenSlugs = (await existingSlugsStartingWith(c.env.DB, baseSlug))
+      .map((r: any) => (typeof r === 'string' ? r : r.slug))
+      .filter(Boolean);
+    const autoSlug = ensureUniqueSlug(baseSlug, new Set(takenSlugs));
+    await updateSupplierSlug(c.env.DB, row.id, autoSlug);
+    row.slug = autoSlug;
+  }
   // Strip sensitive contact info from anonymous reads. Authenticated buyers
   // see full contact details through the search/compare endpoints, which
   // enforce membership.

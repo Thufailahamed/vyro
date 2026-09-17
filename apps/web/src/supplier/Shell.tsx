@@ -28,6 +28,7 @@ import {
   FileTextIcon,
   TargetIcon,
   GraduationCapIcon,
+  AlertTriangleIcon,
 } from '@/components/icons';
 
 interface SupplierNavItem {
@@ -94,8 +95,9 @@ export function SupplierShell() {
   });
   const unread = notif?.unreadCount ?? 0;
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const { data: kycData } = useSellerKyc();
-  const kycStatus = kycData?.kyc?.status ?? 'pending';
+  const kycStatus = kycData?.kyc?.status ?? null;
 
   if (loading) {
     return (
@@ -315,22 +317,49 @@ export function SupplierShell() {
             id="main-content"
             className="flex-1 max-w-stage w-full mx-auto px-4 sm:px-8 py-8 animate-fade-in"
           >
-            {kycStatus !== 'approved' && (
+            {!bannerDismissed && kycStatus && kycStatus !== 'approved' && (
               <div
-                className={
+                className={cn(
+                  'mb-6 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm border shadow-xs',
                   kycStatus === 'rejected'
-                    ? 'mb-6 p-3 bg-rose/10 border border-rose/30 text-sm text-rose'
-                    : 'mb-6 p-3 bg-amber-50 border border-amber-200 text-sm text-amber-800'
-                }
+                    ? 'bg-rose/10 border-rose/30 text-rose'
+                    : 'bg-amber-500/10 border-amber-300/80 text-amber-900',
+                )}
               >
-                {kycStatus === 'rejected'
-                  ? 'Verification rejected — '
-                  : kycStatus === 'needs_more_info'
-                    ? 'More information needed — '
-                    : 'Verification pending — '}
-                <Link to="/supplier/verification" className="underline font-semibold">
-                  complete verification
-                </Link>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <AlertTriangleIcon
+                    size={16}
+                    className={kycStatus === 'rejected' ? 'text-rose shrink-0' : 'text-amber-700 shrink-0'}
+                  />
+                  <span>
+                    {kycStatus === 'rejected'
+                      ? 'Facility verification was rejected. Please review submission remarks.'
+                      : kycStatus === 'needs_more_info'
+                        ? 'Additional compliance documentation is requested for your facility verification.'
+                        : 'Supplier facility verification is currently pending review.'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Link
+                    to="/supplier/verification"
+                    className={cn(
+                      'inline-flex items-center justify-center px-3 py-1.5 rounded-lg font-semibold text-xs transition-colors',
+                      kycStatus === 'rejected'
+                        ? 'bg-rose text-paper hover:bg-rose/90'
+                        : 'bg-amber-700 hover:bg-amber-800 text-paper',
+                    )}
+                  >
+                    Complete Verification &rarr;
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setBannerDismissed(true)}
+                    aria-label="Dismiss verification banner"
+                    className="p-1.5 rounded-lg text-ink-3 hover:text-ink-1 hover:bg-ink/5 transition-colors cursor-pointer"
+                  >
+                    <XIcon size={14} />
+                  </button>
+                </div>
               </div>
             )}
             <Outlet />

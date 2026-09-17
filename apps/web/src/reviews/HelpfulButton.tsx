@@ -27,9 +27,14 @@ export function HelpfulButton({ reviewId, initialCount }: { reviewId: string; in
       onClick={toggle}
       disabled={busy}
       aria-pressed={on}
-      className="text-xs text-gray-600 underline disabled:opacity-50"
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 cursor-pointer ${
+        on
+          ? 'bg-volt/10 text-ink border-volt/40 font-semibold'
+          : 'bg-paper text-ink-3 border-ink/15 hover:border-ink/30 hover:text-ink'
+      }`}
     >
-      Helpful ({count})
+      <span className="text-[11px] select-none">👍</span>
+      <span>Helpful ({count})</span>
     </button>
   );
 }

@@ -8,6 +8,29 @@ import {
 } from '@vyro/db/schema';
 import { newId } from '@vyro/shared';
 
+/**
+ * Distinct supplierIds that have at least one confirmed payment with
+ * confirmedAt >= sinceMs. Used by the weekly payout-batch cron to enumerate
+ * suppliers eligible for a new payout run in the period.
+ */
+export async function listSuppliersWithConfirmedPaymentsSince(
+  d1: D1Database,
+  sinceMs: number,
+): Promise<Array<{ supplierId: string }>> {
+  const db = getDb(d1);
+  return ((await db
+    .selectDistinct({ supplierId: purchaseOrders.supplierId })
+    .from(paymentsTable)
+    .innerJoin(purchaseOrders, eq(purchaseOrders.id, paymentsTable.purchaseOrderId))
+    .where(
+      and(
+        eq(paymentsTable.status, 'confirmed'),
+        gte(paymentsTable.confirmedAt, sinceMs),
+      ),
+    )
+    .all()) as unknown) as Array<{ supplierId: string }>;
+}
+
 export type GeneratePayoutInput = {
   supplierId: string;
   periodStart: number;

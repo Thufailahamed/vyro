@@ -15,6 +15,7 @@ export async function insertSupplier(
     city: string;
     district: string;
     description: string | null;
+    slug?: string | null;
     createdAt: number;
     updatedAt: number;
   },

@@ -36,10 +36,10 @@ describe('QuizForm', () => {
     );
     expect(html).toMatch(/What is 2 \+ 2\?/);
     expect(html).toMatch(/Capital of LK\?/);
-    expect(html).toMatch(/\/> 3</);
-    expect(html).toMatch(/\/> 4</);
-    expect(html).toMatch(/\/> Colombo</);
-    expect(html).toMatch(/\/> Kandy</);
+    expect(html).toMatch(/>3<\/span>/);
+    expect(html).toMatch(/>4<\/span>/);
+    expect(html).toMatch(/>Colombo<\/span>/);
+    expect(html).toMatch(/>Kandy<\/span>/);
   });
 
   it('renders Submit button', () => {

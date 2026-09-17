@@ -23,6 +23,7 @@ import {
   FileTextIcon,
   ChevronRightIcon,
   TargetIcon,
+  ExternalLinkIcon,
 } from '@/components/icons';
 import { formatCompactLKR, formatLKR } from '@/lib/format';
 import { useSupplierId } from './useSupplierId';
@@ -308,6 +309,22 @@ export function SupplierDashboardPage() {
                     {pendingOrders.length}
                   </span>
                 )}
+              </Button>
+            </Link>
+            <Link
+              to={`/suppliers/${supplierDetails?.slug || 'test'}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button
+                variant="secondary"
+                size="sm"
+                className="bg-paper/10 text-paper border-paper/20 hover:bg-paper/15 hover:border-volt/50 text-xs font-semibold"
+                title="View public storefront"
+              >
+                <StoreIcon size={13} className="text-volt" />
+                <span>See Storefront</span>
+                <ExternalLinkIcon size={11} className="opacity-75" />
               </Button>
             </Link>
             <Link to="/supplier/products/new">
@@ -886,12 +903,21 @@ export function SupplierDashboardPage() {
 
       {/* Reviews */}
       <Surface className="p-6 space-y-4">
-        <div className="vyro-kicker text-copper">Buyer Reviews</div>
+        <div className="flex items-center justify-between">
+          <div className="vyro-kicker text-copper">Buyer Reviews & Reputation</div>
+          <span className="text-[10px] font-mono text-ink-4 uppercase tracking-wider">
+            Verified Commercial Orders
+          </span>
+        </div>
         <SupplierReviewsPanel supplierId={supplierId} />
       </Surface>
 
-      {/* Storefront settings */}
-      <StorefrontSettingsSection currentSlug={supplierDetails?.slug ?? null} />
+      {/* Storefront section */}
+      <StorefrontSettingsSection
+        currentSlug={supplierDetails?.slug ?? null}
+        supplierName={supplierName || supplierDetails?.name}
+        supplierId={supplierId}
+      />
 
       {/* Footer Status Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-ink-4 pt-4 border-t border-ink/10 gap-2">
