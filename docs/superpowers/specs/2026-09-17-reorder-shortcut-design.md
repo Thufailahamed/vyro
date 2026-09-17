@@ -37,7 +37,7 @@ No new tables. Reads from existing `purchase_orders` + `purchase_order_items`; w
 The reorder service reads:
 
 - `purchaseOrders` — source PO; validates `status ∈ {completed, delivered, ready_for_pickup}` and that the caller has access to `po.businessId`.
-- `purchaseOrderItems` — source line items (`productId` resolved via the supplier-product linkage for the line's `supplierId`).
+- `purchaseOrderItems` — source line items; `supplierProductId` is a direct FK on the row, no join needed. `unitPriceCentsSnapshot` is the historical list price used for drift.
 - `supplierProducts` — current state (`stockQty`, `reservedQty`, `trackInventory`, `tier1MinQty`/`tier1DiscountPct` etc., `availabilityStatus`, `deletedAt`).
 - `carts` + `cartItems` — destination cart.
 
@@ -60,24 +60,22 @@ The reorder service reads:
   skippedCount: number,
   addedSubtotalCents: number,
   added: Array<{
-    productId: string,
-    supplierProductId: string,
+    supplierProductId: string,    // direct from purchase_order_items row
     supplierId: string,
     qty: number,
-    oldUnitCents: number,         // snapshot from purchaseOrderItems.unitCents
-    newUnitCents: number,         // today's list price before tier
-    newEffectiveUnitCents: number,// after tier discount, rounded
+    oldUnitCents: number,          // snapshot from purchase_order_items.unit_price_cents_snapshot
+    newUnitCents: number,          // today's list price before tier
+    newEffectiveUnitCents: number, // after tier discount, rounded
     tierApplied: { minQty: number; discountPct: number } | null,
-    driftPct: number,             // ((newUnitCents - oldUnitCents) / oldUnitCents) * 100
+    driftPct: number,              // ((newUnitCents - oldUnitCents) / oldUnitCents) * 100
   }>,
   skipped: Array<{
-    productId: string,
     supplierProductId: string,
     supplierId: string,
     qty: number,
     reason: 'archived' | 'out_of_stock' | 'below_moq' | 'multi_supplier_unsupported',
   }>,
-  warnings: string[],             // human-readable, e.g. "3 of 12 items unavailable"
+  warnings: string[],
 }
 ```
 
