@@ -39,6 +39,10 @@ export const purchaseOrders = sqliteTable(
     deliveredAt: integer('delivered_at'),
     completedAt: integer('completed_at'),
     cancelledAt: integer('cancelled_at'),
+    // Trust signal support columns — populated by prepared→status transition and dispute resolve flows.
+    deliveryPromisedAt: integer('delivery_promised_at'),
+    disputedAt: integer('disputed_at'),
+    disputeOutcome: text('dispute_outcome'),
     // Inventory lifecycle stamps — make reserve/release/commit idempotent.
     stockReservedAt: integer('stock_reserved_at'),
     stockReleasedAt: integer('stock_released_at'),
