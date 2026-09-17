@@ -59,6 +59,16 @@ router.get('/suppliers/by-slug/:slug', async (c) => {
       supplierMemberYears: tenure.supplierMemberYears,
     },
     offers,
+    trustSignals: await (async () => {
+      try {
+        const { isFeatureEnabled } = await import('../../lib/featureFlags');
+        const { getTrustSignalView } = await import('../trust/service');
+        if (await isFeatureEnabled(c.env.DB, 'TRUST_SIGNALS_ENABLED')) {
+          return await getTrustSignalView(c.env.DB, supplier.id);
+        }
+      } catch {}
+      return null;
+    })(),
     otherSuppliersSponsored: await (async () => {
       try {
         const { isFeatureEnabled } = await import('../../lib/featureFlags');
