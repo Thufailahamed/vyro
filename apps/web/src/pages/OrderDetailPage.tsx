@@ -51,6 +51,7 @@ import { cn } from '@vyro/ui';
 import { useToast } from '@vyro/ui';
 import { ReviewForm } from '@/reviews/ReviewForm';
 import { useReviewEligibility } from '@/reviews/useReviewEligibility';
+import { ReorderButton } from '@/components/ReorderButton';
 
 interface OrderDetail {
   order: {
@@ -822,40 +823,19 @@ export function OrderDetailPage() {
           )}
 
           {/* Reorder */}
-          {(order.status === 'delivered' || order.status === 'completed') && (
-            <Surface className="p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="size-8 rounded-lg bg-volt/15 text-volt-deep flex items-center justify-center">
-                  <RefreshCwIcon size={16} />
-                </div>
-                <h3 className="font-display text-base font-semibold text-ink-1">Reorder</h3>
+          <Surface className="p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="size-8 rounded-lg bg-volt/15 text-volt-deep flex items-center justify-center">
+                <RefreshCwIcon size={16} />
               </div>
-              <p className="text-xs text-ink-3 leading-relaxed">
-                Creates a new order at today's prices. Each supplier on this order becomes its own
-                new PO.
-              </p>
-              <Button
-                variant="secondary"
-                onClick={() => void reorder()}
-                loading={reordering}
-                className="w-full"
-              >
-                <RefreshCwIcon size={14} /> Reorder at current prices
-              </Button>
-              {reorderMsg && (
-                <div
-                  className={cn(
-                    'rounded-lg p-3 text-xs',
-                    reorderMsg.startsWith('Reorder placed')
-                      ? 'bg-mint/10 text-mint border border-mint/30'
-                      : 'bg-rose/10 text-rose border border-rose/30',
-                  )}
-                >
-                  {reorderMsg}
-                </div>
-              )}
-            </Surface>
-          )}
+              <h3 className="font-display text-base font-semibold text-ink-1">Reorder</h3>
+            </div>
+            <p className="text-xs text-ink-3 leading-relaxed">
+              Adds the items from this order to your cart at today's prices. You'll be taken to the
+              cart to review before checkout. Items no longer available are skipped.
+            </p>
+            <ReorderButton orderId={order.id} orderStatus={order.status} />
+          </Surface>
 
           {/* Request Refund */}
           {(order.status === 'delivered' || order.status === 'completed') && (
