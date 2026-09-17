@@ -132,23 +132,19 @@ router.post('/', session(), async (c) => {
     throw httpError(400, 'VALIDATION_ERROR', `amountCents exceeds PO outstanding (${outstanding})`);
   }
 
-  const feeBps = await getPlatformFeeBps(c.env.DB);
-  // Commission-aware fee (spec §15): supplier/category/product/promotional
-  // rules overlay the global platform fee; online stays 0 per the 0%
-  // platform-commission policy for PayHere orders. The applied value is
-  // snapshotted on the payment row so history never rewrites.
+  // Commission-aware fee (Fix A — P0 revenue sweep): every method now resolves
+  // through the precedence chain product > supplier > category > promotional >
+  // global rule > platform_settings.platformFeeBps > 250 bps default. Removed
+  // the prior offline-by-default branch that bypassed commission for method=online.
+  // The applied value is snapshotted on the payment row so history never rewrites.
   let feeCents: number;
-  if (parsed.data.method === 'online') {
-    feeCents = 0;
-  } else {
-    try {
-      const categoryId = await categoryForPo(c.env.DB, po.id).catch(() => undefined);
-      const resolved = await resolveCommissionBps(c.env.DB, { supplierId: po.supplierId, categoryId });
-      feeCents = parseInt(String(computePlatformFeeCents(amountCents, resolved.bps)), 10);
-      void feeBps;
-    } catch {
-      feeCents = parseInt(String(computePlatformFeeCents(amountCents, feeBps)), 10);
-    }
+  try {
+    const categoryId = await categoryForPo(c.env.DB, po.id).catch(() => undefined);
+    const resolved = await resolveCommissionBps(c.env.DB, { supplierId: po.supplierId, categoryId });
+    feeCents = parseInt(String(computePlatformFeeCents(amountCents, resolved.bps)), 10);
+  } catch {
+    const feeBps = await getPlatformFeeBps(c.env.DB);
+    feeCents = parseInt(String(computePlatformFeeCents(amountCents, feeBps)), 10);
   }
   const netCents = amountCents - feeCents;
 
