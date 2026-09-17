@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
 import {
   purchaseOrders,
@@ -52,9 +52,11 @@ function driftPct(oldCents: number, newCents: number): number {
 
 /**
  * Re-add every line from a terminal-status PO into the buyer's open cart at
- * today's price + supplier tier. Single-supplier only: lines referencing any
- * other supplier product are reported as skipped (`multi_supplier_unsupported`).
- * Caller is responsible for RBAC; `businessId` scopes the cart write.
+ * today's price + supplier tier. Single-supplier only: lines from any other
+ * supplier are reported as skipped (`multi_supplier_unsupported`). Lines
+ * belonging to the first supplier (by item-id sort) are added — multiple SKUs
+ * from that supplier are supported. Caller is responsible for RBAC;
+ * `businessId` scopes the cart write.
  */
 export async function reorderFromOrder(
   d1: D1Database,
@@ -93,17 +95,25 @@ export async function reorderFromOrder(
   }
 
   // Sort by item id for deterministic ordering, then lock to the first
-  // supplier-product encountered. Lines referencing a different supplier
-  // product get skipped as `multi_supplier_unsupported` (single-supplier floor).
+  // supplier encountered. Lines from other suppliers get skipped as
+  // `multi_supplier_unsupported` (single-supplier floor). Multiple SKUs from
+  // the primary supplier are added.
   items.sort((a, b) => a.id.localeCompare(b.id));
-  const primarySupplierProductId = items[0]!.supplierProductId;
 
+  // Load every supplier product referenced by the PO in a single query so we
+  // can map productId -> supplierId and per-item-lookup offers for the primary
+  // supplier's SKUs.
+  const referencedProductIds = Array.from(new Set(items.map((i) => i.supplierProductId)));
   const offers = (await db
     .select()
     .from(supplierProducts)
-    .where(eq(supplierProducts.id, primarySupplierProductId))
+    .where(inArray(supplierProducts.id, referencedProductIds))
     .all()) as SupplierProduct[];
-  const offer = offers.find((o) => o.id === primarySupplierProductId) ?? null;
+  const offerById = new Map(offers.map((o) => [o.id, o]));
+
+  // Primary supplier = supplier of the first item (lexically smallest id).
+  const primaryOffer = offerById.get(items[0]!.supplierProductId) ?? null;
+  const primarySupplierId = primaryOffer?.supplierId ?? '';
 
   const cart = await ensureOpenCart(d1, businessId);
   const result: ReorderResult = {
@@ -117,22 +127,26 @@ export async function reorderFromOrder(
   };
 
   for (const item of items) {
-    if (item.supplierProductId !== primarySupplierProductId) {
+    const offer = offerById.get(item.supplierProductId) ?? null;
+    const itemSupplierId = offer?.supplierId ?? '';
+
+    if (!offer || offer.deletedAt) {
       result.skipped.push({
         supplierProductId: item.supplierProductId,
-        supplierId: offer?.supplierId ?? '',
+        supplierId: itemSupplierId,
         qty: item.quantity,
-        reason: 'multi_supplier_unsupported',
+        reason: 'archived',
       });
       result.skippedCount++;
       continue;
     }
-    if (!offer || offer.deletedAt) {
+
+    if (itemSupplierId !== primarySupplierId) {
       result.skipped.push({
         supplierProductId: item.supplierProductId,
-        supplierId: offer?.supplierId ?? '',
+        supplierId: itemSupplierId,
         qty: item.quantity,
-        reason: 'archived',
+        reason: 'multi_supplier_unsupported',
       });
       result.skippedCount++;
       continue;

@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const state = vi.hoisted(() => ({
   po: null as any,
   poItems: [] as any[],
-  offer: null as any,
+  offers: [] as any[],
   cart: null as any,
   upsertCalls: [] as Array<{ cartId: string; supplierProductId: string; quantity: number }>,
 }));
@@ -38,7 +38,7 @@ vi.mock('@vyro/db', () => ({
           },
           all: async () => {
             if (table?.name === 'purchase_order_items') return state.poItems;
-            if (table?.name === 'supplier_products') return state.offer ? [state.offer] : [];
+            if (table?.name === 'supplier_products') return state.offers;
             return [];
           },
         }),
@@ -65,7 +65,7 @@ describe('cart/reorder (happy path)', () => {
   beforeEach(() => {
     state.po = null;
     state.poItems = [];
-    state.offer = null;
+    state.offers = [];
     state.cart = { id: 'cart-1', businessId: 'biz-1', status: 'open', createdAt: 0, updatedAt: 0 };
     state.upsertCalls = [];
   });
@@ -78,7 +78,7 @@ describe('cart/reorder (happy path)', () => {
       status: 'completed',
     };
     // One supplier product; tier1 active at qty>=10 with 10% discount.
-    state.offer = {
+    state.offers = [{
       id: 'sp-1',
       supplierId: 'sup-1',
       priceCents: 1100, // +10% vs snapshot
@@ -95,7 +95,7 @@ describe('cart/reorder (happy path)', () => {
       lowStockThreshold: 0,
       trackInventory: false,
       deletedAt: null,
-    };
+    }];
     // Three lines all referencing the same supplier product; one of them
     // (qty=12) crosses tier1, the others (qty=5) stay at list price.
     state.poItems = [
@@ -139,7 +139,7 @@ describe('cart/reorder (skip reasons)', () => {
   beforeEach(() => {
     state.po = null;
     state.poItems = [];
-    state.offer = null;
+    state.offers = [];
     state.cart = { id: 'cart-1', businessId: 'biz-1', status: 'open', createdAt: 0, updatedAt: 0 };
     state.upsertCalls = [];
   });
@@ -147,7 +147,7 @@ describe('cart/reorder (skip reasons)', () => {
   it('skips archived supplier products (deletedAt != null)', async () => {
     state.po = { id: 'po-1', businessId: 'biz-1', status: 'completed' };
     // Soft-deleted offer — service must short-circuit before purchasability.
-    state.offer = {
+    state.offers = [{
       id: 'sp-1',
       supplierId: 'sup-1',
       priceCents: 1100,
@@ -164,7 +164,7 @@ describe('cart/reorder (skip reasons)', () => {
       lowStockThreshold: 0,
       trackInventory: false,
       deletedAt: 1234567890,
-    };
+    }];
     state.poItems = [
       { id: 'poi-a', purchaseOrderId: 'po-1', supplierProductId: 'sp-1', unitPriceCentsSnapshot: 1000, quantity: 5 },
     ];
@@ -183,7 +183,7 @@ describe('cart/reorder (skip reasons)', () => {
   it('skips out-of-stock offers', async () => {
     state.po = { id: 'po-1', businessId: 'biz-1', status: 'completed' };
     // trackInventory=true, free=stockQty-reservedQty-lowStockThreshold=0, requested=5 → INSUFFICIENT_STOCK.
-    state.offer = {
+    state.offers = [{
       id: 'sp-1',
       supplierId: 'sup-1',
       priceCents: 1100,
@@ -200,7 +200,7 @@ describe('cart/reorder (skip reasons)', () => {
       lowStockThreshold: 0,
       trackInventory: true,
       deletedAt: null,
-    };
+    }];
     state.poItems = [
       { id: 'poi-a', purchaseOrderId: 'po-1', supplierProductId: 'sp-1', unitPriceCentsSnapshot: 1000, quantity: 5 },
     ];
@@ -220,7 +220,7 @@ describe('cart/reorder (skip reasons)', () => {
   it('skips offers where reordered qty < tier1MinQty (MOQ check)', async () => {
     state.po = { id: 'po-1', businessId: 'biz-1', status: 'completed' };
     // minOrderQty=10 — qty=3 trips BELOW_MOQ.
-    state.offer = {
+    state.offers = [{
       id: 'sp-1',
       supplierId: 'sup-1',
       priceCents: 1100,
@@ -237,7 +237,7 @@ describe('cart/reorder (skip reasons)', () => {
       lowStockThreshold: 0,
       trackInventory: false,
       deletedAt: null,
-    };
+    }];
     state.poItems = [
       { id: 'poi-a', purchaseOrderId: 'po-1', supplierProductId: 'sp-1', unitPriceCentsSnapshot: 1000, quantity: 3 },
     ];
@@ -254,51 +254,134 @@ describe('cart/reorder (skip reasons)', () => {
     expect(state.upsertCalls).toEqual([]);
   });
 
-  it('skips lines beyond the first supplier product (multi_supplier_unsupported)', async () => {
-    // The service locks to items[0].supplierProductId after sorting by item id.
-    // Items referencing a different supplier product get skipped with
-    // 'multi_supplier_unsupported'. (Spec narrative says "first supplier's
-    // lines added" — implementation locks on supplierProductId, not
-    // supplierId; see task-3 report cross-task concern.)
+  it('groups by supplierId: adds all supplier-A lines, skips supplier-B lines (multi_supplier_unsupported)', async () => {
+    // The service locks to the first supplier encountered after sorting items
+    // by id, then adds ALL of that supplier's lines (multiple SKUs OK). Items
+    // from any other supplier are skipped with 'multi_supplier_unsupported'.
+    // Per spec narrative: "first supplier's lines added; rest skipped".
     state.po = { id: 'po-1', businessId: 'biz-1', status: 'completed' };
-    // Offer is for sp-1 only; sp-2 has no offer in scope.
-    state.offer = {
-      id: 'sp-1',
-      supplierId: 'sup-1',
-      priceCents: 1100,
-      minOrderQty: 1,
-      tier1MinQty: 10,
-      tier1DiscountPct: 0,
-      tier2MinQty: 0,
-      tier2DiscountPct: 0,
-      tier3MinQty: 0,
-      tier3DiscountPct: 0,
-      availabilityStatus: 'in_stock',
-      stockQty: 1000,
-      reservedQty: 0,
-      lowStockThreshold: 0,
-      trackInventory: false,
-      deletedAt: null,
-    };
+    // Five offers — three supplier-A SKUs and two supplier-B SKUs.
+    state.offers = [
+      {
+        id: 'sp-a1',
+        supplierId: 'sup-A',
+        priceCents: 1100,
+        minOrderQty: 1,
+        tier1MinQty: 0,
+        tier1DiscountPct: 0,
+        tier2MinQty: 0,
+        tier2DiscountPct: 0,
+        tier3MinQty: 0,
+        tier3DiscountPct: 0,
+        availabilityStatus: 'in_stock',
+        stockQty: 1000,
+        reservedQty: 0,
+        lowStockThreshold: 0,
+        trackInventory: false,
+        deletedAt: null,
+      },
+      {
+        id: 'sp-a2',
+        supplierId: 'sup-A',
+        priceCents: 2000,
+        minOrderQty: 1,
+        tier1MinQty: 0,
+        tier1DiscountPct: 0,
+        tier2MinQty: 0,
+        tier2DiscountPct: 0,
+        tier3MinQty: 0,
+        tier3DiscountPct: 0,
+        availabilityStatus: 'in_stock',
+        stockQty: 1000,
+        reservedQty: 0,
+        lowStockThreshold: 0,
+        trackInventory: false,
+        deletedAt: null,
+      },
+      {
+        id: 'sp-a3',
+        supplierId: 'sup-A',
+        priceCents: 3000,
+        minOrderQty: 1,
+        tier1MinQty: 0,
+        tier1DiscountPct: 0,
+        tier2MinQty: 0,
+        tier2DiscountPct: 0,
+        tier3MinQty: 0,
+        tier3DiscountPct: 0,
+        availabilityStatus: 'in_stock',
+        stockQty: 1000,
+        reservedQty: 0,
+        lowStockThreshold: 0,
+        trackInventory: false,
+        deletedAt: null,
+      },
+      {
+        id: 'sp-b1',
+        supplierId: 'sup-B',
+        priceCents: 5000,
+        minOrderQty: 1,
+        tier1MinQty: 0,
+        tier1DiscountPct: 0,
+        tier2MinQty: 0,
+        tier2DiscountPct: 0,
+        tier3MinQty: 0,
+        tier3DiscountPct: 0,
+        availabilityStatus: 'in_stock',
+        stockQty: 1000,
+        reservedQty: 0,
+        lowStockThreshold: 0,
+        trackInventory: false,
+        deletedAt: null,
+      },
+      {
+        id: 'sp-b2',
+        supplierId: 'sup-B',
+        priceCents: 6000,
+        minOrderQty: 1,
+        tier1MinQty: 0,
+        tier1DiscountPct: 0,
+        tier2MinQty: 0,
+        tier2DiscountPct: 0,
+        tier3MinQty: 0,
+        tier3DiscountPct: 0,
+        availabilityStatus: 'in_stock',
+        stockQty: 1000,
+        reservedQty: 0,
+        lowStockThreshold: 0,
+        trackInventory: false,
+        deletedAt: null,
+      },
+    ];
     state.poItems = [
-      // poi-a sorts first lexically → primarySupplierProductId = sp-1.
-      { id: 'poi-a', purchaseOrderId: 'po-1', supplierProductId: 'sp-1', unitPriceCentsSnapshot: 1000, quantity: 5 },
-      // poi-b references sp-2 (a different supplier product) → skipped.
-      { id: 'poi-b', purchaseOrderId: 'po-1', supplierProductId: 'sp-2', unitPriceCentsSnapshot: 2000, quantity: 7 },
+      // Three supplier-A lines, ordered so poi-a wins the lock.
+      { id: 'poi-a', purchaseOrderId: 'po-1', supplierProductId: 'sp-a1', unitPriceCentsSnapshot: 1000, quantity: 5 },
+      { id: 'poi-b', purchaseOrderId: 'po-1', supplierProductId: 'sp-a2', unitPriceCentsSnapshot: 2000, quantity: 3 },
+      { id: 'poi-c', purchaseOrderId: 'po-1', supplierProductId: 'sp-a3', unitPriceCentsSnapshot: 3000, quantity: 2 },
+      // Two supplier-B lines — both must be skipped.
+      { id: 'poi-d', purchaseOrderId: 'po-1', supplierProductId: 'sp-b1', unitPriceCentsSnapshot: 5000, quantity: 4 },
+      { id: 'poi-e', purchaseOrderId: 'po-1', supplierProductId: 'sp-b2', unitPriceCentsSnapshot: 6000, quantity: 6 },
     ];
 
     const result = await reorderFromOrder(D1_STUB, 'po-1', 'biz-1');
 
-    expect(result.addedCount).toBe(1);
-    expect(result.skippedCount).toBe(1);
-    expect(result.added).toHaveLength(1);
-    expect(result.added[0]).toMatchObject({ supplierProductId: 'sp-1', qty: 5 });
+    expect(result.addedCount).toBe(3);
+    expect(result.skippedCount).toBe(2);
+    expect(result.added).toHaveLength(3);
+    expect(result.skipped).toHaveLength(2);
+
+    // All three supplier-A lines added (in id-sort order).
+    expect(result.added.map((a) => a.supplierProductId)).toEqual(['sp-a1', 'sp-a2', 'sp-a3']);
+    // Skipped entries carry the actual supplier id (sup-B), not the primary.
     expect(result.skipped).toEqual([
-      { supplierProductId: 'sp-2', supplierId: 'sup-1', qty: 7, reason: 'multi_supplier_unsupported' },
+      { supplierProductId: 'sp-b1', supplierId: 'sup-B', qty: 4, reason: 'multi_supplier_unsupported' },
+      { supplierProductId: 'sp-b2', supplierId: 'sup-B', qty: 6, reason: 'multi_supplier_unsupported' },
     ]);
-    // Only the matching line is upserted into the cart.
+    // Only the three matching lines are upserted into the cart.
     expect(state.upsertCalls).toEqual([
-      { cartId: 'cart-1', supplierProductId: 'sp-1', quantity: 5 },
+      { cartId: 'cart-1', supplierProductId: 'sp-a1', quantity: 5 },
+      { cartId: 'cart-1', supplierProductId: 'sp-a2', quantity: 3 },
+      { cartId: 'cart-1', supplierProductId: 'sp-a3', quantity: 2 },
     ]);
   });
 });
@@ -307,14 +390,14 @@ describe('cart/reorder (drift math)', () => {
   beforeEach(() => {
     state.po = null;
     state.poItems = [];
-    state.offer = null;
+    state.offers = [];
     state.cart = { id: 'cart-1', businessId: 'biz-1', status: 'open', createdAt: 0, updatedAt: 0 };
     state.upsertCalls = [];
   });
 
   it('round-trips oldUnitCents=100, newUnitCents=125 to driftPct=+25', async () => {
     state.po = { id: 'po-1', businessId: 'biz-1', status: 'completed' };
-    state.offer = {
+    state.offers = [{
       id: 'sp-1',
       supplierId: 'sup-1',
       priceCents: 125,
@@ -331,7 +414,7 @@ describe('cart/reorder (drift math)', () => {
       lowStockThreshold: 0,
       trackInventory: false,
       deletedAt: null,
-    };
+    }];
     state.poItems = [
       { id: 'poi-a', purchaseOrderId: 'po-1', supplierProductId: 'sp-1', unitPriceCentsSnapshot: 100, quantity: 1 },
     ];
@@ -348,7 +431,7 @@ describe('cart/reorder (drift math)', () => {
 
   it('returns 0 drift when oldUnitCents=0 (no division-by-zero)', async () => {
     state.po = { id: 'po-1', businessId: 'biz-1', status: 'completed' };
-    state.offer = {
+    state.offers = [{
       id: 'sp-1',
       supplierId: 'sup-1',
       priceCents: 500,
@@ -365,7 +448,7 @@ describe('cart/reorder (drift math)', () => {
       lowStockThreshold: 0,
       trackInventory: false,
       deletedAt: null,
-    };
+    }];
     // unitPriceCentsSnapshot=0 — exercises the driftPct guard against /0.
     state.poItems = [
       { id: 'poi-a', purchaseOrderId: 'po-1', supplierProductId: 'sp-1', unitPriceCentsSnapshot: 0, quantity: 1 },
@@ -386,7 +469,7 @@ describe('cart/reorder (PO eligibility)', () => {
   beforeEach(() => {
     state.po = null;
     state.poItems = [];
-    state.offer = null;
+    state.offers = [];
     state.cart = { id: 'cart-1', businessId: 'biz-1', status: 'open', createdAt: 0, updatedAt: 0 };
     state.upsertCalls = [];
   });
