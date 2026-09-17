@@ -266,11 +266,11 @@ export async function handleWeeklyPayoutBatch(
   const { getOrCreateSupplierSettings } = await import('../modules/settings/supplierRepository');
 
   const suppliers = await listSuppliersWithConfirmedPaymentsSince(env.DB, periodStart);
-  const perSupplier: WeeklyPayoutBatchResult extends infer R
-    ? R extends { perSupplier: infer P }
-      ? P
-      : never
-    : never = [];
+  const perSupplier: Array<{
+    supplierId: string;
+    status: 'created' | 'duplicate' | 'empty' | 'error';
+    message?: string;
+  }> = [];
   let processed = 0;
   let errors = 0;
 
