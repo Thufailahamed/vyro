@@ -47,28 +47,13 @@ vi.mock('@vyro/db', () => ({
   }),
 }));
 
-// Mirror @vyro/shared's real checkPurchasable so the test exercises real
-// decision logic against the mocked supplier product shape.
+// Pass through the real @vyro/shared exports so the service exercises the
+// real `checkPurchasable` (and friends). If the shared function's contract
+// drifts, this test should catch it.
 vi.mock('@vyro/shared', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@vyro/shared')>();
   return {
     ...actual,
-    checkPurchasable: (offer: any, quantity: number) => {
-      if (offer.availabilityStatus === 'out_of_stock') {
-        return { ok: false, code: 'OUT_OF_STOCK', message: 'oos' };
-      }
-      const moq = offer.minOrderQty ?? 1;
-      if (quantity < moq) {
-        return { ok: false, code: 'BELOW_MOQ', message: 'moq', minOrderQty: moq };
-      }
-      if (offer.trackInventory) {
-        const free = (offer.stockQty ?? 0) - (offer.reservedQty ?? 0);
-        if (quantity > free) {
-          return { ok: false, code: 'INSUFFICIENT_STOCK', message: 'ins', available: free };
-        }
-      }
-      return { ok: true };
-    },
   };
 });
 
