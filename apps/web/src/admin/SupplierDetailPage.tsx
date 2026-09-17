@@ -18,6 +18,7 @@ import {
   TruckIcon,
   UserIcon,
 } from '@/components/icons';
+import { SupplierTrustSignalsCard } from './trust/SupplierTrustSignalsCard';
 
 type VerificationStatus = 'pending' | 'verified' | 'rejected' | 'suspended';
 
@@ -151,6 +152,7 @@ export function SupplierDetailPage() {
       </div>
 
       {/* Executive Page Header */}
+      <SupplierTrustSignalsCard supplierId={s.id} />
       <PageHeader
         kicker={
           <div className="flex flex-wrap items-center gap-2">
