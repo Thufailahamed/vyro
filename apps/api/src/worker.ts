@@ -11,6 +11,7 @@ import {
   handleFxRefresh,
   handleSponsoredExpireSweep,
   handleTrustSignalsRebuild,
+  handleWeeklyPayoutBatch,
 } from './cron/handlers';
 import { handleQueueEventsPrune } from './cron/queue-events-prune';
 import { runObservabilitySweep } from './cron/observabilitySweep';
@@ -78,6 +79,12 @@ export default {
         // BuyLeads daily digest. Lanka = UTC+5:30, so 01:30 UTC = 07:00 Colombo.
         ctx.waitUntil(runBuyLeadsDigest(env));
         ctx.waitUntil(import('./cron/trustSeal').then((m) => m.handleTrustSealExpiry(env)));
+        break;
+      }
+      case '30 21 * * 4': {
+        // Friday 03:00 SL local (= 21:30 UTC Thursday) — weekly supplier payout
+        // batch. Gated on PAYOUTS_CRON_ENABLED; no-op when flag is off.
+        ctx.waitUntil(handleWeeklyPayoutBatch(env));
         break;
       }
       default:
