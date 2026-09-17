@@ -19,7 +19,6 @@ import { ORDER_TRANSITIONS, canTransition, type OrderStatus as SharedOrderStatus
 import { formatLKR } from '@/lib/format';
 import {
   ArrowLeftIcon,
-  RefreshCwIcon,
   PackageIcon,
   TruckIcon,
   CheckCircleIcon,
@@ -198,8 +197,6 @@ export function OrderDetailPage() {
   const [refundReason, setRefundReason] = useState('');
   const [refundSubmitting, setRefundSubmitting] = useState(false);
   const [refundMsg, setRefundMsg] = useState('');
-  const [reordering, setReordering] = useState(false);
-  const [reorderMsg, setReorderMsg] = useState('');
 
   const { data, refetch, isLoading } = useQuery({
     queryKey: ['order', id],
@@ -280,26 +277,6 @@ export function OrderDetailPage() {
       setRefundMsg(e instanceof ApiError ? e.message : 'Refund request failed');
     } finally {
       setRefundSubmitting(false);
-    }
-  }
-
-  async function reorder() {
-    if (!data || !id) return;
-    if (data.order.status !== 'delivered' && data.order.status !== 'completed') return;
-    setReorderMsg('');
-    setReordering(true);
-    try {
-      await api.post(`/purchase-orders/${id}/reorder`);
-      setReorderMsg('Reorder placed. New order(s) are now in your orders list.');
-      void qc.invalidateQueries({ queryKey: ['orders'] });
-    } catch (e) {
-      setReorderMsg(
-        e instanceof ApiError
-          ? e.message
-          : 'Could not reorder — some items may no longer be available.',
-      );
-    } finally {
-      setReordering(false);
     }
   }
 
@@ -823,19 +800,7 @@ export function OrderDetailPage() {
           )}
 
           {/* Reorder */}
-          <Surface className="p-5 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="size-8 rounded-lg bg-volt/15 text-volt-deep flex items-center justify-center">
-                <RefreshCwIcon size={16} />
-              </div>
-              <h3 className="font-display text-base font-semibold text-ink-1">Reorder</h3>
-            </div>
-            <p className="text-xs text-ink-3 leading-relaxed">
-              Adds the items from this order to your cart at today's prices. You'll be taken to the
-              cart to review before checkout. Items no longer available are skipped.
-            </p>
-            <ReorderButton orderId={order.id} orderStatus={order.status} />
-          </Surface>
+          <ReorderButton orderId={order.id} orderStatus={order.status} />
 
           {/* Request Refund */}
           {(order.status === 'delivered' || order.status === 'completed') && (
