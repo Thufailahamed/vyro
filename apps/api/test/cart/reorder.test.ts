@@ -134,3 +134,271 @@ describe('cart/reorder (happy path)', () => {
     ]);
   });
 });
+
+describe('cart/reorder (skip reasons)', () => {
+  beforeEach(() => {
+    state.po = null;
+    state.poItems = [];
+    state.offer = null;
+    state.cart = { id: 'cart-1', businessId: 'biz-1', status: 'open', createdAt: 0, updatedAt: 0 };
+    state.upsertCalls = [];
+  });
+
+  it('skips archived supplier products (deletedAt != null)', async () => {
+    state.po = { id: 'po-1', businessId: 'biz-1', status: 'completed' };
+    // Soft-deleted offer — service must short-circuit before purchasability.
+    state.offer = {
+      id: 'sp-1',
+      supplierId: 'sup-1',
+      priceCents: 1100,
+      minOrderQty: 1,
+      tier1MinQty: 10,
+      tier1DiscountPct: 0,
+      tier2MinQty: 0,
+      tier2DiscountPct: 0,
+      tier3MinQty: 0,
+      tier3DiscountPct: 0,
+      availabilityStatus: 'in_stock',
+      stockQty: 1000,
+      reservedQty: 0,
+      lowStockThreshold: 0,
+      trackInventory: false,
+      deletedAt: 1234567890,
+    };
+    state.poItems = [
+      { id: 'poi-a', purchaseOrderId: 'po-1', supplierProductId: 'sp-1', unitPriceCentsSnapshot: 1000, quantity: 5 },
+    ];
+
+    const result = await reorderFromOrder(D1_STUB, 'po-1', 'biz-1');
+
+    expect(result.addedCount).toBe(0);
+    expect(result.skippedCount).toBe(1);
+    expect(result.added).toHaveLength(0);
+    expect(result.skipped).toEqual([
+      { supplierProductId: 'sp-1', supplierId: 'sup-1', qty: 5, reason: 'archived' },
+    ]);
+    expect(state.upsertCalls).toEqual([]);
+  });
+
+  it('skips out-of-stock offers', async () => {
+    state.po = { id: 'po-1', businessId: 'biz-1', status: 'completed' };
+    // trackInventory=true, free=stockQty-reservedQty-lowStockThreshold=0, requested=5 → INSUFFICIENT_STOCK.
+    state.offer = {
+      id: 'sp-1',
+      supplierId: 'sup-1',
+      priceCents: 1100,
+      minOrderQty: 1,
+      tier1MinQty: 10,
+      tier1DiscountPct: 0,
+      tier2MinQty: 0,
+      tier2DiscountPct: 0,
+      tier3MinQty: 0,
+      tier3DiscountPct: 0,
+      availabilityStatus: 'low',
+      stockQty: 5,
+      reservedQty: 5,
+      lowStockThreshold: 0,
+      trackInventory: true,
+      deletedAt: null,
+    };
+    state.poItems = [
+      { id: 'poi-a', purchaseOrderId: 'po-1', supplierProductId: 'sp-1', unitPriceCentsSnapshot: 1000, quantity: 5 },
+    ];
+
+    const result = await reorderFromOrder(D1_STUB, 'po-1', 'biz-1');
+
+    expect(result.addedCount).toBe(0);
+    expect(result.skippedCount).toBe(1);
+    expect(result.skipped[0]).toMatchObject({
+      supplierProductId: 'sp-1',
+      qty: 5,
+      reason: 'out_of_stock',
+    });
+    expect(state.upsertCalls).toEqual([]);
+  });
+
+  it('skips offers where reordered qty < tier1MinQty (MOQ check)', async () => {
+    state.po = { id: 'po-1', businessId: 'biz-1', status: 'completed' };
+    // minOrderQty=10 — qty=3 trips BELOW_MOQ.
+    state.offer = {
+      id: 'sp-1',
+      supplierId: 'sup-1',
+      priceCents: 1100,
+      minOrderQty: 10,
+      tier1MinQty: 0,
+      tier1DiscountPct: 0,
+      tier2MinQty: 0,
+      tier2DiscountPct: 0,
+      tier3MinQty: 0,
+      tier3DiscountPct: 0,
+      availabilityStatus: 'in_stock',
+      stockQty: 1000,
+      reservedQty: 0,
+      lowStockThreshold: 0,
+      trackInventory: false,
+      deletedAt: null,
+    };
+    state.poItems = [
+      { id: 'poi-a', purchaseOrderId: 'po-1', supplierProductId: 'sp-1', unitPriceCentsSnapshot: 1000, quantity: 3 },
+    ];
+
+    const result = await reorderFromOrder(D1_STUB, 'po-1', 'biz-1');
+
+    expect(result.addedCount).toBe(0);
+    expect(result.skippedCount).toBe(1);
+    expect(result.skipped[0]).toMatchObject({
+      supplierProductId: 'sp-1',
+      qty: 3,
+      reason: 'below_moq',
+    });
+    expect(state.upsertCalls).toEqual([]);
+  });
+
+  it('skips lines beyond the first supplier product (multi_supplier_unsupported)', async () => {
+    // The service locks to items[0].supplierProductId after sorting by item id.
+    // Items referencing a different supplier product get skipped with
+    // 'multi_supplier_unsupported'. (Spec narrative says "first supplier's
+    // lines added" — implementation locks on supplierProductId, not
+    // supplierId; see task-3 report cross-task concern.)
+    state.po = { id: 'po-1', businessId: 'biz-1', status: 'completed' };
+    // Offer is for sp-1 only; sp-2 has no offer in scope.
+    state.offer = {
+      id: 'sp-1',
+      supplierId: 'sup-1',
+      priceCents: 1100,
+      minOrderQty: 1,
+      tier1MinQty: 10,
+      tier1DiscountPct: 0,
+      tier2MinQty: 0,
+      tier2DiscountPct: 0,
+      tier3MinQty: 0,
+      tier3DiscountPct: 0,
+      availabilityStatus: 'in_stock',
+      stockQty: 1000,
+      reservedQty: 0,
+      lowStockThreshold: 0,
+      trackInventory: false,
+      deletedAt: null,
+    };
+    state.poItems = [
+      // poi-a sorts first lexically → primarySupplierProductId = sp-1.
+      { id: 'poi-a', purchaseOrderId: 'po-1', supplierProductId: 'sp-1', unitPriceCentsSnapshot: 1000, quantity: 5 },
+      // poi-b references sp-2 (a different supplier product) → skipped.
+      { id: 'poi-b', purchaseOrderId: 'po-1', supplierProductId: 'sp-2', unitPriceCentsSnapshot: 2000, quantity: 7 },
+    ];
+
+    const result = await reorderFromOrder(D1_STUB, 'po-1', 'biz-1');
+
+    expect(result.addedCount).toBe(1);
+    expect(result.skippedCount).toBe(1);
+    expect(result.added).toHaveLength(1);
+    expect(result.added[0]).toMatchObject({ supplierProductId: 'sp-1', qty: 5 });
+    expect(result.skipped).toEqual([
+      { supplierProductId: 'sp-2', supplierId: 'sup-1', qty: 7, reason: 'multi_supplier_unsupported' },
+    ]);
+    // Only the matching line is upserted into the cart.
+    expect(state.upsertCalls).toEqual([
+      { cartId: 'cart-1', supplierProductId: 'sp-1', quantity: 5 },
+    ]);
+  });
+});
+
+describe('cart/reorder (drift math)', () => {
+  beforeEach(() => {
+    state.po = null;
+    state.poItems = [];
+    state.offer = null;
+    state.cart = { id: 'cart-1', businessId: 'biz-1', status: 'open', createdAt: 0, updatedAt: 0 };
+    state.upsertCalls = [];
+  });
+
+  it('round-trips oldUnitCents=100, newUnitCents=125 to driftPct=+25', async () => {
+    state.po = { id: 'po-1', businessId: 'biz-1', status: 'completed' };
+    state.offer = {
+      id: 'sp-1',
+      supplierId: 'sup-1',
+      priceCents: 125,
+      minOrderQty: 1,
+      tier1MinQty: 0,
+      tier1DiscountPct: 0,
+      tier2MinQty: 0,
+      tier2DiscountPct: 0,
+      tier3MinQty: 0,
+      tier3DiscountPct: 0,
+      availabilityStatus: 'in_stock',
+      stockQty: 1000,
+      reservedQty: 0,
+      lowStockThreshold: 0,
+      trackInventory: false,
+      deletedAt: null,
+    };
+    state.poItems = [
+      { id: 'poi-a', purchaseOrderId: 'po-1', supplierProductId: 'sp-1', unitPriceCentsSnapshot: 100, quantity: 1 },
+    ];
+
+    const result = await reorderFromOrder(D1_STUB, 'po-1', 'biz-1');
+
+    expect(result.addedCount).toBe(1);
+    expect(result.added[0]).toMatchObject({
+      oldUnitCents: 100,
+      newUnitCents: 125,
+      driftPct: 25,
+    });
+  });
+
+  it('returns 0 drift when oldUnitCents=0 (no division-by-zero)', async () => {
+    state.po = { id: 'po-1', businessId: 'biz-1', status: 'completed' };
+    state.offer = {
+      id: 'sp-1',
+      supplierId: 'sup-1',
+      priceCents: 500,
+      minOrderQty: 1,
+      tier1MinQty: 0,
+      tier1DiscountPct: 0,
+      tier2MinQty: 0,
+      tier2DiscountPct: 0,
+      tier3MinQty: 0,
+      tier3DiscountPct: 0,
+      availabilityStatus: 'in_stock',
+      stockQty: 1000,
+      reservedQty: 0,
+      lowStockThreshold: 0,
+      trackInventory: false,
+      deletedAt: null,
+    };
+    // unitPriceCentsSnapshot=0 — exercises the driftPct guard against /0.
+    state.poItems = [
+      { id: 'poi-a', purchaseOrderId: 'po-1', supplierProductId: 'sp-1', unitPriceCentsSnapshot: 0, quantity: 1 },
+    ];
+
+    const result = await reorderFromOrder(D1_STUB, 'po-1', 'biz-1');
+
+    expect(result.addedCount).toBe(1);
+    expect(result.added[0]).toMatchObject({
+      oldUnitCents: 0,
+      newUnitCents: 500,
+      driftPct: 0,
+    });
+  });
+});
+
+describe('cart/reorder (PO eligibility)', () => {
+  beforeEach(() => {
+    state.po = null;
+    state.poItems = [];
+    state.offer = null;
+    state.cart = { id: 'cart-1', businessId: 'biz-1', status: 'open', createdAt: 0, updatedAt: 0 };
+    state.upsertCalls = [];
+  });
+
+  it('throws PO_NOT_REORDERABLE when po.status is pending', async () => {
+    state.po = { id: 'po-pending', businessId: 'biz-1', status: 'pending' };
+    state.poItems = []; // would otherwise be irrelevant — gate fires before item walk.
+
+    await expect(
+      reorderFromOrder(D1_STUB, 'po-pending', 'biz-1'),
+    ).rejects.toMatchObject({ status: 409, code: 'PO_NOT_REORDERABLE' });
+
+    expect(state.upsertCalls).toEqual([]);
+  });
+});
