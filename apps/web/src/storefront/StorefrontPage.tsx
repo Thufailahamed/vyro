@@ -5,6 +5,8 @@ import { SupplierProductGrid, type StorefrontOffer } from './SupplierProductGrid
 import { StorefrontMeta } from './useStorefrontMeta';
 import { SupplierReviewsPanel } from '@/reviews/SupplierReviewsPanel';
 import { SponsoredSlot } from '../components/SponsoredSlot';
+import { TrustSignalBadges } from '../components/TrustSignalBadges';
+import type { TrustSignalView } from '../lib/trustApi';
 
 interface SponsoredUpsell {
   slotId: string;
@@ -33,6 +35,7 @@ interface StorefrontData {
     supplierMemberYears?: number | null;
   };
   offers: StorefrontOffer[];
+  trustSignals?: TrustSignalView | null;
   otherSuppliersSponsored?: SponsoredUpsell[];
 }
 
@@ -77,6 +80,11 @@ export function StorefrontPage(): JSX.Element {
         supplierMemberYears={data.supplier.supplierMemberYears}
         supplierSinceDate={data.supplier.supplierSinceDate}
       />
+      {data.trustSignals && (
+        <section aria-label="Trust signals">
+          <TrustSignalBadges view={data.trustSignals} size="full" />
+        </section>
+      )}
       <section>
         <div className="vyro-kicker text-copper mb-3">Published products</div>
         <SupplierProductGrid offers={data.offers} />
