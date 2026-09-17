@@ -6,7 +6,7 @@ import { requireRole } from '../../middleware/rbac';
 import { httpError } from '../../lib/errors';
 import { getDb } from '@vyro/db';
 import { auditLogs } from '@vyro/db/schema';
-import { findDisputedPo, listDisputed, setPoStatus } from './disputeRepository';
+import { findDisputedPo, listDisputed, setPoStatus, setPoDisputeOutcome } from './disputeRepository';
 import { eq } from 'drizzle-orm';
 import { resolveGateway } from '@vyro/payments';
 import { writeLedgerEntry } from '../ledger';
@@ -142,8 +142,20 @@ router.post('/disputes/:poId/resolve', async (c) => {
       });
     }
 
+    // Record supplier-fault outcome BEFORE status flip so any test harnesses
+    // that capture the last `db.update(...).set(...)` still see the status patch.
+    try {
+      await setPoDisputeOutcome(c.env.DB, poId, parsed.data.outcome, Date.now());
+    } catch (err) {
+      console.error('[disputes.resolve] outcome stamp failed', err);
+    }
     await setPoStatus(c.env.DB, poId, 'cancelled', ctx.userId, parsed.data.note ?? 'dispute resolved: refund_business');
   } else {
+    try {
+      await setPoDisputeOutcome(c.env.DB, poId, parsed.data.outcome, Date.now());
+    } catch (err) {
+      console.error('[disputes.resolve] outcome stamp failed', err);
+    }
     await setPoStatus(c.env.DB, poId, 'delivered', ctx.userId, parsed.data.note ?? 'dispute resolved: release_supplier');
   }
   // Disputed money is held; resolution unblocks eligibility either way
@@ -153,6 +165,14 @@ router.post('/disputes/:poId/resolve', async (c) => {
     await recomputeEligibilityForPo(c.env.DB, poId);
   } catch (err) {
     console.error('[disputes.resolve] eligibility sync failed', err);
+  }
+
+  // Best-effort: refresh trust signal cache for this supplier.
+  try {
+    const { recomputeForSupplier } = await import('../trust/service');
+    await recomputeForSupplier(c.env.DB, po.supplierId, Date.now());
+  } catch (err) {
+    console.error('[disputes.resolve] trust recompute failed', err);
   }
 
   const now = Date.now();

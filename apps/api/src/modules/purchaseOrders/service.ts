@@ -450,6 +450,54 @@ export const checkoutService = {
       console.error('[po.transition] reviews hook failed', { poId: po.id, to: input.to, err });
     }
 
+    // Trust signals: keep cached signals fresh on the active path. Fire on
+    // delivered (sample grows) + dispute transitions (sample + outcome change).
+    if (input.to === 'delivered' || input.to === 'disputed' || po.status === 'disputed') {
+      try {
+        const { recomputeForSupplier } = await import('../trust/service');
+        await recomputeForSupplier(d1, po.supplierId);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[po.transition] trust recompute failed', { poId: po.id, to: input.to, err });
+      }
+    }
+
+    // First-time prepared transition: stamp `delivery_promised_at` using
+    // supplier_product.lead_time_days. Idempotent (only writes when NULL).
+    if (input.to === 'preparing') {
+      try {
+        const { eq } = await import('drizzle-orm');
+        const { purchaseOrderItems, supplierProducts } = await import('@vyro/db/schema');
+        const lead = await d1
+          .prepare(
+            `SELECT sp.lead_time_days AS lead
+             FROM purchase_order_items poi
+             JOIN supplier_products sp ON sp.id = poi.supplier_product_id
+             WHERE poi.purchase_order_id = ?
+             ORDER BY poi.id ASC LIMIT 1`,
+          )
+          .bind(po.id)
+          .first<{ lead: number }>()
+          .catch(() => null);
+        const days = Number(lead?.lead ?? 1);
+        const promisedAt = Date.now() + days * 86400 * 1000;
+        await d1
+          .prepare(
+            `UPDATE purchase_orders
+             SET delivery_promised_at = ?, updated_at = ?
+             WHERE id = ? AND delivery_promised_at IS NULL`,
+          )
+          .bind(promisedAt, Date.now(), po.id)
+          .run();
+        // Imports kept for tree-shake parity; mark them read.
+        void eq;
+        void purchaseOrderItems;
+        void supplierProducts;
+      } catch (err) {
+        console.error('[po.transition] promised_at stamp failed', { poId: po.id, err });
+      }
+    }
+
     // Notify the other side (and co-workers) about the new state.
     const type = ORDER_STATUS_NOTIFICATION[input.to] ?? NotificationType.ORDER_PLACED;
     const copy = ORDER_STATUS_COPY[input.to];

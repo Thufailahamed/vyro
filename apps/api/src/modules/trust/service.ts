@@ -1,6 +1,6 @@
-import { and, eq, gte, isNotNull, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
-import { suppliers, purchaseOrders } from '@vyro/db/schema';
+import { suppliers } from '@vyro/db/schema';
 import { trustRepository } from './repository';
 import { computeTrustSignal, sampleGateMeetsOnTimeBadge } from './compute';
 
@@ -32,40 +32,36 @@ async function loadSupplierFacts(d1: D1Database, supplierId: string, nowMs: numb
   const sup = await db.select().from(suppliers).where(eq(suppliers.id, supplierId)).get();
   if (!sup) return null;
 
-  const delivery = await db
-    .select({
-      total: sql<number>`count(*)`,
-      onTime: sql<number>`sum(case when ${purchaseOrders.deliveredAt} <= ${purchaseOrders.deliveryPromisedAt} then 1 else 0 end)`,
-    })
-    .from(purchaseOrders)
-    .where(
-      and(
-        eq(purchaseOrders.supplierId, supplierId),
-        eq(purchaseOrders.status, 'delivered'),
-        isNotNull(purchaseOrders.deliveryPromisedAt),
-      ),
+  // Raw aggregates — aggregate + LIMIT combination is awkward with the
+  // drizzle D1 builder; the SQL is clearer and matches the cron budget.
+  const deliveryRow = await d1
+    .prepare(
+      `SELECT count(*) AS total,
+              sum(case when delivered_at <= delivery_promised_at then 1 else 0 end) AS on_time
+       FROM purchase_orders
+       WHERE supplier_id = ?1 AND status = 'delivered' AND delivery_promised_at IS NOT NULL
+       ORDER BY delivered_at DESC
+       LIMIT ?2`,
     )
-    .orderBy(sql`${purchaseOrders.deliveredAt} desc`)
-    .limit(TRAILING_DELIVERY_WINDOW)
-    .get();
+    .bind(supplierId, TRAILING_DELIVERY_WINDOW)
+    .first<{ total: number; on_time: number | null }>()
+    .catch(() => null);
 
-  const cutoff = nowMs - DISPUTE_WINDOW_DAYS * 86400 * 1000;
-  const disputedRow = await db
-    .select({ n: sql<number>`count(*)` })
-    .from(purchaseOrders)
-    .where(
-      and(
-        eq(purchaseOrders.supplierId, supplierId),
-        eq(purchaseOrders.disputeOutcome, 'refund_business'),
-        gte(purchaseOrders.disputedAt, cutoff),
-      ),
+  const cutoffSec = Math.floor((nowMs - DISPUTE_WINDOW_DAYS * 86400 * 1000) / 1000);
+  const disputedRow = await d1
+    .prepare(
+      `SELECT count(*) AS n
+       FROM purchase_orders
+       WHERE supplier_id = ?1 AND dispute_outcome = 'refund_business' AND disputed_at >= ?2`,
     )
-    .get();
+    .bind(supplierId, cutoffSec)
+    .first<{ n: number }>()
+    .catch(() => null);
 
   return {
     supplier: sup,
-    totalCompletedPos: Number(delivery?.total ?? 0),
-    onTimeCount: Number(delivery?.onTime ?? 0),
+    totalCompletedPos: Number(deliveryRow?.total ?? 0),
+    onTimeCount: Number(deliveryRow?.on_time ?? 0),
     disputedSupplierFaultCount: Number(disputedRow?.n ?? 0),
   };
 }

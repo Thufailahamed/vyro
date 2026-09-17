@@ -14,7 +14,11 @@ export async function setPoStatus(d1: D1Database, id: string, status: string, ac
   const now = Date.now();
   const tsPatch: Record<string, number> =
     status === 'cancelled' ? { cancelledAt: now } : status === 'delivered' ? { deliveredAt: now } : {};
-  await db.update(purchaseOrders).set({ status, updatedAt: now, ...tsPatch } as any).where(eq(purchaseOrders.id, id)).run();
+  // Stamp `disputed_at` the first time the PO transitions INTO disputed so
+  // trust-signal recomputation can bucket supplier-fault outcomes.
+  const extraPatch: Record<string, number> =
+    status === 'disputed' && (po as any)?.disputedAt == null ? { disputedAt: now } : {};
+  await db.update(purchaseOrders).set({ status, updatedAt: now, ...tsPatch, ...extraPatch } as any).where(eq(purchaseOrders.id, id)).run();
   await db.insert(orderEvents).values({
     id: newId(),
     purchaseOrderId: id,
@@ -25,6 +29,20 @@ export async function setPoStatus(d1: D1Database, id: string, status: string, ac
     metadata: null,
     createdAt: now,
   }).run();
+}
+
+export async function setPoDisputeOutcome(
+  d1: D1Database,
+  poId: string,
+  outcome: 'refund_business' | 'release_supplier',
+  nowMs: number = Date.now(),
+): Promise<void> {
+  const db = getDb(d1);
+  await db
+    .update(purchaseOrders)
+    .set({ disputeOutcome: outcome, updatedAt: nowMs } as any)
+    .where(eq(purchaseOrders.id, poId))
+    .run();
 }
 
 export async function listDisputed(d1: D1Database) {
