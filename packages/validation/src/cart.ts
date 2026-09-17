@@ -26,6 +26,39 @@ export const checkoutSchema = z
     message: 'creditTerms required when paymentMethod=credit',
   });
 
+export const reorderResponseSchema = z
+  .object({
+    cartId: z.string(),
+    addedCount: z.number().int().min(0),
+    skippedCount: z.number().int().min(0),
+    addedSubtotalCents: z.number().int().min(0),
+    added: z.array(
+      z.object({
+        supplierProductId: z.string(),
+        supplierId: z.string(),
+        qty: z.number().int().min(1),
+        oldUnitCents: z.number().int().min(0),
+        newUnitCents: z.number().int().min(0),
+        newEffectiveUnitCents: z.number().int().min(0),
+        tierApplied: z
+          .object({ minQty: z.number().int().min(0), discountPct: z.number().int().min(0) })
+          .nullable(),
+        driftPct: z.number(),
+      }),
+    ),
+    skipped: z.array(
+      z.object({
+        supplierProductId: z.string(),
+        supplierId: z.string(),
+        qty: z.number().int().min(1),
+        reason: z.enum(['archived', 'out_of_stock', 'below_moq', 'multi_supplier_unsupported']),
+      }),
+    ),
+    warnings: z.array(z.string()),
+  })
+  .strict();
+
 export type AddCartItemInput = z.infer<typeof addCartItemSchema>;
 export type UpdateCartItemInput = z.infer<typeof updateCartItemSchema>;
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
+export type ReorderResponse = z.infer<typeof reorderResponseSchema>;

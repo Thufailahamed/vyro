@@ -7,7 +7,7 @@ import { requireRole } from '../../middleware/rbac';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
-import { supplierProducts, products, suppliers, carts, cartItems, productImages } from '@vyro/db/schema';
+import { supplierProducts, products, suppliers, carts, cartItems, productImages, purchaseOrders } from '@vyro/db/schema';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { requireBusinessRole } from '@vyro/auth';
 import {
@@ -20,6 +20,7 @@ import {
 } from './repository';
 import { resolveTier, nextTier, applyTier, discountCents, type TierSet } from './pricing';
 import { availableQty, checkPurchasable, deriveAvailability } from '@vyro/shared';
+import { reorderFromOrder } from './reorder';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -193,6 +194,25 @@ router.patch('/items/:itemId', session(), async (c) => {
 
   await upsertCartItem(c.env.DB, cart.id, item.supplierProductId, parsed.data.quantity);
   return c.json({ ok: true });
+});
+
+router.post('/from-order/:orderId', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const orderId = c.req.param('orderId');
+  if (!orderId) throw httpError(400, 'VALIDATION_ERROR', 'orderId required');
+
+  const db = getDb(c.env.DB);
+  const po = await db
+    .select({ id: purchaseOrders.id, businessId: purchaseOrders.businessId })
+    .from(purchaseOrders)
+    .where(eq(purchaseOrders.id, orderId))
+    .get();
+  if (!po || !po.businessId) throw httpError(404, 'NOT_FOUND', 'PO not found');
+
+  requireBusinessRole(ctx, po.businessId, CART_ROLES);
+  const result = await reorderFromOrder(c.env.DB, orderId, po.businessId);
+  return c.json(result);
 });
 
 router.delete('/items/:itemId', session(), async (c) => {
