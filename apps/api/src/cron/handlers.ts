@@ -210,3 +210,12 @@ export async function handleSponsoredExpireSweep(env: Env): Promise<{
   const result = await sponsoredExpireSweep(env.DB, Math.floor(Date.now() / 1000));
   return result;
 }
+
+/**
+ * Trust Signals: rebuild cached supplier_trust_signals for every supplier.
+ * Runs hourly at HH:13 (offset from sponsored's HH:00 to spread load).
+ */
+export async function handleTrustSignalsRebuild(env: Env): Promise<{ rebuilt: number; failed: number }> {
+  const { trustSignalsRebuild } = await import('../modules/trust/cron');
+  return trustSignalsRebuild(env);
+}

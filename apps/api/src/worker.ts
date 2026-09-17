@@ -10,6 +10,7 @@ import {
   handleSanctionsRefresh,
   handleFxRefresh,
   handleSponsoredExpireSweep,
+  handleTrustSignalsRebuild,
 } from './cron/handlers';
 import { handleQueueEventsPrune } from './cron/queue-events-prune';
 import { runObservabilitySweep } from './cron/observabilitySweep';
@@ -47,6 +48,9 @@ export default {
         ctx.waitUntil(import('./modules/rfqs/service').then((m) => m.rfqService.expireDue(env.DB, env.NOTIFICATIONS_QUEUE as never)));
         ctx.waitUntil(import('./cron/creditOverdue').then((m) => m.handleCreditOverdue(env)));
         ctx.waitUntil(handleSponsoredExpireSweep(env));
+        break;
+      case '13 * * * *':
+        ctx.waitUntil(handleTrustSignalsRebuild(env));
         break;
       case '0 4 * * *':
         ctx.waitUntil(handleAuditExportRunner(env));
