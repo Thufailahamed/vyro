@@ -89,6 +89,7 @@ import learningRouter from './modules/learning';
 import learningAdminRouter from './modules/learning/adminIndex';
 import sponsoredRouter from './modules/sponsored';
 import sponsoredAdminRouter from './modules/sponsored/adminIndex';
+import trustAdminRouter from './modules/trust/adminIndex';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestId());
@@ -212,6 +213,7 @@ app.route('/api/supplier/learning', learningRouter);
 app.route('/api/admin/learning', learningAdminRouter);
 app.route('/api', sponsoredRouter);
 app.route('/api/admin/sponsored', sponsoredAdminRouter);
+app.route('/api/admin/trust', trustAdminRouter);
 app.route('/api/credit', creditRouter);
 app.route('/api/admin/credit', creditAdminRouter);
 app.route('/api', reviewsRouter);
