@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import { ScrollView, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,49 +19,60 @@ const TRUST = [
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 /** Animated supply line: buyer → catalog → supplier, drawn on arrival. */
-function HeroFlow({ width }: { width: number }) {
-  const h = 260;
+function HeroFlow({ width, height: h = 136 }: { width: number; height?: number }) {
   const draw = useSharedValue(900);
   const drift = useSharedValue(0);
+
   useEffect(() => {
     draw.value = withTiming(0, { duration: 1800, easing: Easing.bezier(0.22, 1, 0.36, 1) });
     drift.value = withRepeat(withTiming(1, { duration: 6000, easing: Easing.inOut(Easing.sin) }), -1, true);
   }, [draw, drift]);
+
   const lineProps = useAnimatedStyle(() => ({ opacity: 1 }));
-  const floatStyle = useAnimatedStyle(() => ({ transform: [{ translateY: drift.value * -8 }] }));
+  const floatStyle = useAnimatedStyle(() => ({ transform: [{ translateY: drift.value * -4 }] }));
+
+  const x1 = 30;
+  const y1 = Math.round(h * 0.72);
+
+  const x2 = Math.round(width * 0.5);
+  const y2 = Math.round(h * 0.28);
+
+  const x3 = width - 30;
+  const y3 = Math.round(h * 0.56);
+
   return (
     <Animated.View style={[{ width, height: h }, floatStyle, lineProps]}>
       <Svg width={width} height={h} viewBox={`0 0 ${width} ${h}`}>
         <Path
-          d={`M-20 ${h - 30} C ${width * 0.3} ${h - 20}, ${width * 0.28} 30, ${width * 0.55} 50 S ${width * 0.8} ${h - 60}, ${width + 30} ${h * 0.45}`}
+          d={`M -20 ${y1 + 10} C ${width * 0.28} ${y1 + 10}, ${width * 0.28} ${y2 - 8}, ${width * 0.54} ${y2 - 6} S ${width * 0.8} ${y3 + 12}, ${width + 30} ${y3}`}
           stroke={colors.copper}
           strokeOpacity={0.4}
           strokeWidth={1}
           fill="none"
         />
         <AnimatedPath
-          d={`M24 ${h - 50} C ${width * 0.25} ${h - 50}, ${width * 0.32} 60, ${width * 0.5} 60 S ${width * 0.72} ${h * 0.55}, ${width - 24} ${h * 0.55}`}
+          d={`M ${x1} ${y1} C ${width * 0.24} ${y1}, ${width * 0.34} ${y2}, ${x2} ${y2} S ${width * 0.74} ${y3}, ${x3} ${y3}`}
           stroke={colors.volt}
           strokeWidth={2}
           fill="none"
           strokeDasharray="900"
           animatedProps={{ strokeDashoffset: draw } as never}
         />
-        <Circle cx={24} cy={h - 50} r={6} fill={colors.volt} />
-        <Circle cx={width * 0.5} cy={60} r={6} fill={colors.paper} />
-        <Circle cx={width - 24} cy={h * 0.55} r={6} fill={colors.copper} />
+        <Circle cx={x1} cy={y1} r={5.5} fill={colors.volt} />
+        <Circle cx={x2} cy={y2} r={5.5} fill={colors.paper} />
+        <Circle cx={x3} cy={y3} r={5.5} fill={colors.copper} />
       </Svg>
-      <View style={{ position: 'absolute', left: 12, top: h - 36 }}>
+      <View style={{ position: 'absolute', left: 12, top: y1 + 10 }}>
         <Text variant="overline" color="volt">
           Business
         </Text>
       </View>
-      <View style={{ position: 'absolute', left: width * 0.5 - 28, top: 22 }}>
-        <Text variant="overline" color="paper">
+      <View style={{ position: 'absolute', left: x2 - 32, width: 64, alignItems: 'center', top: Math.max(2, y2 - 24) }}>
+        <Text variant="overline" color="paper" align="center">
           Catalog
         </Text>
       </View>
-      <View style={{ position: 'absolute', right: 12, top: h * 0.55 + 14 }}>
+      <View style={{ position: 'absolute', right: 12, top: y3 + 10 }}>
         <Text variant="overline" color="copper">
           Supplier
         </Text>
@@ -72,7 +83,11 @@ function HeroFlow({ width }: { width: number }) {
 
 export default function Welcome() {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
+
+  // Dynamically size the hero graphic so it always fits comfortably between the header and text
+  const heroHeight = Math.max(110, Math.min(145, Math.round(height * 0.16)));
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
       <StatusBar style="light" />
@@ -82,56 +97,74 @@ export default function Welcome() {
         end={{ x: 1, y: 1 }}
         style={{ position: 'absolute', inset: 0 }}
       />
-      <View style={{ flex: 1, paddingTop: insets.top + 12, paddingHorizontal: GUTTER }}>
-        <Animated.View entering={FadeInDown.duration(600)}>
-          <Wordmark tone="paper" eyebrow="Sri Lanka wholesale" />
-        </Animated.View>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'space-between',
+          paddingTop: insets.top + 8,
+          paddingBottom: Math.max(insets.bottom, 14) + 8,
+          paddingHorizontal: GUTTER,
+        }}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        <View style={{ gap: 6 }}>
+          <Animated.View entering={FadeInDown.duration(600)}>
+            <Wordmark tone="paper" eyebrow="Sri Lanka wholesale" />
+          </Animated.View>
 
-        <View style={{ flex: 1, justifyContent: 'center', marginHorizontal: -GUTTER }}>
-          <HeroFlow width={width} />
-        </View>
+          <View style={{ height: heroHeight, justifyContent: 'center', marginHorizontal: -GUTTER, marginVertical: 4 }}>
+            <HeroFlow width={width} height={heroHeight} />
+          </View>
 
-        <Animated.View entering={FadeInDown.delay(250).duration(700)} style={{ gap: 12 }}>
-          <Kicker color="volt">Procurement operating layer</Kicker>
-          <Text variant="displayXl" color="paper">
-            Wholesale,{'\n'}in flow.
-          </Text>
-          <Text variant="bodyLg" color="paperMuted" style={{ maxWidth: 360 }}>
-            Source from verified suppliers, compare live offers, run RFQs and settle payments — from your pocket.
-          </Text>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(350).duration(700)} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 18 }}>
-          {TRUST.map((t) => (
-            <View
-              key={t.label}
+          <Animated.View entering={FadeInDown.delay(250).duration(700)} style={{ gap: 8 }}>
+            <Kicker color="volt">Procurement operating layer</Kicker>
+            <Text
+              variant="displayXl"
+              color="paper"
               style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                height: 30,
-                paddingHorizontal: 11,
-                borderRadius: 15,
-                backgroundColor: 'rgba(250,247,240,0.07)',
-                borderWidth: 1,
-                borderColor: colors.paperLine,
+                fontSize: Math.min(40, Math.round(width * 0.098)),
+                lineHeight: Math.min(42, Math.round(width * 0.102)),
               }}
             >
-              <t.icon size={13} color={colors.volt} strokeWidth={2} />
-              <Text variant="caption" weight="semibold" color="paper">
-                {t.label}
-              </Text>
-            </View>
-          ))}
-        </Animated.View>
+              Wholesale{'\n'}in flow.
+            </Text>
+            <Text variant="body" color="paperMuted" style={{ maxWidth: 360, lineHeight: 22 }}>
+              Source from verified suppliers, compare live offers, run RFQs and settle payments — from your pocket.
+            </Text>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(350).duration(700)} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+            {TRUST.map((t) => (
+              <View
+                key={t.label}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  height: 28,
+                  paddingHorizontal: 10,
+                  borderRadius: 14,
+                  backgroundColor: 'rgba(250,247,240,0.07)',
+                  borderWidth: 1,
+                  borderColor: colors.paperLine,
+                }}
+              >
+                <t.icon size={13} color={colors.volt} strokeWidth={2} />
+                <Text variant="caption" weight="semibold" color="paper">
+                  {t.label}
+                </Text>
+              </View>
+            ))}
+          </Animated.View>
+        </View>
 
         <Animated.View
           entering={FadeInDown.delay(450).duration(700)}
           style={{
             gap: 10,
-            marginTop: 22,
-            marginBottom: insets.bottom + 10,
-            marginHorizontal: -8,
+            marginTop: 16,
+            marginHorizontal: -4,
             padding: 12,
             borderRadius: radii['2xl'] + 4,
             borderCurve: 'continuous',
@@ -161,7 +194,7 @@ export default function Welcome() {
           </View>
           <Button title="Browse the catalog" variant="ghostPaper" icon={Search} full size="sm" onPress={() => router.push('/buyer/catalog')} style={{ opacity: 0.9 }} />
         </Animated.View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
