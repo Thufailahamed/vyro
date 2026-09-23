@@ -1,7 +1,7 @@
 import { useEffect, useState, type JSX } from 'react';
 import { usePageTitle } from '@/lib/usePageTitle';
-import { Surface } from '@/components/brand/Surface';
 import { AdminReviewQueue } from '@/reviews/AdminReviewQueue';
+import { AdminPage, AdminPageHeader, Callout, Card, Pill } from './ui';
 
 export function AdminReviewsPage(): JSX.Element {
   usePageTitle('Review Flags');
@@ -18,29 +18,29 @@ export function AdminReviewsPage(): JSX.Element {
       .catch(() => {});
   }, []);
   return (
-    <div className="space-y-6">
-      <div>
-        <div className="vyro-kicker text-copper">Moderation</div>
-        <h1 className="text-2xl font-display font-bold text-ink">Review Flags</h1>
-        <p className="text-sm text-ink-3 mt-1">
-          Reviews flagged by suppliers. Resolve by keeping the review, dismissing the flag, or deleting the review.
-        </p>
-      </div>
-      <Surface className="p-6">
-        {burst.length > 0 && (
-          <div className="mb-4 text-sm">
-            <h2 className="font-medium">Flag burst (24h)</h2>
-            <ul className="list-disc ml-5">
-              {burst.map((b) => (
-                <li key={b.supplierId}>
-                  {b.supplierId} — {b.flagCount} flags
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+    <AdminPage>
+      <AdminPageHeader
+        kicker="Moderation"
+        title="Review flags"
+        description="Reviews flagged by suppliers. Resolve by keeping the review, dismissing the flag, or deleting the review."
+      />
+      {burst.length > 0 && (
+        <Callout tone="warning" title="Flag burst (24h)">
+          <ul className="mt-2 space-y-1.5">
+            {burst.map((b) => (
+              <li key={b.supplierId} className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-xs text-ink">{b.supplierId}</span>
+                <Pill tone="warning">
+                  <span className="num-tabular">{b.flagCount}</span> flags
+                </Pill>
+              </li>
+            ))}
+          </ul>
+        </Callout>
+      )}
+      <Card>
         <AdminReviewQueue />
-      </Surface>
-    </div>
+      </Card>
+    </AdminPage>
   );
 }

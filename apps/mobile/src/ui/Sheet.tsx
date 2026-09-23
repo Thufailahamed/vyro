@@ -51,6 +51,7 @@ export function Sheet({
                 backgroundColor: bg,
                 borderTopLeftRadius: radii['3xl'],
                 borderTopRightRadius: radii['3xl'],
+                borderCurve: 'continuous',
                 maxHeight: height * maxHeight,
                 paddingBottom: Math.max(insets.bottom, 16),
               },
@@ -58,10 +59,10 @@ export function Sheet({
             ]}
           >
             <View style={{ alignItems: 'center', paddingTop: 10 }}>
-              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: dark ? colors.paperLine : colors.ink6 }} />
+              <View style={{ width: 44, height: 5, borderRadius: 3, backgroundColor: dark ? 'rgba(250,247,240,0.2)' : 'rgba(12,14,11,0.16)' }} />
             </View>
             {title ? (
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 8, gap: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 10, gap: 12 }}>
                 <View style={{ flex: 1, gap: 3 }}>
                   <Text variant="h1" color={dark ? 'paper' : 'ink'}>
                     {title}
@@ -199,16 +200,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 alignItems: 'center',
                 gap: 12,
                 backgroundColor: colors.ink,
-                borderRadius: radii['2xl'],
-                paddingVertical: 14,
-                paddingHorizontal: 16,
+                borderRadius: radii.pill,
+                paddingVertical: 12,
+                paddingLeft: 12,
+                paddingRight: 20,
                 borderWidth: 1,
                 borderColor: colors.paperLine,
               },
               shadow.lg,
             ]}
           >
-            <Icon size={20} color={accent} strokeWidth={1.9} />
+            <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(250,247,240,0.08)', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon size={19} color={accent} strokeWidth={2} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text variant="body" weight="semibold" color="paper" numberOfLines={1}>
                 {item.title}

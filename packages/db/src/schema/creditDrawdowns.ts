@@ -12,8 +12,14 @@ export const creditDrawdowns = sqliteTable(
     repaidCents: integer('repaid_cents').notNull().default(0),
     terms: text('terms', { enum: ['net14', 'net30'] }).notNull(),
     dueAt: integer('due_at').notNull(),
-    status: text('status', { enum: ['active', 'repaid', 'overdue'] }).notNull().default('active'),
+    status: text('status', { enum: ['active', 'repaid', 'overdue', 'released'] }).notNull().default('active'),
     repaidAt: integer('repaid_at'),
+    /** Amount written off the facility because the order shrank or died. */
+    releasedCents: integer('released_cents').notNull().default(0),
+    releasedAt: integer('released_at'),
+    /** Dunning: last buyer reminder stage sent (see cron/creditDunning.ts). */
+    lastReminderStage: text('last_reminder_stage'),
+    lastReminderAt: integer('last_reminder_at'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
   },

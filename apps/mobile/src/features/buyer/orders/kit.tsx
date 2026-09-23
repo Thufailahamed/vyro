@@ -4,8 +4,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import type { LucideIcon } from 'lucide-react-native';
-import { Card, Kicker, Text } from '@/ui';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { Card, IconTile, Kicker, Text } from '@/ui';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { haptic } from '@/lib/haptics';
 
 /** Navigate to any app path. Routes are owned by several areas, so we cast. */
@@ -56,18 +56,26 @@ export function Section({
   padding?: number;
 }) {
   return (
-    <Card kind={kind} padding={padding} style={{ gap: 14 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+    <Card kind={kind} padding={padding} radius={radii['2xl']} style={{ gap: 16 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         {step !== undefined ? (
-          <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: colors.volt }}>{step}</Text>
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 12,
+              borderCurve: 'continuous',
+              backgroundColor: colors.ink,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 13, color: colors.volt }}>{step}</Text>
           </View>
         ) : Icon ? (
-          <View style={{ width: 30, height: 30, borderRadius: 9, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon size={15} color={colors.volt} strokeWidth={1.8} />
-          </View>
+          <IconTile icon={Icon} tone="ink" size={36} />
         ) : null}
-        <View style={{ flex: 1, gap: 3 }}>
+        <View style={{ flex: 1, gap: 2 }}>
           {kicker ? <Kicker>{kicker}</Kicker> : null}
           <Text variant="h2">{title}</Text>
           {sub ? (
@@ -95,7 +103,7 @@ export function MonoTag({ label, tone = 'ink', style }: { label: string; tone?: 
     paper: { bg: 'rgba(250,247,240,0.1)', fg: colors.paper },
   }[tone];
   return (
-    <View style={[{ alignSelf: 'flex-start', backgroundColor: map.bg, borderRadius: radii.sm, paddingHorizontal: 7, paddingVertical: 2 }, style]}>
+    <View style={[{ alignSelf: 'flex-start', backgroundColor: map.bg, borderRadius: radii.pill, paddingHorizontal: 8, paddingVertical: 3 }, style]}>
       <Text style={{ fontFamily: fonts.monoMedium, fontSize: 10.5, letterSpacing: 0.4, color: map.fg, textTransform: 'uppercase' }}>{label}</Text>
     </View>
   );
@@ -130,18 +138,20 @@ export function Bubble({ mine, children, meta, dark }: { mine: boolean; children
   return (
     <View style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}>
       <View
-        style={{
-          maxWidth: '86%',
-          paddingHorizontal: 13,
-          paddingVertical: 10,
-          borderRadius: 16,
-          borderBottomRightRadius: mine ? 4 : 16,
-          borderBottomLeftRadius: mine ? 16 : 4,
-          backgroundColor: mine ? colors.ink : dark ? colors.ink2 : colors.paper,
-          borderWidth: mine ? 0 : 1,
-          borderColor: colors.lineSoft,
-          gap: 4,
-        }}
+        style={[
+          {
+            maxWidth: '84%',
+            paddingHorizontal: 15,
+            paddingVertical: 11,
+            borderRadius: 20,
+            borderCurve: 'continuous',
+            borderBottomRightRadius: mine ? 6 : 20,
+            borderBottomLeftRadius: mine ? 20 : 6,
+            backgroundColor: mine ? colors.ink : dark ? colors.ink2 : colors.paper,
+            gap: 4,
+          },
+          dark && !mine ? null : shadow.sm,
+        ]}
       >
         {children}
         {meta ? (

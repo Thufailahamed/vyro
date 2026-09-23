@@ -1,4 +1,5 @@
 /** API shapes for purchase orders — mirrored from apps/web + apps/api. */
+import type { LifecycleDetailFields, LifecycleItemFields, LifecycleOrderFields, PaymentState } from '@/lib/orderLifecycle';
 
 export interface OrderRow {
   id: string;
@@ -12,10 +13,12 @@ export interface OrderRow {
   totalCents: number;
   currency: string;
   createdAt: number;
+  paymentState?: PaymentState | null;
+  paymentMethodSummary?: string | null;
 }
 
-export interface OrderDetail {
-  order: {
+export interface OrderDetail extends LifecycleDetailFields {
+  order: LifecycleOrderFields & {
     id: string;
     poNumber: string;
     status: string;
@@ -44,20 +47,21 @@ export interface OrderDetail {
     disputedAt?: number | null;
     createdAt: number;
   };
-  items: {
+  items: ({
     id: string;
     productNameSnapshot: string;
     quantity: number;
     unitPriceCents: number;
     discountPctSnapshot?: number | null;
     lineTotalCents: number;
-  }[];
+  } & LifecycleItemFields)[];
   events: {
     id: string;
     fromStatus: string | null;
     toStatus: string;
     createdAt: number;
     reason: string | null;
+    metadata?: string | null;
   }[];
 }
 
@@ -88,12 +92,20 @@ export interface Delivery {
   deliveredAt: number | null;
   createdAt: number;
   updatedAt: number;
+  carrier?: string | null;
+  trackingNumber?: string | null;
+  trackingUrl?: string | null;
+  recipientName?: string | null;
+  podNote?: string | null;
+  podCapturedAt?: number | null;
+  failedReason?: string | null;
+  hasPodPhoto?: boolean;
 }
 
 export interface InvoiceRow {
   id: string;
   number: string;
-  type: 'receipt' | 'tax_invoice';
+  type: 'receipt' | 'tax_invoice' | 'credit_note';
   purchaseOrderId: string;
   subtotalCents: number;
   taxCents: number;

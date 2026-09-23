@@ -2,7 +2,7 @@ import { View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, FileText, ScanLine, Upload } from 'lucide-react-native';
-import { Button, Card, EmptyState, ErrorState, IconButton, InkHero, Kicker, ListScreen, ListHeader, Gutter, Pulse, Row, SkeletonList, Text , ScreenHeader } from '@/ui';
+import { Button, Card, EmptyState, ErrorState, IconButton, IconTile, InkHero, Kicker, ListScreen, ListHeader, Gutter, Pulse, Row, SkeletonList, Text , ScreenHeader } from '@/ui';
 import { Gate } from '@/features/common/Gate';
 import { api, errorMessage } from '@/lib/api';
 import { formatDate, formatRs } from '@/lib/format';
@@ -52,9 +52,7 @@ function Inner() {
                 OCR reads lines and categorises spend. You confirm before it counts.
               </Text>
             </View>
-            <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: colors.volt, alignItems: 'center', justifyContent: 'center' }}>
-              <ScanLine size={22} color={colors.ink} strokeWidth={1.8} />
-            </View>
+            <IconTile icon={ScanLine} tone="volt" size={52} />
           </Row>
           <Row gap={10} style={{ marginTop: 16 }}>
             <HeroStat label="Uploaded" value={rows.length} />
@@ -90,9 +88,7 @@ function Inner() {
       renderItem={({ item: u, index }) => (
         <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 45).duration(360)}>
           <Card onPress={() => go(`/buyer/invoices/${u.id}/review`)} padding={14} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{ width: 40, height: 48, borderRadius: 8, backgroundColor: colors.bone, borderWidth: 1, borderColor: colors.lineSoft, alignItems: 'center', justifyContent: 'center' }}>
-              <FileText size={18} color={colors.ink3} strokeWidth={1.6} />
-            </View>
+            <IconTile icon={FileText} tone={u.status === 'reviewed' ? 'success' : u.status === 'failed' ? 'danger' : u.status === 'ready' ? 'warning' : 'paper'} size={46} />
             <View style={{ flex: 1, gap: 5 }}>
               <Text variant="h3" numberOfLines={1}>
                 {u.originalFilename}
@@ -104,11 +100,11 @@ function Inner() {
                 <Meta>{formatDate(u.createdAt)}</Meta>
               </Row>
             </View>
-            <View style={{ alignItems: 'center', gap: 2 }}>
-              <ChevronRight size={18} color={colors.ink5} />
-              <Text variant="caption" color="ink4">
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, height: 30, paddingLeft: 12, paddingRight: 8, borderRadius: 15, backgroundColor: colors.bone }}>
+              <Text variant="caption" weight="semibold" color="ink2">
                 Review
               </Text>
+              <ChevronRight size={14} color={colors.copper} />
             </View>
           </Card>
         </Animated.View>
@@ -127,7 +123,7 @@ function Meta({ children }: { children: React.ReactNode }) {
 
 function HeroStat({ label, value, accent, pulse }: { label: string; value: number; accent?: boolean; pulse?: boolean }) {
   return (
-    <View style={{ flex: 1, padding: 10, borderRadius: 10, backgroundColor: 'rgba(250,247,240,0.06)', borderWidth: 1, borderColor: colors.paperLine, gap: 2 }}>
+    <View style={{ flex: 1, padding: 12, borderRadius: 14, borderCurve: 'continuous', backgroundColor: 'rgba(250,247,240,0.07)', gap: 2 }}>
       <Row gap={4}>
         <Text variant="overline" color="paperMuted">
           {label}

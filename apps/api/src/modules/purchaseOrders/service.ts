@@ -18,14 +18,11 @@ import {
   insertOrderEvent,
   insertPo,
   insertPoItem,
-  updatePoStatus,
 } from './repository';
 import type { TransitionInput } from './repository';
-import { canTransition, OrderStatus } from '@vyro/shared';
 import {
   checkPurchasable,
   ORDER_STATUS_COPY,
-  ORDER_STATUS_NOTIFICATION,
   NotificationType,
 } from '@vyro/shared';
 import { recordAudit } from '../supplierProducts/repository';
@@ -40,6 +37,7 @@ import { countOverdue, countPaidOrders, ensureAutoFacility, getFacility } from '
 import { isFeatureEnabled } from '../../lib/featureFlags';
 import { crm } from '../rfqs/crm';
 import { repeatOffers } from '../repeatOffers/service';
+import { resolveDeliveryAddress } from '../addresses/repository';
 import { REPEAT_OFFER_FLAG, REPEAT_OFFER_PERCENT } from '../repeatOffers/constants';
 import type { Env } from '../../env';
 
@@ -47,22 +45,7 @@ interface QueueLike {
   send: (body: unknown) => Promise<unknown>;
 }
 
-function tsForStatus(to: string): Record<string, number> {
-  const now = Date.now();
-  const map: Record<string, string> = {
-    accepted: 'acceptedAt',
-    rejected: 'rejectedAt',
-    preparing: 'preparedAt',
-    ready_for_pickup: 'readyAt',
-    out_for_delivery: 'dispatchedAt',
-    delivered: 'deliveredAt',
-    completed: 'completedAt',
-    cancelled: 'cancelledAt',
-  };
-  return map[to] ? { [map[to]!]: now } : {};
-}
-
-async function nextPoNumber(d1: D1Database, businessId: string): Promise<string> {
+export async function nextPoNumber(d1: D1Database, businessId: string): Promise<string> {
   void businessId;
   const db = getDb(d1);
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -89,6 +72,8 @@ export const checkoutService = {
     const db = getDb(d1);
     const business = await db.select().from(businesses).where(eq(businesses.id, input.businessId)).get();
     if (!business) throw httpError(404, 'NOT_FOUND', 'Business not found');
+    const delivery = await resolveDeliveryAddress(d1, business, input.deliveryAddressId);
+    if (!delivery) throw httpError(404, 'NOT_FOUND', 'Delivery address not found');
 
     const cart = await db
       .select()
@@ -227,9 +212,12 @@ export const checkoutService = {
         deliveryFeeCents: 0,
         totalCents: finalSubtotal,
         currency: 'LKR',
-        deliveryAddress: business.address,
-        deliveryCity: business.city,
-        deliveryDistrict: business.district,
+        deliveryAddress: delivery.address,
+        deliveryCity: delivery.city,
+        deliveryDistrict: delivery.district,
+        deliveryAddressId: delivery.addressId,
+        deliveryContactName: delivery.contactName,
+        deliveryPhone: delivery.phone,
         notes: input.notes ?? null,
         createdByUserId: userId,
         createdAt: now,
@@ -350,178 +338,17 @@ export const checkoutService = {
     };
   },
 
-  async transition(d1: D1Database, input: TransitionInput, queue?: QueueLike) {
-    const db = getDb(d1);
-    const po = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, input.poId)).get();
-    if (!po) throw httpError(404, 'NOT_FOUND', 'PO not found');
-    if (!canTransition(po.status as OrderStatus, input.to, input.actor.role)) {
-      throw httpError(409, 'CONFLICT', `Illegal transition ${po.status} -> ${input.to} for ${input.actor.role}`);
-    }
-
-    // Cross-border customs-doc gate: ship transitions for cross-border orders
-    // require uploaded invoice + (if export) COO. Domestic orders are unaffected.
-    if (input.to === 'ready_for_pickup' && po.direction !== 'domestic') {
-      const { listDocsForOrder } = await import('../cross-border/repository');
-      const docs = await listDocsForOrder(db, po.id);
-      const kinds = new Set(docs.map((d) => d.kind));
-      if (!kinds.has('invoice')) {
-        throw httpError(422, 'MISSING_CUSTOMS_DOC', 'Commercial invoice required for cross-border shipment');
-      }
-      if (po.direction === 'export' && !kinds.has('coo')) {
-        throw httpError(422, 'MISSING_CUSTOMS_DOC', 'Certificate of origin required for export');
-      }
-    }
-    // Persist the reason on the order itself for rejected / cancelled moves.
-    const reasonColumns: Record<string, string | null> =
-      input.to === 'rejected'
-        ? { rejectionReason: input.reason ?? null }
-        : input.to === 'cancelled'
-          ? { cancelledReason: input.reason ?? null }
-          : {};
-    await updatePoStatus(d1, po.id, input.to, {
-      ...tsForStatus(input.to),
-      ...reasonColumns,
-      // Stamp customs status + invoice number when shipping a cross-border order.
-      ...(input.to === 'ready_for_pickup' && po.direction !== 'domestic'
-        ? { customsStatus: 'pending' as const, commercialInvoiceNo: `INV-${po.poNumber}` }
-        : {}),
-    });
-    // Settlement eligibility follows order state (spec §21): completion,
-    // disputes, and cancellations all change what is payable. Best-effort —
-    // never block a legal status move on financial bookkeeping.
-    if (['completed', 'disputed', 'cancelled', 'delivered'].includes(input.to)) {
-      try {
-        const { recomputeEligibilityForPo } = await import('../finance/earnings');
-        await recomputeEligibilityForPo(d1, po.id);
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('[po.transition] eligibility sync failed', { poId: po.id, to: input.to, err });
-      }
-    }
-    await insertOrderEvent(d1, {
-      purchaseOrderId: po.id,
-      actorUserId: input.actor.userId,
-      fromStatus: po.status,
-      toStatus: input.to,
-      reason: input.reason ?? null,
-      metadata: null,
-    });
-
-    // Stock lifecycle: release reservations when the order dies, convert them
-    // into a real decrement once the goods are delivered.
-    try {
-      if (input.to === 'cancelled' || input.to === 'rejected') {
-        await inventoryService.releaseForOrder(
-          d1,
-          queue,
-          po.id,
-          input.actor.userId,
-          `order ${input.to}`,
-        );
-      } else if (input.to === 'delivered') {
-        await inventoryService.commitForOrder(d1, queue, po.id, input.actor.userId);
-        // Recompute supplier review aggregate — covers the post-delivery
-        // window when buyers are now eligible to submit. No-op if no
-        // reviews exist yet (cheap SQL aggregate).
-        try {
-          const { recomputeAggregate } = await import('../reviews/service');
-          await recomputeAggregate(d1, po.supplierId);
-        } catch (err) {
-          console.error('[po.transition] reviews aggregate recompute failed', err);
-        }
-      }
-    } catch (err) {
-      // Never block a legal status move on inventory bookkeeping.
-      // eslint-disable-next-line no-console
-      console.error('[po.transition] stock sync failed', { poId: po.id, to: input.to, err });
-    }
-
-    // Reviews: hide published reviews when dispute opens; restore when leaving
-    // `disputed`. Idempotent — safe to fire on every transition.
-    try {
-      const reviewsHooks = await import('../reviews/hooks');
-      if (input.to === 'disputed') {
-        await reviewsHooks.onOrderDisputeOpened(d1, po.id);
-      } else if (po.status === 'disputed') {
-        await reviewsHooks.onOrderDisputeResolved(d1, po.id);
-      }
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('[po.transition] reviews hook failed', { poId: po.id, to: input.to, err });
-    }
-
-    // Trust signals: keep cached signals fresh on the active path. Fire on
-    // delivered (sample grows) + dispute transitions (sample + outcome change).
-    if (input.to === 'delivered' || input.to === 'disputed' || po.status === 'disputed') {
-      try {
-        const { recomputeForSupplier } = await import('../trust/service');
-        await recomputeForSupplier(d1, po.supplierId);
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('[po.transition] trust recompute failed', { poId: po.id, to: input.to, err });
-      }
-    }
-
-    // First-time prepared transition: stamp `delivery_promised_at` using
-    // supplier_product.lead_time_days. Idempotent (only writes when NULL).
-    if (input.to === 'preparing') {
-      try {
-        const { eq } = await import('drizzle-orm');
-        const { purchaseOrderItems, supplierProducts } = await import('@vyro/db/schema');
-        const lead = await d1
-          .prepare(
-            `SELECT sp.lead_time_days AS lead
-             FROM purchase_order_items poi
-             JOIN supplier_products sp ON sp.id = poi.supplier_product_id
-             WHERE poi.purchase_order_id = ?
-             ORDER BY poi.id ASC LIMIT 1`,
-          )
-          .bind(po.id)
-          .first<{ lead: number }>()
-          .catch(() => null);
-        const days = Number(lead?.lead ?? 1);
-        const promisedAt = Date.now() + days * 86400 * 1000;
-        await d1
-          .prepare(
-            `UPDATE purchase_orders
-             SET delivery_promised_at = ?, updated_at = ?
-             WHERE id = ? AND delivery_promised_at IS NULL`,
-          )
-          .bind(promisedAt, Date.now(), po.id)
-          .run();
-        // Imports kept for tree-shake parity; mark them read.
-        void eq;
-        void purchaseOrderItems;
-        void supplierProducts;
-      } catch (err) {
-        console.error('[po.transition] promised_at stamp failed', { poId: po.id, err });
-      }
-    }
-
-    // Notify the other side (and co-workers) about the new state.
-    const type = ORDER_STATUS_NOTIFICATION[input.to] ?? NotificationType.ORDER_PLACED;
-    const copy = ORDER_STATUS_COPY[input.to];
-    const suffix = input.reason ? ` Reason: ${input.reason}` : '';
-    await notifyOrderParties(
-      d1,
-      queue,
-      { id: po.id, poNumber: po.poNumber, businessId: po.businessId, supplierId: po.supplierId },
-      {
-        type,
-        title: `Order ${po.poNumber} ${copy?.label ?? input.to}`,
-        body: `${copy?.buyer ?? `Status changed to ${input.to}.`}${suffix}`,
-        supplierBody: `${copy?.supplier ?? `Status changed to ${input.to}.`}${suffix}`,
-        excludeUserId: input.actor.userId,
-      },
+  /**
+   * Back-compat wrapper; every status move goes through orders/lifecycle.
+   * Prefer `applyTransition(env, ...)` directly so refunds can reach the
+   * payment gateway configuration.
+   */
+  async transition(d1: D1Database, input: TransitionInput, queue?: QueueLike, env?: Partial<Env>) {
+    const { applyTransition } = await import('../orders/lifecycle');
+    await applyTransition(
+      { ...(env ?? {}), DB: d1, ...(queue ? { NOTIFICATIONS_QUEUE: queue as Queue } : {}) },
+      { poId: input.poId, to: input.to, actor: input.actor, reason: input.reason ?? null },
     );
-
-    await recordAudit(d1, {
-      actorUserId: input.actor.userId,
-      action: `po.${input.to}`,
-      resourceType: 'purchase_order',
-      resourceId: po.id,
-      metadata: { from: po.status, to: input.to, reason: input.reason ?? null },
-    });
     return { ok: true };
   },
 

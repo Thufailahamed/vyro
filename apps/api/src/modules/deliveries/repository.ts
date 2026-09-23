@@ -36,6 +36,15 @@ export async function updateDelivery(
     pickedUpAt?: number;
     deliveredAt?: number;
     assignedByUserId?: string;
+    carrier?: string | null;
+    trackingNumber?: string | null;
+    trackingUrl?: string | null;
+    recipientName?: string | null;
+    podNote?: string | null;
+    podPhotoKey?: string | null;
+    podCapturedByUserId?: string | null;
+    podCapturedAt?: number | null;
+    failedReason?: string | null;
   },
   /** When provided, the update is guarded on the current status to prevent
    *  concurrent transitions from racing. Returns false if 0 rows matched. */

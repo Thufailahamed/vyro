@@ -21,7 +21,7 @@ import {
   Touchable,
 } from '@/ui';
 import { api, errorMessage, qs } from '@/lib/api';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { go, leadLabel, productHref, useCategories } from './data';
 import { AddButton, Pill, Price, SupplierStarsLine } from './components/kit';
 import { useAddToCart } from './useAddToCart';
@@ -115,17 +115,18 @@ export function CatalogScreen() {
           <Touchable
             onPress={() => setFastDispatch((v) => !v)}
             accessibilityRole="button"
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 5,
-              height: 50,
-              paddingHorizontal: 12,
-              borderRadius: radii.lg + 2,
-              borderWidth: 1,
-              borderColor: fastDispatch ? colors.ink : colors.line,
-              backgroundColor: fastDispatch ? colors.ink : colors.paper,
-            }}
+            style={[
+              {
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                height: 50,
+                paddingHorizontal: 16,
+                borderRadius: radii.pill,
+                backgroundColor: fastDispatch ? colors.ink : colors.paper,
+              },
+              fastDispatch ? shadow.ink : shadow.card,
+            ]}
           >
             <Clock size={14} color={fastDispatch ? colors.volt : colors.ink4} />
             <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: fastDispatch ? colors.volt : colors.ink3 }}>≤2d</Text>
@@ -169,61 +170,77 @@ export function CatalogScreen() {
 function HitCard({ hit: h, adding, onAdd }: { hit: SearchHit; adding: boolean; onAdd: () => void }) {
   const offer = h.bestOffer;
   return (
-    <Card padding={0} style={{ overflow: 'hidden' }} onPress={() => go(productHref(h.product.id))}>
+    <Card padding={6} radius={radii['2xl']} onPress={() => go(productHref(h.product.id))}>
       {/* Lot photo — fixed height so a missing image never becomes a slab */}
       <View>
-        <ProductImage src={h.product.imageUrl} seed={h.product.id} style={{ width: '100%', height: 158 }} />
+        <ProductImage src={h.product.imageUrl} seed={h.product.id} style={{ width: '100%', height: 176, borderRadius: radii.xl, borderCurve: 'continuous' }} />
         <View style={{ position: 'absolute', top: 10, left: 10, right: 10, flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-          {h.product.brand ? <Pill label={h.product.brand} /> : <View />}
+          {h.product.brand ? <Pill tone="paper" label={h.product.brand} /> : <View />}
           {h.offerCount > 0 ? <Pill tone="volt" label={`${h.offerCount} offer${h.offerCount === 1 ? '' : 's'}`} /> : null}
         </View>
         {offer?.leadTimeDays !== undefined && offer?.leadTimeDays !== null ? (
           <Pill icon={Clock} label={leadLabel(offer.leadTimeDays, true)} tone="ink" style={{ position: 'absolute', left: 10, bottom: 10 }} />
         ) : null}
+        {offer ? (
+          <View style={[{ position: 'absolute', right: 10, bottom: 10, borderRadius: 24 }, shadow.md]}>
+            <AddButton onPress={onAdd} loading={adding} size={46} />
+          </View>
+        ) : null}
       </View>
 
-      <View style={{ padding: 14, gap: 10 }}>
+      <View style={{ paddingHorizontal: 10, paddingTop: 14, paddingBottom: 10, gap: 12 }}>
         <View style={{ gap: 4 }}>
           <Text variant="overline" color="copper" numberOfLines={1}>
             {h.product.unit}
             {h.product.packSize ? ` · ${h.product.packSize}` : ''}
           </Text>
-          <Text variant="h3" numberOfLines={2}>
+          <Text variant="h2" numberOfLines={2} style={{ fontSize: 17, lineHeight: 22 }}>
             {h.product.name}
           </Text>
+          {offer ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <Store size={12} color={colors.copper} />
+              <Text variant="caption" color="ink3" numberOfLines={1} style={{ flexShrink: 1 }}>
+                {offer.supplier.name}
+              </Text>
+              {offer.supplier.verificationStatus === 'verified' ? <ShieldCheck size={12} color={colors.voltDeep} /> : null}
+              <SupplierStarsLine supplierId={offer.supplier.id} />
+            </View>
+          ) : null}
         </View>
 
         {offer ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Store size={12} color={colors.copper} />
-            <Text variant="caption" color="ink3" numberOfLines={1} style={{ flex: 1 }}>
-              {offer.supplier.name}
-            </Text>
-            <SupplierStarsLine supplierId={offer.supplier.id} />
-            {offer.supplier.verificationStatus === 'verified' ? <ShieldCheck size={12} color={colors.voltDeep} /> : null}
-          </View>
-        ) : null}
-
-        {offer ? (
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
-            <View style={{ gap: 2 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 10,
+              padding: 12,
+              borderRadius: radii.lg,
+              borderCurve: 'continuous',
+              backgroundColor: colors.pearl,
+            }}
+          >
+            <View style={{ gap: 2, flex: 1 }}>
               <Text variant="overline" color="ink5">
                 Best spot rate
               </Text>
               <Price cents={offer.priceCents} unit={h.product.unit} size="lg" />
-              <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: colors.ink4 }}>MOQ {offer.minOrderQty}</Text>
             </View>
-            <AddButton onPress={onAdd} loading={adding} size={42} />
+            <View style={{ paddingHorizontal: 10, height: 26, borderRadius: radii.pill, backgroundColor: colors.paper, justifyContent: 'center' }}>
+              <Text style={{ fontFamily: fonts.monoMedium, fontSize: 10.5, color: colors.ink3 }}>MOQ {offer.minOrderQty}</Text>
+            </View>
           </View>
         ) : (
-          <View style={{ paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
+          <View style={{ padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.amberSoft }}>
             <Text variant="caption" color="amber">
               Awaiting next lot update
             </Text>
           </View>
         )}
 
-        <Button title="Compare offers" variant="secondary" size="sm" iconRight={ArrowRight} onPress={() => go(productHref(h.product.id))} />
+        <Button title="Compare offers" variant="secondary" size="sm" full iconRight={ArrowRight} onPress={() => go(productHref(h.product.id))} />
       </View>
     </Card>
   );

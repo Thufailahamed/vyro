@@ -1,19 +1,17 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Database, Eye, ShieldCheck, Smartphone } from 'lucide-react-native';
+import { Database, Eye, Monitor, ShieldCheck, Smartphone } from 'lucide-react-native';
 import {
   Banner,
   Button,
-  Card,
   ConfirmSheet,
   EmptyState,
   ErrorState,
   Field,
-  Gutter,
+  IconTile,
   Input,
   Screen,
-  ScreenHeader,
   SkeletonList,
   StatusBadge,
   Text,
@@ -22,6 +20,7 @@ import {
 import { api, errorMessage } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { Section } from '../../buyer/orders/kit';
+import { Inset } from '@/features/admin/ops/kit';
 import { openDocument } from '@/lib/files';
 
 type AdminSession = {
@@ -93,9 +92,8 @@ export function AdminSecurityScreen() {
   const rows = (sessions.data ?? []).slice(0, 50);
 
   return (
-    <Screen>
-      <ScreenHeader back kicker="Access control" title="Security" subtitle="Live sessions, support impersonation and GDPR export." />
-      <Gutter style={{ gap: 14 }}>
+    <Screen back kicker="Access control" title="Security" subtitle="Live sessions, support impersonation and GDPR export." gap={14}>
+      <View style={{ gap: 14 }}>
         {active ? (
           <Banner
             tone="warning"
@@ -112,24 +110,24 @@ export function AdminSecurityScreen() {
           <Field label="Reason" hint="Recorded in the audit log.">
             <Input value={impReason} onChangeText={setImpReason} placeholder="Ticket #…" />
           </Field>
-          <Button title="Start impersonation" variant="secondary" size="sm" loading={startImp.isPending} disabled={!impUser.trim() || !impReason.trim() || !!active} onPress={() => startImp.mutate()} />
+          <Button title="Start impersonation" icon={Eye} size="sm" loading={startImp.isPending} disabled={!impUser.trim() || !impReason.trim() || !!active} onPress={() => startImp.mutate()} />
         </Section>
 
         <Section kicker="Privacy" title="Data export" icon={Database}>
           <Field label="User ID">
             <Input value={exportUser} onChangeText={setExportUser} placeholder="usr_…" autoCapitalize="none" />
           </Field>
-          <Button title="Request export" variant="secondary" size="sm" loading={requestExport.isPending} disabled={!exportUser.trim()} onPress={() => requestExport.mutate()} />
+          <Button title="Request export" icon={Database} size="sm" loading={requestExport.isPending} disabled={!exportUser.trim()} onPress={() => requestExport.mutate()} />
           {exp ? (
-            <Card kind="bone" padding={12} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <View>
+            <Inset style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <View style={{ gap: 4 }}>
                 <Text variant="caption" color="ink4">
                   Export {exp.id.slice(0, 10)}…
                 </Text>
                 <StatusBadge status={exp.status} size="sm" />
               </View>
-              {exp.status === 'ready' && exp.downloadUrl ? <Button title="Download" size="sm" variant="secondary" onPress={() => void openDocument(exp.downloadUrl!)} /> : null}
-            </Card>
+              {exp.status === 'ready' && exp.downloadUrl ? <Button title="Download" size="sm" variant="paper" onPress={() => void openDocument(exp.downloadUrl!)} /> : null}
+            </Inset>
           ) : null}
         </Section>
 
@@ -138,8 +136,9 @@ export function AdminSecurityScreen() {
           {sessions.isError ? <ErrorState message={errorMessage(sessions.error)} onRetry={() => sessions.refetch()} /> : null}
           {sessions.data && rows.length === 0 ? <EmptyState icon={ShieldCheck} title="No sessions" /> : null}
           {rows.map((s) => (
-            <Card key={s.id} kind={s.revokedAt ? 'flat' : 'bone'} padding={12} style={{ gap: 4, opacity: s.revokedAt ? 0.55 : 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <Inset key={s.id} dim={!!s.revokedAt} style={{ gap: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <IconTile icon={Monitor} tone={s.revokedAt ? 'paper' : 'ink'} size={32} />
                 <Text variant="bodySm" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
                   {s.userEmail ?? s.userId}
                 </Text>
@@ -154,12 +153,12 @@ export function AdminSecurityScreen() {
                   {timeAgo(s.createdAt)}
                   {s.revokedAt ? ' · revoked' : ` · expires ${timeAgo(s.expiresAt)}`}
                 </Text>
-                {!s.revokedAt ? <Button title="Revoke" variant="ghost" size="sm" onPress={() => setRevokeTarget(s)} /> : null}
+                {!s.revokedAt ? <Button title="Revoke" variant="paper" size="sm" onPress={() => setRevokeTarget(s)} /> : null}
               </View>
-            </Card>
+            </Inset>
           ))}
         </Section>
-      </Gutter>
+      </View>
 
       <ConfirmSheet
         visible={!!revokeTarget}

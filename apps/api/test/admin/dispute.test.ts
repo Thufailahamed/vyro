@@ -24,6 +24,36 @@ const state = vi.hoisted(() => ({
   notifications: [] as any[],
   list: [] as any[],
   notify: [] as any[],
+  transitions: [] as any[],
+  refundAll: [] as any[],
+  refundAmount: [] as any[],
+  released: [] as any[],
+}));
+
+// Status + money are delegated: the pipeline and executor have their own
+// integration tests (test/orders/lifecycle.test.ts). Here we assert the
+// resolution contract — which money moves, which state the order ends in.
+vi.mock(setup.SRC + '/modules/orders/lifecycle', () => ({
+  applyTransition: async (_env: any, input: any) => {
+    state.transitions.push(input);
+    return { ok: true, from: 'disputed', to: input.to, refunds: [] };
+  },
+}));
+vi.mock(setup.SRC + '/modules/refunds/executor', () => ({
+  refundAllForOrder: async (_env: any, args: any) => {
+    state.refundAll.push(args);
+    return [{ refundId: 'rf-1', status: 'completed', amountCents: 5000, reused: false }];
+  },
+  refundAmountForOrder: async (_env: any, args: any) => {
+    state.refundAmount.push(args);
+    return { refunds: [{ refundId: 'rf-2', status: 'completed', amountCents: args.amountCents, reused: false }], unrefundedCents: 0 };
+  },
+}));
+vi.mock(setup.SRC + '/modules/credit/service', () => ({
+  releaseDrawdown: async (_d1: any, args: any) => {
+    state.released.push(args);
+    return null;
+  },
 }));
 
 vi.mock(setup.SRC + '/modules/notifications/dispatcher', () => ({
@@ -110,6 +140,10 @@ describe('POST /api/admin/disputes/:poId/resolve', () => {
     state.notifications = [];
     state.list = [];
     state.notify = [];
+    state.transitions = [];
+    state.refundAll = [];
+    state.refundAmount = [];
+    state.released = [];
   });
 
   it('404 when PO not found', async () => {
@@ -124,8 +158,8 @@ describe('POST /api/admin/disputes/:poId/resolve', () => {
     expect(res.status).toBe(404);
   });
 
-  it('refund_business → cancelled + audit row + counterparty notification', async () => {
-    state.po = { id: 'po-1', status: 'disputed', businessId: 'b-1', supplierId: 's-1' };
+  it('refund_business → full refund + credit release, then cancelled via the pipeline', async () => {
+    state.po = { id: 'po-1', poNumber: 'PO-1', status: 'disputed', businessId: 'b-1', supplierId: 's-1', totalCents: 5000 };
     const res = await buildApp().fetch(
       new Request('http://localhost/api/admin/disputes/po-1/resolve', {
         method: 'POST',
@@ -137,20 +171,27 @@ describe('POST /api/admin/disputes/:poId/resolve', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.status).toBe('cancelled');
-    expect(state.resolved).toMatchObject({ status: 'cancelled' });
+    expect(state.refundAll).toHaveLength(1);
+    expect(state.refundAll[0]).toMatchObject({ poId: 'po-1', source: 'dispute', keyPrefix: 'dispute:po-1' });
+    expect(state.released).toHaveLength(1);
+    // Money is settled by the resolver, so the pipeline must not refund again.
+    expect(state.transitions).toHaveLength(1);
+    expect(state.transitions[0]).toMatchObject({
+      poId: 'po-1',
+      to: 'cancelled',
+      actor: { role: 'admin', userId: 'admin-1' },
+      reason: 'seller no-show',
+      opts: { disputeResolution: 'refund_business', skipRefund: true, expectedFrom: 'disputed' },
+    });
     expect(state.audit[0].action).toBe('dispute.resolved');
     // Both parties notified via dispatcher, never raw insert.
     expect(state.notify.length).toBe(1);
     expect(state.notify[0].type).toBe('dispute.resolved');
     expect(state.notify[0].audience).toBe('both');
-    // Order timeline carries the dispute resolution (fromStatus disputed).
-    expect(state.notifications).toHaveLength(1);
-    expect(state.notifications[0].purchaseOrderId).toBe('po-1');
-    expect(state.notifications[0].toStatus).toBe('cancelled');
   });
 
-  it('release_supplier → delivered', async () => {
-    state.po = { id: 'po-2', status: 'disputed', businessId: 'b-1', supplierId: 's-1' };
+  it('release_supplier → completed (funds become payable), no refund', async () => {
+    state.po = { id: 'po-2', poNumber: 'PO-2', status: 'disputed', businessId: 'b-1', supplierId: 's-1', totalCents: 5000 };
     const res = await buildApp().fetch(
       new Request('http://localhost/api/admin/disputes/po-2/resolve', {
         method: 'POST',
@@ -161,11 +202,53 @@ describe('POST /api/admin/disputes/:poId/resolve', () => {
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
-    expect(body.status).toBe('delivered');
+    expect(body.status).toBe('completed');
+    expect(state.refundAll).toHaveLength(0);
+    expect(state.refundAmount).toHaveLength(0);
+    expect(state.transitions[0]).toMatchObject({ to: 'completed', opts: { disputeResolution: 'release_supplier' } });
     expect(state.notify.length).toBe(1);
     expect(state.notify[0].audience).toBe('both');
-    expect(state.notifications).toHaveLength(1);
-    expect(state.notifications[0].toStatus).toBe('delivered');
+  });
+
+  it('partial → refunds only the awarded amount, then completed', async () => {
+    state.po = { id: 'po-5', poNumber: 'PO-5', status: 'disputed', businessId: 'b-1', supplierId: 's-1', totalCents: 10000 };
+    const res = await buildApp().fetch(
+      new Request('http://localhost/api/admin/disputes/po-5/resolve', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ outcome: 'partial', amountCents: 2500, note: '5 bags damaged' }),
+      }),
+      env
+    );
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as any).status).toBe('completed');
+    expect(state.refundAmount).toHaveLength(1);
+    expect(state.refundAmount[0]).toMatchObject({ poId: 'po-5', amountCents: 2500, source: 'dispute' });
+    expect(state.refundAll).toHaveLength(0);
+    expect(state.transitions[0]).toMatchObject({ to: 'completed', opts: { disputeResolution: 'partial', skipRefund: true } });
+  });
+
+  it('partial without an amount → 400; partial ≥ total → 400', async () => {
+    state.po = { id: 'po-6', poNumber: 'PO-6', status: 'disputed', businessId: 'b-1', supplierId: 's-1', totalCents: 1000 };
+    const noAmount = await buildApp().fetch(
+      new Request('http://localhost/api/admin/disputes/po-6/resolve', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ outcome: 'partial' }),
+      }),
+      env
+    );
+    expect(noAmount.status).toBe(400);
+    const tooMuch = await buildApp().fetch(
+      new Request('http://localhost/api/admin/disputes/po-6/resolve', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ outcome: 'partial', amountCents: 1000 }),
+      }),
+      env
+    );
+    expect(tooMuch.status).toBe(400);
+    expect(state.transitions).toHaveLength(0);
   });
 
   it('409 when PO not in disputed state', async () => {

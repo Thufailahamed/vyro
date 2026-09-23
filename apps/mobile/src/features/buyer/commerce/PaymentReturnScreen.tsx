@@ -3,10 +3,10 @@ import { View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import { AlertTriangle, CheckCircle2, Clock, XCircle } from 'lucide-react-native';
-import { Button, Card, Gutter, Loader, Screen, ScreenHeader, Text } from '@/ui';
+import { Button, Card, Loader, Screen, ScreenHeader, Text } from '@/ui';
 import { api } from '@/lib/api';
 import { formatLKR } from '@/lib/format';
-import { colors, fonts } from '@/theme/tokens';
+import { colors, fonts, radii } from '@/theme/tokens';
 import { go } from '../orders/kit';
 import type { Payment } from './types';
 
@@ -48,44 +48,61 @@ export function PaymentReturnScreen() {
 
   const state = settled
     ? payment!.status === 'confirmed'
-      ? { icon: CheckCircle2, color: colors.mint, title: 'Payment confirmed', sub: `The supplier has been notified. ${formatLKR(payment!.amountCents ?? 0)} recorded against your order.` }
-      : { icon: XCircle, color: colors.rose, title: 'Payment not completed', sub: 'The gateway reported the payment as failed or cancelled. You can retry from the order page.' }
+      ? { icon: CheckCircle2, color: colors.mint, soft: colors.mintSoft, title: 'Payment confirmed', sub: `The supplier has been notified. ${formatLKR(payment!.amountCents ?? 0)} recorded against your order.` }
+      : { icon: XCircle, color: colors.rose, soft: colors.roseSoft, title: 'Payment not completed', sub: 'The gateway reported the payment as failed or cancelled. You can retry from the order page.' }
     : outcome === 'cancel'
-      ? { icon: AlertTriangle, color: colors.amber, title: 'Payment cancelled', sub: 'You cancelled before completing the payment. Your order draft is unchanged.' }
+      ? { icon: AlertTriangle, color: colors.amber, soft: colors.amberSoft, title: 'Payment cancelled', sub: 'You cancelled before completing the payment. Your order draft is unchanged.' }
       : timedOut
-        ? { icon: AlertTriangle, color: colors.amber, title: 'Still processing', sub: 'The gateway has not confirmed yet. Check the order page in a moment — we reconcile automatically.' }
-        : { icon: Clock, color: colors.copper, title: 'Confirming payment…', sub: 'We are waiting for the payment gateway to confirm. This usually takes a few seconds.' };
+        ? { icon: AlertTriangle, color: colors.amber, soft: colors.amberSoft, title: 'Still processing', sub: 'The gateway has not confirmed yet. Check the order page in a moment — we reconcile automatically.' }
+        : { icon: Clock, color: colors.copper, soft: colors.copperSoft, title: 'Confirming payment…', sub: 'We are waiting for the payment gateway to confirm. This usually takes a few seconds.' };
 
   const Icon = state.icon;
   return (
-    <Screen>
+    <Screen
+      footer={
+        <>
+          <Button title="View order" variant="primary" size="lg" full onPress={() => go(orderLink)} />
+          {outcome === 'success' && !settled ? (
+            <Button
+              title="Refresh status"
+              variant="secondary"
+              full
+              loading={q.isFetching}
+              onPress={() => {
+                setNow(Date.now());
+                void q.refetch();
+              }}
+            />
+          ) : null}
+          {settled && payment?.status === 'confirmed' ? <Button title="Continue shopping" variant="secondary" full onPress={() => go('/buyer/catalog')} /> : null}
+          {outcome === 'cancel' || payment?.status === 'failed' || payment?.status === 'cancelled' ? <Button title="Try again" variant="secondary" full onPress={() => go(orderLink)} /> : null}
+        </>
+      }
+    >
       <ScreenHeader back kicker="Secure payment" title={state.title} />
-      <Gutter style={{ gap: 16 }}>
-        <Card padding={28} style={{ alignItems: 'center', gap: 12 }}>
-          <Icon size={44} color={state.color} strokeWidth={1.6} />
-          <Text variant="h2" align="center">
-            {state.title}
-          </Text>
-          <Text variant="bodySm" color="ink3" align="center">
-            {state.sub}
-          </Text>
-          {payment ? (
-            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 14, color: colors.ink4 }}>
+      <Card kind="elevated" padding={28} radius={radii['3xl']} style={{ alignItems: 'center', gap: 14, marginTop: 8 }}>
+        <View style={{ width: 104, height: 104, borderRadius: 52, backgroundColor: state.soft, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon size={38} color={state.color} strokeWidth={1.7} />
+          </View>
+        </View>
+        <Text variant="displaySm" align="center">
+          {state.title}
+        </Text>
+        <Text variant="bodySm" color="ink3" align="center">
+          {state.sub}
+        </Text>
+        {payment ? (
+          <View style={{ paddingHorizontal: 14, height: 32, borderRadius: radii.pill, backgroundColor: colors.pearl, justifyContent: 'center' }}>
+            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12.5, color: colors.ink3 }}>
               {payment.method ? `${payment.method} · ` : ''}
               {payment.status}
             </Text>
-          ) : q.isLoading ? (
-            <Loader label="Checking status…" />
-          ) : null}
-        </Card>
-
-        <View style={{ gap: 10 }}>
-          <Button title="View order" variant="primary" full onPress={() => go(orderLink)} />
-          {outcome === 'success' && !settled ? <Button title="Refresh status" variant="secondary" full loading={q.isFetching} onPress={() => { setNow(Date.now()); void q.refetch(); }} /> : null}
-          {settled && payment?.status === 'confirmed' ? <Button title="Continue shopping" variant="secondary" full onPress={() => go('/buyer/catalog')} /> : null}
-          {outcome === 'cancel' || payment?.status === 'failed' || payment?.status === 'cancelled' ? <Button title="Try again" variant="secondary" full onPress={() => go(orderLink)} /> : null}
-        </View>
-      </Gutter>
+          </View>
+        ) : q.isLoading ? (
+          <Loader label="Checking status…" />
+        ) : null}
+      </Card>
     </Screen>
   );
 }

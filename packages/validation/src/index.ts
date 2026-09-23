@@ -36,3 +36,5 @@ export * from './learningCenter';
 export * from './sponsored';
 
 export * from './trust';
+export * from './wholesale';
+export * from './orderLifecycle';

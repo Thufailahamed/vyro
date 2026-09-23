@@ -19,6 +19,9 @@ export async function insertPo(
     deliveryAddress: string;
     deliveryCity: string;
     deliveryDistrict: string;
+    deliveryAddressId?: string | null;
+    deliveryContactName?: string | null;
+    deliveryPhone?: string | null;
     notes: string | null;
     createdByUserId: string;
     createdAt: number;
@@ -179,19 +182,6 @@ export async function listPoItems(d1: D1Database, poId: string) {
 export async function listPoEvents(d1: D1Database, poId: string) {
   const db = getDb(d1);
   return db.select().from(orderEvents).where(eq(orderEvents.purchaseOrderId, poId)).all();
-}
-
-export async function updatePoStatus(
-  d1: D1Database,
-  poId: string,
-  status: string,
-  patch: Record<string, number | string | null>,
-) {
-  const db = getDb(d1);
-  await db
-    .update(purchaseOrders)
-    .set({ status, ...patch, updatedAt: Date.now() })
-    .where(eq(purchaseOrders.id, poId));
 }
 
 export type TransitionActor = { role: ActorRole; userId: string };

@@ -3,6 +3,8 @@ import { httpError } from '../../../lib/errors';
 import { auditAdmin } from '../../admin/lib/audit';
 import { canTransitionRefund } from '@vyro/shared';
 import * as repo from './refundsRepository';
+import { settleApprovedRefund } from '../../refunds/executor';
+import type { Env } from '../../../env';
 
 export async function listQueue(
   d1: D1Database,
@@ -18,18 +20,16 @@ export async function approve(ctx: Context, id: string) {
   if (before.status !== 'requested') {
     throw httpError(409, 'REFUND_NOT_PENDING', `Refund is ${before.status}`);
   }
-  // Walk the approval machine requested → approved → processing → completed
-  // with a machine check per leg (spec §35). Same final outcome as before,
-  // now explainable. Single audit entry preserves the ops audit contract.
-  for (const leg of ['approved', 'processing', 'completed'] as const) {
-    const current = await repo.getRefund(d1, id);
-    if (!current) throw httpError(404, 'NOT_FOUND', 'Refund not found');
-    if (!canTransitionRefund(current.status, leg)) {
-      throw httpError(409, 'REFUND_NOT_PENDING', `Refund is ${current.status}`);
-    }
-    const updated = await repo.setRefundStatus(d1, id, leg);
-    if (!updated) throw httpError(404, 'NOT_FOUND', 'Refund not found');
+  // requested → approved, then the executor actually moves the money:
+  // gateway refund for online payments, ledger + payment + earning
+  // settlement for offline ones (spec §35). Single audit entry preserved.
+  if (!canTransitionRefund(before.status, 'approved')) {
+    throw httpError(409, 'REFUND_NOT_PENDING', `Refund is ${before.status}`);
   }
+  const approved = await repo.setRefundStatus(d1, id, 'approved');
+  if (!approved) throw httpError(404, 'NOT_FOUND', 'Refund not found');
+  const actor = ctx.get('ctx') as { userId: string } | undefined;
+  await settleApprovedRefund(ctx.env as Env, id, actor?.userId ?? 'system');
   const updated = await repo.getRefund(d1, id);
   if (!updated) throw httpError(404, 'NOT_FOUND', 'Refund not found');
   await auditAdmin({

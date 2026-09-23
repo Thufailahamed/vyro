@@ -594,6 +594,14 @@ export const rfqService = {
       });
     }
     await db.insert(orderEvents).values({ id: newId(), purchaseOrderId: poId, actorUserId: userId, fromStatus: null, toStatus: 'pending', reason: `created from RFQ ${rfq.rfqNumber}`, metadata: JSON.stringify({ rfqId, quoteId: q.id }), createdAt: now });
+    // Reserve stock like a catalog checkout. Agreed quote quantities may exceed
+    // tracked stock (made-to-order); the supplier then fulfils or cancels.
+    try {
+      const { inventoryService, listOrderLines } = await import('../inventory/service');
+      await inventoryService.reserveForOrder(d1, queue, poId, await listOrderLines(d1, poId), userId);
+    } catch (err) {
+      console.error('[rfq.convertToOrder] stock reservation skipped', { poId, err });
+    }
     await db.update(rfqs).set({ status: 'converted_to_order', convertedPoId: poId, updatedAt: now, version: rfq.version + 1 }).where(eq(rfqs.id, rfqId));
     await insertRfqEvent(d1, { rfqId, quoteId: q.id, actorUserId: userId, action: 'ORDER_CREATED_FROM_QUOTE', fromStatus: 'awarded', toStatus: 'converted_to_order', metadata: { poId, poNumber, quoteVersion: (rfq.awardedQuoteVersion ?? q.version) } });
     await recordAudit(d1, { actorUserId: userId, action: 'rfq.order_created', resourceType: 'purchase_order', resourceId: poId, metadata: { rfqId, quoteId: q.id } });

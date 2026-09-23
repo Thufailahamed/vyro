@@ -51,6 +51,10 @@ export type AdminOrder = {
   notes?: string | null;
   rejectionReason?: string | null;
   cancelledReason?: string | null;
+  originalTotalCents?: number | null;
+  disputeReason?: string | null;
+  disputeOpenedBy?: string | null;
+  disputeOutcome?: string | null;
   createdByUserId?: string;
   acceptedAt?: number | null;
   rejectedAt?: number | null;

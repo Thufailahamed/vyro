@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 import { AtSign, KeyRound, MailCheck } from 'lucide-react-native';
 import { AuthLayout } from '@/features/auth/AuthLayout';
@@ -34,8 +35,10 @@ export default function ForgotScreen() {
             title="Check your inbox"
             message={`If an account exists for ${email}, a reset link is on its way. It expires in 60 minutes.`}
           />
-          <Button title="I have a reset code" variant="secondary" full icon={KeyRound} onPress={() => router.push('/reset')} />
-          <Button title="Back to sign in" full onPress={() => router.replace('/login')} />
+          <View style={{ gap: 10 }}>
+            <Button title="Back to sign in" size="lg" full onPress={() => router.replace('/login')} />
+            <Button title="I have a reset code" variant="secondary" full icon={KeyRound} onPress={() => router.push('/reset')} />
+          </View>
         </>
       ) : (
         <>
@@ -43,7 +46,7 @@ export default function ForgotScreen() {
           <Field label="Email">
             <Input icon={AtSign} value={email} onChangeText={setEmail} placeholder="you@business.lk" keyboardType="email-address" autoCapitalize="none" onSubmitEditing={submit} />
           </Field>
-          <Button title="Send reset link" size="lg" full loading={loading} onPress={submit} />
+          <Button title="Send reset link" size="lg" full loading={loading} onPress={submit} style={{ marginTop: 4 }} />
         </>
       )}
     </AuthLayout>

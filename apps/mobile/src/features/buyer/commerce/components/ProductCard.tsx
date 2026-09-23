@@ -7,8 +7,8 @@ import type { SearchHit } from '../types';
 import { AddButton, Pill, Price, SupplierStarsLine } from './kit';
 
 /**
- * Catalog tile: lot photo with brand / dispatch / offers overlays, then
- * unit, name, supplier, mono price, MOQ and a one-tap MOQ add.
+ * Catalog tile: inset lot photo with brand / dispatch / offers overlays and a
+ * floating one-tap MOQ add, then unit, name, supplier, mono price and MOQ.
  */
 export function ProductCard({
   hit,
@@ -30,17 +30,26 @@ export function ProductCard({
       hapticOnPress
       scaleTo={0.97}
       onPress={() => go(productHref(hit.product.id))}
-      style={[{ flex: 1, backgroundColor: colors.paper, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.lineSoft, overflow: 'hidden' }, shadow.sm, style]}
+      style={[{ flex: 1, backgroundColor: colors.paper, borderRadius: radii['2xl'], borderCurve: 'continuous', padding: 6 }, shadow.card, style]}
     >
       <View>
-        <ProductImage src={hit.product.imageUrl} seed={hit.product.id} style={{ aspectRatio: 1.05, width: '100%' }} />
+        <ProductImage
+          src={hit.product.imageUrl}
+          seed={hit.product.id}
+          style={{ aspectRatio: 1.05, width: '100%', borderRadius: radii.xl, borderCurve: 'continuous' }}
+        />
         <View style={{ position: 'absolute', top: 8, left: 8, right: 8, flexDirection: 'row', justifyContent: 'space-between', gap: 6 }}>
-          {categoryName || hit.product.brand ? <Pill label={categoryName ?? hit.product.brand ?? ''} /> : <View />}
+          {categoryName || hit.product.brand ? <Pill tone="paper" label={categoryName ?? hit.product.brand ?? ''} /> : <View />}
           {hit.offerCount > 1 ? <Pill tone="volt" label={`${hit.offerCount} offers`} /> : null}
         </View>
         {lead !== undefined ? <Pill icon={Clock} label={leadLabel(lead, true)} tone="ink" style={{ position: 'absolute', left: 8, bottom: 8 }} /> : null}
+        {best && onAdd ? (
+          <View style={[{ position: 'absolute', right: 8, bottom: 8, borderRadius: 20 }, shadow.md]}>
+            <AddButton onPress={onAdd} loading={adding} size={38} />
+          </View>
+        ) : null}
       </View>
-      <View style={{ padding: 12, gap: 6, flex: 1 }}>
+      <View style={{ paddingHorizontal: 8, paddingTop: 10, paddingBottom: 8, gap: 5, flex: 1 }}>
         <Text variant="overline" color="copper" numberOfLines={1} style={{ fontSize: 9.5 }}>
           {hit.product.unit}
           {hit.product.packSize ? ` · ${hit.product.packSize}` : ''}
@@ -57,29 +66,26 @@ export function ProductCard({
           </View>
         ) : null}
         <View style={{ flex: 1 }} />
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 6, marginTop: 4 }}>
-          <View style={{ flex: 1, gap: 2 }}>
-            {best ? (
-              <>
-                <Price cents={best.priceCents} size="md" />
-                <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: colors.ink4 }} numberOfLines={1}>
-                  MOQ {best.minOrderQty} · /{hit.product.unit}
-                </Text>
-              </>
-            ) : (
-              <Text variant="caption" color="amber">
-                Awaiting next lot
+        <View style={{ gap: 1, marginTop: 4 }}>
+          {best ? (
+            <>
+              <Price cents={best.priceCents} size="md" />
+              <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: colors.ink4 }} numberOfLines={1}>
+                MOQ {best.minOrderQty} · /{hit.product.unit}
               </Text>
-            )}
-          </View>
-          {best && onAdd ? <AddButton onPress={onAdd} loading={adding} /> : null}
+            </>
+          ) : (
+            <Text variant="caption" color="amber">
+              Awaiting next lot
+            </Text>
+          )}
         </View>
       </View>
     </Touchable>
   );
 }
 
-/** Dense ledger row — the web's table view. */
+/** Dense ledger row — the web's table view, as a native card. */
 export function ProductRow({ hit, onAdd, adding }: { hit: SearchHit; onAdd?: () => void; adding?: boolean }) {
   const best = hit.bestOffer;
   return (
@@ -87,9 +93,12 @@ export function ProductRow({ hit, onAdd, adding }: { hit: SearchHit; onAdd?: () 
       hapticOnPress
       scaleTo={0.985}
       onPress={() => go(productHref(hit.product.id))}
-      style={{ flexDirection: 'row', gap: 12, alignItems: 'center', padding: 10, backgroundColor: colors.paper, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.lineSoft }}
+      style={[
+        { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 8, paddingRight: 12, backgroundColor: colors.paper, borderRadius: radii.xl, borderCurve: 'continuous' },
+        shadow.card,
+      ]}
     >
-      <ProductImage src={hit.product.imageUrl} seed={hit.product.id} style={{ width: 64, height: 64, borderRadius: radii.lg }} />
+      <ProductImage src={hit.product.imageUrl} seed={hit.product.id} style={{ width: 76, height: 76, borderRadius: radii.lg, borderCurve: 'continuous' }} />
       <View style={{ flex: 1, gap: 3 }}>
         <Text variant="bodySm" weight="semibold" numberOfLines={1}>
           {hit.product.name}
@@ -114,7 +123,7 @@ export function ProductRow({ hit, onAdd, adding }: { hit: SearchHit; onAdd?: () 
       </View>
       <View style={{ alignItems: 'flex-end', gap: 8 }}>
         <Price cents={best?.priceCents ?? null} size="sm" />
-        {best && onAdd ? <AddButton onPress={onAdd} loading={adding} size={32} /> : null}
+        {best && onAdd ? <AddButton onPress={onAdd} loading={adding} size={34} /> : null}
       </View>
     </Touchable>
   );
@@ -122,9 +131,9 @@ export function ProductRow({ hit, onAdd, adding }: { hit: SearchHit; onAdd?: () 
 
 export function ProductCardSkeleton({ style }: { style?: StyleProp<ViewStyle> }) {
   return (
-    <View style={[{ flex: 1, backgroundColor: colors.paper, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.lineSoft, overflow: 'hidden' }, style]}>
-      <Skeleton height={150} radius={0} />
-      <View style={{ padding: 12, gap: 8 }}>
+    <View style={[{ flex: 1, backgroundColor: colors.paper, borderRadius: radii['2xl'], borderCurve: 'continuous', padding: 6 }, shadow.card, style]}>
+      <Skeleton height={150} radius={radii.xl} />
+      <View style={{ padding: 8, gap: 8 }}>
         <Skeleton width="40%" height={10} />
         <Skeleton width="90%" height={14} />
         <Skeleton width="60%" height={12} />

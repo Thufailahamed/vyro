@@ -10,6 +10,7 @@ import {
   Card,
   ChipRow,
   ErrorState,
+  IconTile,
   InkHero,
   Kicker,
   ProgressBar,
@@ -24,7 +25,7 @@ import { Gate } from '@/features/common/Gate';
 import { api, errorMessage, qs } from '@/lib/api';
 import { useBusinessId } from '@/lib/auth';
 import { formatCompactLKR, formatDate, formatLKR } from '@/lib/format';
-import { colors, fonts, radii, tones } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import {
   CREDIT_STARTING_LIMIT_CENTS,
   drawdownStatusLabel,
@@ -263,13 +264,13 @@ function ActiveFacility({
         ) : drawdownsError ? (
           <ErrorState message={drawdownsError} onRetry={retryDrawdowns} />
         ) : drawdowns.length === 0 ? (
-          <Card kind="bone">
+          <Card>
             <Text variant="bodySm" color="ink3">
               No credit draws yet. At checkout, choose Pay on terms to draw against this facility.
             </Text>
           </Card>
         ) : shown.length === 0 ? (
-          <Card kind="bone">
+          <Card>
             <Text variant="bodySm" color="ink3">
               No {drawdownStatusLabel(filter).toLowerCase()} draws.
             </Text>
@@ -302,10 +303,10 @@ function NextDue({ drawdown: d, outstanding, openCount }: { drawdown: Drawdown; 
   const overdue = d.status === 'overdue' || daysUntil(d.dueAt) < 0;
   const left = remainingCents(d.amountCents, d.repaidCents);
   return (
-    <Card kind={overdue ? 'flat' : 'volt'} style={overdue ? { borderColor: tones.danger.border, backgroundColor: colors.roseSoft } : undefined}>
+    <Card kind={overdue ? 'flat' : 'volt'} radius={radii['2xl']} style={overdue ? { backgroundColor: colors.roseSoft } : undefined}>
       <Row gap={12} align="flex-start">
-        <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-          <CalendarClock size={20} color={overdue ? colors.rose : colors.volt} strokeWidth={1.7} />
+        <View style={{ width: 46, height: 46, borderRadius: 15, borderCurve: 'continuous', backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+          <CalendarClock size={21} color={overdue ? colors.rose : colors.volt} strokeWidth={1.7} />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Text variant="overline" color={overdue ? 'rose' : 'ink3'}>
@@ -323,16 +324,19 @@ function NextDue({ drawdown: d, outstanding, openCount }: { drawdown: Drawdown; 
           </Text>
         </View>
       </Row>
-      <View style={{ height: 1, backgroundColor: colors.line, marginVertical: 12 }} />
+      <View style={{ height: 1, backgroundColor: 'rgba(12,14,11,0.1)', marginVertical: 14 }} />
       <Row justify="space-between">
         <Text variant="caption" color="ink3">
           {openCount} open draw{openCount === 1 ? '' : 's'} · {formatLKR(outstanding)} outstanding
         </Text>
-        <Touchable onPress={() => go(`/buyer/order/${d.purchaseOrderId}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Text variant="caption" weight="semibold">
+        <Touchable
+          onPress={() => go(`/buyer/order/${d.purchaseOrderId}`)}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 30, paddingHorizontal: 12, borderRadius: radii.pill, backgroundColor: colors.ink }}
+        >
+          <Text variant="caption" weight="semibold" color="paper">
             View PO
           </Text>
-          <ArrowRight size={13} color={colors.ink} />
+          <ArrowRight size={13} color={colors.volt} />
         </Touchable>
       </Row>
     </Card>
@@ -345,7 +349,7 @@ function ScheduleRow({ d, last }: { d: Drawdown; last: boolean }) {
   return (
     <Touchable onPress={() => go(`/buyer/order/${d.purchaseOrderId}`)} scaleTo={0.985} style={{ flexDirection: 'row', gap: 14 }}>
       <View style={{ alignItems: 'center', width: 44 }}>
-        <View style={{ width: 44, paddingVertical: 6, borderRadius: radii.lg, backgroundColor: overdue ? colors.roseSoft : colors.bone, alignItems: 'center' }}>
+        <View style={{ width: 46, paddingVertical: 7, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: overdue ? colors.roseSoft : colors.bone, alignItems: 'center' }}>
           <Text variant="overline" color={overdue ? 'rose' : 'ink4'} style={{ letterSpacing: 1 }}>
             {date.toLocaleDateString('en-GB', { month: 'short' })}
           </Text>
@@ -374,15 +378,16 @@ function DrawdownCard({ d }: { d: Drawdown }) {
   const left = remainingCents(d.amountCents, d.repaidCents);
   const tone = d.status === 'overdue' ? 'danger' : d.status === 'active' ? 'success' : 'neutral';
   return (
-    <Card padding={14} style={{ gap: 10 }}>
-      <Row justify="space-between">
-        <Row gap={8}>
+    <Card padding={14} style={{ gap: 12 }}>
+      <Row justify="space-between" gap={12}>
+        <IconTile icon={Banknote} tone={d.status === 'overdue' ? 'danger' : d.status === 'active' ? 'success' : 'paper'} size={42} />
+        <View style={{ flex: 1, gap: 3 }}>
           <Text variant="h3">{termsLabel(d.terms)}</Text>
           <Badge label={drawdownStatusLabel(d.status)} tone={tone} dot size="sm" />
-        </Row>
+        </View>
         <MoneyMono cents={d.amountCents} />
       </Row>
-      <ProgressBar value={d.repaidCents} max={Math.max(d.amountCents, 1)} tone={d.status === 'overdue' ? 'danger' : 'ink'} height={5} track={colors.bone} />
+      <ProgressBar value={d.repaidCents} max={Math.max(d.amountCents, 1)} tone={d.status === 'overdue' ? 'danger' : 'ink'} height={6} track={colors.bone} />
       <Row justify="space-between">
         <Text variant="caption" color="ink3" style={{ flex: 1 }}>
           Due {formatDate(d.dueAt)} · Remaining {formatLKR(left)} of {formatLKR(d.amountCents)}
@@ -399,12 +404,12 @@ function DrawdownCard({ d }: { d: Drawdown }) {
 }
 
 function MoneyMono({ cents }: { cents: number }) {
-  return <Text style={{ fontFamily: fonts.monoMedium, fontSize: 14, color: colors.ink }}>{formatLKR(cents)}</Text>;
+  return <Text style={{ fontFamily: fonts.monoMedium, fontSize: 15, letterSpacing: -0.4, color: colors.ink }}>{formatLKR(cents)}</Text>;
 }
 
 function HeroCell({ label, value }: { label: string; value: string }) {
   return (
-    <View style={{ flex: 1, padding: 12, borderRadius: 10, backgroundColor: 'rgba(250,247,240,0.06)', borderWidth: 1, borderColor: colors.paperLine, gap: 4 }}>
+    <View style={{ flex: 1, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: 'rgba(250,247,240,0.07)', gap: 4 }}>
       <Text variant="overline" color="paperMuted">
         {label}
       </Text>
@@ -473,33 +478,33 @@ function UnlockCredit({ paid, required }: { paid: number; required: number }) {
               return (
                 <View
                   key={i}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: 12,
-                    borderRadius: radii.xl,
-                    borderWidth: state === 'current' ? 1.5 : 1,
-                    borderColor: state === 'done' ? tones.success.border : state === 'current' ? colors.ink : colors.lineSoft,
-                    backgroundColor: state === 'done' ? colors.mintSoft : state === 'current' ? colors.voltSoft : colors.paper,
-                  }}
+                  style={[
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: 12,
+                      borderRadius: radii.xl,
+                      borderCurve: 'continuous',
+                      backgroundColor: state === 'done' ? colors.mintSoft : state === 'current' ? colors.voltSoft : colors.pearl,
+                    },
+                    state === 'current' ? shadow.sm : null,
+                  ]}
                 >
                   <View
                     style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: 13,
+                      width: 30,
+                      height: 30,
+                      borderRadius: 15,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      backgroundColor: state === 'done' ? colors.mint : 'transparent',
-                      borderWidth: state === 'done' ? 0 : 1.5,
-                      borderColor: state === 'current' ? colors.ink : colors.line,
+                      backgroundColor: state === 'done' ? colors.mint : state === 'current' ? colors.ink : colors.paper,
                     }}
                   >
                     {state === 'done' ? (
                       <Check size={14} color={colors.paper} strokeWidth={3} />
                     ) : (
-                      <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: state === 'current' ? colors.ink : colors.ink4 }}>{i + 1}</Text>
+                      <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: state === 'current' ? colors.volt : colors.ink4 }}>{i + 1}</Text>
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
@@ -528,10 +533,8 @@ function UnlockCredit({ paid, required }: { paid: number; required: number }) {
           { icon: ShieldCheck, title: 'Facility unlocks', body: `After three settled orders, VYRO grants a ${formatLKR(CREDIT_STARTING_LIMIT_CENTS)} limit on this workspace automatically.` },
           { icon: Clock, title: 'Checkout on terms', body: 'Choose Net 14 or Net 30 at checkout. Settle the PO by the due date to keep the line open.' },
         ].map((s, i) => (
-          <Card key={s.title} style={{ flexDirection: 'row', gap: 12 }}>
-            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.copperSoft, alignItems: 'center', justifyContent: 'center' }}>
-              <s.icon size={17} color={colors.copperDeep} strokeWidth={1.8} />
-            </View>
+          <Card key={s.title} style={{ flexDirection: 'row', gap: 14 }}>
+            <IconTile icon={s.icon} tone="copper" size={42} />
             <View style={{ flex: 1, gap: 3 }}>
               <Row justify="space-between">
                 <Text variant="h3">{s.title}</Text>
@@ -546,15 +549,17 @@ function UnlockCredit({ paid, required }: { paid: number; required: number }) {
           </Card>
         ))}
         <Row gap={10} align="stretch">
-          <Card kind="bone" style={{ flex: 1, gap: 4 }}>
+          <Card style={{ flex: 1, gap: 6 }}>
+            <IconTile icon={CalendarClock} tone="paper" size={34} />
             <Text variant="h3">Net 14</Text>
             <Text variant="caption" color="ink3">
               Full PO balance due 14 days after you draw. Use it when stock turns quickly.
             </Text>
           </Card>
-          <Card kind="bone" style={{ flex: 1, gap: 4 }}>
-            <Text variant="h3">Net 30</Text>
-            <Text variant="caption" color="ink3">
+          <Card kind="ink" style={{ flex: 1, gap: 6 }}>
+            <IconTile icon={CalendarClock} tone="glass" size={34} />
+            <Text variant="h3" color="paper">Net 30</Text>
+            <Text variant="caption" color="paperMuted">
               Full PO balance due in 30 days. Default terms on a new facility.
             </Text>
           </Card>

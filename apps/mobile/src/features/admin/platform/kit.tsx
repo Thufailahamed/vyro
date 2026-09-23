@@ -187,12 +187,16 @@ export function DashboardSkeleton({ tiles = 4 }: { tiles?: number }) {
 /** Small uppercase label + content block inside a card. */
 export function Block({ kicker, title, right, children, style }: { kicker?: string; title?: string; right?: ReactNode; children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return (
-    <Card kind="flat" style={[{ gap: 12 }, style]}>
+    <Card kind="flat" padding={18} style={[{ gap: 14 }, style]}>
       {kicker || title || right ? (
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 2 }}>
           <View style={{ flex: 1, gap: 3 }}>
             {kicker ? <Kicker>{kicker}</Kicker> : null}
-            {title ? <Text variant="h2">{title}</Text> : null}
+            {title ? (
+              <Text variant="h2" numberOfLines={2}>
+                {title}
+              </Text>
+            ) : null}
           </View>
           {right}
         </View>
@@ -211,7 +215,7 @@ export function InlineEmpty({ title, message, icon }: { title: string; message?:
 export function CodeBlock({ value, maxLines = 18 }: { value: unknown; maxLines?: number }) {
   const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
   return (
-    <View style={{ backgroundColor: colors.ink, borderRadius: radii.lg, padding: 12 }}>
+    <View style={{ backgroundColor: colors.ink, borderRadius: radii.lg, borderCurve: 'continuous', padding: 14 }}>
       <Text numberOfLines={maxLines} style={{ fontFamily: fonts.mono, fontSize: 11.5, lineHeight: 16, color: colors.paper }}>
         {text ?? '—'}
       </Text>
@@ -222,13 +226,13 @@ export function CodeBlock({ value, maxLines = 18 }: { value: unknown; maxLines?:
 /** "Load more" footer for cursor-paginated lists. */
 export function LoadMore({ hasMore, loading, onPress }: { hasMore?: boolean; loading?: boolean; onPress: () => void }) {
   if (!hasMore) return null;
-  return <Button title="Load more" variant="secondary" full loading={loading} onPress={onPress} style={{ marginTop: 6 }} />;
+  return <Button title="Load more" variant="secondary" loading={loading} onPress={onPress} style={{ marginTop: 6, alignSelf: 'center', minWidth: 180 }} />;
 }
 
 /** Thin coloured left rule used to tag a card as money in / out / alert. */
 export function ToneRule({ tone }: { tone: FlowTone | 'volt' }) {
   const bg = tone === 'in' ? colors.mint : tone === 'out' ? colors.rose : tone === 'warn' ? colors.amber : tone === 'volt' ? colors.volt : colors.ink6;
-  return <View style={{ position: 'absolute', left: 0, top: 12, bottom: 12, width: 3, borderRadius: 2, backgroundColor: bg }} />;
+  return <View style={{ position: 'absolute', left: 0, top: 16, bottom: 16, width: 4, borderTopRightRadius: 3, borderBottomRightRadius: 3, backgroundColor: bg }} />;
 }
 
 /** Parse a rupee string typed by an operator into integer cents. */

@@ -5,7 +5,6 @@ import { requirePermission } from '../../../middleware/rbac';
 import { auditAdmin } from '../lib/audit';
 import { CRON_JOBS, getCronJob } from './cronRegistry';
 import { httpError } from '../../../lib/errors';
-import { runObservabilitySweep } from '../../../cron/observabilitySweep';
 
 const router = new Hono<{ Bindings: { DB: D1Database } }>();
 
@@ -31,13 +30,9 @@ router.post('/trigger', requirePermission('cron:trigger'), async (c) => {
   });
 
   try {
-    if (job.name === 'observabilitySweep') {
-      const env = c.env as unknown as import('../../../env').Env;
-      const result = await runObservabilitySweep(env);
-      return c.json({ ok: true, name: job.name, result });
-    }
-    await job.handler();
-    return c.json({ ok: true, name: job.name });
+    const env = c.env as unknown as import('../../../env').Env;
+    const result = await job.handler(env);
+    return c.json({ ok: true, name: job.name, result: result ?? null });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown';
     throw httpError(500, 'INTERNAL', `Cron ${job.name} failed: ${message}`);

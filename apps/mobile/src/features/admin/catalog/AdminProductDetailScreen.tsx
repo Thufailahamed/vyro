@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Star } from 'lucide-react-native';
+import { History, Package, Store, Star } from 'lucide-react-native';
 import { api, errorMessage } from '@/lib/api';
 import { formatDateTime, humanize } from '@/lib/format';
+import { colors, radii } from '@/theme/tokens';
 import {
   Button,
   ConfirmSheet,
@@ -97,10 +98,10 @@ export function AdminProductDetailScreen() {
         {(d) => (
           <>
             <Appear>
-              <ProductImage src={null} seed={d.product.id} style={{ width: '100%', height: 180, borderRadius: 16 }} />
+              <ProductImage src={null} seed={d.product.id} style={{ width: '100%', height: 220, borderRadius: radii['2xl'] }} />
             </Appear>
             <Appear i={1}>
-              <Section kicker="Listing" title={d.product.name}>
+              <Section kicker="Listing" title={d.product.name} icon={Package}>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
                   <StatusBadge status={d.product.active ? 'active' : 'inactive'} size="sm" />
                   {d.product.featured ? <StatusBadge status="featured" size="sm" /> : null}
@@ -120,7 +121,7 @@ export function AdminProductDetailScreen() {
               </Section>
             </Appear>
             <Appear i={2}>
-              <Section kicker={`Offers · ${(d.offers ?? []).length}`} title="Supplier offers">
+              <Section kicker={`Offers · ${(d.offers ?? []).length}`} title="Supplier offers" icon={Store}>
                 <Text variant="bodySm" color="ink4">
                   {(d.offers ?? []).length === 0
                     ? 'No live supplier offers for this product.'
@@ -130,10 +131,11 @@ export function AdminProductDetailScreen() {
             </Appear>
             {(d.audit ?? []).length > 0 ? (
               <Appear i={3}>
-                <Section kicker={`Audit · ${(d.audit ?? []).length}`} title="Moderation history">
-                  <View style={{ gap: 6 }}>
-                    {(d.audit ?? []).slice(0, 8).map((a) => (
-                      <View key={a.id} style={{ flexDirection: 'row', gap: 8 }}>
+                <Section kicker={`Audit · ${(d.audit ?? []).length}`} title="Moderation history" icon={History}>
+                  <View>
+                    {(d.audit ?? []).slice(0, 8).map((a, i) => (
+                      <View key={a.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderTopWidth: i ? StyleSheet.hairlineWidth * 2 : 0, borderTopColor: colors.lineSoft }}>
+                        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.copper }} />
                         <Text variant="bodySm" style={{ flex: 1 }} numberOfLines={1}>
                           {humanize(a.action)}
                         </Text>

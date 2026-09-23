@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowRight,
@@ -9,6 +9,7 @@ import {
   MessageCircle,
   Package,
   RefreshCw,
+  RotateCcw,
   Search,
   ShoppingCart,
   Sparkles,
@@ -22,12 +23,15 @@ import {
   ErrorState,
   Gutter,
   IconButton,
+  IconTile,
   InkHero,
   Kicker,
   ListHeader,
   ListScreen,
   ProgressBar,
   Pulse,
+  QuickAction,
+  QuickActions,
   ScreenHeader,
   SearchBar,
   SkeletonList,
@@ -38,11 +42,12 @@ import {
 import { api, errorMessage, qs } from '@/lib/api';
 import { useAuth, useBusinessId } from '@/lib/auth';
 import { formatCompactLKR, formatDate, formatLKR } from '@/lib/format';
-import { colors, fonts } from '@/theme/tokens';
+import { colors, fonts, radii } from '@/theme/tokens';
 import { Enter, go } from './kit';
 import { IN_FLIGHT, REORDER_TO_CART, REORDERABLE, STATUS_FILTERS, TERMINAL, journeyProgress } from './orderStatus';
 import { ReorderSheet } from './components/ReorderSheet';
 import type { OrderRow } from './types';
+import { PAYMENT_STATE_LABEL } from '@/lib/orderLifecycle';
 
 type Filter = (typeof STATUS_FILTERS)[number]['value'];
 
@@ -116,6 +121,7 @@ export function OrdersScreen() {
           <>
             <IconButton icon={MessageCircle} variant="surface" accessibilityLabel="Conversational ordering" onPress={() => go('/buyer/order/conversational')} />
             <IconButton icon={FileText} variant="surface" accessibilityLabel="Requests for quotation" onPress={() => go('/buyer/rfqs')} />
+            <IconButton icon={RotateCcw} variant="surface" accessibilityLabel="Returns" onPress={() => go('/buyer/returns')} />
           </>
         }
       />
@@ -141,7 +147,7 @@ export function OrdersScreen() {
                     </View>
                   ) : null}
                 </View>
-                <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.paperLine, paddingTop: 14 }}>
+                <View style={{ flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.paperLine, paddingTop: 14 }}>
                   <HeroStat label="In flight" value={stats.inFlight} tone="volt" onPress={() => setFilter('out_for_delivery')} />
                   <HeroStat label="Delivered" value={stats.completed} onPress={() => setFilter('delivered')} />
                   <HeroStat label="Disputed" value={stats.disputed} tone={stats.disputed ? 'rose' : undefined} onPress={() => setFilter('disputed')} />
@@ -152,20 +158,19 @@ export function OrdersScreen() {
         ) : null}
 
         <Enter i={1}>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <QuickAction icon={MessageCircle} label="Chat to order" onPress={() => go('/buyer/order/conversational')} />
+          <QuickActions style={{ paddingHorizontal: 8 }}>
+            <QuickAction icon={MessageCircle} label="Chat to order" tone="volt" onPress={() => go('/buyer/order/conversational')} />
             <QuickAction icon={FileText} label="Bulk quotes" onPress={() => go('/buyer/rfqs')} />
             <QuickAction icon={Sparkles} label="Ask AI" onPress={() => go('/buyer/ask')} />
-          </View>
+            <QuickAction icon={ShoppingCart} label="Cart" badge={cartCount} onPress={() => go('/buyer/cart')} />
+          </QuickActions>
         </Enter>
 
         {cartCount > 0 ? (
           <Enter i={2}>
             <Card kind="volt" onPress={() => go('/buyer/cart')} padding={14}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View style={{ width: 40, height: 40, borderRadius: 11, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-                  <ShoppingCart size={19} color={colors.volt} strokeWidth={1.8} />
-                </View>
+                <IconTile icon={ShoppingCart} tone="ink" size={44} />
                 <View style={{ flex: 1 }}>
                   <Text variant="h3">
                     {cartCount} item{cartCount === 1 ? '' : 's'} waiting in your cart
@@ -174,7 +179,9 @@ export function OrdersScreen() {
                     {cart.data?.totalCents ? `${formatLKR(cart.data.totalCents)} · ` : ''}Check out to issue supplier POs
                   </Text>
                 </View>
-                <ArrowRight size={18} color={colors.ink} />
+                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(12,14,11,0.08)', alignItems: 'center', justifyContent: 'center' }}>
+                  <ArrowRight size={16} color={colors.ink} />
+                </View>
               </View>
             </Card>
           </Enter>
@@ -243,18 +250,6 @@ function HeroStat({ label, value, tone, onPress }: { label: string; value: numbe
   );
 }
 
-function QuickAction({ icon: Icon, label, onPress }: { icon: typeof Package; label: string; onPress: () => void }) {
-  return (
-    <Card onPress={onPress} padding={12} style={{ flex: 1, gap: 8 }}>
-      <View style={{ width: 30, height: 30, borderRadius: 9, backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon size={16} color={colors.ink} strokeWidth={1.8} />
-      </View>
-      <Text variant="bodySm" weight="semibold" numberOfLines={1}>
-        {label}
-      </Text>
-    </Card>
-  );
-}
 
 function OrderCard({ order: o, index, onReorder }: { order: OrderRow; index: number; onReorder: () => void }) {
   const status = o.status.toLowerCase();
@@ -263,22 +258,23 @@ function OrderCard({ order: o, index, onReorder }: { order: OrderRow; index: num
   const place = o.deliveryCity ? `${o.deliveryCity}${o.deliveryDistrict ? `, ${o.deliveryDistrict}` : ''}` : 'Colombo depot';
   return (
     <Enter i={index}>
-      <Card onPress={() => go(`/buyer/order/${o.id}`)} padding={16} style={{ gap: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 13, color: colors.copperDeep, letterSpacing: 0.3 }}>{o.poNumber}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Store size={14} color={colors.ink4} strokeWidth={1.8} />
-              <Text variant="h3" numberOfLines={1} style={{ flex: 1 }}>
-                {o.supplierName ?? 'Wholesale supplier'}
-              </Text>
-            </View>
+      <Card onPress={() => go(`/buyer/order/${o.id}`)} padding={16} radius={radii['2xl']} style={{ gap: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <IconTile icon={Store} tone={terminal ? 'paper' : 'ink'} size={44} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="h3" numberOfLines={1}>
+              {o.supplierName ?? 'Wholesale supplier'}
+            </Text>
+            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: colors.copperDeep, letterSpacing: 0.3 }}>{o.poNumber}</Text>
           </View>
-          <StatusBadge status={status} size="sm" />
+          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+            <StatusBadge status={status} size="sm" />
+            {o.paymentState && !terminal ? <StatusBadge status={o.paymentState} label={PAYMENT_STATE_LABEL[o.paymentState]} size="sm" /> : null}
+          </View>
         </View>
 
         {!terminal ? (
-          <ProgressBar value={journeyProgress(status)} max={1} height={4} tone={status === 'completed' ? 'ink' : 'volt'} />
+          <ProgressBar value={journeyProgress(status)} max={1} height={6} tone={status === 'completed' ? 'ink' : 'volt'} />
         ) : null}
 
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
@@ -293,11 +289,11 @@ function OrderCard({ order: o, index, onReorder }: { order: OrderRow; index: num
               Issued {formatDate(o.createdAt)}
             </Text>
           </View>
-          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 17, letterSpacing: -0.5, color: colors.ink }}>{formatLKR(o.totalCents)}</Text>
+          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 18, letterSpacing: -0.6, color: colors.ink }}>{formatLKR(o.totalCents)}</Text>
         </View>
 
         {canReorder ? (
-          <View style={{ flexDirection: 'row', gap: 8, borderTopWidth: 1, borderTopColor: colors.lineSoft, paddingTop: 12 }}>
+          <View style={{ flexDirection: 'row', gap: 8, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft, paddingTop: 12 }}>
             <Button title="Reorder" icon={RefreshCw} size="sm" variant="secondary" onPress={onReorder} accessibilityLabel={`Reorder ${o.poNumber}`} />
             <Button title="Details" iconRight={ArrowRight} size="sm" variant="ghost" onPress={() => go(`/buyer/order/${o.id}`)} />
           </View>
@@ -330,8 +326,8 @@ function FirstOrderEmpty() {
       {steps.map((s, i) => (
         <Enter key={s.n} i={i + 1}>
           <Card padding={14} style={{ flexDirection: 'row', gap: 12 }}>
-            <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: colors.ink }}>{s.n}</Text>
+            <View style={{ width: 40, height: 40, borderRadius: 13, borderCurve: 'continuous', backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12.5, color: colors.volt }}>{s.n}</Text>
             </View>
             <View style={{ flex: 1, gap: 2 }}>
               <Text variant="h3">{s.t}</Text>

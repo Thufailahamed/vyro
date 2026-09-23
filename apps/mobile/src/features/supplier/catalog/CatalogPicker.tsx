@@ -82,7 +82,7 @@ export function CatalogPicker({
             const listed = listedByProductId.has(p.id);
             return (
               <FadeInItem key={p.id} index={i}>
-                <Card kind={listed ? 'bone' : 'flat'} padding={10} onPress={() => onSelect(p.id)}>
+                <Card kind="flat" padding={12} onPress={() => onSelect(p.id)} style={listed ? { backgroundColor: colors.pearl } : undefined}>
                   <Row gap={12}>
                     <ProductImage src={p.imageUrl} seed={p.id} style={{ width: 60, height: 60, borderRadius: radii.lg }} />
                     <View style={{ flex: 1, gap: 2 }}>
@@ -102,7 +102,7 @@ export function CatalogPicker({
                       style={{
                         paddingHorizontal: 9,
                         height: 28,
-                        borderRadius: radii.md,
+                        borderRadius: radii.pill,
                         justifyContent: 'center',
                         flexDirection: 'row',
                         alignItems: 'center',

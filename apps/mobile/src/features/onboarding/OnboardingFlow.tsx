@@ -3,11 +3,11 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowRight, Building2, Mail, MapPin, Phone, ShieldCheck, Store, User, type LucideIcon } from 'lucide-react-native';
-import { Button, Card, Field, Input, Kicker, Screen, Select, Steps, Text, Touchable, useToast } from '@/ui';
+import { Button, Card, Field, IconTile, Input, Kicker, PillAction, Screen, Select, SkeletonList, Steps, Text, Touchable, useToast } from '@/ui';
 import { api, errorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { SRI_LANKAN_DISTRICTS } from '@/lib/sriLanka';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { go } from '@/features/buyer/orders/kit';
 
 interface BusinessType {
@@ -217,15 +217,16 @@ export function OnboardingFlow({ kind }: { kind: 'business' | 'supplier' }) {
   const canNext =
     step === 0 ? !!form.businessTypeSlug : step === 1 ? !!form.name.trim() : step === 2 ? !!form.address.trim() && !!form.city.trim() : true;
 
+
   const footer =
     step < 3 ? (
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        {step > 0 ? <Button title="Back" variant="ghost" onPress={() => setStep(step - 1)} /> : null}
-        <Button title={step === 0 ? 'Continue' : 'Continue'} iconRight={ArrowRight} style={{ flex: 1 }} disabled={!canNext} onPress={() => setStep(step + 1)} />
+        {step > 0 ? <Button title="Back" variant="secondary" onPress={() => setStep(step - 1)} /> : null}
+        <Button title="Continue" iconRight={ArrowRight} style={{ flex: 1 }} disabled={!canNext} onPress={() => setStep(step + 1)} />
       </View>
     ) : (
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Button title="Back" variant="ghost" onPress={() => setStep(2)} />
+        <Button title="Back" variant="secondary" onPress={() => setStep(2)} />
         <Button
           title={C.submitLabel}
           icon={ShieldCheck}
@@ -238,6 +239,8 @@ export function OnboardingFlow({ kind }: { kind: 'business' | 'supplier' }) {
       </View>
     );
 
+  const stepIcon = [C.icon, C.icon, MapPin, User][step] ?? C.icon;
+
   return (
     <Screen
       back={step === 0}
@@ -246,15 +249,28 @@ export function OnboardingFlow({ kind }: { kind: 'business' | 'supplier' }) {
       subtitle={step === 0 ? C.sectorSub : step === 1 ? C.nameSub : step === 2 ? C.addrSub : C.contactSub}
       footer={footer}
       keyboard
+      gap={18}
     >
-      <Steps steps={[...C.steps]} current={step} />
+      <Card padding={16} style={{ gap: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <IconTile icon={stepIcon} tone={step === 3 ? 'volt' : 'ink'} size={36} />
+          <View style={{ flex: 1 }}>
+            <Text variant="overline" color="ink4">
+              Step {step + 1} of {C.steps.length}
+            </Text>
+            <Text variant="h3" numberOfLines={1}>
+              {C.steps[step]}
+            </Text>
+          </View>
+          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 13, color: colors.ink4 }}>{Math.round(((step + 1) / C.steps.length) * 100)}%</Text>
+        </View>
+        <Steps steps={[...C.steps]} current={step} />
+      </Card>
 
       {step === 0 ? (
-        <View style={{ gap: 10 }}>
+        <View style={{ gap: 12 }}>
           {types.isLoading ? (
-            <Text variant="bodySm" color="ink4">
-              Loading wholesale sectors…
-            </Text>
+            <SkeletonList rows={4} height={92} />
           ) : (
             sectors.map((t) => {
               const meta = C.sectorMeta[t.slug] ?? C.defaultMeta;
@@ -263,31 +279,52 @@ export function OnboardingFlow({ kind }: { kind: 'business' | 'supplier' }) {
                 <Touchable
                   key={t.id}
                   onPress={() => setForm((f) => ({ ...f, businessTypeSlug: t.slug }))}
+                  hapticOnPress
                   scaleTo={0.985}
-                  style={{
-                    borderRadius: radii.xl,
-                    borderWidth: selected ? 1.5 : 1,
-                    borderColor: selected ? colors.ink : colors.line,
-                    backgroundColor: selected ? colors.pearl : colors.paper,
-                    overflow: 'hidden',
-                  }}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  style={[
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 14,
+                      padding: 16,
+                      borderRadius: radii.xl,
+                      borderCurve: 'continuous',
+                      backgroundColor: colors.paper,
+                      borderWidth: 1.5,
+                      borderColor: selected ? colors.ink : 'transparent',
+                    },
+                    selected ? shadow.md : shadow.card,
+                  ]}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.ink, paddingHorizontal: 12, paddingVertical: 8 }}>
-                    <Text style={{ fontFamily: fonts.monoMedium, fontSize: 10, letterSpacing: 0.8, color: colors.volt, textTransform: 'uppercase', flex: 1 }} numberOfLines={1}>
-                      {meta.tag}
-                    </Text>
-                    <View style={{ backgroundColor: selected ? colors.volt : 'rgba(250,247,240,0.12)', borderRadius: radii.sm, paddingHorizontal: 6, paddingVertical: 2 }}>
-                      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 9.5, color: selected ? colors.ink : colors.paperMuted, textTransform: 'uppercase' }}>
-                        {selected ? 'Selected ✓' : meta.badge}
+                  <IconTile icon={C.icon} tone={selected ? 'ink' : 'paper'} size={44} />
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 10, letterSpacing: 0.8, color: colors.copperDeep, textTransform: 'uppercase', flexShrink: 1 }} numberOfLines={1}>
+                        {meta.tag}
                       </Text>
+                      <View style={{ backgroundColor: selected ? colors.volt : colors.bone, borderRadius: radii.pill, paddingHorizontal: 7, paddingVertical: 2 }}>
+                        <Text style={{ fontFamily: fonts.monoMedium, fontSize: 9.5, color: selected ? colors.ink : colors.ink4, textTransform: 'uppercase' }}>
+                          {selected ? 'Selected' : meta.badge}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                  <View style={{ padding: 14, gap: 4 }}>
                     <Text variant="h3">{t.name}</Text>
-                    <Text variant="caption" color="ink4">
+                    <Text variant="caption" color="ink4" numberOfLines={2}>
                       {meta.subtitle}
                     </Text>
                   </View>
+                  <View
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 11,
+                      borderWidth: selected ? 6 : 1.5,
+                      borderColor: selected ? colors.ink : colors.lineStrong,
+                      backgroundColor: selected ? colors.volt : 'transparent',
+                    }}
+                  />
                 </Touchable>
               );
             })
@@ -298,18 +335,20 @@ export function OnboardingFlow({ kind }: { kind: 'business' | 'supplier' }) {
 
       {step === 1 ? (
         <View style={{ gap: 14 }}>
-          <SelectedTypeCard name={selectedType?.name} tag={selectedType ? (C.sectorMeta[selectedType.slug] ?? C.defaultMeta).tag : undefined} onChange={() => setStep(0)} />
-          <Field label={C.nameLabel} hint={C.nameHint} required>
-            <Input icon={C.icon} value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} placeholder={C.namePlaceholder} autoFocus />
-          </Field>
-          <Field label={C.descLabel} hint={C.descHint}>
-            <Input value={form.description} onChangeText={(v) => setForm((f) => ({ ...f, description: v }))} placeholder={C.descPlaceholder} multiline />
-          </Field>
+          <SelectedTypeCard name={selectedType?.name} tag={selectedType ? (C.sectorMeta[selectedType.slug] ?? C.defaultMeta).tag : undefined} icon={C.icon} onChange={() => setStep(0)} />
+          <Card padding={18} style={{ gap: 18 }}>
+            <Field label={C.nameLabel} hint={C.nameHint} required>
+              <Input icon={C.icon} value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} placeholder={C.namePlaceholder} autoFocus />
+            </Field>
+            <Field label={C.descLabel} hint={C.descHint}>
+              <Input value={form.description} onChangeText={(v) => setForm((f) => ({ ...f, description: v }))} placeholder={C.descPlaceholder} multiline />
+            </Field>
+          </Card>
         </View>
       ) : null}
 
       {step === 2 ? (
-        <View style={{ gap: 14 }}>
+        <Card padding={18} style={{ gap: 18 }}>
           <Field label={C.addrLabel} required>
             <Input icon={MapPin} value={form.address} onChangeText={(v) => setForm((f) => ({ ...f, address: v }))} placeholder={C.addrPlaceholder} autoFocus />
           </Field>
@@ -319,20 +358,22 @@ export function OnboardingFlow({ kind }: { kind: 'business' | 'supplier' }) {
           <Field label="District" required>
             <Select value={form.district} options={SRI_LANKAN_DISTRICTS.map((d) => ({ value: d, label: `${d} District` }))} onChange={(v) => setForm((f) => ({ ...f, district: v }))} title="District" />
           </Field>
-        </View>
+        </Card>
       ) : null}
 
       {step === 3 ? (
-        <View style={{ gap: 14 }}>
-          <Field label={C.contactLabel} required>
-            <Input icon={User} value={form.contactPerson} onChangeText={(v) => setForm((f) => ({ ...f, contactPerson: v }))} placeholder={C.contactPlaceholder} autoFocus />
-          </Field>
-          <Field label={C.phoneLabel} hint={C.phoneHint} required>
-            <Input icon={Phone} value={form.phone} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} placeholder={C.phonePlaceholder} keyboardType="phone-pad" />
-          </Field>
-          <Field label={C.emailLabel} required>
-            <Input icon={Mail} value={form.email} onChangeText={(v) => setForm((f) => ({ ...f, email: v }))} placeholder={C.emailPlaceholder} keyboardType="email-address" autoCapitalize="none" />
-          </Field>
+        <View style={{ gap: 16 }}>
+          <Card padding={18} style={{ gap: 18 }}>
+            <Field label={C.contactLabel} required>
+              <Input icon={User} value={form.contactPerson} onChangeText={(v) => setForm((f) => ({ ...f, contactPerson: v }))} placeholder={C.contactPlaceholder} autoFocus />
+            </Field>
+            <Field label={C.phoneLabel} hint={C.phoneHint} required>
+              <Input icon={Phone} value={form.phone} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} placeholder={C.phonePlaceholder} keyboardType="phone-pad" />
+            </Field>
+            <Field label={C.emailLabel} required>
+              <Input icon={Mail} value={form.email} onChangeText={(v) => setForm((f) => ({ ...f, email: v }))} placeholder={C.emailPlaceholder} keyboardType="email-address" autoCapitalize="none" />
+            </Field>
+          </Card>
           <VerificationCard C={C} form={form} sectorName={selectedType?.name} />
         </View>
       ) : null}
@@ -340,61 +381,69 @@ export function OnboardingFlow({ kind }: { kind: 'business' | 'supplier' }) {
   );
 }
 
-function SelectedTypeCard({ name, tag, onChange }: { name?: string; tag?: string; onChange: () => void }) {
+function SelectedTypeCard({ name, tag, icon, onChange }: { name?: string; tag?: string; icon: LucideIcon; onChange: () => void }) {
   if (!name) return null;
   return (
-    <Card padding={12} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <View style={{ flex: 1 }}>
+    <Card padding={14} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <IconTile icon={icon} tone="volt" size={40} />
+      <View style={{ flex: 1, gap: 1 }}>
         <Kicker>Selected sector</Kicker>
-        <Text variant="body" weight="semibold">
+        <Text variant="body" weight="semibold" numberOfLines={1}>
           {name}
         </Text>
         {tag ? (
-          <Text variant="caption" color="ink4">
+          <Text variant="caption" color="ink4" numberOfLines={1}>
             {tag}
           </Text>
         ) : null}
       </View>
-      <Button title="Change" variant="ghost" size="sm" onPress={onChange} />
+      <PillAction label="Change" onPress={onChange} />
     </Card>
   );
 }
 
 function VerificationCard({ C, form, sectorName }: { C: Copy; form: { name: string; description: string; address: string; city: string; district: string; contactPerson: string; phone: string }; sectorName?: string }) {
   return (
-    <Card kind="ink" padding={16} style={{ gap: 12 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.paperLine, paddingBottom: 10 }}>
-        <Kicker color="volt">{C.cardKicker}</Kicker>
-        <Text style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.paperFaint, textTransform: 'uppercase' }}>{form.district}</Text>
+    <Card kind="ink" padding={18} radius={radii['2xl']} flow={`verify-${form.district}`} style={{ gap: 14 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+          <IconTile icon={C.icon} tone="glass" size={34} />
+          <Kicker color="volt" style={{ flex: 1 }}>
+            {C.cardKicker}
+          </Kicker>
+        </View>
+        <View style={{ backgroundColor: 'rgba(250,247,240,0.09)', borderRadius: radii.pill, paddingHorizontal: 8, paddingVertical: 3 }}>
+          <Text style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.paperMuted, textTransform: 'uppercase' }}>{form.district}</Text>
+        </View>
       </View>
-      {sectorName ? (
-        <Text variant="caption" color="volt">
-          {sectorName}
-        </Text>
-      ) : null}
-      <View>
+      <View style={{ gap: 4 }}>
+        {sectorName ? (
+          <Text variant="caption" color="volt">
+            {sectorName}
+          </Text>
+        ) : null}
         <Text variant="overline" color="paperFaint">
           Entity name
         </Text>
-        <Text variant="h2" color="paper">
+        <Text variant="displaySm" color="paper" numberOfLines={2}>
           {form.name.trim() || 'Your trading name'}
         </Text>
       </View>
-      <View style={{ gap: 8, borderTopWidth: 1, borderTopColor: colors.paperLine, paddingTop: 10 }}>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <MapPin size={13} color={colors.copper} style={{ marginTop: 1 }} />
+      <View style={{ gap: 10, backgroundColor: 'rgba(250,247,240,0.05)', borderRadius: radii.lg, borderCurve: 'continuous', padding: 12 }}>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <MapPin size={14} color={colors.copper} style={{ marginTop: 1 }} />
           <Text variant="caption" color="paperMuted" style={{ flex: 1 }}>
             {form.address ? `${form.address}, ${form.city} (${form.district})` : 'Awaiting address…'}
           </Text>
         </View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <User size={13} color={colors.volt} style={{ marginTop: 1 }} />
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <User size={14} color={colors.volt} style={{ marginTop: 1 }} />
           <Text variant="caption" color="paperMuted" style={{ flex: 1 }}>
             {form.contactPerson ? `${form.contactPerson} · ${form.phone || 'No phone'}` : 'Awaiting contact person…'}
           </Text>
         </View>
       </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.paperLine, paddingTop: 10 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
           <ShieldCheck size={12} color={colors.volt} />
           <Text style={{ fontFamily: fonts.monoMedium, fontSize: 10, color: colors.volt }}>SVAT invoicing ready</Text>

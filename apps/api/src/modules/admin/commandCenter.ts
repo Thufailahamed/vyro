@@ -5,6 +5,7 @@ import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
 import { purchaseOrders, payouts } from '@vyro/db/schema';
 import { eq, count } from 'drizzle-orm';
+import { countSlaBreaches } from '../../cron/orderLifecycle';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -26,7 +27,7 @@ router.get('/', async (c) => {
     needsAction: {
       stuckPayments: 0,
       payoutFailures: payoutFailures?.n ?? 0,
-      slaBreaches: 0,
+      slaBreaches: await countSlaBreaches(c.env.DB).catch(() => 0),
       openDisputes: openDisputes?.n ?? 0,
     },
     recentEvents: [],

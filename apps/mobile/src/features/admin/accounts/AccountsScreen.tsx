@@ -1,7 +1,14 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, CheckCircle2, CircleDollarSign, Landmark, RefreshCw, Scale } from 'lucide-react-native';
+import {
+  Building2,
+  CheckCircle2,
+  CircleDollarSign,
+  Landmark,
+  RefreshCw,
+  Scale,
+} from 'lucide-react-native';
 import {
   Button,
   Card,
@@ -9,10 +16,9 @@ import {
   EmptyState,
   ErrorState,
   Field,
-  Gutter,
+  IconTile,
   Input,
   Screen,
-  ScreenHeader,
   Sheet,
   SkeletonList,
   StatusBadge,
@@ -38,9 +44,14 @@ const TABS: { value: Tab; label: string }[] = [
 export function AdminAccountsScreen() {
   const [tab, setTab] = useState<Tab>('payments');
   return (
-    <Screen>
-      <ScreenHeader back kicker="Treasury" title="Accounts" subtitle="Payment records, refunds, transfers, settlements and reconciliation." />
-      <Gutter style={{ gap: 14 }}>
+    <Screen
+      back
+      kicker="Treasury"
+      title="Accounts"
+      subtitle="Payment records, refunds, transfers, settlements and reconciliation."
+      gap={14}
+    >
+      <View style={{ gap: 14 }}>
         <ChipRow options={TABS} value={tab} onChange={setTab} />
         {tab === 'payments' ? <PaymentsTab /> : null}
         {tab === 'refunds' ? <RefundsTab /> : null}
@@ -48,34 +59,82 @@ export function AdminAccountsScreen() {
         {tab === 'settlements' ? <SettlementsTab /> : null}
         {tab === 'payouts' ? <PayoutsTab /> : null}
         {tab === 'recon' ? <ReconTab /> : null}
-      </Gutter>
+      </View>
     </Screen>
   );
 }
 
-function Row({ title, sub, amount, status, right }: { title: string; sub?: string; amount?: number | null; status?: string; right?: React.ReactNode }) {
+function Row({
+  title,
+  sub,
+  amount,
+  status,
+  right,
+}: {
+  title: string;
+  sub?: string;
+  amount?: number | null;
+  status?: string;
+  right?: React.ReactNode;
+}) {
   return (
-    <Card kind="bone" padding={12} style={{ gap: 6 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <Text variant="bodySm" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
-          {title}
-        </Text>
-        {amount != null ? <Text style={{ fontFamily: fonts.monoMedium, fontSize: 14, color: colors.ink }}>{formatLKR(amount)}</Text> : null}
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        {status ? <StatusBadge status={status} size="sm" /> : null}
-        {sub ? (
-          <Text variant="caption" color="ink5" numberOfLines={1}>
-            {sub}
+    <Card kind="flat" padding={16} style={{ gap: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <IconTile icon={CircleDollarSign} tone="paper" size={40} />
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text variant="body" weight="semibold" numberOfLines={1}>
+            {title}
           </Text>
-        ) : null}
+          {sub ? (
+            <Text variant="caption" color="ink5" numberOfLines={1}>
+              {sub}
+            </Text>
+          ) : null}
+        </View>
+        <View style={{ alignItems: 'flex-end', gap: 5 }}>
+          {amount != null ? (
+            <Text
+              style={{
+                fontFamily: fonts.monoMedium,
+                fontSize: 14.5,
+                letterSpacing: -0.3,
+                color: colors.ink,
+              }}
+            >
+              {formatLKR(amount)}
+            </Text>
+          ) : null}
+          {status ? <StatusBadge status={status} size="sm" /> : null}
+        </View>
       </View>
-      {right}
+      {right ? (
+        <View
+          style={{
+            paddingTop: 12,
+            borderTopWidth: StyleSheet.hairlineWidth * 2,
+            borderTopColor: colors.lineSoft,
+          }}
+        >
+          {right}
+        </View>
+      ) : null}
     </Card>
   );
 }
 
-function QueryBlock({ loading, error, retry, empty, children }: { loading: boolean; error: unknown; retry: () => void; empty: boolean; children: React.ReactNode }) {
+function QueryBlock({
+  loading,
+  error,
+  retry,
+  empty,
+  children,
+}: {
+  loading: boolean;
+  error: unknown;
+  retry: () => void;
+  empty: boolean;
+  children: React.ReactNode;
+}) {
   if (loading) return <SkeletonList rows={4} height={70} />;
   if (error) return <ErrorState message={errorMessage(error)} onRetry={retry} />;
   if (empty) return <EmptyState icon={CircleDollarSign} title="Nothing here" />;
@@ -86,13 +145,34 @@ function PaymentsTab() {
   const q = useQuery({
     queryKey: ['admin-acc-payments'],
     queryFn: () =>
-      api.get<{ items: { id: string; paymentNumber: string | null; method: string; status: string; amountCents: number; purchaseOrderId: string; createdAt: number }[] }>('/admin/finance/payments?limit=50'),
+      api.get<{
+        items: {
+          id: string;
+          paymentNumber: string | null;
+          method: string;
+          status: string;
+          amountCents: number;
+          purchaseOrderId: string;
+          createdAt: number;
+        }[];
+      }>('/admin/finance/payments?limit=50'),
   });
   const items = q.data?.items ?? [];
   return (
-    <QueryBlock loading={q.isLoading} error={q.isError ? q.error : null} retry={() => q.refetch()} empty={!items.length}>
+    <QueryBlock
+      loading={q.isLoading}
+      error={q.isError ? q.error : null}
+      retry={() => q.refetch()}
+      empty={!items.length}
+    >
       {items.map((p) => (
-        <Row key={p.id} title={p.paymentNumber ?? p.id.slice(0, 12)} sub={`${p.method} · ${timeAgo(p.createdAt)}`} amount={p.amountCents} status={p.status} />
+        <Row
+          key={p.id}
+          title={p.paymentNumber ?? p.id.slice(0, 12)}
+          sub={`${p.method} · ${timeAgo(p.createdAt)}`}
+          amount={p.amountCents}
+          status={p.status}
+        />
       ))}
     </QueryBlock>
   );
@@ -104,11 +184,30 @@ function RefundsTab() {
   const q = useQuery({
     queryKey: ['admin-acc-refunds'],
     queryFn: () =>
-      api.get<{ refunds: { id: string; refundNumber: string | null; paymentId: string; amountCents: number; status: string; reason: string | null; createdAt: number }[] }>('/admin/finance/refunds'),
+      api.get<{
+        refunds: {
+          id: string;
+          refundNumber: string | null;
+          paymentId: string;
+          amountCents: number;
+          status: string;
+          reason: string | null;
+          createdAt: number;
+        }[];
+      }>('/admin/finance/refunds'),
   });
   const act = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: 'approve' | 'reject' | 'fail' | 'complete' }) =>
-      api.post(`/admin/finance/refunds/${id}/${action}`, action === 'reject' || action === 'fail' ? { reason: 'Reviewed by finance' } : {}),
+    mutationFn: ({
+      id,
+      action,
+    }: {
+      id: string;
+      action: 'approve' | 'reject' | 'fail' | 'complete';
+    }) =>
+      api.post(
+        `/admin/finance/refunds/${id}/${action}`,
+        action === 'reject' || action === 'fail' ? { reason: 'Reviewed by finance' } : {},
+      ),
     onSuccess: () => {
       toast.success('Refund updated');
       qc.invalidateQueries({ queryKey: ['admin-acc-refunds'] });
@@ -117,7 +216,12 @@ function RefundsTab() {
   });
   const rows = q.data?.refunds ?? [];
   return (
-    <QueryBlock loading={q.isLoading} error={q.isError ? q.error : null} retry={() => q.refetch()} empty={!rows.length}>
+    <QueryBlock
+      loading={q.isLoading}
+      error={q.isError ? q.error : null}
+      retry={() => q.refetch()}
+      empty={!rows.length}
+    >
       {rows.map((r) => (
         <Row
           key={r.id}
@@ -128,11 +232,26 @@ function RefundsTab() {
           right={
             r.status === 'pending' || r.status === 'requested' ? (
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Button title="Approve" size="sm" variant="secondary" onPress={() => act.mutate({ id: r.id, action: 'approve' })} />
-                <Button title="Reject" size="sm" variant="danger" onPress={() => act.mutate({ id: r.id, action: 'reject' })} />
+                <Button
+                  title="Approve"
+                  size="sm"
+                  variant="secondary"
+                  onPress={() => act.mutate({ id: r.id, action: 'approve' })}
+                />
+                <Button
+                  title="Reject"
+                  size="sm"
+                  variant="danger"
+                  onPress={() => act.mutate({ id: r.id, action: 'reject' })}
+                />
               </View>
             ) : r.status === 'approved' ? (
-              <Button title="Mark complete" size="sm" variant="secondary" onPress={() => act.mutate({ id: r.id, action: 'complete' })} />
+              <Button
+                title="Mark complete"
+                size="sm"
+                variant="secondary"
+                onPress={() => act.mutate({ id: r.id, action: 'complete' })}
+              />
             ) : undefined
           }
         />
@@ -150,10 +269,25 @@ function BankTab() {
   const q = useQuery({
     queryKey: ['admin-acc-bank'],
     queryFn: () =>
-      api.get<{ transfers: { id: string; paymentId: string; referenceNumber: string; expectedCents: number; transferredCents: number | null; verifiedCents: number | null; status: string; submittedAt: number | null }[] }>('/admin/finance/bank-transfers'),
+      api.get<{
+        transfers: {
+          id: string;
+          paymentId: string;
+          referenceNumber: string;
+          expectedCents: number;
+          transferredCents: number | null;
+          verifiedCents: number | null;
+          status: string;
+          submittedAt: number | null;
+        }[];
+      }>('/admin/finance/bank-transfers'),
   });
   const verify = useMutation({
-    mutationFn: () => api.post(`/admin/finance/bank-transfers/${verifyFor!.id}/verify`, { verifiedCents: Math.round(Number(cents) * 100), bankReference: ref.trim() || undefined }),
+    mutationFn: () =>
+      api.post(`/admin/finance/bank-transfers/${verifyFor!.id}/verify`, {
+        verifiedCents: Math.round(Number(cents) * 100),
+        bankReference: ref.trim() || undefined,
+      }),
     onSuccess: () => {
       toast.success('Transfer verified');
       setVerifyFor(null);
@@ -164,7 +298,12 @@ function BankTab() {
   const rows = q.data?.transfers ?? [];
   return (
     <>
-      <QueryBlock loading={q.isLoading} error={q.isError ? q.error : null} retry={() => q.refetch()} empty={!rows.length}>
+      <QueryBlock
+        loading={q.isLoading}
+        error={q.isError ? q.error : null}
+        retry={() => q.refetch()}
+        empty={!rows.length}
+      >
         {rows.map((t) => (
           <Row
             key={t.id}
@@ -174,7 +313,16 @@ function BankTab() {
             status={t.status}
             right={
               t.status !== 'verified' && t.status !== 'reconciled' ? (
-                <Button title="Verify" size="sm" variant="secondary" icon={CheckCircle2} onPress={() => { setVerifyFor(t); setCents(((t.transferredCents ?? t.expectedCents) / 100).toFixed(2)); }} />
+                <Button
+                  title="Verify"
+                  size="sm"
+                  variant="secondary"
+                  icon={CheckCircle2}
+                  onPress={() => {
+                    setVerifyFor(t);
+                    setCents(((t.transferredCents ?? t.expectedCents) / 100).toFixed(2));
+                  }}
+                />
               ) : undefined
             }
           />
@@ -185,14 +333,28 @@ function BankTab() {
         onClose={() => setVerifyFor(null)}
         title="Verify bank transfer"
         subtitle="Record the confirmed amount that landed in the settlement account."
-        footer={<Button title="Confirm verification" variant="volt" full loading={verify.isPending} disabled={!Number(cents)} onPress={() => verify.mutate()} />}
+        footer={
+          <Button
+            title="Confirm verification"
+            variant="volt"
+            full
+            loading={verify.isPending}
+            disabled={!Number(cents)}
+            onPress={() => verify.mutate()}
+          />
+        }
       >
         <View style={{ gap: 14 }}>
           <Field label="Verified amount (LKR)" required>
             <Input value={cents} onChangeText={setCents} keyboardType="decimal-pad" />
           </Field>
           <Field label="Bank reference">
-            <Input value={ref} onChangeText={setRef} placeholder="UTR / slip number" autoCapitalize="characters" />
+            <Input
+              value={ref}
+              onChangeText={setRef}
+              placeholder="UTR / slip number"
+              autoCapitalize="characters"
+            />
           </Field>
         </View>
       </Sheet>
@@ -206,7 +368,17 @@ function SettlementsTab() {
   const [supplierId, setSupplierId] = useState('');
   const q = useQuery({
     queryKey: ['admin-acc-settlements'],
-    queryFn: () => api.get<{ settlements: { id: string; settlementNumber: string; supplierId: string; netCents: number; status: string; createdAt: number }[] }>('/admin/finance/settlements'),
+    queryFn: () =>
+      api.get<{
+        settlements: {
+          id: string;
+          settlementNumber: string;
+          supplierId: string;
+          netCents: number;
+          status: string;
+          createdAt: number;
+        }[];
+      }>('/admin/finance/settlements'),
   });
   const create = useMutation({
     mutationFn: () => api.post('/admin/finance/settlements', { supplierId: supplierId.trim() }),
@@ -219,7 +391,9 @@ function SettlementsTab() {
   });
   const act = useMutation({
     mutationFn: ({ id, action }: { id: string; action: 'approve' | 'payout' }) =>
-      action === 'approve' ? api.post(`/admin/finance/settlements/${id}/approve`, {}) : api.post('/admin/finance/payouts', { settlementId: id, method: 'bank' }),
+      action === 'approve'
+        ? api.post(`/admin/finance/settlements/${id}/approve`, {})
+        : api.post('/admin/finance/payouts', { settlementId: id, method: 'bank' }),
     onSuccess: (_r, v) => {
       toast.success(v.action === 'approve' ? 'Approved' : 'Payout created');
       qc.invalidateQueries({ queryKey: ['admin-acc-settlements'] });
@@ -233,12 +407,29 @@ function SettlementsTab() {
       <Section kicker="New" title="Create settlement" icon={Building2}>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1 }}>
-            <Input value={supplierId} onChangeText={setSupplierId} placeholder="Supplier ID" autoCapitalize="none" />
+            <Input
+              value={supplierId}
+              onChangeText={setSupplierId}
+              placeholder="Supplier ID"
+              autoCapitalize="none"
+            />
           </View>
-          <Button title="Create" size="sm" variant="volt" loading={create.isPending} disabled={!supplierId.trim()} onPress={() => create.mutate()} />
+          <Button
+            title="Create"
+            size="sm"
+            variant="volt"
+            loading={create.isPending}
+            disabled={!supplierId.trim()}
+            onPress={() => create.mutate()}
+          />
         </View>
       </Section>
-      <QueryBlock loading={q.isLoading} error={q.isError ? q.error : null} retry={() => q.refetch()} empty={!rows.length}>
+      <QueryBlock
+        loading={q.isLoading}
+        error={q.isError ? q.error : null}
+        retry={() => q.refetch()}
+        empty={!rows.length}
+      >
         {rows.map((s) => (
           <Row
             key={s.id}
@@ -247,10 +438,26 @@ function SettlementsTab() {
             amount={s.netCents}
             status={s.status}
             right={
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {s.status === 'pending' ? <Button title="Approve" size="sm" variant="secondary" onPress={() => act.mutate({ id: s.id, action: 'approve' })} /> : null}
-                {s.status === 'approved' ? <Button title="Pay out" size="sm" variant="volt" onPress={() => act.mutate({ id: s.id, action: 'payout' })} /> : null}
-              </View>
+              s.status !== 'pending' && s.status !== 'approved' ? undefined : (
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {s.status === 'pending' ? (
+                    <Button
+                      title="Approve"
+                      size="sm"
+                      variant="secondary"
+                      onPress={() => act.mutate({ id: s.id, action: 'approve' })}
+                    />
+                  ) : null}
+                  {s.status === 'approved' ? (
+                    <Button
+                      title="Pay out"
+                      size="sm"
+                      variant="volt"
+                      onPress={() => act.mutate({ id: s.id, action: 'payout' })}
+                    />
+                  ) : null}
+                </View>
+              )
             }
           />
         ))}
@@ -265,7 +472,18 @@ function PayoutsTab() {
   const q = useQuery({
     queryKey: ['admin-acc-payouts'],
     queryFn: () =>
-      api.get<{ items: { id: string; payoutNumber: string | null; supplierId: string; settlementId: string | null; netCents: number; status: string; method: string; createdAt: number }[] }>('/payouts/all'),
+      api.get<{
+        items: {
+          id: string;
+          payoutNumber: string | null;
+          supplierId: string;
+          settlementId: string | null;
+          netCents: number;
+          status: string;
+          method: string;
+          createdAt: number;
+        }[];
+      }>('/payouts/all'),
   });
   const advance = useMutation({
     mutationFn: async ({ p }: { p: { id: string; status: string } }) => {
@@ -281,7 +499,12 @@ function PayoutsTab() {
   });
   const rows = q.data?.items ?? [];
   return (
-    <QueryBlock loading={q.isLoading} error={q.isError ? q.error : null} retry={() => q.refetch()} empty={!rows.length}>
+    <QueryBlock
+      loading={q.isLoading}
+      error={q.isError ? q.error : null}
+      retry={() => q.refetch()}
+      empty={!rows.length}
+    >
       {rows.map((p) => (
         <Row
           key={p.id}
@@ -291,7 +514,14 @@ function PayoutsTab() {
           status={p.status}
           right={
             p.status !== 'completed' && p.status !== 'failed' ? (
-              <Button title="Advance → complete" size="sm" variant="secondary" icon={Landmark} loading={advance.isPending} onPress={() => advance.mutate({ p })} />
+              <Button
+                title="Advance → complete"
+                size="sm"
+                variant="secondary"
+                icon={Landmark}
+                loading={advance.isPending}
+                onPress={() => advance.mutate({ p })}
+              />
             ) : undefined
           }
         />
@@ -306,7 +536,19 @@ function ReconTab() {
   const q = useQuery({
     queryKey: ['admin-acc-recon'],
     queryFn: () =>
-      api.get<{ exceptions: { id: string; kind: string; severity: string; entityType: string | null; entityId: string | null; differenceCents: number; detail: string | null; status: string; createdAt: number }[] }>('/admin/finance/reconciliation/exceptions?status=open'),
+      api.get<{
+        exceptions: {
+          id: string;
+          kind: string;
+          severity: string;
+          entityType: string | null;
+          entityId: string | null;
+          differenceCents: number;
+          detail: string | null;
+          status: string;
+          createdAt: number;
+        }[];
+      }>('/admin/finance/reconciliation/exceptions?status=open'),
   });
   const run = useMutation({
     mutationFn: () => api.post<{ raised: number }>('/admin/finance/reconciliation/run', {}),
@@ -317,19 +559,42 @@ function ReconTab() {
     onError: (e) => toast.error('Run failed', errorMessage(e)),
   });
   const resolve = useMutation({
-    mutationFn: (id: string) => api.post(`/admin/finance/reconciliation/exceptions/${id}/resolve`, { note: 'Reviewed from console' }),
+    mutationFn: (id: string) =>
+      api.post(`/admin/finance/reconciliation/exceptions/${id}/resolve`, {
+        note: 'Reviewed from console',
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-acc-recon'] }),
     onError: (e) => toast.error('Resolve failed', errorMessage(e)),
   });
   const rows = q.data?.exceptions ?? [];
   return (
     <View style={{ gap: 12 }}>
-      <Section kicker="Engine" title="Reconciliation" icon={Scale} right={<Button title="Run" icon={RefreshCw} size="sm" variant="secondary" loading={run.isPending} onPress={() => run.mutate()} />}>
+      <Section
+        kicker="Engine"
+        title="Reconciliation"
+        icon={Scale}
+        right={
+          <Button
+            title="Run"
+            icon={RefreshCw}
+            size="sm"
+            variant="secondary"
+            loading={run.isPending}
+            onPress={() => run.mutate()}
+          />
+        }
+      >
         <Text variant="caption" color="ink4">
-          Scans payments, orders, transfers, COD, earnings, settlements, payouts and refunds for unexplained rupees.
+          Scans payments, orders, transfers, COD, earnings, settlements, payouts and refunds for
+          unexplained rupees.
         </Text>
       </Section>
-      <QueryBlock loading={q.isLoading} error={q.isError ? q.error : null} retry={() => q.refetch()} empty={!rows.length}>
+      <QueryBlock
+        loading={q.isLoading}
+        error={q.isError ? q.error : null}
+        retry={() => q.refetch()}
+        empty={!rows.length}
+      >
         {rows.map((e) => (
           <Row
             key={e.id}
@@ -344,7 +609,13 @@ function ReconTab() {
                     {e.detail}
                   </Text>
                 ) : null}
-                <Button title="Resolve" size="sm" variant="ghost" loading={resolve.isPending} onPress={() => resolve.mutate(e.id)} />
+                <Button
+                  title="Resolve"
+                  size="sm"
+                  variant="ghost"
+                  loading={resolve.isPending}
+                  onPress={() => resolve.mutate(e.id)}
+                />
               </View>
             }
           />

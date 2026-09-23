@@ -463,7 +463,8 @@ export async function notifyAdmins(
           body: input.body,
           link: input.link ?? null,
           readAt: null,
-          source: 'admin',
+          // D1 CHECK (migration 0020) only allows 'system'|'ai'; admin rows are identified by recipient_role.
+          source: 'system',
           sourceRef: input.sourceRef ?? null,
           severity: input.severity,
           createdAt: Date.now(),

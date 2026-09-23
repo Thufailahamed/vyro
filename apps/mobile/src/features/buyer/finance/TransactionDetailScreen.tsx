@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, ChevronRight, RotateCcw } from 'lucide-react-native';
+import { Check, ChevronRight, FileText, Package, RotateCcw } from 'lucide-react-native';
 import {
   Banner,
   Button,
@@ -12,6 +12,8 @@ import {
   InkHero,
   Input,
   Kicker,
+  QuickAction,
+  QuickActions,
   Row,
   Screen,
   Sheet,
@@ -24,7 +26,7 @@ import {
 import { Gate } from '@/features/common/Gate';
 import { api, errorMessage } from '@/lib/api';
 import { formatDateTime, formatLKR, humanize, shortId } from '@/lib/format';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { go, methodLabel, MoneyText } from './shared';
 
 type Chain = {
@@ -133,6 +135,14 @@ function Inner() {
           ) : null}
         </InkHero>
       </Animated.View>
+
+      <QuickActions style={{ paddingHorizontal: 4 }}>
+        {c.order ? <QuickAction icon={Package} label="View order" onPress={() => go(`/buyer/order/${c.order!.id}`)} /> : null}
+        {c.order && c.invoices[0] ? (
+          <QuickAction icon={FileText} label="Invoice" onPress={() => go(`/buyer/order/${c.order!.id}/invoice/${c.invoices[0].id}`)} />
+        ) : null}
+        <QuickAction icon={RotateCcw} label="Refund" onPress={() => setRefundOpen(true)} />
+      </QuickActions>
 
       <View style={{ gap: 0 }}>
         {S(
@@ -321,7 +331,7 @@ function Inner() {
 
 function HeroCell({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <View style={{ flex: 1, padding: 12, borderRadius: 10, backgroundColor: 'rgba(250,247,240,0.06)', borderWidth: 1, borderColor: colors.paperLine, gap: 4 }}>
+    <View style={{ flex: 1, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: 'rgba(250,247,240,0.07)', gap: 4 }}>
       <Text variant="overline" color="paperMuted">
         {label}
       </Text>
@@ -363,10 +373,10 @@ function StepCard({ title, done, children, index, last }: { title: string; done:
       <View style={{ alignItems: 'center', width: 20 }}>
         <View
           style={{
-            width: 20,
-            height: 20,
-            borderRadius: 10,
-            marginTop: 14,
+            width: 22,
+            height: 22,
+            borderRadius: 11,
+            marginTop: 16,
             backgroundColor: done ? colors.ink : colors.paper,
             borderWidth: done ? 0 : 1.5,
             borderColor: colors.lineStrong,
@@ -379,7 +389,7 @@ function StepCard({ title, done, children, index, last }: { title: string; done:
         {!last ? <View style={{ flex: 1, width: 1.5, backgroundColor: done ? colors.ink : colors.line, marginTop: 2 }} /> : null}
       </View>
       <View style={{ flex: 1, paddingBottom: 12 }}>
-        <View style={{ backgroundColor: colors.paper, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.lineSoft, padding: 14, gap: 8 }}>
+        <View style={[{ backgroundColor: colors.paper, borderRadius: radii.xl, borderCurve: 'continuous', padding: 16, gap: 8 }, shadow.card]}>
           <Text variant="overline" color="ink3">
             {title}
           </Text>

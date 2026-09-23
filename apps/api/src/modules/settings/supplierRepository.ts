@@ -29,6 +29,9 @@ function toShape(row: SupplierSetting): SupplierSettingsShape {
     notifyNewOrders: row.notifyNewOrders === 1 ? 1 : 0,
     notifyLowStock: row.notifyLowStock === 1 ? 1 : 0,
     notifyPaymentReceived: row.notifyPaymentReceived === 1 ? 1 : 0,
+    vatRegistered: row.vatRegistered === true,
+    vatRegistrationNo: row.vatRegistrationNo ?? null,
+    ssclRegistered: row.ssclRegistered === true,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -54,6 +57,9 @@ export type SupplierSettingsPatch = {
   notifyNewOrders?: boolean | undefined;
   notifyLowStock?: boolean | undefined;
   notifyPaymentReceived?: boolean | undefined;
+  vatRegistered?: boolean | undefined;
+  vatRegistrationNo?: string | null | undefined;
+  ssclRegistered?: boolean | undefined;
 };
 
 export async function getOrCreateSupplierSettings(
@@ -79,6 +85,22 @@ export async function getOrCreateSupplierSettings(
   const defaults = defaultSupplierSettings(supplierId);
   await db.insert(supplierSettings).values(defaults);
   return defaults;
+}
+
+/**
+ * System read (crons, invoice generation): no membership check, never creates
+ * a row. Returns null when the supplier has not saved settings yet.
+ */
+export async function readSupplierSettingsForSystem(
+  d1: D1Database,
+  supplierId: string,
+): Promise<SupplierSettingsShape | null> {
+  const row = await getDb(d1)
+    .select()
+    .from(supplierSettings)
+    .where(eq(supplierSettings.supplierId, supplierId))
+    .get();
+  return row ? toShape(row) : null;
 }
 
 export async function patchSupplierSettings(
@@ -116,6 +138,10 @@ export async function patchSupplierSettings(
       patch.notifyPaymentReceived !== undefined
         ? (patch.notifyPaymentReceived ? 1 : 0)
         : current.notifyPaymentReceived,
+    vatRegistered: patch.vatRegistered ?? current.vatRegistered,
+    vatRegistrationNo:
+      patch.vatRegistrationNo !== undefined ? patch.vatRegistrationNo || null : current.vatRegistrationNo,
+    ssclRegistered: patch.ssclRegistered ?? current.ssclRegistered,
     createdAt: current.createdAt,
     updatedAt,
   };

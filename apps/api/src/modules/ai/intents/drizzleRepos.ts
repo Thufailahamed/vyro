@@ -689,35 +689,42 @@ export function drizzleRepos(env: Env): AiRepos {
         return { ...it, productId: product.id, supplierId };
       });
 
-      const poId = newId();
-      const poRef = `PO-${Date.now().toString(36).toUpperCase()}-${poId.slice(-4).toUpperCase()}`;
+      // Resolve each product to the supplier's live offer (the PO FK is
+      // supplier_products, not products) and create one real pending order
+      // per supplier through the shared creation path.
       const now = Date.now();
-      const totalCents = resolvedItems.reduce((s, it) => s + it.priceCents * it.quantity, 0);
       const estimatedDelivery = new Date(now + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
-      await db.insert(purchaseOrders).values({
-        id: poId,
-        businessId,
-        supplierId: resolvedItems[0]!.supplierId,
-        status: 'draft',
-        totalCents,
-        createdAt: now,
-        createdBy: userId,
-      } as any);
-
+      const offerRows = await db
+        .select({ id: supplierProducts.id, supplierId: supplierProducts.supplierId, productId: supplierProducts.productId })
+        .from(supplierProducts)
+        .where(and(eq(supplierProducts.active, true), isNull(supplierProducts.deletedAt)))
+        .all();
+      const offerFor = (supplierId: string, productId: string) =>
+        offerRows.find((o) => o.supplierId === supplierId && o.productId === productId)?.id;
+      const bySupplier = new Map<string, typeof resolvedItems>();
       for (const it of resolvedItems) {
-        await db.insert(purchaseOrderItems).values({
-          id: newId(),
-          purchaseOrderId: poId,
-          supplierProductId: it.productId,
-          productNameSnapshot: it.product,
-          unitPriceCents: it.priceCents,
-          unitPriceCentsSnapshot: it.priceCents,
-          discountPctSnapshot: 0,
-          quantity: it.quantity,
-          lineTotalCents: it.priceCents * it.quantity,
-        } as any);
+        const list = bySupplier.get(it.supplierId) ?? [];
+        list.push(it);
+        bySupplier.set(it.supplierId, list);
       }
+      const { createPendingOrder } = await import('../../orders/create');
+      const poNumbers: string[] = [];
+      for (const [supplierId, list] of bySupplier) {
+        const out = await createPendingOrder(env, {
+          businessId,
+          supplierId,
+          createdByUserId: userId,
+          notes: 'Created from an AI recommendation',
+          source: 'ai.recommendation',
+          lines: list.map((it) => {
+            const spId = offerFor(supplierId, it.productId);
+            if (!spId) throw new Error(`${it.product} is not offered by ${it.supplier}`);
+            return { supplierProductId: spId, productName: it.product, unitPriceCents: it.priceCents, quantity: it.quantity };
+          }),
+        });
+        poNumbers.push(out.poNumber);
+      }
+      const poRef = poNumbers.join(', ');
 
       const payload = { poRef, estimatedDelivery };
       try {

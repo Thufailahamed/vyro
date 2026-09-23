@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { Camera, FileText, ScanLine, Upload as UploadIcon } from 'lucide-react-native';
-import { Banner, Button, Card, Gutter, Kicker, Screen, ScreenHeader, Text } from '@/ui';
+import { Banner, Button, Card, Gutter, IconTile, InkHero, Kicker, Screen, ScreenHeader, Text } from '@/ui';
 import { api, errorMessage } from '@/lib/api';
 import { appendFile, pickDocument, pickImage, type PickedFile } from '@/lib/files';
-import { colors } from '@/theme/tokens';
 import { go } from '../shared';
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -53,15 +52,17 @@ export function InvoiceUploadScreen() {
       />
       <Gutter style={{ gap: 16 }}>
         {error ? <Banner tone="danger" message={error} /> : null}
-        <Card kind="bone" padding={32} style={{ alignItems: 'center', gap: 10, borderWidth: 2, borderStyle: 'dashed', borderColor: colors.copper }}>
-          <ScanLine size={44} color={colors.copper} strokeWidth={1.4} />
-          <Text variant="h2" align="center">
+        <InkHero seed="invoice-upload" style={{ alignItems: 'center', gap: 12, paddingVertical: 32 }}>
+          <View style={{ width: 96, height: 96, borderRadius: 32, borderCurve: 'continuous', backgroundColor: 'rgba(198,220,74,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+            <IconTile icon={ScanLine} tone="volt" size={64} />
+          </View>
+          <Text variant="h1" color="paper" align="center">
             Scan or upload an invoice
           </Text>
-          <Text variant="caption" color="ink4" align="center">
+          <Text variant="caption" color="paperMuted" align="center">
             JPG · PNG · WebP · PDF · max 10MB
           </Text>
-        </Card>
+        </InkHero>
 
         <View style={{ gap: 10 }}>
           <Button title={busy ? 'Uploading…' : 'Take a photo'} icon={Camera} variant="primary" full loading={busy} onPress={() => void pick('camera')} />
@@ -69,7 +70,7 @@ export function InvoiceUploadScreen() {
           <Button title="Browse files (PDF)" icon={FileText} variant="ghost" full disabled={busy} onPress={() => void pick('files')} />
         </View>
 
-        <Card kind="flat" padding={14} style={{ gap: 6 }}>
+        <Card kind="flat" padding={16} style={{ gap: 6 }}>
           <Kicker>Tips for a clean read</Kicker>
           <Text variant="caption" color="ink3">
             Photograph the invoice flat, in good light, with all four corners visible. Handwritten totals may need manual review.

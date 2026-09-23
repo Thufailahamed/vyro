@@ -153,6 +153,7 @@ export function DisputedPage() {
                     <td className="py-3.5 px-4 text-right">
                       <DisputeResolutionPanel
                         poId={o.id}
+                        totalCents={o.totalCents}
                         onResolved={() => qc.invalidateQueries({ queryKey: ['admin-disputed'] })}
                       />
                     </td>

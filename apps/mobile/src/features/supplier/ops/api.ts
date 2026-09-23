@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api, qs } from '@/lib/api';
+import type { PaymentState } from '@/lib/orderLifecycle';
 
 export const POLL_MS = 30_000;
 
@@ -26,6 +27,8 @@ export type Po = {
   rfqId?: string | null;
   deliveryPromisedAt?: number | null;
   paymentMethod?: string;
+  /** Derived payment position (list endpoint). */
+  paymentState?: PaymentState | null;
 };
 
 export type PoItem = {

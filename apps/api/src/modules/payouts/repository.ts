@@ -54,6 +54,7 @@ export async function aggregatePayableForSupplier(
       netCents: paymentsTable.netCents,
       feeCents: paymentsTable.feeCents,
       confirmedAt: paymentsTable.confirmedAt,
+      refundedNetCents: sql<number>`(SELECT COALESCE(SUM(rf.amount_cents - rf.fee_refund_cents), 0) FROM refunds rf WHERE rf.payment_id = ${paymentsTable.id} AND rf.status = 'completed')`,
     })
     .from(paymentsTable)
     .innerJoin(purchaseOrders, eq(purchaseOrders.id, paymentsTable.purchaseOrderId))
@@ -63,6 +64,12 @@ export async function aggregatePayableForSupplier(
         eq(purchaseOrders.supplierId, input.supplierId),
         gte(paymentsTable.confirmedAt, input.periodStart),
         lte(paymentsTable.confirmedAt, input.periodEnd),
+        // Same settlement rule as supplier_earnings: only fulfilled orders,
+        // never money under chargeback, pending refund or an open return.
+        eq(purchaseOrders.status, 'completed'),
+        sql`NOT EXISTS (SELECT 1 FROM chargebacks cb WHERE cb.payment_id = ${paymentsTable.id} AND cb.status = 'open')`,
+        sql`NOT EXISTS (SELECT 1 FROM refunds rf WHERE rf.payment_id = ${paymentsTable.id} AND rf.status IN ('requested','approved','processing'))`,
+        sql`NOT EXISTS (SELECT 1 FROM order_returns orr WHERE orr.purchase_order_id = ${purchaseOrders.id} AND orr.status IN ('requested','approved','received'))`,
       ),
     )
     .all()) as any) as Array<{ paymentId: string; netCents: number; feeCents: number; confirmedAt: number }>;
@@ -78,7 +85,7 @@ export async function aggregatePayableForSupplier(
 
   const sum = rows.reduce(
     (acc, r) => ({
-      netCents: acc.netCents + (r.netCents ?? 0),
+      netCents: acc.netCents + Math.max(0, (r.netCents ?? 0) - Number((r as { refundedNetCents?: number }).refundedNetCents ?? 0)),
       feeCents: acc.feeCents + (r.feeCents ?? 0),
     }),
     { netCents: 0, feeCents: 0 },

@@ -1,8 +1,10 @@
-import { Link, useParams } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import { PageHeader, ErrorBanner } from '@/components/ui';
-import { Money, StatusPill, time } from '@/accounts/shared';
+import { ErrorBanner } from '@/components/ui';
+import { Money, time } from '@/accounts/shared';
+import { AdminPage, AdminPageHeader, Panel, Pill, Skeleton, StatCard, StatGrid, StatusPill } from './ui';
 
 /** Admin view of the full money chain (spec §30/§34) — secrets redacted server-side. */
 export function AdminTransactionPage() {
@@ -22,58 +24,90 @@ export function AdminTransactionPage() {
     }>(`/admin/finance/payments/${id}`),
     enabled: !!id,
   });
-  if (q.isLoading) return <div className="text-sm text-ink-4">Loading…</div>;
+  if (q.isLoading) {
+    return (
+      <AdminPage className="max-w-5xl">
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-4 w-80" />
+        </div>
+        <StatGrid cols={3}>
+          {[0, 1, 2].map((i) => <StatCard key={i} label="Loading" value="" loading />)}
+        </StatGrid>
+      </AdminPage>
+    );
+  }
   if (q.isError) return <ErrorBanner message={(q.error as ApiError).message} />;
   const c = q.data!;
   return (
-    <div className="mx-auto max-w-5xl pb-12">
-      <PageHeader kicker="Accounts / Transaction" title={c.payment.paymentNumber ?? 'Payment'} sub={`Order ${c.order?.poNumber ?? '—'} · ${c.payment.method} via ${c.payment.provider}`} />
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <StatusPill status={c.payment.status} />
-        <Money cents={c.payment.amountCents} className="text-xl" />
-        <span className="text-sm text-ink-4">fee <Money cents={c.payment.feeCents} /> · net <Money cents={c.payment.netCents} /> · {time(c.payment.paidAt ?? c.payment.createdAt)}</span>
-      </div>
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <Panel title={`Attempts (${c.attempts.length})`}>
-          {c.attempts.map((a) => <Row key={a.id} left={`#${a.attemptNumber}`} right={<StatusPill status={a.status} />} sub={a.failureReason ?? ''} />)}
-        </Panel>
-        <Panel title={`Allocations (${c.allocations.length})`}>
-          {c.allocations.map((a, i) => <Row key={i} left={a.supplierId.slice(0, 8)} right={<Money cents={a.netCents} />} sub={`gross ${a.grossCents} − commission ${a.commissionCents}`} />)}
-        </Panel>
-        <Panel title={`Refunds (${c.refunds.length})`}>
-          {c.refunds.map((r, i) => <Row key={i} left={r.refundNumber ?? `#${i}`} right={<><StatusPill status={r.status} /> <Money cents={r.amountCents} /></>} />)}
-        </Panel>
-        <Panel title={`Earnings (${c.earnings.length})`}>
+    <AdminPage className="max-w-5xl">
+      <AdminPageHeader
+        back={{ to: '/admin/accounts?tab=payments', label: 'Back to payments' }}
+        kicker="Accounts / Transaction"
+        title={c.payment.paymentNumber ?? 'Payment'}
+        description={`Order ${c.order?.poNumber ?? '—'} · ${c.payment.method} via ${c.payment.provider}`}
+        meta={
+          <>
+            <StatusPill status={c.payment.status} />
+            <Pill>{time(c.payment.paidAt ?? c.payment.createdAt)}</Pill>
+          </>
+        }
+      />
+
+      <StatGrid cols={3}>
+        <StatCard label="Amount" value={<Money cents={c.payment.amountCents} />} />
+        <StatCard label="Fee" value={<Money cents={c.payment.feeCents} />} />
+        <StatCard label="Net" value={<Money cents={c.payment.netCents} />} />
+      </StatGrid>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <ChainPanel title="Attempts" count={c.attempts.length}>
+          {c.attempts.map((a) => <Row key={a.id} left={<span className="font-mono text-xs">#{a.attemptNumber}</span>} right={<StatusPill status={a.status} />} sub={a.failureReason ?? ''} />)}
+        </ChainPanel>
+        <ChainPanel title="Allocations" count={c.allocations.length}>
+          {c.allocations.map((a, i) => <Row key={i} left={<span className="font-mono text-xs">{a.supplierId.slice(0, 8)}</span>} right={<Money cents={a.netCents} />} sub={`gross ${a.grossCents} − commission ${a.commissionCents}`} />)}
+        </ChainPanel>
+        <ChainPanel title="Refunds" count={c.refunds.length}>
+          {c.refunds.map((r, i) => <Row key={i} left={<span className="font-mono text-xs">{r.refundNumber ?? `#${i}`}</span>} right={<><StatusPill status={r.status} /> <Money cents={r.amountCents} /></>} />)}
+        </ChainPanel>
+        <ChainPanel title="Earnings" count={c.earnings.length}>
           {c.earnings.map((e, i) => <Row key={i} left={<StatusPill status={e.eligibility} />} right={<Money cents={e.netCents} />} sub={`gross ${e.grossCents} − commission ${e.commissionCents}`} />)}
-        </Panel>
-        <Panel title="Settlement / Payout">
-          {c.settlements.map((s, i) => <Row key={i} left={s.settlement?.settlementNumber ?? '—'} right={<Money cents={s.netCents} />} />)}
-          {c.payouts.map((p, i) => <Row key={`p${i}`} left={p.payoutNumber ?? '—'} right={<><StatusPill status={p.status} /> <Money cents={p.netCents} /></>} />)}
-          {c.settlements.length === 0 && c.payouts.length === 0 && <p className="text-sm text-ink-4">Not yet settled.</p>}
-        </Panel>
-        <Panel title={`Ledger (${c.ledger.length})`}>
+        </ChainPanel>
+        <ChainPanel title="Settlement / payout" count={null}>
+          {c.settlements.map((s, i) => <Row key={i} left={<span className="font-mono text-xs">{s.settlement?.settlementNumber ?? '—'}</span>} right={<Money cents={s.netCents} />} />)}
+          {c.payouts.map((p, i) => <Row key={`p${i}`} left={<span className="font-mono text-xs">{p.payoutNumber ?? '—'}</span>} right={<><StatusPill status={p.status} /> <Money cents={p.netCents} /></>} />)}
+          {c.settlements.length === 0 && c.payouts.length === 0 && <p className="py-2 text-sm text-ink-4">Not yet settled.</p>}
+        </ChainPanel>
+        <ChainPanel title="Ledger" count={c.ledger.length}>
           {c.ledger.map((l) => <Row key={l.id} left={l.description} right={<Money cents={l.direction === 'credit' ? l.amountCents : -l.amountCents} />} sub={`${l.accountType} · ${l.category ?? ''}`} />)}
-        </Panel>
+        </ChainPanel>
       </div>
-      <Link to="/admin/accounts?tab=payments" className="mt-8 inline-block text-sm font-semibold underline-offset-2 hover:underline">Back to payments</Link>
-    </div>
+    </AdminPage>
   );
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function ChainPanel({ title, count, children }: { title: string; count: number | null; children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-ink/10 bg-paper p-4">
-      <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-ink-3">{title}</h3>
-      <div className="mt-2 space-y-1.5">{children}</div>
-    </div>
+    <Panel
+      title={title}
+      actions={count != null ? <Pill className="num-tabular">{count}</Pill> : undefined}
+      bodyClassName="py-2"
+    >
+      <div className="divide-y divide-ink/[0.06]">{children}</div>
+      {count === 0 && <p className="py-2 text-sm text-ink-4">None recorded.</p>}
+    </Panel>
   );
 }
 
-function Row({ left, right, sub }: { left: React.ReactNode; right: React.ReactNode; sub?: string }) {
+function Row({ left, right, sub }: { left: ReactNode; right: ReactNode; sub?: string }) {
   return (
-    <div className="flex items-center justify-between gap-2 text-sm">
-      <span>{left}{sub ? <span className="block text-xs text-ink-4">{sub}</span> : null}</span>
-      <span className="flex items-center gap-2">{right}</span>
+    <div className="flex items-center justify-between gap-3 py-2.5 text-sm text-ink">
+      <span className="min-w-0">
+        {left}
+        {sub ? <span className="mt-0.5 block text-xs text-ink-4">{sub}</span> : null}
+      </span>
+      <span className="flex shrink-0 items-center gap-2 num-tabular">{right}</span>
     </div>
   );
 }

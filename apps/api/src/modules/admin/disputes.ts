@@ -1,23 +1,18 @@
 import { Hono } from 'hono';
-import { z } from 'zod';
 import type { Env } from '../../env';
 import { session } from '../../middleware/session';
 import { requireRole } from '../../middleware/rbac';
 import { httpError } from '../../lib/errors';
 import { getDb } from '@vyro/db';
 import { auditLogs } from '@vyro/db/schema';
-import { findDisputedPo, listDisputed, setPoStatus, setPoDisputeOutcome } from './disputeRepository';
-import { eq } from 'drizzle-orm';
-import { resolveGateway } from '@vyro/payments';
-import { writeLedgerEntry } from '../ledger';
-import {
-  createRefund,
-  updateRefundStatus,
-} from '../refunds/repository';
-import { recordAudit } from '../supplierProducts/repository';
+import { findDisputedPo, listDisputed } from './disputeRepository';
 import { auditAdmin } from './lib/audit';
 import { notifyOrderParties } from '../notifications/dispatcher';
-import { NotificationType } from '@vyro/shared';
+import { NotificationType, formatLKR } from '@vyro/shared';
+import { disputeResolveSchema } from '@vyro/validation/orderLifecycle';
+import { refundAllForOrder, refundAmountForOrder } from '../refunds/executor';
+import { releaseDrawdown } from '../credit/service';
+import { applyTransition } from '../orders/lifecycle';
 
 type Ctx = { userId: string };
 
@@ -29,160 +24,71 @@ router.get('/disputes', async (c) => {
   return c.json({ disputes: rows });
 });
 
-const resolveSchema = z
-  .object({
-    outcome: z.enum(['refund_business', 'release_supplier']),
-    note: z.string().max(500).optional(),
-  })
-  .strict();
-
 router.post('/disputes/:poId/resolve', async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const poId = c.req.param('poId');
   if (!poId) throw httpError(400, 'VALIDATION_ERROR', 'Missing poId');
-  const parsed = resolveSchema.safeParse(await c.req.json().catch(() => null));
+  const parsed = disputeResolveSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
+  const { outcome, note } = parsed.data;
 
   const po = await findDisputedPo(c.env.DB, poId);
   if (!po) throw httpError(404, 'NOT_FOUND', 'PO not found');
   if (po.status !== 'disputed') throw httpError(409, 'CONFLICT', 'PO not disputed');
-
-  const db = getDb(c.env.DB);
-
-  if (parsed.data.outcome === 'refund_business') {
-    // Find confirmed payments for this PO and refund each
-    const schemaModule = await import('@vyro/db/schema');
-    const paymentsTbl = schemaModule.payments;
-    const paymentsToRefund = ((await db
-      .select()
-      .from(paymentsTbl)
-      .where(eq(paymentsTbl.purchaseOrderId, poId))
-      .all()) as any)
-      .filter((p: any) => p.status === 'confirmed');
-
-    for (const payment of paymentsToRefund) {
-      const refund = await createRefund(c.env.DB, {
-        paymentId: payment.id,
-        amountCents: payment.amountCents,
-        reason: parsed.data.note ?? 'Dispute resolved in favor of business',
-        requestedByUserId: ctx.userId,
-      });
-
-      const useGateway = payment.method === 'online' && !!payment.gatewayRef;
-      if (useGateway) {
-        await updateRefundStatus(c.env.DB, refund.id, 'processing', { processedAt: null });
-        const { adapter } = resolveGateway(c.env as Env);
-        try {
-          const result = await adapter.refund({
-            paymentGatewayRef: payment.gatewayRef!,
-            refundId: refund.id,
-            amountCents: payment.amountCents,
-            reason: parsed.data.note ?? '',
-          });
-          if (result.status === 'completed') {
-            await updateRefundStatus(c.env.DB, refund.id, 'completed', {
-              gatewayRefundId: result.gatewayRefundId,
-              processedAt: Date.now(),
-            });
-          } else {
-            await updateRefundStatus(c.env.DB, refund.id, 'failed', {
-              failureReason: 'gateway refused',
-              processedAt: Date.now(),
-            });
-          }
-        } catch (e) {
-          await updateRefundStatus(c.env.DB, refund.id, 'failed', {
-            failureReason: String(e),
-            processedAt: Date.now(),
-          });
-        }
-      } else {
-        // Offline refund: write ledger entries inline
-        await updateRefundStatus(c.env.DB, refund.id, 'completed', { processedAt: Date.now() });
-        const feeRefundCents = payment.feeCents > 0 ? Math.round((payment.amountCents * payment.feeCents) / payment.amountCents) : 0;
-        await db.transaction(async (tx) => {
-          writeLedgerEntry(tx as any, {
-            accountType: 'business',
-            accountId: po.businessId,
-            direction: 'debit',
-            amountCents: payment.amountCents,
-            refType: 'refund',
-            refId: refund.id,
-            description: `Dispute refund for payment ${payment.id}`,
-            createdByUserId: ctx.userId,
-          });
-          if (feeRefundCents > 0) {
-            writeLedgerEntry(tx as any, {
-              accountType: 'platform',
-              accountId: 'platform',
-              direction: 'debit',
-              amountCents: feeRefundCents,
-              refType: 'refund',
-              refId: refund.id,
-              description: `Platform fee refund for dispute ${refund.id}`,
-              createdByUserId: ctx.userId,
-            });
-          }
-        });
-      }
-
-      // Mark payment as refunded
-      await db.update((await import('@vyro/db/schema')).payments)
-        .set({ status: 'refunded', statusReason: parsed.data.note ?? null, updatedAt: Date.now() })
-        .where(eq((await import('@vyro/db/schema')).payments.id, payment.id))
-        .run();
-
-      await recordAudit(c.env.DB, {
-        actorUserId: ctx.userId,
-        action: 'dispute.refund',
-        resourceType: 'purchase_order',
-        resourceId: poId,
-        metadata: { refundId: refund.id, paymentId: payment.id, amountCents: payment.amountCents },
-      });
-    }
-
-    // Record supplier-fault outcome BEFORE status flip so any test harnesses
-    // that capture the last `db.update(...).set(...)` still see the status patch.
-    try {
-      await setPoDisputeOutcome(c.env.DB, poId, parsed.data.outcome, Date.now());
-    } catch (err) {
-      console.error('[disputes.resolve] outcome stamp failed', err);
-    }
-    await setPoStatus(c.env.DB, poId, 'cancelled', ctx.userId, parsed.data.note ?? 'dispute resolved: refund_business');
-  } else {
-    try {
-      await setPoDisputeOutcome(c.env.DB, poId, parsed.data.outcome, Date.now());
-    } catch (err) {
-      console.error('[disputes.resolve] outcome stamp failed', err);
-    }
-    await setPoStatus(c.env.DB, poId, 'delivered', ctx.userId, parsed.data.note ?? 'dispute resolved: release_supplier');
-  }
-  // Disputed money is held; resolution unblocks eligibility either way
-  // (cancelled → ineligible, delivered → recompute). Best-effort.
-  try {
-    const { recomputeEligibilityForPo } = await import('../finance/earnings');
-    await recomputeEligibilityForPo(c.env.DB, poId);
-  } catch (err) {
-    console.error('[disputes.resolve] eligibility sync failed', err);
+  if (outcome === 'partial' && (parsed.data.amountCents ?? 0) >= po.totalCents) {
+    throw httpError(400, 'VALIDATION_ERROR', 'Partial refund must be less than the order total; use refund_business');
   }
 
-  // Best-effort: refresh trust signal cache for this supplier.
-  try {
-    const { recomputeForSupplier } = await import('../trust/service');
-    await recomputeForSupplier(c.env.DB, po.supplierId, Date.now());
-  } catch (err) {
-    console.error('[disputes.resolve] trust recompute failed', err);
+  // 1. Money first (idempotent keys make a retry after a crash safe).
+  const reason = note ?? `Dispute resolved: ${outcome}`;
+  let refunds: Array<{ refundId: string; status: string; amountCents: number }> = [];
+  let creditReleasedCents = 0;
+  if (outcome === 'refund_business') {
+    refunds = await refundAllForOrder(c.env, { poId, source: 'dispute', reason, actorUserId: ctx.userId, keyPrefix: `dispute:${poId}` });
+    const rel = await releaseDrawdown(c.env.DB, { poId, userId: ctx.userId, reason: 'dispute refund' });
+    creditReleasedCents = rel?.releasedCents ?? 0;
+  } else if (outcome === 'partial') {
+    const out = await refundAmountForOrder(c.env, {
+      poId,
+      amountCents: parsed.data.amountCents!,
+      source: 'dispute',
+      reason,
+      actorUserId: ctx.userId,
+      keyPrefix: `dispute-partial:${poId}`,
+    });
+    refunds = out.refunds;
+    if (out.unrefundedCents > 0) {
+      const rel = await releaseDrawdown(c.env.DB, { poId, amountCents: out.unrefundedCents, userId: ctx.userId, reason: 'partial dispute refund' });
+      creditReleasedCents = rel?.releasedCents ?? 0;
+    }
   }
 
-  const now = Date.now();
-  // Fan out to both orgs — admin is the actor so they get nothing, and the
-  // membership tables filter to humans who actually belong to each side.
+  // 2. Status through the single pipeline. Release / partial end in
+  //    `completed` so the supplier's (remaining) funds become payable.
+  const to = outcome === 'refund_business' ? 'cancelled' : 'completed';
+  await applyTransition(c.env, {
+    poId,
+    to,
+    actor: { role: 'admin', userId: ctx.userId },
+    reason,
+    metadata: { outcome, amountCents: parsed.data.amountCents ?? null, refunds, creditReleasedCents },
+    opts: { disputeResolution: outcome, skipRefund: true, expectedFrom: 'disputed', via: 'dispute.resolve' },
+  });
+
+  // 3. Human-facing summary to both sides.
   try {
-    const title = parsed.data.outcome === 'refund_business' ? 'Dispute resolved: order refunded' : 'Dispute resolved: order released';
-    const body = parsed.data.outcome === 'refund_business'
-      ? 'Admin ruled in favor of the business. A refund has been processed.'
-      : 'Admin ruled in favor of the supplier. Funds have been released.';
+    const total = refunds.reduce((s, r) => s + r.amountCents, 0) + creditReleasedCents;
+    const title =
+      outcome === 'refund_business'
+        ? 'Dispute resolved: order refunded'
+        : outcome === 'partial'
+          ? 'Dispute resolved: partial refund'
+          : 'Dispute resolved: order released';
+    const body =
+      outcome === 'release_supplier'
+        ? 'Admin ruled in favor of the supplier. Funds have been released.'
+        : `Admin ruled ${outcome === 'partial' ? 'a partial refund' : 'in favor of the business'}: ${formatLKR(total)} is being returned to the buyer.`;
     await notifyOrderParties(
       c.env.DB,
       c.env.NOTIFICATIONS_QUEUE,
@@ -190,7 +96,7 @@ router.post('/disputes/:poId/resolve', async (c) => {
       {
         type: NotificationType.DISPUTE_RESOLVED,
         title,
-        body: body + (parsed.data.note ? ` Note: ${parsed.data.note}` : ''),
+        body: body + (note ? ` Note: ${note}` : ''),
         link: `/orders/${poId}`,
         audience: 'both',
       },
@@ -198,13 +104,15 @@ router.post('/disputes/:poId/resolve', async (c) => {
   } catch (err) {
     console.error('[disputes.resolve] notify failed', err);
   }
-  await db.insert(auditLogs).values({
+
+  const now = Date.now();
+  await getDb(c.env.DB).insert(auditLogs).values({
     id: crypto.randomUUID(),
     actorUserId: ctx.userId,
     action: 'dispute.resolved',
     resourceType: 'purchase_order',
     resourceId: poId,
-    metadata: JSON.stringify({ outcome: parsed.data.outcome, note: parsed.data.note ?? null }),
+    metadata: JSON.stringify({ outcome, note: note ?? null, amountCents: parsed.data.amountCents ?? null, refunds }),
     ip: c.req.header('cf-connecting-ip') ?? null,
     userAgent: c.req.header('user-agent') ?? null,
     createdAt: now,
@@ -214,10 +122,10 @@ router.post('/disputes/:poId/resolve', async (c) => {
     action: 'dispute.resolve',
     target: { type: 'purchase_order', id: poId },
     before: { status: 'disputed' },
-    after: { status: parsed.data.outcome === 'refund_business' ? 'cancelled' : 'delivered', outcome: parsed.data.outcome },
+    after: { status: to, outcome },
   });
 
-  return c.json({ ok: true, status: parsed.data.outcome === 'refund_business' ? 'cancelled' : 'delivered' });
+  return c.json({ ok: true, status: to, refunds });
 });
 
 export default router;

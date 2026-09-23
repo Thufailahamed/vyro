@@ -2,7 +2,7 @@ import { type ReactNode } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { router, type Href } from 'expo-router';
 import type { LucideIcon } from 'lucide-react-native';
-import { Card, Text } from '@/ui';
+import { Card, IconTile, Text } from '@/ui';
 import { colors, fonts, radii } from '@/theme/tokens';
 import { formatLKR } from '@/lib/format';
 
@@ -133,27 +133,37 @@ export function KpiTile({
 }) {
   const display = value !== undefined ? String(value) : formatLKR(cents ?? 0);
   return (
-    <Card padding={14} style={[{ flexBasis: '47%', flexGrow: 1, gap: 8 }, style]}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-        <Text variant="overline" color="ink4" numberOfLines={1} style={{ flex: 1 }}>
+    <Card padding={16} style={[{ flexBasis: '47%', flexGrow: 1, gap: 12 }, style]}>
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 12,
+          borderCurve: 'continuous',
+          backgroundColor: ACCENT_BG[accent],
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Icon size={17} color={ACCENT_FG[accent]} strokeWidth={1.9} />
+      </View>
+      <View style={{ gap: 3 }}>
+        <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.monoMedium, fontSize: 20, lineHeight: 25, letterSpacing: -0.7, color: ACCENT_FG[accent] }}>
+          {display}
+        </Text>
+        <Text variant="caption" weight="semibold" color="ink3" numberOfLines={1}>
           {label}
         </Text>
-        <View style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: ACCENT_BG[accent], alignItems: 'center', justifyContent: 'center' }}>
-          <Icon size={14} color={ACCENT_FG[accent]} strokeWidth={1.9} />
-        </View>
+        <Text variant="caption" color="ink5" numberOfLines={1}>
+          {sub}
+        </Text>
       </View>
-      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.monoMedium, fontSize: 19, lineHeight: 24, letterSpacing: -0.6, color: ACCENT_FG[accent] }}>
-        {display}
-      </Text>
-      <Text variant="caption" color="ink4" numberOfLines={1}>
-        {sub}
-      </Text>
     </Card>
   );
 }
 
 export function KpiGrid({ children }: { children: ReactNode }) {
-  return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>{children}</View>;
+  return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>{children}</View>;
 }
 
 /** Paper panel with an icon-chip header — the web's Surface section header. */
@@ -175,24 +185,13 @@ export function Panel({
   padding?: number;
 }) {
   return (
-    <Card padding={0}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>
-        {Icon ? (
-          <View
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: radii.lg,
-              backgroundColor: iconTone === 'ink' ? colors.ink : colors.copperSoft,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Icon size={15} color={iconTone === 'ink' ? colors.volt : colors.copperDeep} strokeWidth={1.8} />
-          </View>
-        ) : null}
-        <View style={{ flex: 1 }}>
-          <Text variant="h3">{title}</Text>
+    <Card padding={0} radius={radii['2xl']}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 }}>
+        {Icon ? <IconTile icon={Icon} tone={iconTone} size={36} /> : null}
+        <View style={{ flex: 1, gap: 1 }}>
+          <Text variant="h2" style={{ fontSize: 17, lineHeight: 22 }}>
+            {title}
+          </Text>
           {subtitle ? (
             <Text variant="caption" color="ink4">
               {subtitle}

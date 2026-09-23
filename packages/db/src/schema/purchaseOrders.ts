@@ -22,6 +22,9 @@ export const purchaseOrders = sqliteTable(
     deliveryAddress: text('delivery_address').notNull(),
     deliveryCity: text('delivery_city').notNull(),
     deliveryDistrict: text('delivery_district').notNull(),
+    deliveryAddressId: text('delivery_address_id'),
+    deliveryContactName: text('delivery_contact_name'),
+    deliveryPhone: text('delivery_phone'),
     notes: text('notes'),
     rejectionReason: text('rejection_reason'),
     cancelledReason: text('cancelled_reason'),
@@ -70,6 +73,14 @@ export const purchaseOrders = sqliteTable(
     paymentMethod: text('payment_method', { enum: ['payhere', 'wire'] }).notNull().default('payhere'),
     paymentInitiatedAt: integer('payment_initiated_at'),
     paymentInitiatedByUserId: text('payment_initiated_by_user_id'),
+    // Lifecycle metadata (0048).
+    originalTotalCents: integer('original_total_cents'),
+    partiallyFulfilledAt: integer('partially_fulfilled_at'),
+    cancelledByRole: text('cancelled_by_role'),
+    autoAction: text('auto_action'),
+    disputeReason: text('dispute_reason'),
+    disputeOpenedBy: text('dispute_opened_by'),
+    disputeResolvedAt: integer('dispute_resolved_at'),
   },
   (t) => ({
     poNumberUniq: uniqueIndex('purchase_orders_po_number_uniq').on(t.poNumber),
@@ -78,6 +89,8 @@ export const purchaseOrders = sqliteTable(
     directionIdx: index('purchase_orders_direction_idx').on(t.direction),
     customsStatusIdx: index('purchase_orders_customs_status_idx').on(t.customsStatus),
     paymentMethodIdx: index('purchase_orders_payment_method_idx').on(t.paymentMethod),
+    statusCreatedIdx: index('purchase_orders_status_created_idx').on(t.status, t.createdAt),
+    statusDeliveredIdx: index('purchase_orders_status_delivered_idx').on(t.status, t.deliveredAt),
   }),
 );
 

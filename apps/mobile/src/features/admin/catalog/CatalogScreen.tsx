@@ -1,26 +1,28 @@
 import { useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ShoppingBag, Star } from 'lucide-react-native';
-import { colors } from '@/theme/tokens';
+import { FolderTree, ShoppingBag, Star } from 'lucide-react-native';
+import { colors, radii } from '@/theme/tokens';
 import { api, errorMessage, qs } from '@/lib/api';
 import { formatDate, humanize } from '@/lib/format';
 import {
   Button,
   Card,
-  ChipRow,
   EmptyState,
   ErrorState,
+  ListCard,
+  ListRow,
   ProductImage,
   Screen,
   SearchBar,
+  Segmented,
   SkeletonList,
   StatusBadge,
   Text,
   useToast,
 } from '@/ui';
 import { Appear, go } from '@/features/admin/platform/kit';
-import { LoadMore, Section } from '@/features/admin/ops/kit';
+import { LoadMore } from '@/features/admin/ops/kit';
 import { useDebounced } from '@/features/admin/ops/kit/hooks';
 
 interface ProductRow {
@@ -85,7 +87,7 @@ export function CatalogScreen() {
       subtitle="Products, categories and merchandising."
       onRefresh={() => (tab === 'products' ? products.refetch() : categories.refetch())}
     >
-      <ChipRow<Tab> value={tab} onChange={setTab} options={[{ value: 'products', label: 'Products' }, { value: 'categories', label: 'Categories' }]} />
+      <Segmented<Tab> value={tab} onChange={setTab} options={[{ value: 'products', label: 'Products' }, { value: 'categories', label: 'Categories' }]} />
 
       {tab === 'products' ? (
         <>
@@ -100,28 +102,31 @@ export function CatalogScreen() {
             <View style={{ gap: 10 }}>
               {rows.map((p, i) => (
                 <Appear key={p.id} i={i % 10}>
-                  <Card kind="flat" padding={12} onPress={() => go(`/admin/catalog/product/${p.id}`)} style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                    <ProductImage src={null} seed={p.id} style={{ width: 52, height: 52, borderRadius: 10 }} />
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text variant="body" weight="semibold" numberOfLines={1}>
-                        {p.name}
-                      </Text>
-                      <Text variant="caption" color="ink4" numberOfLines={1}>
-                        {[p.brand, p.categoryName, p.unit].filter(Boolean).join(' · ') || formatDate(p.createdAt)}
-                      </Text>
-                      <View style={{ flexDirection: 'row', gap: 6, marginTop: 2 }}>
-                        <StatusBadge status={p.active ? 'active' : 'inactive'} size="sm" />
-                        {p.featured ? <StatusBadge status="featured" size="sm" /> : null}
+                  <Card kind="flat" padding={12} onPress={() => go(`/admin/catalog/product/${p.id}`)} style={{ gap: 12 }}>
+                    <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                      <ProductImage src={null} seed={p.id} style={{ width: 64, height: 64, borderRadius: radii.lg }} />
+                      <View style={{ flex: 1, gap: 3 }}>
+                        <Text variant="h3" numberOfLines={2}>
+                          {p.name}
+                        </Text>
+                        <Text variant="caption" color="ink4" numberOfLines={1}>
+                          {[p.brand, p.categoryName, p.unit].filter(Boolean).join(' · ') || formatDate(p.createdAt)}
+                        </Text>
                       </View>
                     </View>
-                    <Button
-                      title={p.featured ? 'Unfeat.' : 'Feature'}
-                      size="sm"
-                      variant={p.featured ? 'secondary' : 'volt'}
-                      icon={p.featured ? undefined : Star}
-                      loading={feature.isPending}
-                      onPress={() => feature.mutate({ id: p.id, featured: !p.featured })}
-                    />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 10, paddingHorizontal: 4, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft }}>
+                      <StatusBadge status={p.active ? 'active' : 'inactive'} size="sm" />
+                      {p.featured ? <StatusBadge status="featured" size="sm" /> : null}
+                      <View style={{ flex: 1 }} />
+                      <Button
+                        title={p.featured ? 'Unfeature' : 'Feature'}
+                        size="sm"
+                        variant={p.featured ? 'paper' : 'volt'}
+                        icon={Star}
+                        loading={feature.isPending}
+                        onPress={() => feature.mutate({ id: p.id, featured: !p.featured })}
+                      />
+                    </View>
                   </Card>
                 </Appear>
               ))}
@@ -139,21 +144,24 @@ export function CatalogScreen() {
           ) : (categories.data ?? []).length === 0 ? (
             <EmptyState icon={ShoppingBag} title="No categories" message="Categories appear here once created." />
           ) : (
-            <Section kicker={`${(categories.data ?? []).length} categories`} title="Taxonomy">
-              <View style={{ gap: 8 }}>
-                {(categories.data ?? []).map((c) => (
-                  <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text variant="body" style={{ flex: 1 }} numberOfLines={1}>
-                      {c.name}
-                    </Text>
-                    <Text variant="caption" color="ink4" numberOfLines={1}>
-                      {humanize(c.slug)}
-                    </Text>
-                    <StatusBadge status={c.active ? 'active' : 'inactive'} size="sm" />
-                  </View>
+            <View style={{ gap: 8 }}>
+              <Text variant="overline" color="ink4" style={{ marginLeft: 6 }}>
+                Taxonomy · {(categories.data ?? []).length} categories
+              </Text>
+              <ListCard>
+                {(categories.data ?? []).map((c, i, arr) => (
+                  <ListRow
+                    key={c.id}
+                    title={c.name}
+                    subtitle={humanize(c.slug)}
+                    icon={FolderTree}
+                    iconTone={c.active ? 'copper' : 'paper'}
+                    trailing={<StatusBadge status={c.active ? 'active' : 'inactive'} size="sm" />}
+                    last={i === arr.length - 1}
+                  />
                 ))}
-              </View>
-            </Section>
+              </ListCard>
+            </View>
           )}
         </>
       )}

@@ -1,4 +1,6 @@
-import { purchaseOrders, fxSnapshots } from '@vyro/db/schema';
+import { purchaseOrders, fxSnapshots, payments } from '@vyro/db/schema';
+import { newId } from '@vyro/shared';
+import { writeLedgerEntry } from '../ledger/writer';
 import { and, eq, sql } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
 import { httpError } from '../../lib/errors';
@@ -54,10 +56,63 @@ export async function handleWireReceived(env: Env, input: WireReceivedInput): Pr
       wireReceivedCurrency: input.receivedCurrency,
       wireReceivedAt: receivedAt,
       wireReceivedBy: input.adminUserId,
-      status: 'paid',
+      // Order status is untouched: `paid` is a payment state, not an order
+      // state. Money is recorded as a confirmed payment below.
       updatedAt: Date.now(),
     })
     .where(eq(purchaseOrders.id, input.orderId));
+
+  // Record the wire as a confirmed payment (idempotent per wire reference) so
+  // the payment summary, payment gate, earnings and refunds all see it.
+  const idempotencyKey = `wire:${input.orderId}:${input.wireRef}`;
+  const existing = await db.select({ id: payments.id }).from(payments).where(eq(payments.idempotencyKey, idempotencyKey)).get();
+  if (!existing) {
+    const paymentId = newId();
+    const now = Date.now();
+    // Record what actually arrived (LKR equivalent); an acknowledged shortfall
+    // shows up as `partially_paid` in the payment summary.
+    const amount = receivedLkrCents;
+    await db
+      .insert(payments)
+      .values({
+        id: paymentId,
+        purchaseOrderId: order.id,
+        businessId: order.businessId,
+        supplierId: order.supplierId,
+        method: 'bank_transfer',
+        provider: 'wire',
+        status: 'confirmed',
+        amountCents: amount,
+        feeCents: 0,
+        netCents: amount,
+        currency: 'LKR',
+        transactionReference: input.wireRef,
+        idempotencyKey,
+        paidAt: receivedAt,
+        confirmedAt: now,
+        confirmedByUserId: input.adminUserId,
+        notes: `Wire ${input.receivedAmountCents} ${input.receivedCurrency}`,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    await writeLedgerEntry(db, {
+      accountType: 'business',
+      accountId: order.businessId,
+      direction: 'credit',
+      amountCents: amount,
+      refType: 'payment',
+      refId: paymentId,
+      description: `Wire ${input.wireRef} for PO ${order.poNumber}`,
+      createdByUserId: input.adminUserId,
+    });
+    try {
+      const { ensureAllocationAndEarning } = await import('../finance/earnings');
+      await ensureAllocationAndEarning(env.DB, paymentId, input.adminUserId);
+    } catch (err) {
+      logger.error('cross_border.wire_earning_failed', { orderId: input.orderId, err: String(err) });
+    }
+  }
 
   await recordAudit(env.DB, {
     actorUserId: input.adminUserId,

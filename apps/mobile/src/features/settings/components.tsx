@@ -6,7 +6,7 @@ import { assetUrl } from '@/lib/api';
 import { cookieHeader } from '@/lib/cookieJar';
 import { initials } from '@/lib/format';
 import { Button, Kicker, ListCard, Text } from '@/ui';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 
 /**
  * Avatar that can load the API's session-protected `/api/settings/avatars/…`
@@ -42,6 +42,7 @@ export function UserAvatar({
           overflow: 'hidden',
           borderWidth: ring ? 2 : 0,
           borderColor: 'rgba(198,220,74,0.55)',
+          ...(ring ? null : shadow.sm),
         }}
       >
         {src ? (
@@ -91,14 +92,14 @@ export function SettingsGroup({
   return (
     <View style={[{ gap: 8 }, style]}>
       {title || action ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6 }}>
           {title ? <Kicker color="ink4">{title}</Kicker> : <View />}
           {action}
         </View>
       ) : null}
       <ListCard>{children}</ListCard>
       {footnote ? (
-        <Text variant="caption" color="ink4" style={{ paddingHorizontal: 4 }}>
+        <Text variant="caption" color="ink5" style={{ paddingHorizontal: 6 }}>
           {footnote}
         </Text>
       ) : null}
@@ -165,7 +166,7 @@ export function MonoTag({ label, tone = 'mist' }: { label: string; tone?: 'mist'
     tone === 'volt' ? colors.voltSoft : tone === 'copper' ? colors.copperSoft : tone === 'mint' ? colors.mintSoft : tone === 'ink' ? colors.ink : colors.mist;
   const fg = tone === 'volt' ? colors.voltDeep : tone === 'copper' ? colors.copperDeep : tone === 'mint' ? colors.mint : tone === 'ink' ? colors.volt : colors.ink3;
   return (
-    <View style={{ alignSelf: 'flex-start', backgroundColor: bg, borderRadius: radii.sm, paddingHorizontal: 6, paddingVertical: 2 }}>
+    <View style={{ alignSelf: 'flex-start', backgroundColor: bg, borderRadius: radii.pill, paddingHorizontal: 8, paddingVertical: 3 }}>
       <Text style={{ fontFamily: fonts.monoMedium, fontSize: 9.5, letterSpacing: 0.8, color: fg }}>{label.toUpperCase()}</Text>
     </View>
   );

@@ -3,6 +3,7 @@ import { Platform, Pressable, View, useWindowDimensions } from 'react-native';
 import { Tabs } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LucideIcon } from 'lucide-react-native';
@@ -18,8 +19,9 @@ export interface PortalTab {
   badge?: number;
 }
 
-const BAR_H = 66;
-const SIDE = 14;
+const BAR_H = 68;
+const SIDE = 16;
+const LENS_PAD = 6;
 
 /**
  * Floating ink capsule with a volt "lens" that glides to the active tab.
@@ -36,7 +38,7 @@ function FloatingTabBar({ state, navigation, tabs }: BottomTabBarProps & { tabs:
   const x = useSharedValue(activeIdx * itemW);
 
   useEffect(() => {
-    x.value = withSpring(activeIdx * itemW, { damping: 20, stiffness: 220, mass: 0.8 });
+    x.value = withSpring(activeIdx * itemW, { damping: 18, stiffness: 240, mass: 0.7 });
   }, [activeIdx, itemW, x]);
 
   const lens = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
@@ -44,12 +46,44 @@ function FloatingTabBar({ state, navigation, tabs }: BottomTabBarProps & { tabs:
   return (
     <View
       pointerEvents="box-none"
-      style={{ position: 'absolute', left: 0, right: 0, bottom: Math.max(insets.bottom - 6, 10), alignItems: 'center' }}
+      style={{ position: 'absolute', left: 0, right: 0, bottom: Math.max(insets.bottom - 4, 12), alignItems: 'center' }}
     >
-      <View style={[{ width: barW, height: BAR_H, borderRadius: BAR_H / 2, overflow: 'hidden', backgroundColor: Platform.OS === 'android' ? colors.ink : 'rgba(12,14,11,0.9)' }, shadow.lg]}>
-        {Platform.OS === 'ios' ? <BlurView intensity={40} tint="dark" style={{ position: 'absolute', inset: 0 }} /> : null}
-        <Animated.View style={[{ position: 'absolute', top: 7, left: 0, width: itemW, height: BAR_H - 14, alignItems: 'center' }, lens]}>
-          <View style={{ width: itemW - 14, height: '100%', borderRadius: (BAR_H - 14) / 2, backgroundColor: 'rgba(198,220,74,0.14)', borderWidth: 1, borderColor: 'rgba(198,220,74,0.28)' }} />
+      <View
+        style={[
+          {
+            width: barW,
+            height: BAR_H,
+            borderRadius: BAR_H / 2,
+            borderCurve: 'continuous',
+            overflow: 'hidden',
+            backgroundColor: Platform.OS === 'android' ? colors.ink : 'rgba(12,14,11,0.86)',
+            borderWidth: 1,
+            borderColor: 'rgba(250,247,240,0.08)',
+          },
+          shadow.lg,
+        ]}
+      >
+        {Platform.OS === 'ios' ? <BlurView intensity={50} tint="dark" style={{ position: 'absolute', inset: 0 }} /> : null}
+        <LinearGradient
+          pointerEvents="none"
+          colors={['rgba(250,247,240,0.08)', 'rgba(250,247,240,0)']}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 0.6 }}
+          style={{ position: 'absolute', inset: 0 }}
+        />
+        <Animated.View style={[{ position: 'absolute', top: LENS_PAD, left: 0, width: itemW, height: BAR_H - LENS_PAD * 2 - 2, alignItems: 'center' }, lens]}>
+          <View
+            style={{
+              width: itemW - 8,
+              height: '100%',
+              borderRadius: (BAR_H - LENS_PAD * 2) / 2,
+              backgroundColor: colors.volt,
+              boxShadow: '0px 4px 14px rgba(198,220,74,0.35)',
+              overflow: 'hidden',
+            }}
+          >
+            <LinearGradient colors={['rgba(255,255,255,0.35)', 'rgba(255,255,255,0)']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={{ position: 'absolute', inset: 0 }} />
+          </View>
         </Animated.View>
         <View style={{ flexDirection: 'row', flex: 1 }}>
           {visible.map((route) => {
@@ -73,7 +107,7 @@ function FloatingTabBar({ state, navigation, tabs }: BottomTabBarProps & { tabs:
                 style={{ width: itemW, alignItems: 'center', justifyContent: 'center', gap: 3 }}
               >
                 <View>
-                  <Icon size={21} color={focused ? colors.volt : colors.paperMuted} strokeWidth={focused ? 2 : 1.6} />
+                  <Icon size={21} color={focused ? colors.ink : colors.paperMuted} strokeWidth={focused ? 2.1 : 1.7} />
                   {tab.badge ? (
                     <View
                       style={{
@@ -97,10 +131,10 @@ function FloatingTabBar({ state, navigation, tabs }: BottomTabBarProps & { tabs:
                 </View>
                 <Text
                   style={{
-                    fontFamily: focused ? fonts.sansSemi : fonts.sansMedium,
+                    fontFamily: focused ? fonts.sansBold : fonts.sansMedium,
                     fontSize: 10.5,
                     letterSpacing: 0.2,
-                    color: focused ? colors.paper : colors.paperMuted,
+                    color: focused ? colors.ink : colors.paperMuted,
                   }}
                   numberOfLines={1}
                 >

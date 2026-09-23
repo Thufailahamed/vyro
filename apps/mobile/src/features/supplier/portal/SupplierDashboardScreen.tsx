@@ -3,18 +3,18 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ArrowRight,
+  ArrowUpRight,
   Banknote,
   ChartColumn,
   FileText,
   Package,
+  PackageOpen,
   Plus,
   Sparkles,
   Store,
   TriangleAlert,
   Truck,
   Warehouse,
-  type LucideIcon,
 } from 'lucide-react-native';
 import { useSupplierId } from '@/lib/auth';
 import { api } from '@/lib/api';
@@ -24,17 +24,22 @@ import {
   Card,
   EmptyState,
   ErrorState,
+  IconTile,
   InkHero,
   Kicker,
   ListRow,
   Pulse,
+  QuickAction,
+  QuickActions,
   Screen,
   SkeletonList,
+  Stat,
+  StatGrid,
   StatusBadge,
   Text,
   Touchable,
 } from '@/ui';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { usePurchaseOrders, PENDING_SET, TRANSIT_SET, DONE_SET } from '@/features/supplier/ops/api';
 import { useOffers } from '@/features/supplier/catalog/api';
 import { Enter, LivePill, NotificationsBell, RfqPill, Section, StepStrip, VerificationBanner, LearningCta } from '@/features/supplier/ops/kit';
@@ -46,39 +51,17 @@ function go(path: string) {
   router.push(path as never);
 }
 
-const QUICK_ACTIONS: { label: string; icon: LucideIcon; path: string }[] = [
-  { label: 'Inventory', icon: Warehouse, path: '/supplier/inventory' },
-  { label: 'Deliveries', icon: Truck, path: '/supplier/deliveries' },
-  { label: 'Payments', icon: Banknote, path: '/supplier/payments' },
-  { label: 'Analytics', icon: ChartColumn, path: '/supplier/analytics' },
-];
-
-const HERO_TONE = { volt: colors.volt, paper: colors.paper, amber: colors.amberSoft, mint: colors.mintSoft } as const;
-
-/** Compact metric cell for the ink hero's stat panel. */
-function HeroStat({ label, value, sub, tone = 'paper', first }: { label: string; value: string; sub: string; tone?: keyof typeof HERO_TONE; first?: boolean }) {
-  return (
-    <View style={{ flex: 1, minWidth: 0, paddingVertical: 12, paddingHorizontal: 12, gap: 3, borderLeftWidth: first ? 0 : 1, borderLeftColor: colors.paperLine }}>
-      <Text variant="overline" color="paperMuted" numberOfLines={1} style={{ fontSize: 9.5, letterSpacing: 1 }}>
-        {label}
-      </Text>
-      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 20, lineHeight: 25, letterSpacing: -0.7, color: HERO_TONE[tone] }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-        {value}
-      </Text>
-      <Text variant="caption" color="paperFaint" numberOfLines={1} style={{ fontSize: 10.5 }}>
-        {sub}
-      </Text>
-    </View>
-  );
-}
-
 /** Fulfilment stage column — equal width, no horizontal scroll. */
 function StageCell({ label, count, amount, color, onPress }: { label: string; count: number; amount: string; color: string; onPress: () => void }) {
   return (
     <Touchable
       onPress={onPress}
       hapticOnPress
-      style={{ flex: 1, minWidth: 0, padding: 12, gap: 6, borderRadius: radii.xl, backgroundColor: count ? colors.pearl : colors.paper, borderWidth: 1, borderColor: count ? colors.line : colors.lineSoft }}
+      scaleTo={0.96}
+      style={[
+        { flex: 1, minWidth: 0, padding: 12, gap: 6, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: count ? colors.paper : colors.pearl },
+        count ? shadow.sm : null,
+      ]}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         {count ? <Pulse color={color} size={6} /> : <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.ink6 }} />}
@@ -181,9 +164,9 @@ export function SupplierDashboardScreen() {
       <VerificationBanner />
       <LearningCta />
 
-      {/* Facility hero — status, settled revenue, quick stats, primary actions */}
+      {/* Facility hero — status, settled revenue and the main shortcuts */}
       <Enter i={2}>
-        <InkHero seed={`supplier-${sid}`} style={{ padding: 18 }}>
+        <InkHero seed={`supplier-${sid}`} style={{ padding: 20 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <View
               style={{
@@ -194,22 +177,20 @@ export function SupplierDashboardScreen() {
                 height: 26,
                 flexShrink: 1,
                 borderRadius: radii.pill,
-                borderWidth: 1,
-                borderColor: verified ? 'rgba(94,168,130,0.4)' : 'rgba(198,220,74,0.35)',
-                backgroundColor: verified ? 'rgba(94,168,130,0.14)' : 'rgba(198,220,74,0.12)',
+                backgroundColor: verified ? 'rgba(61,139,110,0.2)' : 'rgba(198,220,74,0.14)',
               }}
             >
               <Pulse color={verified ? colors.mint : colors.volt} size={5} />
-              <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: fonts.monoMedium, fontSize: 9.5, letterSpacing: 0.6, color: verified ? colors.mint : colors.volt }}>
+              <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: fonts.monoMedium, fontSize: 9.5, letterSpacing: 0.6, color: verified ? colors.mintSoft : colors.volt }}>
                 {verified ? 'VERIFIED HUB' : 'FACILITY REGISTERED'}
               </Text>
             </View>
             <LivePill dark label="Live · 30s" fetching={orders.isFetching || payments.isFetching} />
           </View>
 
-          <View style={{ marginTop: 20, gap: 6 }}>
+          <View style={{ marginTop: 22, gap: 6 }}>
             <Kicker color="volt">Settled revenue</Kicker>
-            <Text variant="metric" color="paper" adjustsFontSizeToFit numberOfLines={1} style={{ fontSize: 38, lineHeight: 42 }}>
+            <Text variant="metric" color="paper" adjustsFontSizeToFit numberOfLines={1} style={{ fontSize: 40, lineHeight: 44 }}>
               {formatCompactLKR(revenue)}
             </Text>
             <Text variant="caption" color="paperMuted">
@@ -217,64 +198,40 @@ export function SupplierDashboardScreen() {
             </Text>
           </View>
 
-          <View
-            style={{
-              flexDirection: 'row',
-              marginTop: 18,
-              borderRadius: radii.xl,
-              backgroundColor: 'rgba(12,14,11,0.55)',
-              borderWidth: 1,
-              borderColor: colors.paperLine,
-            }}
-          >
-            <HeroStat first label="Listings" value={String(offerList.length)} sub={lowStock.length ? `${lowStock.length} low / out` : `${activeOffers} in stock`} tone="volt" />
-            <HeroStat label="Pipeline" value={formatCompactLKR(pipelineValue)} sub={`${orderList.length} ${orderList.length === 1 ? 'PO' : 'POs'}`} />
-            <HeroStat label="Dispatch" value={String(pending.length)} sub={pending.length ? 'Needs action' : 'All clear'} tone={pending.length ? 'amber' : 'mint'} />
-          </View>
+          <View style={{ height: 1, backgroundColor: colors.paperLine, marginVertical: 20 }} />
 
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-            <Button
-              title={pending.length ? `Dispatch · ${pending.length}` : 'Dispatch queue'}
-              icon={Package}
-              variant="volt"
-              size="sm"
-              style={{ flex: 1, height: 44 }}
-              onPress={() => go('/supplier/orders')}
-            />
-            <Button title="Add product" icon={Plus} variant="outlinePaper" size="sm" style={{ flex: 1, height: 44 }} onPress={() => go('/supplier/products/new')} />
-          </View>
+          <QuickActions>
+            <QuickAction icon={Plus} label="Product" tone="volt" onPress={() => go('/supplier/products/new')} />
+            <QuickAction icon={Package} label="Dispatch" tone="glass" badge={pending.length} onPress={() => go('/supplier/orders')} />
+            <QuickAction icon={FileText} label="Quotes" tone="glass" badge={openRfqs.length} onPress={() => go('/supplier/quotes')} />
+            <QuickAction icon={Banknote} label="Payments" tone="glass" onPress={() => go('/supplier/payments')} />
+          </QuickActions>
         </InkHero>
       </Enter>
 
-      {/* Quick actions */}
+      {/* Key figures */}
       <Enter i={3}>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {QUICK_ACTIONS.map((q) => (
-            <Touchable
-              key={q.path}
-              onPress={() => go(q.path)}
-              hapticOnPress
-              accessibilityRole="button"
-              accessibilityLabel={q.label}
-              style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: 8, paddingVertical: 14, borderRadius: radii.xl, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.lineSoft }}
-            >
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-                <q.icon size={18} color={colors.volt} strokeWidth={1.8} />
-              </View>
-              <Text variant="caption" weight="semibold" color="ink2" numberOfLines={1}>
-                {q.label}
-              </Text>
-            </Touchable>
-          ))}
-        </View>
+        <StatGrid>
+          <Stat
+            icon={Warehouse}
+            label="Listings"
+            value={offerList.length}
+            hint={lowStock.length ? `${lowStock.length} low / out` : `${activeOffers} in stock`}
+            accent
+            onPress={() => go('/supplier/inventory')}
+          />
+          <Stat icon={ChartColumn} label="Pipeline" value={formatCompactLKR(pipelineValue)} hint={`${orderList.length} ${orderList.length === 1 ? 'PO' : 'POs'} · analytics`} onPress={() => go('/supplier/analytics')} />
+          <Stat icon={PackageOpen} label="Dispatch" value={pending.length} hint={pending.length ? 'Needs action' : 'All clear'} onPress={() => go('/supplier/orders')} />
+          <Stat icon={Truck} label="In transit" value={transit.length} hint="Track deliveries" onPress={() => go('/supplier/deliveries')} />
+        </StatGrid>
       </Enter>
 
       {/* Order pipeline */}
       {orderList.length ? (
         <Enter i={4}>
           <Section icon={Truck} kicker="Fulfilment flow" title="Order pipeline" action={{ label: 'Orders', onPress: () => go('/supplier/orders') }}>
-            <View style={{ flexDirection: 'row', gap: 3, height: 6 }}>
-              {stages.map((s) => (s.list.length ? <View key={s.label} style={{ flex: s.list.length, borderRadius: 3, backgroundColor: s.color }} /> : null))}
+            <View style={{ flexDirection: 'row', gap: 3, height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: colors.mist }}>
+              {stages.map((s) => (s.list.length ? <View key={s.label} style={{ flex: s.list.length, backgroundColor: s.color }} /> : null))}
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {stages.map((s) => (
@@ -304,7 +261,7 @@ export function SupplierDashboardScreen() {
                 { title: 'Go live', hint: 'Your storefront opens to commercial buyers.' },
               ]}
             />
-            <Button title="Publish first product" icon={Store} variant="primary" onPress={() => go('/supplier/products/new')} />
+            <Button title="Publish first product" icon={Store} variant="primary" full onPress={() => go('/supplier/products/new')} />
           </Section>
         </Enter>
       ) : null}
@@ -317,11 +274,12 @@ export function SupplierDashboardScreen() {
           ) : pending.length === 0 ? (
             <EmptyState compact title="Queue clear" message="Incoming purchase orders will appear here." />
           ) : (
-            <View>
+            <View style={{ marginTop: -8, marginBottom: -10 }}>
               {pending.slice(0, 4).map((o, i) => (
                 <ListRow
                   key={o.id}
                   icon={Package}
+                  iconTone="paper"
                   title={o.poNumber || o.id.slice(0, 12)}
                   subtitle={`${humanize(o.status)} · ${o.deliveryCity ?? 'Commercial dock'}`}
                   meta={`${formatLKR(o.totalCents)} · ${formatDate(o.createdAt)}`}
@@ -343,11 +301,12 @@ export function SupplierDashboardScreen() {
           ) : recentQuotes.length === 0 ? (
             <EmptyState compact icon={FileText} title="No quote requests" message="Buyer RFQs routed to your depot appear here." />
           ) : (
-            <View>
+            <View style={{ marginTop: -8, marginBottom: -10 }}>
               {recentQuotes.map((r, i) => (
                 <ListRow
                   key={r.rfq.id}
                   icon={FileText}
+                  iconTone="copper"
                   title={r.rfq.title}
                   subtitle={`${r.rfq.rfqNumber} · ${r.itemCount} items`}
                   trailing={<RfqPill status={r.rfq.status} size="sm" />}
@@ -366,7 +325,7 @@ export function SupplierDashboardScreen() {
           {lowStock.length === 0 ? (
             <EmptyState compact icon={Warehouse} title="Stock healthy" message="All depot allocations are above threshold." />
           ) : (
-            <View>
+            <View style={{ marginTop: -8, marginBottom: -10 }}>
               {lowStock.slice(0, 4).map((o, i) => (
                 <ListRow
                   key={o.id}
@@ -385,20 +344,24 @@ export function SupplierDashboardScreen() {
       </Enter>
 
       <Enter i={9}>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
           <RepeatOfferTile supplierId={sid} />
-          <Card kind="flat" padding={14} onPress={() => go('/supplier/leads')} style={{ flex: 1, minWidth: 140, gap: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <FileText size={14} color={colors.copper} />
-              <Text variant="overline" color="ink4" numberOfLines={1} style={{ flex: 1 }}>
+          <Card kind="flat" padding={16} onPress={() => go('/supplier/leads')} style={{ flex: 1, minWidth: 140, gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <IconTile icon={FileText} tone="copper" size={34} />
+              <View style={{ width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bone }}>
+                <ArrowUpRight size={14} color={colors.ink4} strokeWidth={2} />
+              </View>
+            </View>
+            <View style={{ gap: 3 }}>
+              <Text variant="metricSm">{openRfqs.length}</Text>
+              <Text variant="caption" weight="semibold" color="ink3" numberOfLines={1}>
                 Open RFQs
               </Text>
-              <ArrowRight size={14} color={colors.ink4} />
+              <Text variant="caption" color="ink5">
+                Quote fast to win the order
+              </Text>
             </View>
-            <Text variant="metricSm">{openRfqs.length}</Text>
-            <Text variant="caption" color="ink4">
-              Quote fast to win the order
-            </Text>
           </Card>
         </View>
       </Enter>

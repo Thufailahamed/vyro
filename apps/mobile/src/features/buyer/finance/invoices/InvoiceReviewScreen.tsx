@@ -107,7 +107,7 @@ export function InvoiceReviewScreen() {
         {saved ? <Banner tone="success" title="Review saved" message="This invoice now counts toward spend analytics." /> : null}
 
         {reading ? (
-          <Card kind="bone" padding={24} style={{ alignItems: 'center', gap: 8 }}>
+          <Card kind="elevated" padding={28} style={{ alignItems: 'center', gap: 10 }}>
             <Loader label={status === 'pending' ? 'Queued for OCR…' : 'Reading invoice…'} />
             <Text variant="caption" color="ink4" align="center">
               This usually takes a few seconds. The page refreshes automatically.
@@ -127,11 +127,16 @@ export function InvoiceReviewScreen() {
             </View>
 
             {lines.map((l, i) => (
-              <Card key={l.id ?? i} padding={12} style={{ gap: 10 }}>
+              <Card key={l.id ?? i} padding={14} style={{ gap: 10 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text variant="overline" color="ink4">
-                    Line {l.lineNumber || i + 1}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={{ width: 32, height: 32, borderRadius: 11, borderCurve: 'continuous', backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: colors.volt }}>{l.lineNumber || i + 1}</Text>
+                    </View>
+                    <Text variant="overline" color="ink4">
+                      Line {l.lineNumber || i + 1}
+                    </Text>
+                  </View>
                   <IconButton icon={Trash2} variant="ghost" size={32} accessibilityLabel="Remove line" onPress={() => setLines((p) => p.filter((_, x) => x !== i))} />
                 </View>
                 <Input value={l.description} onChangeText={(v) => updateLine(i, { description: v })} placeholder="Description" />
@@ -163,11 +168,11 @@ export function InvoiceReviewScreen() {
 
             <Button title="Add line" icon={Plus} variant="secondary" full onPress={() => setLines((p) => [...p, { id: `new-${p.length}`, lineNumber: p.length + 1, description: '', quantity: 1, unit: 'unit', unitPriceCents: 0, totalCents: 0, categorySlug: 'other', categorySource: 'manual' }])} />
 
-            <Card kind="ink" padding={16} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Card kind="ink" padding={18} flow="invoice-total" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text variant="bodySm" color="paperMuted">
                 Invoice total
               </Text>
-              <Text style={{ fontFamily: fonts.monoMedium, fontSize: 20, color: colors.volt }}>{formatLKR(totalCents)}</Text>
+              <Text style={{ fontFamily: fonts.monoMedium, fontSize: 22, letterSpacing: -0.6, color: colors.volt }}>{formatLKR(totalCents)}</Text>
             </Card>
           </>
         ) : null}

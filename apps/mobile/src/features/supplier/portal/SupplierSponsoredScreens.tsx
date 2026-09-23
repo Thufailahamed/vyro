@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Megaphone, Plus } from 'lucide-react-native';
+import { BadgeCheck, CreditCard, LayoutGrid, Layers, Megaphone, Package, Plus, Receipt, Rocket, XCircle } from 'lucide-react-native';
+import { colors, fonts } from '@/theme/tokens';
 import { api, errorMessage, qs } from '@/lib/api';
 import { useSupplierId } from '@/lib/auth';
 import { formatDate, formatLKR } from '@/lib/format';
@@ -13,14 +14,17 @@ import {
   EmptyState,
   ErrorState,
   Field,
+  IconTile,
+  InkHero,
+  Kicker,
   MenuGrid,
   MenuTile,
+  QuickAction,
+  QuickActions,
   Screen,
   Segmented,
   Select,
   SkeletonList,
-  Stat,
-  StatGrid,
   StatusBadge,
   Stepper,
   Text,
@@ -34,6 +38,7 @@ import {
   useSponsorSubscription,
 } from './api';
 import { useCatalog } from '@/features/supplier/catalog/api';
+import { Enter, HeroMetric, ItemCard, Section } from '@/features/supplier/ops/kit';
 
 /* ---------------------------------- Hub ---------------------------------- */
 
@@ -46,16 +51,28 @@ export function SupplierSponsoredHubScreen() {
 
   return (
     <Screen back onRefresh={() => Promise.all([campaigns.refetch(), invoices.refetch()])} kicker="Growth" title="Sponsored" subtitle="Boost listings across search and category surfaces.">
-      <StatGrid>
-        <Stat label="Live campaigns" value={active} />
-        <Stat label="Pending invoices" value={pendingInvoices} />
-      </StatGrid>
+      <InkHero seed="sponsored-hub">
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <IconTile icon={Megaphone} tone="glass" size={40} />
+          <Kicker color="volt">Boost performance</Kicker>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 14, marginTop: 18 }}>
+          <HeroMetric label="Live campaigns" value={String(active)} sub="Running now" tone="volt" style={{ flex: 1 }} />
+          <HeroMetric label="Pending invoices" value={String(pendingInvoices)} sub={pendingInvoices ? 'Awaiting payment' : 'All settled'} tone={pendingInvoices ? 'amber' : 'paper'} style={{ flex: 1 }} />
+        </View>
+        <View style={{ height: 1, backgroundColor: colors.paperLine, marginVertical: 18 }} />
+        <QuickActions>
+          <QuickAction icon={Plus} label="New" tone="volt" onPress={() => router.push('/supplier/sponsored/campaigns/new' as never)} />
+          <QuickAction icon={Rocket} label="Campaigns" tone="glass" onPress={() => router.push('/supplier/sponsored/campaigns' as never)} />
+          <QuickAction icon={Receipt} label="Invoices" tone="glass" badge={pendingInvoices} onPress={() => router.push('/supplier/sponsored/invoices' as never)} />
+        </QuickActions>
+      </InkHero>
       <MenuGrid>
-        <MenuTile icon={Plus} label="Plans" hint="Slot credit bundles" onPress={() => router.push('/supplier/sponsored/plans' as never)} />
-        <MenuTile icon={Megaphone} label="Subscription" hint="Current plan" onPress={() => router.push('/supplier/sponsored/subscriptions' as never)} />
-        <MenuTile icon={Megaphone} label="Slots" hint="Browse surfaces" onPress={() => router.push('/supplier/sponsored/slots' as never)} />
-        <MenuTile icon={Megaphone} label="Campaigns" hint="My promotions" onPress={() => router.push('/supplier/sponsored/campaigns' as never)} />
-        <MenuTile icon={Megaphone} label="Invoices" hint="Billing" onPress={() => router.push('/supplier/sponsored/invoices' as never)} />
+        <MenuTile icon={Layers} label="Plans" hint="Slot credit bundles" onPress={() => router.push('/supplier/sponsored/plans' as never)} />
+        <MenuTile icon={BadgeCheck} label="Subscription" hint="Current plan" onPress={() => router.push('/supplier/sponsored/subscriptions' as never)} />
+        <MenuTile icon={LayoutGrid} label="Slots" hint="Browse surfaces" onPress={() => router.push('/supplier/sponsored/slots' as never)} />
+        <MenuTile icon={Rocket} label="Campaigns" hint="My promotions" onPress={() => router.push('/supplier/sponsored/campaigns' as never)} />
+        <MenuTile icon={Receipt} label="Invoices" hint="Billing" badge={pendingInvoices} onPress={() => router.push('/supplier/sponsored/invoices' as never)} />
       </MenuGrid>
       <Button title="New campaign" icon={Plus} full onPress={() => router.push('/supplier/sponsored/campaigns/new' as never)} />
     </Screen>
@@ -97,15 +114,31 @@ export function SupplierSponsoredPlansScreen() {
       {(plans.data ?? []).length === 0 ? (
         <EmptyState icon={Megaphone} title="No plans" message="Sponsored plans appear here when published." />
       ) : (
-        (plans.data ?? []).map((p) => (
-          <Card key={p.id} kind="flat" style={{ gap: 6 }}>
-            <Text variant="h2">{p.name}</Text>
-            <Text variant="caption" color="ink4">
-              {p.includedSlotCredits} slot credits included
-            </Text>
-            <Text variant="metricSm">{formatLKR(p.monthlyRateCents)}</Text>
-            <Button title="Subscribe" size="sm" disabled={!p.active || sub.isPending} onPress={() => sub.mutate(p.id)} />
-          </Card>
+        (plans.data ?? []).map((p, i) => (
+          <Enter key={p.id} i={i}>
+            <Card kind={i === 0 ? 'ink' : 'flat'} flow={i === 0 ? `plan-${p.id}` : undefined} padding={18} style={{ gap: 14 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <IconTile icon={Layers} tone={i === 0 ? 'glass' : 'volt'} size={42} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text variant="h2" color={i === 0 ? 'paper' : 'ink'}>
+                    {p.name}
+                  </Text>
+                  <Text variant="caption" color={i === 0 ? 'paperMuted' : 'ink4'}>
+                    {p.includedSlotCredits} slot credits included
+                  </Text>
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+                <Text variant="metric" color={i === 0 ? 'paper' : 'ink'} style={{ fontSize: 30, lineHeight: 34 }}>
+                  {formatLKR(p.monthlyRateCents)}
+                </Text>
+                <Text variant="caption" color={i === 0 ? 'paperFaint' : 'ink5'}>
+                  / month
+                </Text>
+              </View>
+              <Button title="Subscribe" variant={i === 0 ? 'volt' : 'primary'} full disabled={!p.active || sub.isPending} onPress={() => sub.mutate(p.id)} />
+            </Card>
+          </Enter>
         ))
       )}
     </Screen>
@@ -151,16 +184,15 @@ export function SupplierSponsoredSubscriptionsScreen() {
       {!s ? (
         <EmptyState icon={Megaphone} title="No subscription" message="Pick a plan to start boosting listings." action={{ label: 'View plans', onPress: () => router.push('/supplier/sponsored/plans' as never) }} />
       ) : (
-        <Card kind="flat" style={{ gap: 6 }}>
-          <StatusBadge status={s.status} size="sm" />
-          <Text variant="body" weight="semibold">
-            Plan {s.planId ?? s.id.slice(0, 8)}
-          </Text>
-          <Text variant="caption" color="ink4">
-            {s.currentPeriodEnd ? `Renews ${formatDate(s.currentPeriodEnd)}` : 'Active'}
-          </Text>
-          <Button title="Cancel subscription" variant="secondary" size="sm" onPress={() => setConfirm(true)} />
-        </Card>
+        <ItemCard
+          icon={BadgeCheck}
+          iconTone="volt"
+          title={`Plan ${s.planId ?? s.id.slice(0, 8)}`}
+          subtitle={s.currentPeriodEnd ? `Renews ${formatDate(s.currentPeriodEnd)}` : 'Active'}
+          badge={<StatusBadge status={s.status} size="sm" />}
+        >
+          <Button title="Cancel subscription" icon={XCircle} variant="secondary" size="sm" full onPress={() => setConfirm(true)} />
+        </ItemCard>
       )}
       <ConfirmSheet
         visible={confirm}
@@ -202,13 +234,20 @@ export function SupplierSponsoredSlotsScreen() {
       {(q.data ?? []).length === 0 ? (
         <EmptyState icon={Megaphone} title="No slots" message="Slots open up as inventory frees." />
       ) : (
-        (q.data ?? []).map((s) => (
-          <Card key={s.id} kind="flat" style={{ gap: 4 }}>
-            <Text variant="h3">{s.label}</Text>
-            <Text variant="caption" color="ink4">
-              {s.surface} · Position {s.position} · {formatLKR(s.dailyRateCents)}/day
-            </Text>
-          </Card>
+        (q.data ?? []).map((s, i) => (
+          <Enter key={s.id} i={i}>
+            <ItemCard
+              leading={
+                <View style={{ width: 44, height: 44, borderRadius: 14, borderCurve: 'continuous', backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: fonts.monoMedium, fontSize: 14, color: colors.volt }}>#{s.position}</Text>
+                </View>
+              }
+              title={s.label}
+              subtitle={`${s.surface} · Position ${s.position}`}
+              amount={formatLKR(s.dailyRateCents)}
+              amountSub="per day"
+            />
+          </Enter>
         ))
       )}
     </Screen>
@@ -252,20 +291,21 @@ export function SupplierSponsoredCampaignsScreen() {
       {(q.data ?? []).length === 0 ? (
         <EmptyState icon={Megaphone} title="No campaigns" message="Launch your first boost to win placement." action={{ label: 'New campaign', onPress: () => router.push('/supplier/sponsored/campaigns/new' as never) }} />
       ) : (
-        (q.data ?? []).map((c) => (
-          <Card key={c.id} kind="flat" style={{ gap: 6 }}>
-            <StatusBadge status={c.status} size="sm" />
-            <Text variant="body" weight="semibold">
-              Slot {c.slotId.slice(0, 8)}
-            </Text>
-            <Text variant="caption" color="ink4">
-              {formatDate(c.startsAt)} – {formatDate(c.endsAt)}
-              {c.adminNotes ? ` · ${c.adminNotes}` : ''}
-            </Text>
-            {!['live', 'expired', 'rejected', 'revoked', 'cancelled'].includes(c.status) ? (
-              <Button title="Cancel" variant="secondary" size="sm" onPress={() => setPending(c.id)} />
-            ) : null}
-          </Card>
+        (q.data ?? []).map((c, i) => (
+          <Enter key={c.id} i={i}>
+            <ItemCard
+              icon={Rocket}
+              iconTone={c.status === 'live' ? 'volt' : ['rejected', 'revoked'].includes(c.status) ? 'danger' : 'paper'}
+              title={`Slot ${c.slotId.slice(0, 8)}`}
+              subtitle={`${formatDate(c.startsAt)} – ${formatDate(c.endsAt)}`}
+              meta={c.adminNotes ?? undefined}
+              badge={<StatusBadge status={c.status} size="sm" />}
+            >
+              {!['live', 'expired', 'rejected', 'revoked', 'cancelled'].includes(c.status) ? (
+                <Button title="Cancel" icon={XCircle} variant="secondary" size="sm" full onPress={() => setPending(c.id)} />
+              ) : null}
+            </ItemCard>
+          </Enter>
         ))
       )}
       <ConfirmSheet
@@ -311,16 +351,20 @@ export function SupplierSponsoredCampaignFormScreen() {
       ) : slots.isError ? (
         <ErrorState message={errorMessage(slots.error)} onRetry={() => slots.refetch()} />
       ) : (
-        <Field label="Slot" required>
-          <Select value={slotId} options={(slots.data ?? []).map((s) => ({ value: s.id, label: s.label, hint: `${formatLKR(s.dailyRateCents)}/day` }))} onChange={setSlotId} placeholder="Choose a slot…" title="Slots" />
-        </Field>
+        <Section icon={LayoutGrid} kicker="Step 1" title="Placement" sub="Pick a sponsored search slot.">
+          <Field label="Slot" required>
+            <Select value={slotId} options={(slots.data ?? []).map((s) => ({ value: s.id, label: s.label, hint: `${formatLKR(s.dailyRateCents)}/day` }))} onChange={setSlotId} placeholder="Choose a slot…" title="Slots" />
+          </Field>
+        </Section>
       )}
-      <Field label="Product (optional)">
-        <Select value={productId} options={(catalog.data?.products ?? []).slice(0, 100).map((p) => ({ value: p.id, label: p.name }))} onChange={setProductId} placeholder="Any product…" title="Products" />
-      </Field>
-      <Field label="Duration (days)">
-        <Stepper value={days} onChange={setDays} min={1} max={90} />
-      </Field>
+      <Section icon={Package} kicker="Step 2" title="Product & duration">
+        <Field label="Product (optional)">
+          <Select value={productId} options={(catalog.data?.products ?? []).slice(0, 100).map((p) => ({ value: p.id, label: p.name }))} onChange={setProductId} placeholder="Any product…" title="Products" />
+        </Field>
+        <Field label="Duration (days)">
+          <Stepper value={days} onChange={setDays} min={1} max={90} />
+        </Field>
+      </Section>
     </Screen>
   );
 }
@@ -360,19 +404,19 @@ export function SupplierSponsoredInvoicesScreen() {
       {(q.data ?? []).length === 0 ? (
         <EmptyState icon={Megaphone} title="No invoices" message="Campaign billing appears here." />
       ) : (
-        (q.data ?? []).map((i) => (
-          <Card key={i.id} kind="flat" style={{ gap: 6 }}>
-            <StatusBadge status={i.status} size="sm" />
-            <Text variant="metricSm">{formatLKR(i.amountCents)}</Text>
-            <Text variant="caption" color="ink4">
-              {formatDate(i.createdAt)}
-            </Text>
-            {i.status === 'pending' ? (
-              <View style={{ flexDirection: 'row' }}>
-                <Button title="Pay now" size="sm" loading={pay.isPending} onPress={() => pay.mutate(i.id)} />
-              </View>
-            ) : null}
-          </Card>
+        (q.data ?? []).map((i, idx) => (
+          <Enter key={i.id} i={idx}>
+            <ItemCard
+              icon={Receipt}
+              iconTone={i.status === 'pending' ? 'warning' : i.status === 'paid' ? 'success' : 'paper'}
+              title={`Invoice ${i.id.slice(0, 8)}`}
+              subtitle={formatDate(i.createdAt)}
+              badge={<StatusBadge status={i.status} size="sm" />}
+              amount={formatLKR(i.amountCents)}
+            >
+              {i.status === 'pending' ? <Button title="Pay now" icon={CreditCard} size="sm" full loading={pay.isPending} onPress={() => pay.mutate(i.id)} /> : null}
+            </ItemCard>
+          </Enter>
         ))
       )}
     </Screen>

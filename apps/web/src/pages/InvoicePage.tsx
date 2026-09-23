@@ -4,11 +4,12 @@ import { usePageTitle } from '@/lib/usePageTitle';
 import { api, apiBase } from '@/lib/api';
 import { Button, Surface } from '@/components/ui';
 import { ArrowLeftIcon } from '@/components/icons';
+import { invoiceTypeLabel, type InvoiceType } from '@/lib/orderLifecycle';
 
 interface Invoice {
   id: string;
   number: string;
-  type: 'receipt' | 'tax_invoice';
+  type: InvoiceType;
   totalCents: number;
   currency: string;
   issuedAt: number;
@@ -53,7 +54,7 @@ export function InvoicePage() {
       <Surface className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <div className="vyro-kicker">{data.invoice.type === 'tax_invoice' ? 'Tax Invoice' : 'Receipt'}</div>
+            <div className="vyro-kicker">{invoiceTypeLabel(data.invoice.type)}</div>
             <h1 className="mt-1 font-display text-2xl">{data.invoice.number}</h1>
           </div>
           <div className="flex gap-2">

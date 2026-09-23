@@ -263,7 +263,7 @@ export async function handleWeeklyPayoutBatch(
 
   const { listSuppliersWithConfirmedPaymentsSince, aggregatePayableForSupplier, createPayout } =
     await import('../modules/payouts/repository');
-  const { getOrCreateSupplierSettings } = await import('../modules/settings/supplierRepository');
+  const { readSupplierSettingsForSystem } = await import('../modules/settings/supplierRepository');
 
   const suppliers = await listSuppliersWithConfirmedPaymentsSince(env.DB, periodStart);
   const perSupplier: Array<{
@@ -285,8 +285,9 @@ export async function handleWeeklyPayoutBatch(
         perSupplier.push({ supplierId: s.supplierId, status: 'empty' });
         continue;
       }
-      const settings = await getOrCreateSupplierSettings(env.DB, s.supplierId, 'cron');
-      const method = (settings.payoutMethod ?? 'bank') as 'bank' | 'cash';
+      // System read: the membership-checked getter would 404 for the cron actor.
+      const settings = await readSupplierSettingsForSystem(env.DB, s.supplierId);
+      const method = (settings?.payoutMethod ?? 'bank') as 'bank' | 'cash';
       try {
         await createPayout(env.DB, {
           supplierId: s.supplierId,

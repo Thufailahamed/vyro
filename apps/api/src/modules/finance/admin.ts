@@ -174,86 +174,13 @@ async function transitionRefund(
     if (already + (refund as any).amountCents > payment.amountCents) {
       throw httpError(400, 'REFUND_EXCEEDS_REMAINING_AMOUNT', 'Refund would exceed paid amount');
     }
-    const feeRefund = payment.feeCents > 0 ? Math.round((((refund as any).amountCents as number) * payment.feeCents) / payment.amountCents) : 0;
-    await db.transaction(async (tx) => {
-      tx.update(refundsTable)
-        .set({
-          status: 'completed',
-          feeRefundCents: feeRefund,
-          providerReference: opts.providerReference ?? (refund as any).providerReference ?? null,
-          processedAt: now,
-          completedAt: now,
-          updatedAt: now,
-        })
-        .where(eq(refundsTable.id, refundId))
-        .run();
-      const newTotal = already + (refund as any).amountCents;
-      if (newTotal >= payment.amountCents) {
-        tx.update(payments).set({ status: 'refunded', updatedAt: now }).where(eq(payments.id, payment.id)).run();
-      } else if ((payment.status as string) === 'confirmed') {
-        // Partial refund is tracked on the refund rows; payment stays paid
-        // until fully refunded (canonical PARTIALLY_REFUNDED view).
-      }
-      // Refund accounting (spec §20): reverse business credit + platform fee
-      // pro-rata, and shrink the supplier earning by the refunded share.
-      writeLedgerEntry(tx as any, {
-        accountType: 'business',
-        accountId: po.businessId,
-        direction: 'debit',
-        amountCents: (refund as any).amountCents,
-        currency: payment.currency,
-        refType: 'refund',
-        refId: refundId,
-        category: 'REFUND',
-        entityType: 'payment',
-        entityId: payment.id,
-        description: `Refund ${(refund as any).refundNumber ?? refundId} for payment ${payment.id}`,
-        createdByUserId: ctx.userId,
-      });
-      if (feeRefund > 0) {
-        writeLedgerEntry(tx as any, {
-          accountType: 'platform',
-          accountId: 'platform',
-          direction: 'debit',
-          amountCents: feeRefund,
-          currency: payment.currency,
-          refType: 'refund',
-          refId: refundId,
-          category: 'REFUND_ADJUSTMENT',
-          entityType: 'payment',
-          entityId: payment.id,
-          description: `Platform fee reversal for refund ${refundId}`,
-          createdByUserId: ctx.userId,
-        });
-      }
-    });
-    // Supplier earnings adjustment (outside the money transaction — earning
-    // rows are projections with their own guards).
-    try {
-      const updated = await applyEarningRefundDelta(c.env.DB, payment.id, po.supplierId, (refund as any).amountCents);
-      if (updated) {
-        const dbTx = getDb(c.env.DB);
-        await dbTx.transaction(async (tx) => {
-          writeLedgerEntry(tx as any, {
-            accountType: 'supplier',
-            accountId: po.supplierId,
-            direction: 'debit',
-            amountCents: (refund as any).amountCents,
-            currency: payment.currency,
-            refType: 'refund',
-            refId: refundId,
-            category: 'REFUND_ADJUSTMENT',
-            entityType: 'supplier_earning',
-            entityId: updated.id,
-            description: `Supplier earnings adjustment for refund ${refundId}`,
-            createdByUserId: ctx.userId,
-          });
-        });
-      }
-    } catch (err) {
-      console.error('[admin.refund] earning adjustment failed', err);
+    // Money moves in exactly one place (refunds/executor.ts). A requested
+    // refund may be fast-pathed here, so step it into the in-flight set first.
+    if (from === 'requested') {
+      await updateRefundStatus(c.env.DB, refundId, 'processing', { processedAt: null });
     }
-    await recomputeEligibilityForPayment(c.env.DB, payment.id).catch(() => undefined);
+    const { finalizeRefund } = await import('../refunds/executor');
+    await finalizeRefund(c.env, refundId, { actorUserId: ctx.userId, providerReference: opts.providerReference ?? null });
   } else if (to === 'failed' || to === 'cancelled') {
     const mapped = to === 'cancelled' ? 'failed' : 'failed';
     await updateRefundStatus(c.env.DB, refundId, mapped as never, { processedAt: now, failureReason: opts.reason ?? to });

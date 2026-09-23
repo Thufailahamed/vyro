@@ -1,22 +1,55 @@
 import { type ReactNode } from 'react';
-import { View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import type { LucideIcon } from 'lucide-react-native';
 import { colors, radii, shadow } from '@/theme/tokens';
 import { Touchable } from './Button';
 import { FlowField } from './Brand';
 
 export type SurfaceKind = 'flat' | 'elevated' | 'floating' | 'ink' | 'volt' | 'outline' | 'bone' | 'copper';
 
+/**
+ * Card surfaces. Light cards float on the bone canvas with layered shadows and
+ * a hairline edge; ink and volt cards carry a subtle material sheen.
+ */
 const KIND: Record<SurfaceKind, ViewStyle> = {
-  flat: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.lineSoft },
-  elevated: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.lineSoft, ...shadow.md },
-  floating: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.line, ...shadow.lg },
-  ink: { backgroundColor: colors.ink },
-  volt: { backgroundColor: colors.volt },
-  outline: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.line },
-  bone: { backgroundColor: colors.pearl, borderWidth: 1, borderColor: colors.lineSoft },
-  copper: { backgroundColor: colors.copperSoft, borderWidth: 1, borderColor: 'rgba(184,122,78,0.25)' },
+  flat: { backgroundColor: colors.paper, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(12,14,11,0.06)', ...shadow.card },
+  elevated: { backgroundColor: colors.paper, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(12,14,11,0.05)', ...shadow.md },
+  floating: { backgroundColor: colors.paper, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(12,14,11,0.06)', ...shadow.lg },
+  ink: { backgroundColor: colors.ink, borderWidth: 1, borderColor: 'rgba(250,247,240,0.07)', ...shadow.ink },
+  volt: { backgroundColor: colors.volt, ...shadow.volt },
+  outline: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.line, borderStyle: 'dashed' },
+  bone: { backgroundColor: colors.pearl, borderWidth: 1, borderColor: 'rgba(12,14,11,0.05)' },
+  copper: { backgroundColor: colors.copperSoft, borderWidth: 1, borderColor: 'rgba(184,122,78,0.22)' },
 };
+
+/** Material sheen layered under the content of ink / volt cards. */
+function Sheen({ kind }: { kind: SurfaceKind }) {
+  if (kind === 'ink') {
+    return (
+      <LinearGradient
+        pointerEvents="none"
+        colors={['rgba(250,247,240,0.07)', 'rgba(250,247,240,0)', 'rgba(198,220,74,0.06)']}
+        locations={[0, 0.55, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+    );
+  }
+  if (kind === 'volt') {
+    return (
+      <LinearGradient
+        pointerEvents="none"
+        colors={['rgba(255,255,255,0.35)', 'rgba(255,255,255,0)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+    );
+  }
+  return null;
+}
 
 export interface CardProps {
   kind?: SurfaceKind;
@@ -24,23 +57,29 @@ export interface CardProps {
   style?: StyleProp<ViewStyle>;
   padding?: number;
   onPress?: () => void;
-  /** Adds the seeded flow-line art (ink cards only). */
+  /** Adds the seeded flow-line art. */
   flow?: string;
   radius?: number;
 }
 
-/** The web's Surface: flat / elevated / floating / ink panels, 12px radius. */
+/** The app's card: 20px continuous corners, soft depth, tactile press. */
 export function Card({ kind = 'flat', children, style, padding = 16, onPress, flow, radius = radii.xl }: CardProps) {
-  const base: StyleProp<ViewStyle> = [{ borderRadius: radius, padding, overflow: kind === 'ink' || flow ? 'hidden' : 'visible' }, KIND[kind], style];
+  const clip = kind === 'ink' || kind === 'volt' || !!flow;
+  const base: StyleProp<ViewStyle> = [
+    { borderRadius: radius, borderCurve: 'continuous', padding, overflow: clip ? 'hidden' : 'visible' },
+    KIND[kind],
+    style,
+  ];
   const inner = (
     <>
-      {flow ? <FlowField seed={flow} tone={kind === 'ink' ? 'paper' : 'ink'} opacity={kind === 'ink' ? 0.9 : 0.5} /> : null}
+      <Sheen kind={kind} />
+      {flow ? <FlowField seed={flow} tone={kind === 'ink' ? 'paper' : 'ink'} opacity={kind === 'ink' ? 0.8 : 0.45} /> : null}
       {children}
     </>
   );
   if (onPress) {
     return (
-      <Touchable onPress={onPress} hapticOnPress style={base}>
+      <Touchable onPress={onPress} hapticOnPress scaleTo={0.98} style={base}>
         {inner}
       </Touchable>
     );
@@ -48,24 +87,93 @@ export function Card({ kind = 'flat', children, style, padding = 16, onPress, fl
   return <View style={base}>{inner}</View>;
 }
 
-/** Full-bleed ink hero with grain-like gradient and flow art. */
+/**
+ * Ink hero: deep material panel with a volt glow, copper counter-glow and
+ * seeded flow art — the signature surface at the top of every dashboard.
+ */
 export function InkHero({ children, seed = 'hero', style }: { children: ReactNode; seed?: string; style?: StyleProp<ViewStyle> }) {
   return (
-    <View style={[{ backgroundColor: colors.ink, borderRadius: radii['2xl'], overflow: 'hidden', padding: 20 }, style]}>
+    <View
+      style={[
+        {
+          backgroundColor: colors.ink,
+          borderRadius: radii['2xl'],
+          borderCurve: 'continuous',
+          overflow: 'hidden',
+          padding: 20,
+          borderWidth: 1,
+          borderColor: 'rgba(250,247,240,0.07)',
+        },
+        shadow.ink,
+        style,
+      ]}
+    >
       <LinearGradient
-        colors={['rgba(198,220,74,0.10)', 'rgba(12,14,11,0)', 'rgba(184,122,78,0.14)']}
+        pointerEvents="none"
+        colors={['#23261F', colors.ink, '#0A0B09']}
+        locations={[0, 0.55, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={{ position: 'absolute', inset: 0 }}
+        style={StyleSheet.absoluteFill}
       />
-      <FlowField seed={seed} />
+      <View
+        pointerEvents="none"
+        style={{ position: 'absolute', width: 260, height: 260, borderRadius: 130, top: -150, right: -90, backgroundColor: colors.volt, opacity: 0.1 }}
+      />
+      <View
+        pointerEvents="none"
+        style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, bottom: -140, left: -70, backgroundColor: colors.copper, opacity: 0.12 }}
+      />
+      <FlowField seed={seed} opacity={0.75} />
       {children}
     </View>
   );
 }
 
+/** Tinted rounded-square icon holder used by rows, tiles and section heads. */
+export function IconTile({
+  icon: Icon,
+  tone = 'ink',
+  size = 40,
+  style,
+}: {
+  icon: LucideIcon;
+  tone?: 'ink' | 'volt' | 'copper' | 'paper' | 'danger' | 'success' | 'warning' | 'glass';
+  size?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const map = {
+    ink: { bg: colors.ink, fg: colors.volt },
+    volt: { bg: colors.volt, fg: colors.ink },
+    copper: { bg: colors.copperSoft, fg: colors.copperDeep },
+    paper: { bg: colors.bone, fg: colors.ink },
+    danger: { bg: colors.roseSoft, fg: colors.rose },
+    success: { bg: colors.mintSoft, fg: colors.mint },
+    warning: { bg: colors.amberSoft, fg: colors.amber },
+    glass: { bg: 'rgba(250,247,240,0.09)', fg: colors.volt },
+  }[tone];
+  return (
+    <View
+      style={[
+        {
+          width: size,
+          height: size,
+          borderRadius: size * 0.32,
+          borderCurve: 'continuous',
+          backgroundColor: map.bg,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        style,
+      ]}
+    >
+      <Icon size={size * 0.45} color={map.fg} strokeWidth={1.8} />
+    </View>
+  );
+}
+
 export function Divider({ style, inset = 0, color = colors.lineSoft }: { style?: StyleProp<ViewStyle>; inset?: number; color?: string }) {
-  return <View style={[{ height: 1, backgroundColor: color, marginLeft: inset }, style]} />;
+  return <View style={[{ height: StyleSheet.hairlineWidth * 2, backgroundColor: color, marginLeft: inset }, style]} />;
 }
 
 export function Row({

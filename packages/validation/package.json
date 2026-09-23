@@ -23,7 +23,9 @@
     "./adminRoles": "./src/adminRoles.ts",
     "./adminAudit": "./src/adminAudit.ts",
     "./businessTypes": "./src/businessTypes.ts",
-    "./supplierTypes": "./src/supplierTypes.ts"
+    "./supplierTypes": "./src/supplierTypes.ts",
+    "./wholesale": "./src/wholesale.ts",
+    "./orderLifecycle": "./src/orderLifecycle.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -6,20 +6,21 @@ import { errorMessage } from '@/lib/api';
 import { formatDate, humanize } from '@/lib/format';
 import {
   Avatar,
-  Card,
-  ChipRow,
   EmptyState,
   ErrorState,
   Gutter,
+  ListCard,
   ListHeader,
+  ListRow,
   ListScreen,
   ScreenHeader,
   SearchBar,
+  Segmented,
   SkeletonList,
   StatusBadge,
   Text,
 } from '@/ui';
-import { AdminHeaderActions, LoadMore, Section } from '@/features/admin/ops/kit';
+import { AdminHeaderActions, LoadMore } from '@/features/admin/ops/kit';
 import { Appear, go } from '@/features/admin/platform/kit';
 import type { AdminUserRow, DirectoryRow } from '@/features/admin/common/api';
 import { useAdminList } from '@/features/admin/ops/kit/hooks';
@@ -53,7 +54,7 @@ export function DirectoryScreen() {
             right={<AdminHeaderActions />}
           />
           <Gutter>
-            <ChipRow<Segment> value={segment} onChange={setSegment} options={SEGMENTS} />
+            <Segmented<Segment> value={segment} onChange={setSegment} options={SEGMENTS} />
           </Gutter>
         </ListHeader>
       }
@@ -95,29 +96,29 @@ function SegmentList<T extends DirectoryRow>({
         <EmptyState icon={Icon} title={`No ${kind} found`} message="Try a different search." />
       ) : (
         <>
-          <Section kicker={`${t.rows.length} loaded${t.hasMore ? '+' : ''}`} title={humanize(kind)}>
-            <View style={{ gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6, marginTop: 4 }}>
+            <Text variant="overline" color="ink4">
+              {humanize(kind)}
+            </Text>
+            <Text variant="caption" color="ink5">
+              {t.rows.length} loaded{t.hasMore ? '+' : ''}
+            </Text>
+          </View>
+          <Appear>
+            <ListCard>
               {t.rows.map((r, i) => (
-                <Appear key={r.id} i={i % 10}>
-                  <Card kind="flat" padding={13} onPress={() => go(detailHref(r.id))} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <Avatar name={r.name} size={40} tone={kind === 'suppliers' ? 'ink' : kind === 'businesses' ? 'copper' : 'volt'} />
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text variant="body" weight="semibold" numberOfLines={1}>
-                        {r.name}
-                      </Text>
-                      <Text variant="caption" color="ink4" numberOfLines={1}>
-                        {[r.city, r.district].filter(Boolean).join(', ') || r.email || 'No location'}
-                        {r.createdAt ? ` · ${formatDate(r.createdAt)}` : ''}
-                      </Text>
-                    </View>
-                    {r.status || r.verificationStatus ? (
-                      <StatusBadge status={(r.verificationStatus ?? r.status ?? '') as string} size="sm" />
-                    ) : null}
-                  </Card>
-                </Appear>
+                <ListRow
+                  key={r.id}
+                  title={r.name}
+                  subtitle={`${[r.city, r.district].filter(Boolean).join(', ') || r.email || 'No location'}${r.createdAt ? ` · ${formatDate(r.createdAt)}` : ''}`}
+                  leading={<Avatar name={r.name} size={42} tone={kind === 'suppliers' ? 'ink' : kind === 'businesses' ? 'copper' : 'volt'} />}
+                  trailing={r.status || r.verificationStatus ? <StatusBadge status={(r.verificationStatus ?? r.status ?? '') as string} size="sm" /> : undefined}
+                  last={i === t.rows.length - 1}
+                  onPress={() => go(detailHref(r.id))}
+                />
               ))}
-            </View>
-          </Section>
+            </ListCard>
+          </Appear>
           <LoadMore hasMore={t.hasMore} loading={t.fetchingMore} onPress={t.loadMore} />
           {t.fetchingMore ? <ActivityIndicator color={colors.ink} /> : null}
         </>

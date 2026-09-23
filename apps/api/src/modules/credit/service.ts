@@ -90,10 +90,11 @@ export async function applyRepayment(
   const dd = await tx.select().from(creditDrawdowns).where(eq(creditDrawdowns.id, args.drawdownId)).get() as any;
   if (!dd || dd.businessId !== args.businessId) throw httpError(404, 'NOT_FOUND', 'Drawdown not found');
   if (args.amountCents <= 0) throw httpError(400, 'VALIDATION_ERROR', 'Amount must be positive');
-  const remaining = dd.amountCents - dd.repaidCents;
+  const owed = dd.amountCents - (dd.releasedCents ?? 0);
+  const remaining = owed - dd.repaidCents;
   if (args.amountCents > remaining) throw httpError(400, 'VALIDATION_ERROR', 'Repayment exceeds remaining balance');
   const nextRepaid = dd.repaidCents + args.amountCents;
-  const fullyRepaid = nextRepaid >= dd.amountCents;
+  const fullyRepaid = nextRepaid >= owed;
   tx.update(creditDrawdowns)
     .set({ repaidCents: nextRepaid, status: fullyRepaid ? 'repaid' : dd.status, repaidAt: fullyRepaid ? args.now : dd.repaidAt, updatedAt: args.now })
     .where(eq(creditDrawdowns.id, args.drawdownId))
@@ -119,6 +120,72 @@ export async function applyRepayment(
     createdByUserId: args.userId,
   });
   return { fullyRepaid };
+}
+
+/**
+ * Gives credit back when an order shrinks (partial accept, return) or dies
+ * (cancel, reject, dispute refund). Releases up to the outstanding balance
+ * (amount − repaid − released); anything the buyer already repaid beyond the
+ * new order value is reported back as `overpaidCents` so the caller can
+ * refund it. Idempotent per call only — callers pass deterministic amounts.
+ */
+export async function releaseDrawdown(
+  d1: D1Database,
+  args: { poId: string; amountCents?: number; userId: string | null; reason: string; now?: number },
+): Promise<{ releasedCents: number; overpaidCents: number } | null> {
+  const db = getDb(d1);
+  const now = args.now ?? Date.now();
+  const dd = (await db.select().from(creditDrawdowns).where(eq(creditDrawdowns.purchaseOrderId, args.poId)).get()) as
+    | (typeof creditDrawdowns.$inferSelect)
+    | undefined;
+  if (!dd) return null;
+  const effective = dd.amountCents - dd.releasedCents;
+  const reduceBy = Math.min(args.amountCents ?? effective, effective);
+  if (reduceBy <= 0) return { releasedCents: 0, overpaidCents: 0 };
+  const outstanding = Math.max(0, effective - dd.repaidCents);
+  const releasedCents = Math.min(reduceBy, outstanding);
+  const overpaidCents = reduceBy - releasedCents;
+  const nextReleased = dd.releasedCents + reduceBy;
+  const fullyGone = nextReleased >= dd.amountCents;
+  const settled = dd.repaidCents >= dd.amountCents - nextReleased;
+  await db
+    .update(creditDrawdowns)
+    .set({
+      releasedCents: nextReleased,
+      releasedAt: now,
+      status: fullyGone ? 'released' : settled ? 'repaid' : dd.status,
+      repaidAt: !fullyGone && settled && !dd.repaidAt ? now : dd.repaidAt,
+      updatedAt: now,
+    })
+    .where(eq(creditDrawdowns.id, dd.id))
+    .run();
+  if (releasedCents > 0) {
+    const facility = (await db.select().from(creditFacilities).where(eq(creditFacilities.businessId, dd.businessId)).get()) as
+      | { usedCents: number }
+      | undefined;
+    if (facility) {
+      await db
+        .update(creditFacilities)
+        .set({ usedCents: Math.max(0, facility.usedCents - releasedCents), updatedAt: now })
+        .where(eq(creditFacilities.businessId, dd.businessId))
+        .run();
+    }
+    await writeLedgerEntry(db, {
+      accountType: 'business',
+      accountId: dd.businessId,
+      direction: 'credit',
+      amountCents: releasedCents,
+      currency: 'LKR',
+      refType: 'adjustment',
+      refId: args.poId,
+      category: 'CREDIT',
+      entityType: 'credit_drawdown',
+      entityId: dd.id,
+      description: `Credit released (${args.reason}) for PO ${args.poId}`.slice(0, 500),
+      createdByUserId: args.userId,
+    });
+  }
+  return { releasedCents, overpaidCents };
 }
 
 export async function sweepOverdue(d1: D1Database, now: number): Promise<number> {

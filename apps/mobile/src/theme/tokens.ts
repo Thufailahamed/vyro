@@ -25,7 +25,8 @@ export const colors = {
   copperDeep: '#8C5A38',
   copperSoft: '#E8D4C4',
 
-  paper: '#FAF7F0',
+  /** Card surface — a touch brighter than the bone canvas so cards lift off it. */
+  paper: '#FFFDF9',
   bone: '#F2EEE4',
   pearl: '#F7F4EC',
   mist: '#E5E0D4',
@@ -65,15 +66,16 @@ export const fonts = {
   monoMedium: 'IBMPlexMono_500Medium',
 } as const;
 
+/** Native-app radii: soft, continuous corners rather than the web's tight 8–12px. */
 export const radii = {
   none: 0,
-  xs: 2,
-  sm: 4,
-  md: 6,
-  lg: 8,
-  xl: 12,
-  '2xl': 16,
-  '3xl': 24,
+  xs: 4,
+  sm: 6,
+  md: 10,
+  lg: 14,
+  xl: 20,
+  '2xl': 26,
+  '3xl': 32,
   pill: 999,
 } as const;
 
@@ -120,37 +122,20 @@ export const type = {
 
 export type TypeVariant = keyof typeof type;
 
-/** Soft, warm, low-contrast shadows — the web's shadow-2..5 on native. */
+/**
+ * Layered, warm shadows (CSS `boxShadow`, supported natively on the new
+ * architecture). Cards lift off the bone canvas with depth instead of the
+ * web's 1px hairlines.
+ */
 export const shadow = {
   none: {},
-  sm: {
-    shadowColor: colors.ink,
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
-  },
-  md: {
-    shadowColor: colors.ink,
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
-  },
-  lg: {
-    shadowColor: colors.ink,
-    shadowOpacity: 0.2,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 16 },
-    elevation: 10,
-  },
-  volt: {
-    shadowColor: colors.volt,
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
-  },
+  sm: { boxShadow: '0px 1px 2px rgba(12,14,11,0.05), 0px 3px 10px rgba(12,14,11,0.05)' },
+  card: { boxShadow: '0px 1px 2px rgba(12,14,11,0.04), 0px 8px 22px rgba(12,14,11,0.07)' },
+  md: { boxShadow: '0px 2px 6px rgba(12,14,11,0.05), 0px 14px 32px rgba(12,14,11,0.12)' },
+  lg: { boxShadow: '0px 6px 14px rgba(12,14,11,0.10), 0px 26px 56px rgba(12,14,11,0.26)' },
+  ink: { boxShadow: '0px 4px 10px rgba(12,14,11,0.18), 0px 18px 40px rgba(12,14,11,0.28)' },
+  volt: { boxShadow: '0px 6px 20px rgba(160,190,40,0.45)' },
+  focus: { boxShadow: '0px 0px 0px 4px rgba(198,220,74,0.28)' },
 } as const;
 
 export const motion = {

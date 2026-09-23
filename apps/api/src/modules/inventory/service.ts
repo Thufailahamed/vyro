@@ -291,6 +291,40 @@ export async function commitStockForLines(
   }
 }
 
+/** Puts returned goods back on the shelf (tracked offers only). */
+export async function restockReturnedLines(
+  d1: D1Database,
+  queue: QueueLike | undefined,
+  lines: ReserveLine[],
+  ctx: { purchaseOrderId?: string | null; actorUserId?: string | null; note?: string | null },
+): Promise<void> {
+  const db = getDb(d1);
+  for (const line of lines) {
+    if (line.quantity <= 0) continue;
+    await db
+      .update(supplierProducts)
+      .set({ stockQty: sql`${supplierProducts.stockQty} + ${line.quantity}`, updatedAt: Date.now() })
+      .where(sql`${supplierProducts.id} = ${line.supplierProductId} AND ${supplierProducts.trackInventory} = 1`)
+      .run();
+    const after = await getOfferInventory(d1, line.supplierProductId);
+    if (after) {
+      await recordMovement(d1, {
+        supplierProductId: line.supplierProductId,
+        supplierId: after.supplierId,
+        reason: 'order_return_restocked',
+        qtyDelta: line.quantity,
+        reservedDelta: 0,
+        stockQtyAfter: after.stockQty,
+        reservedQtyAfter: after.reservedQty,
+        purchaseOrderId: ctx.purchaseOrderId ?? null,
+        actorUserId: ctx.actorUserId ?? null,
+        note: ctx.note ?? null,
+      });
+      await syncAvailability(d1, queue, line.supplierProductId, { previous: after.availabilityStatus });
+    }
+  }
+}
+
 export async function listOrderLines(d1: D1Database, poId: string): Promise<ReserveLine[]> {
   const db = getDb(d1);
   const rows = await db

@@ -49,5 +49,21 @@ export const deliveryTransitionSchema = z
     driverPhone: z.string().max(40).optional(),
     estimatedAt: z.number().int().nullable().optional(),
     reason: z.string().max(500).optional(),
+    // Tracking + proof of delivery (required for `delivered`, enforced server-side
+    // against what is already stored on the delivery row).
+    carrier: z.string().trim().max(80).optional(),
+    trackingNumber: z.string().trim().max(120).optional(),
+    trackingUrl: z.string().trim().url().max(500).optional(),
+    recipientName: z.string().trim().max(120).optional(),
+    podNote: z.string().trim().max(500).optional(),
   })
   .strict();
+
+/** A delivery may only be marked delivered with a recipient plus a photo or note. */
+export function hasProofOfDelivery(d: {
+  recipientName?: string | null;
+  podNote?: string | null;
+  podPhotoKey?: string | null;
+}): boolean {
+  return !!d.recipientName?.trim() && (!!d.podPhotoKey || !!d.podNote?.trim());
+}

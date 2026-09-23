@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
-import { ShieldCheck } from 'lucide-react-native';
-import { Badge, Banner, Button, Card, Field, Gutter, Input, Kicker, Loader, RadioCards, Screen, ScreenHeader, Text } from '@/ui';
+import { Building2, FileCheck2, ShieldCheck } from 'lucide-react-native';
+import { Badge, Banner, Button, Card, Field, Gutter, IconTile, InkHero, Input, Kicker, Loader, RadioCards, Screen, ScreenHeader, Text } from '@/ui';
 import { api, errorMessage } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import { go } from '../orders/kit';
@@ -40,7 +40,7 @@ export function KycScreen() {
   const country = business.data?.business?.countryCode ?? 'LK';
 
   return (
-    <Screen keyboard footer={kycLevel === 'none' ? <Button title="Submit for review" icon={ShieldCheck} variant="volt" loading={submit.isPending} onPress={() => { setSubmitErr(''); submit.mutate(); }} /> : undefined}>
+    <Screen keyboard footer={kycLevel === 'none' ? <Button title="Submit for review" icon={ShieldCheck} variant="volt" size="lg" full loading={submit.isPending} onPress={() => { setSubmitErr(''); submit.mutate(); }} /> : undefined}>
       <ScreenHeader
         back
         kicker="Cross-Border Verification"
@@ -54,32 +54,40 @@ export function KycScreen() {
           <Loader label="Loading business…" />
         ) : (
           <>
-            <Card style={{ gap: 8 }}>
+            <InkHero seed={`kyc-${id}`} style={{ gap: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <Kicker>Business</Kicker>
-                  <Text variant="h3">{business.data?.business?.name ?? '—'}</Text>
-                  <Text variant="caption" color="ink4">
-                    Country: <Text variant="caption" weight="semibold" color="ink">{country}</Text>
-                    {kycLevel === 'none' ? ' · unverified' : ''}
-                  </Text>
-                </View>
+                <IconTile icon={Building2} tone="glass" size={48} />
                 <Badge
                   tone={kycLevel === 'none' ? 'neutral' : 'success'}
                   icon={kycLevel === 'none' ? undefined : ShieldCheck}
                   label={kycLevel === 'none' ? 'Not verified' : `KYC ${kycLevel}`}
                 />
               </View>
-              {verifiedAt ? (
-                <Text variant="caption" color="ink4">
-                  Verified {formatDate(verifiedAt)}
+              <View style={{ gap: 4, marginTop: 6 }}>
+                <Kicker color="volt">Business</Kicker>
+                <Text variant="h1" color="paper">
+                  {business.data?.business?.name ?? '—'}
                 </Text>
-              ) : null}
-            </Card>
+                <Text variant="caption" color="paperMuted">
+                  Country: <Text variant="caption" weight="semibold" color="paper">{country}</Text>
+                  {kycLevel === 'none' ? ' · unverified' : ''}
+                </Text>
+                {verifiedAt ? (
+                  <Text variant="caption" color="paperMuted">
+                    Verified {formatDate(verifiedAt)}
+                  </Text>
+                ) : null}
+              </View>
+            </InkHero>
 
             {kycLevel === 'none' ? (
-              <Card style={{ gap: 12 }}>
-                <Text variant="h3">Submit verification documents</Text>
+              <Card style={{ gap: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <IconTile icon={FileCheck2} tone="copper" size={40} />
+                  <Text variant="h2" style={{ flex: 1 }}>
+                    Submit verification documents
+                  </Text>
+                </View>
                 <Field label="Verification level">
                   <RadioCards<'basic' | 'enhanced'>
                     value={level}
@@ -96,7 +104,8 @@ export function KycScreen() {
                 {submitErr ? <Banner tone="danger" message={submitErr} /> : null}
               </Card>
             ) : (
-              <Card kind="bone" style={{ gap: 6 }}>
+              <Card style={{ gap: 12 }}>
+                <IconTile icon={ShieldCheck} tone={verifiedAt ? 'success' : 'warning'} size={44} />
                 <Text variant="bodySm" color="ink3">
                   {verifiedAt ? `Your business is verified at the ${kycLevel} level.` : 'Your documents are in the review queue. We will notify you once verification completes.'}
                 </Text>

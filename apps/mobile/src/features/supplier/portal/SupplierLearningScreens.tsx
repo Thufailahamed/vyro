@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, GraduationCap } from 'lucide-react-native';
+import { View } from 'react-native';
+import { BookOpen, CheckCircle2, CircleHelp, GraduationCap } from 'lucide-react-native';
+import { colors, fonts } from '@/theme/tokens';
 import { api, errorMessage, qs } from '@/lib/api';
 import { useSupplierId } from '@/lib/auth';
 import {
@@ -9,6 +11,9 @@ import {
   Card,
   EmptyState,
   ErrorState,
+  IconTile,
+  InkHero,
+  Kicker,
   ProgressBar,
   RadioCards,
   Screen,
@@ -17,6 +22,7 @@ import {
   Text,
   useToast,
 } from '@/ui';
+import { Enter, ItemCard } from '@/features/supplier/ops/kit';
 import { useSupplierLesson, useSupplierLessons } from './api';
 
 export function SupplierLearningScreen() {
@@ -41,22 +47,40 @@ export function SupplierLearningScreen() {
 
   return (
     <Screen back onRefresh={() => q.refetch()} kicker="Training" title="Learning centre" subtitle="Complete required training to publish and sell.">
-      {lessons.length ? <ProgressBar value={done} max={Math.max(1, lessons.length)} tone="success" /> : null}
-      <Text variant="caption" color="ink4">
-        {done}/{lessons.length} complete
-      </Text>
+      <Enter>
+        <InkHero seed="learning">
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <IconTile icon={GraduationCap} tone="glass" size={44} />
+            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: colors.paperMuted }}>
+              {lessons.length ? Math.round((done / lessons.length) * 100) : 0}%
+            </Text>
+          </View>
+          <View style={{ marginTop: 18, gap: 4 }}>
+            <Kicker color="volt">Your progress</Kicker>
+            <Text variant="metric" color="paper">
+              {done}/{lessons.length}
+            </Text>
+            <Text variant="caption" color="paperMuted">
+              {done}/{lessons.length} complete
+            </Text>
+          </View>
+          {lessons.length ? <ProgressBar value={done} max={Math.max(1, lessons.length)} tone="volt" track="rgba(250,247,240,0.12)" style={{ marginTop: 16 }} /> : null}
+        </InkHero>
+      </Enter>
       {lessons.length === 0 ? (
         <EmptyState icon={GraduationCap} title="No lessons yet" message="Training modules appear here when published." />
       ) : (
-        lessons.map((l) => (
-          <Card key={l.slug} kind="flat" onPress={() => router.push(`/supplier/learning/${l.slug}` as never)} style={{ gap: 6 }}>
-            <StatusBadge status={l.completed ? 'completed' : l.required ? 'required' : 'optional'} size="sm" />
-            <Text variant="h3">{l.title}</Text>
-            <Text variant="caption" color="ink4">
-              {l.track ?? 'General'}
-              {l.durationMinutes ? ` · ${l.durationMinutes} min` : ''}
-            </Text>
-          </Card>
+        lessons.map((l, i) => (
+          <Enter key={l.slug} i={i + 1}>
+            <ItemCard
+              icon={l.completed ? CheckCircle2 : BookOpen}
+              iconTone={l.completed ? 'success' : l.required ? 'warning' : 'paper'}
+              title={l.title}
+              subtitle={`${l.track ?? 'General'}${l.durationMinutes ? ` · ${l.durationMinutes} min` : ''}`}
+              badge={<StatusBadge status={l.completed ? 'completed' : l.required ? 'required' : 'optional'} size="sm" />}
+              onPress={() => router.push(`/supplier/learning/${l.slug}` as never)}
+            />
+          </Enter>
         ))
       )}
     </Screen>
@@ -135,10 +159,22 @@ export function SupplierLessonDetailScreen() {
         )
       }
     >
-      {lesson.body || lesson.content ? <Card kind="flat"><Text variant="body">{lesson.body ?? lesson.content ?? ''}</Text></Card> : null}
-      {quizQs.map((qq) => (
-        <Card key={qq.id} kind="flat" style={{ gap: 10 }}>
-          <Text variant="h3">{qq.question}</Text>
+      {lesson.body || lesson.content ? (
+        <Card kind="flat" padding={20}>
+          <Text variant="bodyLg" color="ink2">
+            {lesson.body ?? lesson.content ?? ''}
+          </Text>
+        </Card>
+      ) : null}
+      {quizQs.map((qq, i) => (
+        <Card key={qq.id} kind="flat" padding={18} style={{ gap: 14 }}>
+          <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+            <IconTile icon={CircleHelp} tone="ink" size={36} />
+            <View style={{ flex: 1, gap: 3 }}>
+              <Kicker>{`Question ${i + 1} of ${quizQs.length}`}</Kicker>
+              <Text variant="h3">{qq.question}</Text>
+            </View>
+          </View>
           <RadioCards value={answers[qq.id] ?? null} onChange={(v) => setAnswers((a) => ({ ...a, [qq.id]: v }))} options={qq.options.map((o) => ({ value: o.id, label: o.label }))} />
         </Card>
       ))}

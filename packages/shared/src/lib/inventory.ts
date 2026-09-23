@@ -17,6 +17,7 @@ export const STOCK_MOVEMENT_REASONS = [
   'order_released',
   'order_committed',
   'offer_created',
+  'order_return_restocked',
 ] as const;
 export type StockMovementReason = (typeof STOCK_MOVEMENT_REASONS)[number];
 

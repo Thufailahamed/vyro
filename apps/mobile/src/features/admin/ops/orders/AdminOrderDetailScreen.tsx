@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Building2, ChevronRight, Clock, Globe2, Landmark, Mail, Package, Phone, ShieldAlert, Store } from 'lucide-react-native';
+import { AlertTriangle, Building2, ChevronRight, Clock, Gavel, Globe2, Landmark, Mail, Package, Phone, Scale, ShieldAlert, Store } from 'lucide-react-native';
 import {
   Banner,
   Button,
@@ -11,6 +11,7 @@ import {
   EmptyState,
   ErrorState,
   Field,
+  IconTile,
   InkHero,
   Input,
   KeyValue,
@@ -26,9 +27,11 @@ import {
 } from '@/ui';
 import { ApiError, api, errorMessage } from '@/lib/api';
 import { formatDateTime, formatLKR, humanize, timeAgo } from '@/lib/format';
-import { colors } from '@/theme/tokens';
+import { colors, radii } from '@/theme/tokens';
 import { ContactLine, HeroMetric, Pill, Reveal, Section } from '../kit';
-import { OVERRIDE_STATUSES, useAdminOrder, type AdminOrder } from './api';
+import { overrideTargets, useAdminOrder, type AdminOrder } from './api';
+import { Can } from '@/features/admin/platform/kit';
+import { OUTCOME_LABEL, ResolveDisputeSheet, type DisputeOutcome } from '../disputes/ResolveDisputeSheet';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'AED', 'SGD', 'AUD', 'JPY', 'CNY'];
 
@@ -43,6 +46,7 @@ export function AdminOrderDetailScreen() {
   const toast = useToast();
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [wireOpen, setWireOpen] = useState(false);
+  const [resolveWith, setResolveWith] = useState<DisputeOutcome | null>(null);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['admin-order', id] });
@@ -54,6 +58,8 @@ export function AdminOrderDetailScreen() {
   const events = q.data?.events ?? [];
   const cross = !!order?.direction && order.direction !== 'domestic';
   const canWire = cross && order?.status === 'pending';
+  const targets = order ? overrideTargets(order.status) : [];
+  const disputed = order?.status === 'disputed';
 
   return (
     <Screen
@@ -63,19 +69,19 @@ export function AdminOrderDetailScreen() {
       subtitle={order ? `Placed ${formatDateTime(order.createdAt)} · updated ${timeAgo(order.updatedAt)}` : undefined}
       onRefresh={() => q.refetch()}
       footer={
-        order ? (
+        order && (canWire || targets.length > 0) ? (
           <View style={{ flexDirection: 'row', gap: 10 }}>
             {canWire ? <Button title="Record wire" icon={Landmark} variant="copper" onPress={() => setWireOpen(true)} style={{ flex: 1 }} /> : null}
-            <Button title="Override status" icon={ShieldAlert} onPress={() => setOverrideOpen(true)} style={{ flex: 1 }} full={!canWire} />
+            {targets.length > 0 ? <Button title="Override status" icon={ShieldAlert} onPress={() => setOverrideOpen(true)} style={{ flex: 1 }} full={!canWire} /> : null}
           </View>
         ) : undefined
       }
     >
       {q.isLoading ? (
         <View style={{ gap: 12 }}>
-          <Skeleton height={190} radius={16} />
-          <Skeleton height={140} radius={12} />
-          <Skeleton height={220} radius={12} />
+          <Skeleton height={210} radius={radii['2xl']} />
+          <Skeleton height={140} radius={radii.xl} />
+          <Skeleton height={220} radius={radii.xl} />
         </View>
       ) : q.isError || !order ? (
         q.error instanceof ApiError && q.error.status === 404 ? (
@@ -97,13 +103,38 @@ export function AdminOrderDetailScreen() {
               <Text variant="metric" color="paper" numberOfLines={1} adjustsFontSizeToFit>
                 {formatLKR(order.totalCents ?? 0)}
               </Text>
-              <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 20, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.paperLine }}>
                 <HeroMetric label="Subtotal" value={formatLKR(order.subtotalCents ?? 0)} />
                 <HeroMetric label="Delivery" value={formatLKR(order.deliveryFeeCents ?? 0)} />
                 <HeroMetric label="Lines" value={String(items.length)} tone="volt" />
               </View>
             </InkHero>
           </Reveal>
+
+          {disputed ? (
+            <Reveal index={1}>
+              <Section kicker="Dispute" title="Awaiting arbitration" icon={Scale}>
+                {order.disputeReason ? <Banner tone="danger" title={order.disputeOpenedBy ? `Opened by ${humanize(order.disputeOpenedBy)}` : 'Dispute reason'} message={order.disputeReason} /> : null}
+                <Text variant="bodySm" color="ink4">
+                  Disputes can only be closed by a resolution: a full refund cancels the order; release or partial refund completes it.
+                </Text>
+                <Can perm="dispute:resolve" fallback={<Text variant="caption" color="ink5">You need the dispute:resolve permission to arbitrate.</Text>}>
+                  <View style={{ gap: 8 }}>
+                    {(['refund_business', 'partial', 'release_supplier'] as DisputeOutcome[]).map((o) => (
+                      <Button
+                        key={o}
+                        title={OUTCOME_LABEL[o]}
+                        icon={Gavel}
+                        variant={o === 'refund_business' ? 'danger' : o === 'partial' ? 'secondary' : 'primary'}
+                        full
+                        onPress={() => setResolveWith(o)}
+                      />
+                    ))}
+                  </View>
+                </Can>
+              </Section>
+            </Reveal>
+          ) : null}
 
           <Reveal index={1}>
             <PartyCard
@@ -139,17 +170,30 @@ export function AdminOrderDetailScreen() {
               ) : (
                 <View>
                   {items.map((it, i) => (
-                    <View key={it.id} style={{ paddingVertical: 11, borderBottomWidth: i === items.length - 1 ? 0 : 1, borderBottomColor: colors.lineSoft, gap: 3 }}>
-                      <View style={{ flexDirection: 'row', gap: 10 }}>
-                        <Text variant="body" weight="medium" style={{ flex: 1 }} numberOfLines={2}>
+                    <View
+                      key={it.id}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                        paddingVertical: 12,
+                        borderBottomWidth: StyleSheet.hairlineWidth * 2,
+                        borderBottomColor: colors.lineSoft,
+                      }}
+                    >
+                      <View style={{ minWidth: 38, height: 38, paddingHorizontal: 6, borderRadius: 12, borderCurve: 'continuous', backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 12.5, color: colors.ink }}>{it.quantity}×</Text>
+                      </View>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text variant="body" weight="medium" numberOfLines={2}>
                           {it.productNameSnapshot}
                         </Text>
-                        <Text variant="mono" style={{ fontFamily: 'IBMPlexMono_500Medium' }}>
-                          {formatLKR(it.lineTotalCents)}
+                        <Text variant="caption" color="ink4">
+                          {it.quantity} × {formatLKR(it.unitPriceCents)}
                         </Text>
                       </View>
-                      <Text variant="caption" color="ink4">
-                        {it.quantity} × {formatLKR(it.unitPriceCents)}
+                      <Text variant="mono" style={{ fontFamily: 'IBMPlexMono_500Medium' }}>
+                        {formatLKR(it.lineTotalCents)}
                       </Text>
                     </View>
                   ))}
@@ -189,10 +233,13 @@ export function AdminOrderDetailScreen() {
 
           {order.wireRef ? (
             <Reveal index={6}>
-              <Card kind="bone" style={{ borderColor: colors.mint, gap: 4 }}>
-                <Text variant="overline" style={{ color: colors.mint }}>
-                  Wire settled
-                </Text>
+              <Card kind="flat" padding={18} style={{ backgroundColor: colors.mintSoft, gap: 4 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                  <IconTile icon={Landmark} tone="success" size={34} style={{ backgroundColor: colors.paper }} />
+                  <Text variant="overline" style={{ color: colors.mint }}>
+                    Wire settled
+                  </Text>
+                </View>
                 <KeyValue label="Reference" value={order.wireRef} mono />
                 {order.wireReceivedCurrency && order.wireReceivedAmountCents != null ? (
                   <KeyValue label="Received" value={`${(order.wireReceivedAmountCents / 100).toLocaleString('en-LK')} ${order.wireReceivedCurrency}`} mono />
@@ -223,10 +270,17 @@ export function AdminOrderDetailScreen() {
             Order ID {order.id}
           </Text>
 
+          <ResolveDisputeSheet
+            target={resolveWith ? order : null}
+            initialOutcome={resolveWith ?? undefined}
+            onClose={() => setResolveWith(null)}
+            onResolved={invalidate}
+          />
           <OverrideSheet
-            visible={overrideOpen}
+            visible={overrideOpen && targets.length > 0}
             onClose={() => setOverrideOpen(false)}
             order={order}
+            targets={targets}
             onDone={() => {
               invalidate();
               setOverrideOpen(false);
@@ -272,11 +326,9 @@ function PartyCard({
 }) {
   const Icon = kind === 'buyer' ? Building2 : Store;
   return (
-    <Card onPress={onInspect} style={{ gap: 8 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: kind === 'buyer' ? colors.copperSoft : colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon size={17} color={kind === 'buyer' ? colors.copperDeep : colors.volt} strokeWidth={1.8} />
-        </View>
+    <Card onPress={onInspect} padding={18} style={{ gap: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <IconTile icon={Icon} tone={kind === 'buyer' ? 'copper' : 'ink'} size={44} />
         <View style={{ flex: 1 }}>
           <Text variant="overline" color="ink4">
             {kind === 'buyer' ? 'Buyer business' : 'Supplier merchant'}
@@ -285,7 +337,11 @@ function PartyCard({
             {name}
           </Text>
         </View>
-        {onInspect ? <ChevronRight size={18} color={colors.ink5} /> : null}
+        {onInspect ? (
+          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center' }}>
+            <ChevronRight size={16} color={colors.ink4} strokeWidth={2} />
+          </View>
+        ) : null}
       </View>
       {contact ? (
         <Text variant="bodySm" color="ink3">
@@ -295,7 +351,7 @@ function PartyCard({
       <ContactLine icon={Phone} value={phone} href={phone ? `tel:${phone}` : undefined} />
       <ContactLine icon={Mail} value={email} href={email ? `mailto:${email}` : undefined} />
       {footer ? (
-        <View style={{ borderTopWidth: 1, borderTopColor: colors.lineSoft, paddingTop: 8, gap: 2 }}>
+        <View style={{ backgroundColor: colors.pearl, borderRadius: radii.lg, borderCurve: 'continuous', padding: 12, gap: 2, marginTop: 2 }}>
           {footerLabel ? (
             <Text variant="overline" color="ink5">
               {footerLabel}
@@ -310,8 +366,21 @@ function PartyCard({
   );
 }
 
-function OverrideSheet({ visible, onClose, order, onDone }: { visible: boolean; onClose: () => void; order: AdminOrder; onDone: () => void }) {
-  const [status, setStatus] = useState<string>('cancelled');
+function OverrideSheet({
+  visible,
+  onClose,
+  order,
+  targets,
+  onDone,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  order: AdminOrder;
+  targets: string[];
+  onDone: () => void;
+}) {
+  const [picked, setPicked] = useState<string | null>(null);
+  const status = picked && targets.includes(picked) ? picked : targets[0];
   const [reason, setReason] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const m = useMutation({
@@ -334,7 +403,7 @@ function OverrideSheet({ visible, onClose, order, onDone }: { visible: boolean; 
       visible={visible}
       onClose={onClose}
       title="Administrative override"
-      subtitle="Bypasses the normal order state machine. Every override is signed and audited."
+      subtitle="Moves the order along a legal edge on behalf of either party. Runs the full pipeline (refunds, notifications); every override is signed and audited."
       scroll
       footer={
         <>
@@ -352,7 +421,7 @@ function OverrideSheet({ visible, onClose, order, onDone }: { visible: boolean; 
           <StatusBadge status={order.status} size="sm" />
         </View>
         <Field label="Target status">
-          <Select value={status} onChange={setStatus} title="Target status" options={OVERRIDE_STATUSES.map((s) => ({ value: s, label: humanize(s) }))} />
+          <Select value={status} onChange={setPicked} title="Target status" options={targets.map((s) => ({ value: s, label: humanize(s) }))} />
         </Field>
         <Field label="Audit reason" required hint={ok ? 'Ready to sign' : `Mandatory · at least 5 characters (${reason.trim().length}/5)`}>
           <Input value={reason} onChangeText={setReason} multiline placeholder="Explicit operational reason for this override…" />

@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Truck, Wallet, Landmark, Plus, Trash2 } from 'lucide-react-native';
+import { CheckCircle2, Clock, Landmark, PackageCheck, Plus, Trash2, TriangleAlert, Truck, Wallet } from 'lucide-react-native';
+import { colors } from '@/theme/tokens';
 import { api, errorMessage, qs } from '@/lib/api';
 import { useSupplierId } from '@/lib/auth';
 import { formatDate, formatDateTime, formatLKR, humanize } from '@/lib/format';
 import {
+  Badge,
   Banner,
   Button,
   Card,
@@ -14,8 +17,11 @@ import {
   EmptyState,
   ErrorState,
   Field,
+  IconButton,
   Input,
   KeyValue,
+  ListRow,
+  ListSection,
   Screen,
   SearchBar,
   Segmented,
@@ -26,7 +32,7 @@ import {
   Text,
   useToast,
 } from '@/ui';
-import { LedgerPill } from '@/features/supplier/ops/kit';
+import { Enter, FooterLink, ItemCard, LedgerPill, Section } from '@/features/supplier/ops/kit';
 import { settledRevenue, useSupplierBalance, useSupplierDeliveries, useSupplierPayments, useSupplierPayouts } from './api';
 import { usePurchaseOrders } from '@/features/supplier/ops/api';
 
@@ -72,9 +78,9 @@ export function SupplierDeliveriesScreen() {
   return (
     <Screen back onRefresh={() => q.refetch()} kicker="Fulfilment" title="Deliveries" subtitle="Fleet tracking and proof of delivery.">
       <StatGrid>
-        <Stat label="Pending" value={pending} hint="Awaiting driver" icon={Truck} />
-        <Stat label="In transit" value={active} hint="En route" icon={Truck} />
-        <Stat label="Delivered" value={done} hint="eGRN signed" icon={Truck} />
+        <Stat label="Pending" value={pending} hint="Awaiting driver" icon={Clock} />
+        <Stat label="In transit" value={active} hint="En route" icon={Truck} accent={active > 0} />
+        <Stat label="Delivered" value={done} hint="eGRN signed" icon={PackageCheck} />
       </StatGrid>
       <SearchBar value={search} onChangeText={setSearch} placeholder="Search delivery, PO or driver…" />
       <ChipRow<DFilter>
@@ -91,20 +97,25 @@ export function SupplierDeliveriesScreen() {
       {shown.length === 0 ? (
         <EmptyState icon={Truck} title="No deliveries" message="Delivery records appear once orders are dispatched." />
       ) : (
-        shown.map((d) => (
-          <Card key={d.id} kind="flat" style={{ gap: 6 }}>
-            <StatusBadge status={d.status} size="sm" />
-            <Text variant="body" weight="semibold">
-              {d.driverName ?? 'Unassigned driver'}
-            </Text>
-            <Text variant="caption" color="ink4">
-              PO {d.purchaseOrderId.slice(0, 12)} · ETA {d.estimatedAt ? formatDate(d.estimatedAt) : '—'}
-              {d.deliveredAt ? ` · Delivered ${formatDate(d.deliveredAt)}` : ''}
-            </Text>
-            <Text variant="bodySm" weight="semibold" color="copper" onPress={() => router.push(`/supplier/order/${d.purchaseOrderId}` as never)}>
-              Open order →
-            </Text>
-          </Card>
+        shown.map((d, i) => (
+          <Enter key={d.id} i={i}>
+            <ItemCard
+              icon={d.status === 'delivered' ? PackageCheck : d.status === 'failed' ? TriangleAlert : Truck}
+              iconTone={d.status === 'delivered' ? 'success' : d.status === 'failed' ? 'danger' : d.status === 'pending' ? 'warning' : 'ink'}
+              title={d.driverName ?? 'Unassigned driver'}
+              subtitle={`PO ${d.purchaseOrderId.slice(0, 12)} · ETA ${d.estimatedAt ? formatDate(d.estimatedAt) : '—'}`}
+              meta={d.deliveredAt ? `Delivered ${formatDate(d.deliveredAt)}` : undefined}
+              badge={<StatusBadge status={d.status} size="sm" />}
+              footer={
+                <>
+                  <Text variant="caption" color="ink5" numberOfLines={1} style={{ flexShrink: 1 }}>
+                    {d.id.slice(0, 12)}
+                  </Text>
+                  <FooterLink label="Open order" onPress={() => router.push(`/supplier/order/${d.purchaseOrderId}` as never)} />
+                </>
+              }
+            />
+          </Enter>
         ))
       )}
     </Screen>
@@ -159,17 +170,22 @@ export function SupplierPaymentsScreen() {
         list.length === 0 ? (
           <EmptyState icon={Wallet} title="No payments yet" message="Settlements land here when buyers pay and receive goods." />
         ) : (
-          list.map((p) => (
-            <Card key={p.id} kind="flat" style={{ gap: 6 }}>
-              <LedgerPill status={p.status} size="sm" />
-              <Text variant="metricSm">{formatLKR(p.amountCents)}</Text>
-              <Text variant="caption" color="ink4">
-                Net {formatLKR(p.netCents)} · {humanize(p.method)} · {formatDateTime(p.createdAt)}
-              </Text>
-              {['pending', 'authorized', 'processing'].includes(p.status) ? (
-                <Button title="Confirm receipt" size="sm" onPress={() => confirm.mutate(p.id)} loading={confirm.isPending} />
-              ) : null}
-            </Card>
+          list.map((p, i) => (
+            <Enter key={p.id} i={i}>
+              <ItemCard
+                icon={Wallet}
+                iconTone={['confirmed', 'paid', 'completed', 'settled'].includes(p.status) ? 'success' : 'copper'}
+                title={humanize(p.method)}
+                subtitle={`Net ${formatLKR(p.netCents)} · fee ${formatLKR(p.feeCents)}`}
+                meta={formatDateTime(p.createdAt)}
+                badge={<LedgerPill status={p.status} size="sm" />}
+                amount={formatLKR(p.amountCents)}
+              >
+                {['pending', 'authorized', 'processing'].includes(p.status) ? (
+                  <Button title="Confirm receipt" icon={CheckCircle2} size="sm" full onPress={() => confirm.mutate(p.id)} loading={confirm.isPending} />
+                ) : null}
+              </ItemCard>
+            </Enter>
           ))
         )
       ) : payouts.isLoading ? (
@@ -179,14 +195,18 @@ export function SupplierPaymentsScreen() {
       ) : (payouts.data?.items ?? []).length === 0 ? (
         <EmptyState icon={Landmark} title="No payouts yet" message="Bank payouts are issued on settlement cycles." />
       ) : (
-        (payouts.data?.items ?? []).map((p) => (
-          <Card key={p.id} kind="flat" style={{ gap: 6 }}>
-            <LedgerPill status={p.status} size="sm" />
-            <Text variant="metricSm">{formatLKR(p.netCents)}</Text>
-            <Text variant="caption" color="ink4">
-              {p.reference ?? p.payoutNumber ?? p.id.slice(0, 10)} · {formatDateTime(p.createdAt)}
-            </Text>
-          </Card>
+        (payouts.data?.items ?? []).map((p, i) => (
+          <Enter key={p.id} i={i}>
+            <ItemCard
+              icon={Landmark}
+              iconTone="ink"
+              title={p.reference ?? p.payoutNumber ?? p.id.slice(0, 10)}
+              subtitle={humanize(p.method)}
+              meta={formatDateTime(p.createdAt)}
+              badge={<LedgerPill status={p.status} size="sm" />}
+              amount={formatLKR(p.netCents)}
+            />
+          </Enter>
         ))
       )}
     </Screen>
@@ -256,26 +276,34 @@ export function SupplierAccountsScreen() {
   return (
     <Screen back onRefresh={refresh} kicker="Money" title="Accounts" subtitle="Settlement ledger and payout destinations.">
       <StatGrid>
-        <Stat label="Balance" value={formatLKR(overview.data?.balanceCents ?? 0)} icon={Landmark} />
+        <Stat label="Balance" value={formatLKR(overview.data?.balanceCents ?? 0)} icon={Landmark} accent />
         <Stat label="Pending" value={formatLKR(overview.data?.pendingCents ?? 0)} icon={Wallet} />
       </StatGrid>
       <Banner tone="info" title="Payouts go to a verified bank account" message="Add your commercial settlement account below." />
       {list.length === 0 ? (
         <EmptyState icon={Landmark} title="No bank accounts" message="Link a settlement account to receive payouts." />
       ) : (
-        list.map((a) => (
-          <Card key={a.id} kind="flat" style={{ gap: 4 }}>
-            <Text variant="h3">{a.bankName}</Text>
-            <Text variant="caption" color="ink4">
-              {a.accountNo}
-              {a.branch ? ` · ${a.branch}` : ''} · {a.verified ? 'Verified' : 'Unverified'}
-            </Text>
-            <Button title="Remove" icon={Trash2} variant="ghost" size="sm" onPress={() => setPendingDelete(a)} />
-          </Card>
-        ))
+        <ListSection label="Payout destinations">
+          {list.map((a, i) => (
+            <ListRow
+              key={a.id}
+              icon={Landmark}
+              iconTone={a.verified ? 'volt' : 'paper'}
+              title={a.bankName}
+              subtitle={`${a.accountNo}${a.branch ? ` · ${a.branch}` : ''}`}
+              meta={a.holder ?? undefined}
+              trailing={
+                <View style={{ alignItems: 'flex-end', gap: 8 }}>
+                  <Badge label={a.verified ? 'Verified' : 'Unverified'} tone={a.verified ? 'success' : 'neutral'} dot size="sm" />
+                  <IconButton icon={Trash2} accessibilityLabel={`Remove ${a.bankName}`} variant="surface" color={colors.rose} size={32} onPress={() => setPendingDelete(a)} />
+                </View>
+              }
+              last={i === list.length - 1}
+            />
+          ))}
+        </ListSection>
       )}
-      <Card kind="flat" style={{ gap: 10 }}>
-        <Text variant="h2">Add bank account</Text>
+      <Section icon={Plus} kicker="Settlement" title="Add bank account" sub="Payouts are sent to verified commercial accounts.">
         <Field label="Bank name" required>
           <Input value={form.bankName} onChangeText={(v) => setForm((f) => ({ ...f, bankName: v }))} placeholder="Bank of Ceylon" />
         </Field>
@@ -289,8 +317,8 @@ export function SupplierAccountsScreen() {
           <Input value={form.holder} onChangeText={(v) => setForm((f) => ({ ...f, holder: v }))} placeholder="Company (Pvt) Ltd" />
         </Field>
         <Button title="Add account" icon={Plus} full loading={add.isPending} onPress={() => add.mutate()} />
-      </Card>
-      <Card kind="flat">
+      </Section>
+      <Card kind="flat" padding={0} style={{ paddingHorizontal: 16, paddingVertical: 2 }}>
         <KeyValue label="Open orders" value={String(orders.data?.orders.length ?? 0)} mono last />
       </Card>
       <ConfirmSheet

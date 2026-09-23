@@ -74,6 +74,15 @@ export const supplierNotificationsSchema = z
   })
   .strict();
 
+/** Sri Lanka VAT/SSCL registration; drives the tax breakdown on invoices. */
+export const supplierTaxSchema = z
+  .object({
+    vatRegistered: z.boolean().optional(),
+    vatRegistrationNo: z.string().trim().max(40).nullable().optional(),
+    ssclRegistered: z.boolean().optional(),
+  })
+  .strict();
+
 export const supplierSettingsPatchSchema = z
   .object({
     companyName: supplierCompanySchema.shape.companyName,
@@ -95,6 +104,9 @@ export const supplierSettingsPatchSchema = z
     notifyNewOrders: supplierNotificationsSchema.shape.notifyNewOrders,
     notifyLowStock: supplierNotificationsSchema.shape.notifyLowStock,
     notifyPaymentReceived: supplierNotificationsSchema.shape.notifyPaymentReceived,
+    vatRegistered: supplierTaxSchema.shape.vatRegistered,
+    vatRegistrationNo: supplierTaxSchema.shape.vatRegistrationNo,
+    ssclRegistered: supplierTaxSchema.shape.ssclRegistered,
   })
   .strict()
   .refine((v: Record<string, unknown>) => Object.keys(v).length > 0, {

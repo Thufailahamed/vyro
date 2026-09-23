@@ -20,6 +20,8 @@ export const checkoutSchema = z
     creditTerms: z.enum(['net14', 'net30']).optional(),
     idempotencyKey: z.string().min(8).max(100).optional(),
     rfqId: z.string().min(1).optional(),
+    /** Saved delivery address; defaults to the business default, then its registered address. */
+    deliveryAddressId: z.string().min(1).optional(),
   })
   .strict()
   .refine((d) => d.paymentMethod !== 'credit' || !!d.creditTerms, {

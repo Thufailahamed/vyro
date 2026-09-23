@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CheckCheck, Info, Megaphone, Send, XCircle } from 'lucide-react-native';
+import { AlertTriangle, ArrowUpRight, CheckCheck, Info, Megaphone, Send, XCircle } from 'lucide-react-native';
 import {
   Banner,
   Button,
@@ -12,6 +12,7 @@ import {
   Field,
   Gutter,
   IconButton,
+  IconTile,
   Input,
   ListHeader,
   ListScreen,
@@ -39,10 +40,10 @@ interface AdminNote {
   createdAt: number;
 }
 
-const SEV_ICON: Record<Severity, { Icon: typeof Info; color: string }> = {
-  info: { Icon: Info, color: colors.ink4 },
-  warning: { Icon: AlertTriangle, color: colors.amber },
-  critical: { Icon: XCircle, color: colors.rose },
+const SEV_ICON: Record<Severity, { Icon: typeof Info; color: string; tone: 'paper' | 'warning' | 'danger' }> = {
+  info: { Icon: Info, color: colors.ink4, tone: 'paper' },
+  warning: { Icon: AlertTriangle, color: colors.amber, tone: 'warning' },
+  critical: { Icon: XCircle, color: colors.rose, tone: 'danger' },
 };
 
 const FILTERS = [
@@ -117,29 +118,34 @@ export function AdminNotificationsScreen() {
           )
         }
         renderItem={({ item: n }) => {
-          const { Icon, color } = SEV_ICON[n.severity] ?? SEV_ICON.info;
+          const { Icon, tone } = SEV_ICON[n.severity] ?? SEV_ICON.info;
           return (
-            <Card padding={14} style={{ gap: 6, opacity: n.readAt ? 0.7 : 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Icon size={15} color={color} />
-                <Text variant="bodySm" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
-                  {n.title}
-                </Text>
+            <Card padding={16} style={{ flexDirection: 'row', gap: 12, opacity: n.readAt ? 0.72 : 1 }}>
+              <View>
+                <IconTile icon={Icon} tone={tone} size={40} />
                 {!n.readAt ? (
-                  <IconButton icon={CheckCheck} variant="ghost" size={32} accessibilityLabel="Mark read" onPress={() => dismiss.mutate(n.id)} />
+                  <View style={{ position: 'absolute', top: -3, right: -3, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.volt, borderWidth: 2, borderColor: colors.paper }} />
                 ) : null}
               </View>
-              <Text variant="caption" color="ink3">
-                {n.body}
-              </Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text variant="caption" color="ink5">
-                  {timeAgo(n.createdAt)}
-                  {n.sourceRef ? ` · ${n.sourceRef}` : ''}
+              <View style={{ flex: 1, gap: 4 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text variant="body" weight="semibold" numberOfLines={2} style={{ flex: 1 }}>
+                    {n.title}
+                  </Text>
+                  {!n.readAt ? (
+                    <IconButton icon={CheckCheck} variant="surface" size={32} accessibilityLabel="Mark read" onPress={() => dismiss.mutate(n.id)} />
+                  ) : null}
+                </View>
+                <Text variant="bodySm" color="ink3">
+                  {n.body}
                 </Text>
-                {n.link ? (
-                  <Button title="Open" variant="ghost" size="sm" onPress={() => go(n.link!)} />
-                ) : null}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                  <Text variant="caption" color="ink5" style={{ flex: 1 }} numberOfLines={1}>
+                    {timeAgo(n.createdAt)}
+                    {n.sourceRef ? ` · ${n.sourceRef}` : ''}
+                  </Text>
+                  {n.link ? <Button title="Open" iconRight={ArrowUpRight} variant="paper" size="sm" onPress={() => go(n.link!)} /> : null}
+                </View>
               </View>
             </Card>
           );

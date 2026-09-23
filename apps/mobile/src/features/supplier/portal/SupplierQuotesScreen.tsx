@@ -1,17 +1,18 @@
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowRight, Clock, FileText, MapPin, Package, Timer, Trophy } from 'lucide-react-native';
+import { ArrowRight, Clock, FileText, MapPin, Package, Send, Timer, Trophy } from 'lucide-react-native';
 import { useSupplierId } from '@/lib/auth';
 import { errorMessage } from '@/lib/api';
 import { formatDate } from '@/lib/format';
-import { colors, fonts } from '@/theme/tokens';
+import { colors, fonts, radii } from '@/theme/tokens';
 import {
   Card,
   ChipRow,
   EmptyState,
   ErrorState,
   Gutter,
+  IconTile,
   InkHero,
   Kicker,
   ListHeader,
@@ -86,11 +87,11 @@ export function SupplierQuotesScreen() {
         {d ? (
           <Enter>
             <InkHero seed="rfq-pipeline">
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Trophy size={14} color={colors.volt} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <IconTile icon={Trophy} tone="glass" size={36} />
                 <Kicker color="volt">Win pipeline</Kicker>
               </View>
-              <View style={{ flexDirection: 'row', gap: 14, marginTop: 12 }}>
+              <View style={{ flexDirection: 'row', gap: 14, marginTop: 18 }}>
                 <HeroMetric label="Received" value={String(d.rfqsReceived)} sub="invites" style={{ flex: 1 }} />
                 <HeroMetric label="Quoted" value={String(d.quotesSubmitted)} sub={`${Math.round(d.responseRate * 100)}% response`} style={{ flex: 1 }} />
                 <HeroMetric label="Won" value={String(d.won)} sub={`${Math.round(d.winRate * 100)}% win rate`} tone="mint" style={{ flex: 1 }} />
@@ -147,9 +148,9 @@ export function SupplierQuotesScreen() {
 
 function Meta({ icon: Icon, text, color }: { icon: typeof Clock; text: string; color?: string }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-      <Icon size={11} color={color ?? colors.ink4} />
-      <Text variant="caption" style={{ color: color ?? colors.ink4 }} numberOfLines={1}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, height: 26, borderRadius: radii.pill, backgroundColor: colors.pearl, maxWidth: '100%' }}>
+      <Icon size={12} color={color ?? colors.ink4} strokeWidth={1.9} />
+      <Text variant="caption" style={{ color: color ?? colors.ink3, flexShrink: 1 }} numberOfLines={1}>
         {text}
       </Text>
     </View>
@@ -159,48 +160,77 @@ function Meta({ icon: Icon, text, color }: { icon: typeof Clock; text: string; c
 function QuoteCard({ invite: r }: { invite: RfqInvite }) {
   const isNew = r.inviteStatus === 'invited' && r.myQuotes === 0;
   const closed = isClosed(r.rfq.status);
+  const quoted = r.myQuotes > 0;
   return (
-    <Card kind="flat" onPress={() => router.push(`/supplier/quotes/${r.rfq.id}` as never)} style={{ gap: 10 }}>
-      {/* Number + status */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-        <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11.5, color: colors.ink4 }} numberOfLines={1}>
-          {r.rfq.rfqNumber}
-        </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {isNew ? (
-            <View style={{ paddingHorizontal: 7, height: 20, borderRadius: 10, backgroundColor: colors.voltSoft, borderWidth: 1, borderColor: 'rgba(122,143,34,0.35)', justifyContent: 'center' }}>
-              <Text style={{ fontFamily: fonts.monoMedium, fontSize: 9.5, letterSpacing: 0.5, color: colors.voltDeep }}>NEW INVITE</Text>
+    <Card kind="flat" onPress={() => router.push(`/supplier/quotes/${r.rfq.id}` as never)} padding={0} style={{ overflow: 'hidden' }}>
+      <View style={{ padding: 16, gap: 12 }}>
+        {/* Icon + number/title + status */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+          <IconTile icon={quoted ? Send : FileText} tone={quoted ? 'success' : closed ? 'paper' : isNew ? 'volt' : 'copper'} size={42} />
+          <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11.5, color: colors.ink4, flexShrink: 1 }} numberOfLines={1}>
+                {r.rfq.rfqNumber}
+              </Text>
+              {isNew ? (
+                <View style={{ paddingHorizontal: 7, height: 18, borderRadius: 9, backgroundColor: colors.volt, justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: fonts.monoMedium, fontSize: 9, letterSpacing: 0.5, color: colors.ink }}>NEW</Text>
+                </View>
+              ) : null}
             </View>
-          ) : null}
+            <Text variant="h3" numberOfLines={2}>
+              {r.rfq.title}
+            </Text>
+          </View>
           <RfqPill status={r.myStatus ?? r.rfq.status} size="sm" />
+        </View>
+
+        {/* Meta chips */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          <Meta icon={Package} text={`${r.itemCount} item${r.itemCount === 1 ? '' : 's'}`} />
+          {r.rfq.deliveryLocation ? <Meta icon={MapPin} text={r.rfq.deliveryLocation} /> : null}
+          {r.rfq.deadline ? (
+            <Meta icon={Clock} text={`Due ${formatDate(r.rfq.deadline)}${r.expiringSoon ? ' · expiring soon' : ''}`} color={r.expiringSoon ? colors.rose : undefined} />
+          ) : (
+            <Meta icon={Timer} text="No deadline" />
+          )}
         </View>
       </View>
 
-      <Text variant="h3" numberOfLines={2}>
-        {r.rfq.title}
-      </Text>
-
-      {/* Meta grid */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-        <Meta icon={Package} text={`${r.itemCount} item${r.itemCount === 1 ? '' : 's'}`} />
-        {r.rfq.deliveryLocation ? <Meta icon={MapPin} text={r.rfq.deliveryLocation} /> : null}
-        {r.rfq.deadline ? (
-          <Meta icon={Clock} text={`Due ${formatDate(r.rfq.deadline)}${r.expiringSoon ? ' · expiring soon' : ''}`} color={r.expiringSoon ? colors.rose : undefined} />
-        ) : (
-          <Meta icon={Timer} text="No deadline" />
-        )}
-      </View>
-
       {/* Quote status footer */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
-        <Text variant="caption" weight="semibold" color={r.myQuotes > 0 ? 'mint' : closed ? 'ink4' : 'amber'}>
-          {r.myQuotes > 0 ? `${r.myQuotes} quote${r.myQuotes === 1 ? '' : 's'} submitted` : isNew ? 'Awaiting your quote' : 'Not quoted yet'}
-        </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-          <Text variant="caption" weight="semibold" color="copper">
-            {r.myQuotes > 0 || closed ? 'View' : 'Quote now'}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: colors.pearl,
+          borderTopWidth: StyleSheet.hairlineWidth * 2,
+          borderTopColor: colors.lineSoft,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: quoted ? colors.mint : closed ? colors.ink5 : colors.amber }} />
+          <Text variant="caption" weight="semibold" color={quoted ? 'mint' : closed ? 'ink4' : 'amber'}>
+            {quoted ? `${r.myQuotes} quote${r.myQuotes === 1 ? '' : 's'} submitted` : isNew ? 'Awaiting your quote' : 'Not quoted yet'}
           </Text>
-          <ArrowRight size={12} color={colors.copper} />
+        </View>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+            height: 28,
+            paddingHorizontal: 12,
+            borderRadius: radii.pill,
+            backgroundColor: quoted || closed ? colors.paper : colors.ink,
+          }}
+        >
+          <Text variant="caption" weight="semibold" color={quoted || closed ? 'ink2' : 'paper'}>
+            {quoted || closed ? 'View' : 'Quote now'}
+          </Text>
+          <ArrowRight size={12} color={quoted || closed ? colors.copper : colors.volt} />
         </View>
       </View>
     </Card>

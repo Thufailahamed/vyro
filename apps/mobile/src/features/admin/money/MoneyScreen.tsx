@@ -1,50 +1,19 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Banknote, CreditCard, Landmark, Search, type LucideIcon } from 'lucide-react-native';
+import { Banknote, CreditCard, Landmark, Search, type LucideIcon } from 'lucide-react-native';
 import { colors, radii } from '@/theme/tokens';
 import { formatCompactLKR, formatNumber } from '@/lib/format';
 import { hasPermission, useAdminRole } from '@/features/admin/common/permissions';
 import { PortalSwitcher } from '@/features/common/PortalSwitcher';
-import { ChipRow, IconButton, InkHero, Pulse, Screen, Text, Touchable } from '@/ui';
+import { ChipRow, IconButton, IconTile, InkHero, Pulse, QuickAction, QuickActions, Screen, Text } from '@/ui';
 import { Appear, HeroGrid, HeroMetric, go } from '@/features/admin/platform/kit';
 import { useLedgerSummary, useOpenChargebacks, usePayoutBatchQueue, useRefundQueue } from './api';
 import { ChargebacksSection, CreditSection, LedgerSection, PayoutsSection, RefundsSection } from './MoneySections';
 
 type Tab = 'refunds' | 'payouts' | 'ledger' | 'chargebacks' | 'credit';
 const TABS: Tab[] = ['refunds', 'payouts', 'ledger', 'chargebacks', 'credit'];
-
-function QuickLink({ icon: Icon, label, hint, onPress }: { icon: LucideIcon; label: string; hint: string; onPress: () => void }) {
-  return (
-    <Touchable
-      onPress={onPress}
-      hapticOnPress
-      style={{
-        width: 164,
-        padding: 14,
-        gap: 12,
-        borderRadius: radii.xl,
-        backgroundColor: colors.paper,
-        borderWidth: 1,
-        borderColor: colors.lineSoft,
-      }}
-    >
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon size={17} color={colors.volt} strokeWidth={1.7} />
-        </View>
-        <ArrowRight size={16} color={colors.ink5} />
-      </View>
-      <View style={{ gap: 2 }}>
-        <Text variant="h3">{label}</Text>
-        <Text variant="caption" color="ink4" numberOfLines={1}>
-          {hint}
-        </Text>
-      </View>
-    </Touchable>
-  );
-}
 
 export function MoneyScreen() {
   const params = useLocalSearchParams<{ tab?: string }>();
@@ -93,14 +62,25 @@ export function MoneyScreen() {
             <Text variant="overline" color="volt">
               Money in flight
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Pulse color={needsAction ? colors.amber : colors.volt} size={7} />
-              <Text variant="caption" color="paperMuted">
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                paddingLeft: 4,
+                paddingRight: 10,
+                height: 26,
+                borderRadius: radii.pill,
+                backgroundColor: needsAction ? 'rgba(196,132,58,0.16)' : 'rgba(198,220,74,0.12)',
+              }}
+            >
+              <Pulse color={needsAction ? colors.amber : colors.volt} size={6} />
+              <Text variant="caption" weight="semibold" color={needsAction ? 'amberSoft' : 'voltGlow'}>
                 {needsAction ? `${needsAction} awaiting action` : 'All clear'}
               </Text>
             </View>
           </View>
-          <Text variant="metric" color="paper" style={{ marginTop: 10 }} numberOfLines={1} adjustsFontSizeToFit>
+          <Text variant="metric" color="paper" style={{ marginTop: 14, fontSize: 40, lineHeight: 44 }} numberOfLines={1} adjustsFontSizeToFit>
             {formatCompactLKR(inFlight)}
           </Text>
           <Text variant="caption" color="paperFaint">
@@ -112,26 +92,24 @@ export function MoneyScreen() {
             <HeroMetric label="Open chargebacks" value={formatNumber(openCb)} hint="Disputed transactions" accent={openCb > 0} />
             <HeroMetric label="Ledger net" value={formatCompactLKR(ledger.data?.netCents ?? 0)} hint="Platform settled capital" />
           </HeroGrid>
+          {links.length ? (
+            <>
+              <View style={{ height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.paperLine, marginTop: 20, marginBottom: 18 }} />
+              <QuickActions style={{ justifyContent: 'flex-start' }}>
+                {links.map((l, i) => (
+                  <QuickAction key={l.href} icon={l.icon} label={l.label} tone={i === 0 ? 'volt' : 'glass'} onPress={() => go(l.href)} />
+                ))}
+              </QuickActions>
+            </>
+          ) : null}
         </InkHero>
       </Appear>
 
-      {links.length ? (
-        <Appear i={1}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }} contentContainerStyle={{ gap: 10, paddingHorizontal: 20 }}>
-            {links.map((l) => (
-              <QuickLink key={l.href} icon={l.icon} label={l.label} hint={l.hint} onPress={() => go(l.href)} />
-            ))}
-          </ScrollView>
-        </Appear>
-      ) : null}
-
       <Appear i={2}>
-        <View style={{ gap: 6 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Banknote size={14} color={colors.copper} />
-            <Text variant="overline" color="copper">
-              Control desk
-            </Text>
+        <View style={{ gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 2 }}>
+            <IconTile icon={Banknote} tone="copper" size={30} />
+            <Text variant="h2">Control desk</Text>
           </View>
           <ChipRow<Tab>
             value={tab}

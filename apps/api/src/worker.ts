@@ -49,6 +49,8 @@ export default {
         ctx.waitUntil(import('./modules/rfqs/service').then((m) => m.rfqService.expireDue(env.DB, env.NOTIFICATIONS_QUEUE as never)));
         ctx.waitUntil(import('./cron/creditOverdue').then((m) => m.handleCreditOverdue(env)));
         ctx.waitUntil(handleSponsoredExpireSweep(env));
+        // Order automation: auto-cancel / auto-complete / return escalation / SLA.
+        ctx.waitUntil(import('./cron/orderLifecycle').then((m) => m.handleOrderLifecycle(env)));
         break;
       case '13 * * * *':
         ctx.waitUntil(handleTrustSignalsRebuild(env));
@@ -79,6 +81,8 @@ export default {
         // BuyLeads daily digest. Lanka = UTC+5:30, so 01:30 UTC = 07:00 Colombo.
         ctx.waitUntil(runBuyLeadsDigest(env));
         ctx.waitUntil(import('./cron/trustSeal').then((m) => m.handleTrustSealExpiry(env)));
+        // Buyer trade-credit reminders (due soon / due today / overdue 1-7-14d).
+        ctx.waitUntil(import('./cron/creditDunning').then((m) => m.handleCreditDunning(env)));
         break;
       }
       case '30 21 * * 4': {

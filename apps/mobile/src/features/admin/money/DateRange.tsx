@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View , ScrollView } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { CalendarRange } from 'lucide-react-native';
 import { Button, Chip, Field, Input, Sheet, Text } from '@/ui';
 import { formatDate } from '@/lib/format';
@@ -56,7 +56,7 @@ export function DateRangeChips({ value, onChange }: { value: DateRangeValue; onC
 
   return (
     <>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 20 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 20, paddingVertical: 4 }} style={{ overflow: 'visible' }}>
         {PRESETS.map((p) => (
           <Chip key={p.value} label={p.label} selected={value.preset === p.value} onPress={() => onChange({ preset: p.value, ...rangeFor(p.value) })} />
         ))}

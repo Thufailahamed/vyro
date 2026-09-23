@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Award, CheckCircle2, LayoutGrid, Pin, Tag, XCircle } from 'lucide-react-native';
+import { Award, CheckCircle2, Crown, LayoutGrid, Megaphone, Pin, Tag, XCircle } from 'lucide-react-native';
 import {
   Button,
   Card,
-  ChipRow,
   EmptyState,
   ErrorState,
-  Gutter,
+  IconTile,
   Screen,
-  ScreenHeader,
+  Segmented,
   SkeletonList,
   StatusBadge,
   Text,
@@ -20,6 +19,7 @@ import { api, errorMessage } from '@/lib/api';
 import { formatLKR, timeAgo } from '@/lib/format';
 import { colors, fonts } from '@/theme/tokens';
 import { MonoTag, Section, go } from '../../buyer/orders/kit';
+import { RecordCard } from '@/features/admin/ops/kit';
 
 type Tab = 'approvals' | 'campaigns' | 'plans' | 'slots';
 const TABS: { value: Tab; label: string }[] = [
@@ -46,15 +46,14 @@ type Slot = { id: string; surface: string; position: number; categoryId: string 
 export function AdminSponsoredScreen() {
   const [tab, setTab] = useState<Tab>('approvals');
   return (
-    <Screen scroll>
-      <ScreenHeader back kicker="Paid placement" title="Sponsored" subtitle="Approval queue, live campaigns, subscription plans and slot inventory." />
-      <Gutter style={{ gap: 14 }}>
-        <ChipRow options={TABS} value={tab} onChange={setTab} />
+    <Screen scroll back kicker="Paid placement" title="Sponsored" subtitle="Approval queue, live campaigns, subscription plans and slot inventory." gap={14}>
+      <View style={{ gap: 14 }}>
+        <Segmented options={TABS} value={tab} onChange={setTab} />
         {tab === 'approvals' ? <ApprovalsTab /> : null}
         {tab === 'campaigns' ? <CampaignsTab /> : null}
         {tab === 'plans' ? <PlansTab /> : null}
         {tab === 'slots' ? <SlotsTab /> : null}
-      </Gutter>
+      </View>
     </Screen>
   );
 }
@@ -87,21 +86,21 @@ function ApprovalsTab() {
   return (
     <View style={{ gap: 10 }}>
       {rows.map((c) => (
-        <Card key={c.id} padding={14} style={{ gap: 8 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-            <Text variant="bodySm" weight="semibold" style={{ flex: 1 }} numberOfLines={1}>
-              {c.supplierName ?? c.supplierId ?? 'Supplier'}
-            </Text>
-            <StatusBadge status={c.status} size="sm" />
-          </View>
-          <Text variant="caption" color="ink4">
-            {c.productName ?? 'Campaign'} · {c.surface ?? 'search'} · {formatLKR(c.budgetCents ?? 0)} budget
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button title="Approve" icon={CheckCircle2} size="sm" variant="volt" style={{ flex: 1 }} loading={act.isPending} onPress={() => act.mutate({ id: c.id, action: 'approve' })} />
-            <Button title="Reject" icon={XCircle} size="sm" variant="danger" style={{ flex: 1 }} onPress={() => act.mutate({ id: c.id, action: 'reject' })} />
-          </View>
-        </Card>
+        <RecordCard
+          key={c.id}
+          icon={Megaphone}
+          tone="copper"
+          title={c.supplierName ?? c.supplierId ?? 'Supplier'}
+          subtitle={`${c.productName ?? 'Campaign'} · ${c.surface ?? 'search'}`}
+          amount={formatLKR(c.budgetCents ?? 0)}
+          status={<StatusBadge status={c.status} size="sm" />}
+          actions={
+            <View style={{ flexDirection: 'row', gap: 8, flex: 1 }}>
+              <Button title="Approve" icon={CheckCircle2} size="sm" variant="volt" style={{ flex: 1 }} loading={act.isPending} onPress={() => act.mutate({ id: c.id, action: 'approve' })} />
+              <Button title="Reject" icon={XCircle} size="sm" variant="danger" style={{ flex: 1 }} onPress={() => act.mutate({ id: c.id, action: 'reject' })} />
+            </View>
+          }
+        />
       ))}
     </View>
   );
@@ -127,31 +126,25 @@ function CampaignsTab() {
   return (
     <View style={{ gap: 10 }}>
       {rows.map((c) => (
-        <Card key={c.id} padding={14} style={{ gap: 6 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-            <Text variant="bodySm" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
-              {c.supplierName ?? c.supplierId ?? 'Supplier'}
-            </Text>
-            <StatusBadge status={c.status} size="sm" />
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {c.surface ? <MonoTag label={c.surface} tone="copper" /> : null}
-            <Text variant="caption" color="ink4">
-              {c.productName ?? '—'} · {formatLKR(c.budgetCents ?? 0)}
-            </Text>
-            {c.createdAt ? (
-              <Text variant="caption" color="ink5">
-                {timeAgo(c.createdAt)}
-              </Text>
-            ) : null}
-          </View>
-          {c.status === 'active' || c.status === 'approved' ? (
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Button title="Pin" icon={Pin} size="sm" variant="secondary" onPress={() => act.mutate({ id: c.id, action: 'pin' })} />
-              <Button title="Revoke" icon={XCircle} size="sm" variant="danger" onPress={() => act.mutate({ id: c.id, action: 'revoke' })} />
-            </View>
-          ) : null}
-        </Card>
+        <RecordCard
+          key={c.id}
+          icon={Award}
+          tone={c.status === 'active' || c.status === 'approved' ? 'volt' : 'paper'}
+          title={c.supplierName ?? c.supplierId ?? 'Supplier'}
+          subtitle={c.productName ?? '—'}
+          meta={c.createdAt ? timeAgo(c.createdAt) : null}
+          amount={formatLKR(c.budgetCents ?? 0)}
+          status={<StatusBadge status={c.status} size="sm" />}
+          chips={c.surface ? <MonoTag label={c.surface} tone="copper" /> : undefined}
+          actions={
+            c.status === 'active' || c.status === 'approved' ? (
+              <>
+                <Button title="Pin" icon={Pin} size="sm" variant="paper" onPress={() => act.mutate({ id: c.id, action: 'pin' })} />
+                <Button title="Revoke" icon={XCircle} size="sm" variant="danger" onPress={() => act.mutate({ id: c.id, action: 'revoke' })} />
+              </>
+            ) : undefined
+          }
+        />
       ))}
     </View>
   );
@@ -166,7 +159,8 @@ function PlansTab() {
   return (
     <View style={{ gap: 10 }}>
       {rows.map((p) => (
-        <Card key={p.id} padding={14} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <Card key={p.id} padding={16} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <IconTile icon={Crown} tone={p.tier === 'gold' ? 'volt' : p.tier === 'silver' ? 'ink' : 'copper'} size={44} />
           <View style={{ flex: 1, gap: 3 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text variant="bodySm" weight="semibold">
@@ -205,10 +199,13 @@ function SlotsTab() {
           {slots
             .sort((a, b) => a.position - b.position)
             .map((s) => (
-              <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <View style={{ minWidth: 34, height: 34, borderRadius: 11, borderCurve: 'continuous', backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12.5, color: colors.ink }}>#{s.position}</Text>
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text variant="bodySm" weight="medium">
-                    #{s.position} {s.label}
+                    {s.label}
                   </Text>
                   <Text variant="caption" color="ink4">
                     {formatLKR(s.dailyRateCents)}/day{s.categoryId ? ` · category ${s.categoryId.slice(0, 8)}` : ''}
@@ -219,7 +216,7 @@ function SlotsTab() {
             ))}
         </Section>
       ))}
-      <Button title="View buyer disclosure" variant="ghost" size="sm" onPress={() => go('/sponsored-disclosure')} />
+      <Button title="View buyer disclosure" variant="paper" size="sm" onPress={() => go('/sponsored-disclosure')} style={{ alignSelf: 'center' }} />
     </View>
   );
 }

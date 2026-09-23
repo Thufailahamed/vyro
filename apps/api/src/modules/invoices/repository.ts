@@ -17,6 +17,7 @@ import { newId } from '@vyro/shared';
 const PREFIX: Record<Invoice['type'], string> = {
   receipt: 'RC',
   tax_invoice: 'INV',
+  credit_note: 'CN',
 };
 
 /**
@@ -65,6 +66,10 @@ export async function createInvoice(
     supplierId: string;
     subtotalCents: number;
     taxCents: number;
+    vatCents?: number;
+    ssclCents?: number;
+    supplierVatNo?: string | null;
+    buyerTaxId?: string | null;
     totalCents: number;
     currency: string;
     dueAt?: number | null;
@@ -87,6 +92,10 @@ export async function createInvoice(
     supplierId: input.supplierId,
     subtotalCents: input.subtotalCents,
     taxCents: input.taxCents,
+    vatCents: input.vatCents ?? 0,
+    ssclCents: input.ssclCents ?? 0,
+    supplierVatNo: input.supplierVatNo ?? null,
+    buyerTaxId: input.buyerTaxId ?? null,
     totalCents: input.totalCents,
     currency: input.currency,
     issuedAt: now,
@@ -107,6 +116,10 @@ export async function createInvoice(
   await db.insert(invoicesTable).values(invoiceRow).run();
   if (itemRows.length > 0) await db.insert(invoiceItemsTable).values(itemRows).run();
   return { invoice: invoiceRow as Invoice, items: itemRows as InvoiceItem[] };
+}
+
+export async function updateInvoiceSnapshot(d1: D1Database, id: string, htmlSnapshot: string): Promise<void> {
+  await getDb(d1).update(invoicesTable).set({ htmlSnapshot }).where(eq(invoicesTable.id, id)).run();
 }
 
 export async function findInvoice(d1: D1Database, id: string): Promise<Invoice | null> {
@@ -136,7 +149,15 @@ export type LineItemForInvoice = {
   lineTotalCents: number;
 };
 
-export async function buildLineItemsFromPo(d1: D1Database, poId: string): Promise<LineItemForInvoice[]> {
+/**
+ * Invoice lines for a PO. When `po` is given, PO-level adjustments (repeat-offer
+ * discount, delivery fee) are appended so the invoice reconciles to totalCents.
+ */
+export async function buildLineItemsFromPo(
+  d1: D1Database,
+  poId: string,
+  po?: { subtotalCents: number; deliveryFeeCents: number | null },
+): Promise<LineItemForInvoice[]> {
   const db = getDb(d1);
   const rows = ((await db
     .select({
@@ -148,12 +169,23 @@ export async function buildLineItemsFromPo(d1: D1Database, poId: string): Promis
     .from(purchaseOrderItems)
     .where(eq(purchaseOrderItems.purchaseOrderId, poId))
     .all()) as any) as Array<{ productName: string | null; quantity: number; unitPriceCents: number; lineTotalCents: number }>;
-  return rows.map((r) => ({
+  const lines: LineItemForInvoice[] = rows.map((r) => ({
     description: r.productName ?? 'Line item',
     quantity: r.quantity,
     unitCents: r.unitPriceCents,
     lineTotalCents: r.lineTotalCents,
   }));
+  if (!po) return lines;
+  const linesTotal = lines.reduce((s, it) => s + it.lineTotalCents, 0);
+  const discount = po.subtotalCents - linesTotal;
+  if (discount < 0) {
+    lines.push({ description: 'Loyalty discount', quantity: 1, unitCents: discount, lineTotalCents: discount });
+  }
+  const deliveryFee = po.deliveryFeeCents ?? 0;
+  if (deliveryFee > 0) {
+    lines.push({ description: 'Delivery fee', quantity: 1, unitCents: deliveryFee, lineTotalCents: deliveryFee });
+  }
+  return lines;
 }
 
 export { invoicesTable, invoiceItemsTable, paymentsTable, purchaseOrders };

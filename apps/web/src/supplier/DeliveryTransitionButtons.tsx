@@ -6,6 +6,8 @@ import { useToast } from '@vyro/ui';
 import { DELIVERY_STATUSES } from '@vyro/validation/delivery';
 import { useSupplierId } from './useSupplierId';
 import { TruckIcon, UserCheckIcon, ArrowRightIcon } from '@/components/icons';
+import { lifecycleErrorMessage } from '@/lib/orderLifecycle';
+import { PodDialog } from '@/components/orders/LifecycleUi';
 
 const NEXT_BY_STATUS: Record<string, string | null> = {
   pending: 'assigned',
@@ -38,6 +40,7 @@ export function DeliveryTransitionButtons({
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [driverName, setDriverName] = useState('');
   const [driverPhone, setDriverPhone] = useState('');
+  const [podOpen, setPodOpen] = useState(false);
 
   const mut = useMutation({
     mutationFn: (payload?: { driverName?: string; driverPhone?: string }) =>
@@ -47,11 +50,20 @@ export function DeliveryTransitionButtons({
         ...(payload?.driverPhone ? { driverPhone: payload.driverPhone } : {}),
       }),
     onSuccess: () => {
-      toast.success(`Delivery advanced to ${LABEL[next!] ?? next}`);
+      toast.show(toast.success(`Delivery advanced to ${LABEL[next!] ?? next}`));
       setAssignModalOpen(false);
       void qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'deliveries'] });
+      void qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'po'] });
+      void qc.invalidateQueries({ queryKey: ['supplier-order', poId] });
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Failed to advance delivery'),
+    onError: (e) => {
+      // Proof of delivery missing → capture it, then retry.
+      if (e instanceof ApiError && e.code === 'POD_REQUIRED') {
+        setPodOpen(true);
+        return;
+      }
+      toast.show(toast.error(lifecycleErrorMessage(e, 'Failed to advance delivery')));
+    },
   });
 
   if (!next || !DELIVERY_STATUSES.includes(next as (typeof DELIVERY_STATUSES)[number])) return null;
@@ -59,6 +71,8 @@ export function DeliveryTransitionButtons({
   const handleClick = () => {
     if (next === 'assigned') {
       setAssignModalOpen(true);
+    } else if (next === 'delivered') {
+      setPodOpen(true);
     } else {
       mut.mutate();
     }
@@ -135,7 +149,7 @@ export function DeliveryTransitionButtons({
                 size="sm"
                 onClick={() => {
                   if (!driverName.trim() || !driverPhone.trim()) {
-                    toast.error('Driver name and phone are required');
+                    toast.show(toast.error('Driver name and phone are required'));
                     return;
                   }
                   mut.mutate({ driverName: driverName.trim(), driverPhone: driverPhone.trim() });
@@ -147,6 +161,20 @@ export function DeliveryTransitionButtons({
             </div>
           </div>
         </div>
+      )}
+
+      {podOpen && (
+        <PodDialog
+          open
+          poId={poId}
+          onClose={() => setPodOpen(false)}
+          onCaptured={async () => {
+            await api.post(`/deliveries/${poId}/transitions`, { status: 'delivered' });
+            toast.show(toast.success('Delivery marked delivered'));
+            void qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'deliveries'] });
+            void qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'po'] });
+          }}
+        />
       )}
     </>
   );

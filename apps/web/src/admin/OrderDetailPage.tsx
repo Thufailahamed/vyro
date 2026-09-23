@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { allowedTransitions, type OrderStatus } from '@vyro/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { useAdminOrder } from './useAdminOrders';
 import { StatusBadge, Surface, EmptyState } from '@/components/ui';
 import { ArrowLeftIcon, Building2Icon, StoreIcon, PackageIcon, AlertCircleIcon, CheckCircleIcon, ClockIcon } from '@/components/icons';
 import { formatLKR } from '@/lib/format';
-
-const OVERRIDE_STATUSES = ['pending', 'accepted', 'rejected', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'delivered', 'completed', 'cancelled', 'disputed'] as const;
+import { DisputeResolutionPanel } from './DisputeResolutionPanel';
 
 function formatFullDate(ts?: number | null): string {
   if (!ts) return '—';
@@ -24,7 +24,7 @@ export function OrderDetailPage() {
   const { id = '' } = useParams();
   const { data, isLoading, isError, refetch } = useAdminOrder(id);
   const qc = useQueryClient();
-  const [status, setStatus] = useState<(typeof OVERRIDE_STATUSES)[number]>('cancelled');
+  const [status, setStatus] = useState<OrderStatus | ''>('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -48,6 +48,15 @@ export function OrderDetailPage() {
   const order = data?.order;
   const items = data?.items ?? [];
   const events = data?.events ?? [];
+
+  // Only legal admin edges; `disputed` has none (resolved via the dispute panel).
+  const overrideOptions = useMemo(
+    () => (order?.status ? allowedTransitions(order.status as OrderStatus, 'admin') : []),
+    [order?.status],
+  );
+  useEffect(() => {
+    setStatus((cur) => (cur && overrideOptions.includes(cur) ? cur : (overrideOptions[0] ?? '')));
+  }, [overrideOptions]);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-16">
@@ -447,7 +456,30 @@ export function OrderDetailPage() {
                 </Surface>
               )}
 
+              {/* Dispute arbitration (the only exit from `disputed`) */}
+              {order.status === 'disputed' && (
+                <Surface className="p-4 border-2 border-rose/30 bg-rose/5 space-y-3">
+                  <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-rose uppercase tracking-wider">
+                    <AlertCircleIcon size={15} />
+                    <span>Open dispute</span>
+                  </div>
+                  {order.disputeReason && (
+                    <p className="text-xs text-ink-3 italic">&ldquo;{order.disputeReason}&rdquo;</p>
+                  )}
+                  <DisputeResolutionPanel
+                    poId={order.id}
+                    totalCents={order.totalCents ?? 0}
+                    defaultOpen
+                    onResolved={() => {
+                      qc.invalidateQueries({ queryKey: ['admin-order', id] });
+                      qc.invalidateQueries({ queryKey: ['admin-orders'] });
+                    }}
+                  />
+                </Surface>
+              )}
+
               {/* Administrative Status Override Panel */}
+              {overrideOptions.length > 0 && (
               <Surface className="p-4 border-2 border-ink/20 bg-sand/10 space-y-3">
                 <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-ink uppercase tracking-wider">
                   <AlertCircleIcon size={15} className="text-amber" />
@@ -455,7 +487,7 @@ export function OrderDetailPage() {
                 </div>
 
                 <p className="text-[11px] text-ink-4 leading-relaxed">
-                  Bypasses normal state machine workflows. Every override action is permanently signed and audited in the platform security ledger.
+                  Moves the order along a legal lifecycle edge with the full pipeline (refunds, stock, notifications). Every override is signed and audited in the platform security ledger.
                 </p>
 
                 {successMsg && (
@@ -476,6 +508,7 @@ export function OrderDetailPage() {
                   className="space-y-3 pt-2"
                   onSubmit={(e) => {
                     e.preventDefault();
+                    if (!status) return;
                     override.mutate({
                       status,
                       reason,
@@ -489,12 +522,12 @@ export function OrderDetailPage() {
                     </label>
                     <select
                       value={status}
-                      onChange={(e) => setStatus(e.target.value as typeof status)}
+                      onChange={(e) => setStatus(e.target.value as OrderStatus)}
                       className="w-full h-9 px-2.5 text-xs font-mono border border-ink/20 bg-paper focus:outline-none focus:border-ink"
                     >
-                      {OVERRIDE_STATUSES.map((s) => (
+                      {overrideOptions.map((s) => (
                         <option key={s} value={s}>
-                          {s}
+                          {s.replace(/_/g, ' ')}
                         </option>
                       ))}
                     </select>
@@ -515,13 +548,14 @@ export function OrderDetailPage() {
 
                   <button
                     type="submit"
-                    disabled={override.isPending || reason.trim().length < 5}
+                    disabled={override.isPending || !status || reason.trim().length < 5}
                     className="w-full py-2 bg-ink text-paper text-xs font-mono font-bold hover:bg-ink-2 transition disabled:opacity-40"
                   >
                     {override.isPending ? 'Signing & Applying…' : 'Apply Audited Override'}
                   </button>
                 </form>
               </Surface>
+              )}
             </div>
           </div>
         </>

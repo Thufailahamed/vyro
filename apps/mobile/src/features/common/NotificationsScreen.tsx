@@ -1,7 +1,15 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, CheckCheck, FileText, Package, Sparkles, Truck } from 'lucide-react-native';
+import {
+  AlertCircle,
+  ChevronRight,
+  FileText,
+  Package,
+  Sparkles,
+  Truck,
+  type LucideIcon,
+} from 'lucide-react-native';
 import {
   Button,
   Card,
@@ -9,9 +17,10 @@ import {
   EmptyState,
   ErrorState,
   Gutter,
-  IconButton,
+  IconTile,
   ListHeader,
   ListScreen,
+  PillAction,
   ScreenHeader,
   SkeletonList,
   Text,
@@ -20,7 +29,7 @@ import {
 import { api, errorMessage, qs } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { timeAgo } from '@/lib/format';
-import { colors } from '@/theme/tokens';
+import { colors, radii, shadow } from '@/theme/tokens';
 import { go } from '../buyer/orders/kit';
 
 interface Note {
@@ -44,12 +53,29 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'ai', label: 'AI' },
 ];
 
-function iconFor(type: string) {
-  const t = type.toLowerCase();
-  if (t.includes('delivery') || t.includes('dispatch') || t.includes('truck') || t.includes('freight')) return { Icon: Truck, color: colors.copper };
-  if (t.includes('invoice') || t.includes('payment') || t.includes('paid') || t.includes('credit')) return { Icon: FileText, color: colors.mint };
-  if (t.includes('dispute') || t.includes('alert') || t.includes('security') || t.includes('suspend')) return { Icon: AlertCircle, color: colors.rose };
-  return { Icon: Package, color: colors.ink };
+function iconFor(n: Note): {
+  Icon: LucideIcon;
+  tone: 'ink' | 'volt' | 'copper' | 'paper' | 'danger' | 'success';
+} {
+  const t = n.type.toLowerCase();
+  if (
+    t.includes('delivery') ||
+    t.includes('dispatch') ||
+    t.includes('truck') ||
+    t.includes('freight')
+  )
+    return { Icon: Truck, tone: 'copper' };
+  if (t.includes('invoice') || t.includes('payment') || t.includes('paid') || t.includes('credit'))
+    return { Icon: FileText, tone: 'success' };
+  if (
+    t.includes('dispute') ||
+    t.includes('alert') ||
+    t.includes('security') ||
+    t.includes('suspend')
+  )
+    return { Icon: AlertCircle, tone: 'danger' };
+  if (n.source === 'ai') return { Icon: Sparkles, tone: 'volt' };
+  return { Icon: Package, tone: n.readAt ? 'paper' : 'ink' };
 }
 
 function matches(tab: Tab, n: Note) {
@@ -81,7 +107,8 @@ export function NotificationsScreen() {
     queryKey: ['notifications', tab === 'unread' ? 'unread' : 'all', cursor],
     queryFn: () =>
       api.get<{ notifications: Note[]; unreadCount: number; nextCursor: number | null }>(
-        '/notifications/me' + qs({ limit: 50, unread: tab === 'unread' ? 1 : undefined, before: cursor ?? undefined }),
+        '/notifications/me' +
+          qs({ limit: 50, unread: tab === 'unread' ? 1 : undefined, before: cursor ?? undefined }),
       ),
     enabled: !!user,
     refetchInterval: 30_000,
@@ -96,7 +123,10 @@ export function NotificationsScreen() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
-  const list = useMemo(() => (q.data?.notifications ?? []).filter((n) => matches(tab, n)), [q.data, tab]);
+  const list = useMemo(
+    () => (q.data?.notifications ?? []).filter((n) => matches(tab, n)),
+    [q.data, tab],
+  );
   const unread = q.data?.unreadCount ?? 0;
 
   return (
@@ -111,10 +141,47 @@ export function NotificationsScreen() {
             kicker="Inbox"
             title="Notifications"
             subtitle={unread ? `${unread} unread` : 'All caught up'}
-            right={unread ? <IconButton icon={CheckCheck} variant="ink" accessibilityLabel="Mark all read" onPress={() => markAll.mutate()} /> : undefined}
           />
-          <Gutter>
-            <ChipRow options={TABS} value={tab} onChange={(t) => { setTab(t); setCursor(null); }} />
+          <Gutter style={{ gap: 14 }}>
+            {unread ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: colors.volt,
+                      ...shadow.volt,
+                    }}
+                  />
+                  <Text variant="bodySm" weight="semibold" color="ink2">
+                    {unread} new
+                  </Text>
+                </View>
+                <PillAction
+                  label={markAll.isPending ? 'Marking…' : 'Mark all read'}
+                  onPress={() => markAll.mutate()}
+                />
+              </View>
+            ) : null}
+            <ChipRow
+              options={TABS.map((t) =>
+                t.value === 'unread' && unread ? { ...t, count: unread } : t,
+              )}
+              value={tab}
+              onChange={(t) => {
+                setTab(t);
+                setCursor(null);
+              }}
+            />
           </Gutter>
         </ListHeader>
       }
@@ -124,55 +191,128 @@ export function NotificationsScreen() {
         ) : q.isError ? (
           <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} />
         ) : (
-          <EmptyState icon={Package} title="Nothing here" message={tab === 'unread' ? 'No unread notifications.' : 'Notifications about orders, dispatches and payments will land here.'} />
+          <EmptyState
+            icon={Package}
+            title="Nothing here"
+            message={
+              tab === 'unread'
+                ? 'No unread notifications.'
+                : 'Notifications about orders, dispatches and payments will land here.'
+            }
+          />
         )
       }
       renderItem={({ item: n }) => {
-        const { Icon, color } = iconFor(n.type);
+        const { Icon, tone } = iconFor(n);
+        const isUnread = !n.readAt;
         return (
           <Touchable
             onPress={() => {
               if (!n.readAt) mark.mutate(n.id);
               if (n.link) go(n.link);
             }}
+            hapticOnPress
+            scaleTo={0.98}
             accessibilityLabel={n.title}
           >
-            <Card padding={14} style={{ flexDirection: 'row', gap: 12, opacity: n.readAt ? 0.72 : 1 }}>
-              <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon size={16} color={color} strokeWidth={1.9} />
-              </View>
-              <View style={{ flex: 1, gap: 3 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <Text variant="bodySm" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
+            <Card
+              padding={14}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                gap: 12,
+                backgroundColor: isUnread ? colors.paper : colors.pearl,
+              }}
+            >
+              <IconTile icon={Icon} tone={tone} size={42} />
+              <View style={{ flex: 1, gap: 4 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text
+                    variant="body"
+                    weight={isUnread ? 'semibold' : 'medium'}
+                    color={isUnread ? 'ink' : 'ink3'}
+                    numberOfLines={1}
+                    style={{ flex: 1 }}
+                  >
                     {n.title}
                   </Text>
-                  {!n.readAt ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.volt }} /> : null}
-                </View>
-                {n.body ? (
-                  <Text variant="caption" color="ink3" numberOfLines={2}>
-                    {n.body}
-                  </Text>
-                ) : null}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Text variant="caption" color="ink5">
                     {timeAgo(n.createdAt)}
                   </Text>
-                  {n.source === 'ai' ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                      <Sparkles size={10} color={colors.copper} />
-                      <Text variant="caption" color="copper">
-                        AI
-                      </Text>
-                    </View>
-                  ) : null}
                 </View>
+                {n.body ? (
+                  <Text variant="bodySm" color={isUnread ? 'ink3' : 'ink4'} numberOfLines={2}>
+                    {n.body}
+                  </Text>
+                ) : null}
+                {n.source === 'ai' || n.link ? (
+                  <View
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}
+                  >
+                    {n.source === 'ai' ? (
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 4,
+                          paddingHorizontal: 8,
+                          height: 22,
+                          borderRadius: radii.pill,
+                          backgroundColor: colors.copperSoft,
+                        }}
+                      >
+                        <Sparkles size={11} color={colors.copperDeep} />
+                        <Text
+                          variant="caption"
+                          weight="semibold"
+                          color="copperDeep"
+                          style={{ fontSize: 10.5 }}
+                        >
+                          VYRO AI
+                        </Text>
+                      </View>
+                    ) : null}
+                    {n.link ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                        <Text variant="caption" weight="semibold" color="ink4">
+                          Open
+                        </Text>
+                        <ChevronRight size={13} color={colors.ink4} />
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
               </View>
+              {isUnread ? (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 12,
+                    left: 12,
+                    width: 12,
+                    height: 12,
+                    borderRadius: 6,
+                    backgroundColor: colors.volt,
+                    borderWidth: 2,
+                    borderColor: colors.paper,
+                  }}
+                />
+              ) : null}
             </Card>
           </Touchable>
         );
       }}
       ListFooterComponent={
-        q.data?.nextCursor ? <Button title="Load earlier" variant="ghost" size="sm" onPress={() => setCursor(q.data!.nextCursor)} /> : null
+        q.data?.nextCursor ? (
+          <View style={{ alignItems: 'center', paddingTop: 6 }}>
+            <Button
+              title="Load earlier"
+              variant="secondary"
+              size="sm"
+              onPress={() => setCursor(q.data!.nextCursor)}
+            />
+          </View>
+        ) : null
       }
     />
   );

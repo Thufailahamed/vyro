@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { PageHeader, Surface, ErrorBanner, Button } from '@/components/ui';
+import { cn } from '@vyro/ui';
+import { ErrorBanner, Button } from '@/components/ui';
+import { CheckCircleIcon, LayersIcon, TrendingUpIcon, XIcon } from '@/components/icons';
 import { usePermission } from './lib/permissions';
 import {
   useQueueHealth,
@@ -11,6 +13,18 @@ import {
   type QueueName,
   type QueueEvent,
 } from './useAdminQueues';
+import {
+  AdminPage,
+  AdminPageHeader,
+  Callout,
+  Card,
+  CardHeader,
+  EmptyBlock,
+  Panel,
+  Pill,
+  TableCard,
+  controlClass,
+} from './ui';
 
 export function QueuesPage() {
   const canRead = usePermission('queues:read');
@@ -30,33 +44,57 @@ export function QueuesPage() {
   if (health.isError) return <ErrorBanner message={(health.error as Error).message} />;
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Queues & Jobs" sub="Live visibility into audit, notifications, and invoices queues" />
+    <AdminPage>
+      <AdminPageHeader
+        kicker="Infrastructure"
+        title="Queues & Jobs"
+        description="Live visibility into audit, notifications, and invoices queues"
+      />
 
-      <section aria-label="Queue tiles" className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section aria-label="Queue tiles" className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {(health.data ?? []).map((q) => (
-          <Surface key={q.queue} className="p-4">
-            <div className="text-sm uppercase text-ink-500">{q.queue}</div>
-            <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-              <div>Backlog</div><div>{q.backlog}</div>
-              <div>Acks (1h)</div><div>{q.ackLast1h}</div>
-              <div>Errors (1h)</div><div className={q.errLast1h > 0 ? 'text-amber-600' : ''}>{q.errLast1h}</div>
-              <div>p50</div><div>{q.p50Ms} ms</div>
-              <div>p95</div><div>{q.p95Ms} ms</div>
+          <Card key={q.queue} padded={false} className="p-5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold capitalize text-ink">{q.queue}</span>
+              {q.errLast1h > 0 ? (
+                <Pill tone="warning" dot>
+                  Errors
+                </Pill>
+              ) : (
+                <Pill tone="success" dot>
+                  Healthy
+                </Pill>
+              )}
             </div>
-          </Surface>
+            <div className="mt-4 flex items-baseline gap-2">
+              <span className="vyro-metric text-3xl leading-none text-ink">{q.backlog}</span>
+              <span className="text-xs text-ink-4">Backlog</span>
+            </div>
+            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-ink/[0.07] pt-4 text-sm">
+              <dt className="text-ink-4">Acks (1h)</dt>
+              <dd className="text-right num-tabular text-ink">{q.ackLast1h}</dd>
+              <dt className="text-ink-4">Errors (1h)</dt>
+              <dd className={cn('text-right num-tabular', q.errLast1h > 0 ? 'font-semibold text-amber' : 'text-ink')}>
+                {q.errLast1h}
+              </dd>
+              <dt className="text-ink-4">p50</dt>
+              <dd className="text-right num-tabular text-ink">{q.p50Ms} ms</dd>
+              <dt className="text-ink-4">p95</dt>
+              <dd className="text-right num-tabular text-ink">{q.p95Ms} ms</dd>
+            </dl>
+          </Card>
         ))}
       </section>
 
-      <Surface className="p-4">
-        <h3 className="text-sm font-medium mb-2">Throughput (24h, 5-min buckets)</h3>
+      <Panel title="Throughput (24h, 5-min buckets)" icon={<TrendingUpIcon size={16} />}>
         <ThroughputBars points={throughput.data ?? []} />
-      </Surface>
+      </Panel>
 
-      <Surface className="p-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium">Failed messages</h3>
-          {canWrite && selected.length > 0 && (
+      <TableCard
+        title="Failed messages"
+        description="Retry individual messages, or select several to replay them together."
+        actions={
+          canWrite && selected.length > 0 ? (
             <Button
               size="sm"
               onClick={() => {
@@ -67,63 +105,92 @@ export function QueuesPage() {
             >
               Replay {selected.length} selected
             </Button>
-          )}
-        </div>
-        <table className="mt-2 w-full text-sm">
+          ) : undefined
+        }
+      >
+        <table className="admin-table">
           <thead>
-            <tr className="text-left text-ink-500">
-              <th className="py-2"></th>
+            <tr>
+              <th className="w-10">
+                <span className="sr-only">Select</span>
+              </th>
               <th>Queue</th>
               <th>Msg id</th>
               <th>Event</th>
               <th>Error</th>
               <th>When</th>
-              <th></th>
+              <th>
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {(events.data ?? []).map((e) => (
-              <tr key={e.id} className="border-t border-ink/10">
-                <td className="py-2">
+              <tr key={e.id} data-selected={selected.includes(e.id) ? 'true' : undefined}>
+                <td>
                   {canWrite ? (
                     <input
                       type="checkbox"
                       aria-label={`Select ${e.id}`}
+                      className="size-4 cursor-pointer accent-ink"
                       onChange={(ev) =>
                         setSelected((cur) => (ev.target.checked ? [...cur, e.id] : cur.filter((x) => x !== e.id)))
                       }
                     />
                   ) : null}
                 </td>
-                <td>{e.queue}</td>
-                <td className="font-mono text-xs">{e.msgId.slice(0, 12)}</td>
-                <td>{e.event}</td>
-                <td className="text-red-600">{e.error ?? ''}</td>
-                <td>{new Date(e.createdAt).toISOString()}</td>
-                <td className="space-x-2">
-                  {canWrite ? (
-                    <Button size="sm" variant="ghost" onClick={() => retry.mutate({ id: e.id })}>
-                      Retry
+                <td>
+                  <Pill tone="neutral" className="capitalize">
+                    {e.queue}
+                  </Pill>
+                </td>
+                <td className="font-mono text-xs text-ink-3">{e.msgId.slice(0, 12)}</td>
+                <td className="font-mono text-xs">{e.event}</td>
+                <td className="max-w-xs truncate text-rose" title={e.error ?? ''}>
+                  {e.error ?? ''}
+                </td>
+                <td className="whitespace-nowrap font-mono text-xs text-ink-3">{new Date(e.createdAt).toISOString()}</td>
+                <td className="whitespace-nowrap text-right">
+                  <div className="inline-flex gap-1">
+                    {canWrite ? (
+                      <Button size="sm" variant="ghost" onClick={() => retry.mutate({ id: e.id })}>
+                        Retry
+                      </Button>
+                    ) : null}
+                    <Button size="sm" variant="ghost" onClick={() => setOpenPayload(e)}>
+                      View
                     </Button>
-                  ) : null}
-                  <Button size="sm" variant="ghost" onClick={() => setOpenPayload(e)}>
-                    View
-                  </Button>
+                  </div>
                 </td>
               </tr>
             ))}
             {!events.data?.length ? (
-              <tr><td colSpan={7} className="py-4 text-center text-ink-500">No failures recorded</td></tr>
+              <tr>
+                <td colSpan={7} className="!p-0">
+                  <EmptyBlock
+                    icon={<CheckCircleIcon size={20} />}
+                    title="No failures recorded"
+                    description="Every queued message has been processed."
+                  />
+                </td>
+              </tr>
             ) : null}
           </tbody>
         </table>
-      </Surface>
+      </TableCard>
 
       {canWrite && (
-        <Surface className="p-4">
-          <button className="text-sm underline" onClick={() => setOpenEnqueue((v) => !v)}>
-            {openEnqueue ? 'Hide' : 'Show'} manual enqueue
-          </button>
+        <Card padded={false} className="p-5 sm:p-6">
+          <CardHeader
+            title="Manual enqueue"
+            description="Send a raw JSON payload straight to a queue."
+            icon={<LayersIcon size={16} />}
+            actions={
+              <Button size="sm" variant="outline" onClick={() => setOpenEnqueue((v) => !v)}>
+                {openEnqueue ? 'Hide' : 'Show'} manual enqueue
+              </Button>
+            }
+          />
           {openEnqueue && (
             <EnqueueForm
               onSubmit={(queue, payload) => {
@@ -132,39 +199,41 @@ export function QueuesPage() {
             />
           )}
           {enqueue.isSuccess && (
-            <div className="mt-2 text-xs text-emerald-600">
-              Sent msgId={enqueue.data?.msgId} eventId={enqueue.data?.eventId}
-            </div>
+            <Callout tone="success" className="mt-4">
+              <span className="font-mono text-xs">
+                Sent msgId={enqueue.data?.msgId} eventId={enqueue.data?.eventId}
+              </span>
+            </Callout>
           )}
           {enqueue.isError && (
-            <div className="mt-2 text-xs text-red-600">{(enqueue.error as Error).message}</div>
+            <Callout tone="danger" className="mt-4">
+              {(enqueue.error as Error).message}
+            </Callout>
           )}
-        </Surface>
+        </Card>
       )}
 
-      {openPayload && (
-        <PayloadModal event={openPayload} onClose={() => setOpenPayload(null)} />
-      )}
-    </div>
+      {openPayload && <PayloadModal event={openPayload} onClose={() => setOpenPayload(null)} />}
+    </AdminPage>
   );
 }
 
 function ThroughputBars({ points }: { points: Array<{ ts: number; queue: QueueName; acks: number }> }) {
-  if (!points.length) return <div className="text-xs text-ink-500">No data yet</div>;
+  if (!points.length) return <div className="py-6 text-center text-sm text-ink-4">No data yet</div>;
   const max = Math.max(1, ...points.map((p) => p.acks));
   const queues: QueueName[] = ['audit', 'notifications', 'invoices'];
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {queues.map((q) => {
         const filtered = points.filter((p) => p.queue === q);
         return (
-          <div key={q} className="flex items-center gap-2 text-xs">
-            <div className="w-24 text-ink-500">{q}</div>
-            <div className="flex-1 h-3 bg-ink/5 rounded overflow-hidden flex">
+          <div key={q} className="flex items-center gap-3 text-xs">
+            <div className="w-24 shrink-0 font-medium capitalize text-ink-3">{q}</div>
+            <div className="flex h-3 flex-1 overflow-hidden rounded-full bg-ink/[0.06]">
               {filtered.map((p, i) => (
                 <div
                   key={i}
-                  className="bg-volt/60"
+                  className="bg-volt-deep/80"
                   style={{ width: `${(p.acks / max) * 100}%` }}
                   title={`${new Date(p.ts).toISOString()} ${p.acks}`}
                 />
@@ -182,32 +251,41 @@ function EnqueueForm({ onSubmit }: { onSubmit: (queue: QueueName, payload: unkno
   const [raw, setRaw] = useState('{}');
   const [err, setErr] = useState<string | null>(null);
   return (
-    <div className="mt-3 space-y-2">
-      <select value={queue} onChange={(e) => setQueue(e.target.value as QueueName)} className="rounded border p-1 text-sm">
-        <option value="audit">audit</option>
-        <option value="notifications">notifications</option>
-        <option value="invoices">invoices</option>
-      </select>
+    <div className="mt-5 space-y-3 border-t border-ink/[0.07] pt-5">
+      <label className="block text-sm font-medium text-ink-3">
+        Queue
+        <select
+          value={queue}
+          onChange={(e) => setQueue(e.target.value as QueueName)}
+          className={cn(controlClass, 'mt-1.5 block w-full sm:w-64')}
+        >
+          <option value="audit">audit</option>
+          <option value="notifications">notifications</option>
+          <option value="invoices">invoices</option>
+        </select>
+      </label>
       <textarea
         value={raw}
         onChange={(e) => setRaw(e.target.value)}
-        className="w-full h-32 font-mono text-xs rounded border p-2"
+        className={cn(controlClass, 'h-32 w-full py-2.5 font-mono text-xs leading-relaxed')}
         aria-label="Queue payload JSON"
       />
-      {err && <div className="text-red-600 text-xs">{err}</div>}
-      <Button
-        size="sm"
-        onClick={() => {
-          try {
-            onSubmit(queue, JSON.parse(raw));
-            setErr(null);
-          } catch (e) {
-            setErr(String(e));
-          }
-        }}
-      >
-        Send
-      </Button>
+      {err && <Callout tone="danger">{err}</Callout>}
+      <div className="flex justify-end">
+        <Button
+          size="sm"
+          onClick={() => {
+            try {
+              onSubmit(queue, JSON.parse(raw));
+              setErr(null);
+            } catch (e) {
+              setErr(String(e));
+            }
+          }}
+        >
+          Send
+        </Button>
+      </div>
     </div>
   );
 }
@@ -217,20 +295,41 @@ function PayloadModal({ event, onClose }: { event: QueueEvent; onClose: () => vo
     <div
       role="dialog"
       aria-label={`Payload ${event.id}`}
-      className="fixed inset-0 bg-black/40 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm animate-fade-in"
       onClick={onClose}
     >
-      <div className="bg-white rounded p-4 max-w-xl w-full" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-sm font-medium">Payload {event.id}</div>
-          <button className="text-xs underline" onClick={onClose}>close</button>
+      <div className="vyro-floating w-full max-w-xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="font-sans text-lg font-semibold tracking-normal text-ink">Payload</h2>
+            <p className="mt-0.5 truncate font-mono text-xs text-ink-4">{event.id}</p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-4 transition-colors hover:bg-ink/5 hover:text-ink"
+            onClick={onClose}
+          >
+            <XIcon size={16} />
+          </button>
         </div>
-        <div className="text-xs text-ink-500 mb-1">
-          {event.queue} / {event.event} / {new Date(event.createdAt).toISOString()}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Pill tone="neutral" className="capitalize">
+            {event.queue}
+          </Pill>
+          <Pill tone="info">{event.event}</Pill>
+          <Pill tone="neutral" className="font-mono">
+            {new Date(event.createdAt).toISOString()}
+          </Pill>
         </div>
-        <pre className="text-xs whitespace-pre-wrap break-all bg-ink/5 p-2 rounded">
+        <pre className="mt-4 max-h-[50vh] overflow-auto whitespace-pre-wrap break-all rounded-xl bg-bone p-4 font-mono text-xs text-ink shadow-[inset_0_0_0_1px_rgba(12,14,11,0.06)]">
           {event.error ?? '(no error stored — fetch /events/:id for payload)'}
         </pre>
+        <div className="mt-6 flex justify-end">
+          <Button size="sm" variant="outline" onClick={onClose}>
+            Close
+          </Button>
+        </div>
       </div>
     </div>
   );

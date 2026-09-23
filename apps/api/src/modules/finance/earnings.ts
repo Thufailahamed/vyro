@@ -5,8 +5,9 @@ import {
   refunds,
   supplierEarnings,
   chargebacks,
+  orderReturns,
 } from '@vyro/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { supplierNetCents } from '@vyro/shared';
 import { writeLedgerEntry } from '../ledger/writer';
 import { resolveCommissionBps, categoryForPo } from './commission';
@@ -209,6 +210,21 @@ export async function recomputeEligibility(d1: D1Database, earningId: string) {
       if (pendingRefund.some((r) => ['requested', 'approved', 'processing'].includes(r.status))) {
         eligibility = 'held';
         heldReason = 'refund-pending';
+      } else {
+        const openReturn = (await db
+          .select({ id: orderReturns.id })
+          .from(orderReturns)
+          .where(
+            and(
+              eq(orderReturns.purchaseOrderId, earning.purchaseOrderId),
+              inArray(orderReturns.status, ['requested', 'approved', 'received']),
+            ),
+          )
+          .get()) as { id: string } | undefined;
+        if (openReturn) {
+          eligibility = 'held';
+          heldReason = 'return-pending';
+        }
       }
     }
   }

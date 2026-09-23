@@ -32,7 +32,8 @@ export function AuthLayout({
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.ink }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style="light" />
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }} bounces={false}>
-        <View style={{ paddingTop: insets.top + 8, paddingHorizontal: GUTTER, paddingBottom: 40, minHeight: 250 }}>
+        <View style={{ paddingTop: insets.top + 8, paddingHorizontal: GUTTER, paddingBottom: 44, minHeight: 260 }}>
+          <View pointerEvents="none" style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, top: -170, right: -110, backgroundColor: colors.volt, opacity: 0.1 }} />
           <FlowField seed={title} />
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44 }}>
             {back ? (
@@ -66,12 +67,15 @@ export function AuthLayout({
             backgroundColor: colors.bone,
             borderTopLeftRadius: radii['3xl'],
             borderTopRightRadius: radii['3xl'],
+            borderCurve: 'continuous',
             paddingHorizontal: GUTTER,
-            paddingTop: 28,
+            paddingTop: 14,
             paddingBottom: insets.bottom + 24,
             gap: 18,
+            boxShadow: '0px -10px 30px rgba(0,0,0,0.25)',
           }}
         >
+          <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(12,14,11,0.14)', marginBottom: 6 }} />
           {children}
           {footer ? <View style={{ marginTop: 'auto', paddingTop: 12 }}>{footer}</View> : null}
         </Animated.View>

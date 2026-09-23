@@ -1,7 +1,7 @@
 import { Fragment, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { BadgeCheck, CalendarDays, Megaphone, Plus, ShieldCheck, ShieldHalf, Star, Timer, type LucideIcon } from 'lucide-react-native';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { formatLKR } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import { Badge, Text, Touchable, ProductImage, Skeleton } from '@/ui';
@@ -198,7 +198,7 @@ export function Pill({
   return (
     <View
       style={[
-        { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: radii.md, backgroundColor: bg, alignSelf: 'flex-start' },
+        { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radii.pill, backgroundColor: bg, alignSelf: 'flex-start' },
         style,
       ]}
     >
@@ -223,14 +223,17 @@ export function AddButton({ onPress, loading, disabled, size = 36 }: { onPress: 
         onPress();
       }}
       scaleTo={0.88}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: disabled ? colors.mist : colors.ink,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      style={[
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: disabled ? colors.mist : colors.ink,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        disabled ? null : shadow.ink,
+      ]}
     >
       {loading ? <ActivityIndicator size="small" color={colors.volt} /> : <Plus size={size * 0.5} color={disabled ? colors.ink5 : colors.volt} strokeWidth={2.2} />}
     </Touchable>
@@ -258,13 +261,12 @@ export function QtyPresets({
       }}
       hitSlop={4}
       style={{
-        paddingHorizontal: 9,
-        height: 26,
+        paddingHorizontal: 11,
+        height: 30,
         justifyContent: 'center',
-        borderRadius: radii.md,
-        borderWidth: 1,
-        borderColor: on ? colors.ink : colors.line,
+        borderRadius: radii.pill,
         backgroundColor: on ? colors.ink : colors.paper,
+        ...(on ? {} : shadow.sm),
       }}
     >
       <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11, color: on ? colors.volt : colors.ink3 }}>{label}</Text>
@@ -306,10 +308,10 @@ export function SponsoredProductCard({ slot, width = 220 }: { slot: SponsoredPla
         <Touchable
           hapticOnPress
           onPress={() => slot.productId && go(productHref(slot.productId))}
-          style={{ backgroundColor: colors.paper, borderRadius: radii.xl, borderWidth: 1, borderColor: 'rgba(196,132,58,0.35)', overflow: 'hidden' }}
+          style={[{ backgroundColor: colors.paper, borderRadius: radii['2xl'], borderCurve: 'continuous', padding: 6 }, shadow.card]}
         >
-          <ProductImage src={p?.imageUrl ?? p?.images?.[0]?.url} seed={slot.productId ?? slot.slotId} style={{ height: 110 }} />
-          <View style={{ padding: 12, gap: 4 }}>
+          <ProductImage src={p?.imageUrl ?? p?.images?.[0]?.url} seed={slot.productId ?? slot.slotId} style={{ height: 116, borderRadius: radii.xl, borderCurve: 'continuous' }} />
+          <View style={{ paddingHorizontal: 8, paddingTop: 10, paddingBottom: 8, gap: 4 }}>
             {q.isLoading ? (
               <>
                 <Skeleton width="80%" height={14} />

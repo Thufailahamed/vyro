@@ -1,18 +1,19 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { ShieldAlert, UserRound } from 'lucide-react-native';
 import { api, errorMessage } from '@/lib/api';
 import { formatDate, humanize } from '@/lib/format';
+import { colors } from '@/theme/tokens';
 import { roleLabel } from '@/features/admin/common/permissions';
 import {
   Avatar,
   Button,
   Card,
-  ChipRow,
   ConfirmSheet,
   QueryView,
   Screen,
   SearchBar,
+  Segmented,
   StatusBadge,
   Text,
   useToast,
@@ -78,7 +79,7 @@ export function UsersScreen() {
       right={<AdminHeaderActions />}
       onRefresh={() => q.refetch()}
     >
-      <ChipRow<Filter>
+      <Segmented<Filter>
         value={filter}
         onChange={setFilter}
         options={[
@@ -92,29 +93,36 @@ export function UsersScreen() {
         {() => (
           <View style={{ gap: 10 }}>
             {visible.map((u) => (
-              <Card key={u.id} kind="flat" padding={13} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Avatar name={u.name} size={40} />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text variant="body" weight="semibold" numberOfLines={1}>
-                    {u.name}
-                  </Text>
-                  <Text variant="caption" color="ink4" numberOfLines={1}>
-                    {u.email}
-                    {u.createdAt ? ` · ${formatDate(u.createdAt)}` : ''}
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 2 }}>
-                    {u.isAdmin || u.adminRole ? <StatusBadge status={roleLabel(u.adminRole)} size="sm" /> : null}
-                    {u.status ? <StatusBadge status={u.status} size="sm" /> : null}
+              <Card key={u.id} kind="flat" padding={16} style={{ gap: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Avatar name={u.name} size={46} tone={u.isAdmin || u.adminRole ? 'volt' : 'ink'} />
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text variant="h3" numberOfLines={1}>
+                      {u.name}
+                    </Text>
+                    <Text variant="bodySm" color="ink4" numberOfLines={1}>
+                      {u.email}
+                    </Text>
                   </View>
+                  <Can perm={['user:suspend', 'user:unsuspend']}>
+                    <Button
+                      title={u.status === 'suspended' ? 'Lift' : 'Hold'}
+                      size="sm"
+                      variant={u.status === 'suspended' ? 'paper' : 'danger'}
+                      onPress={() => setTarget(u)}
+                    />
+                  </Can>
                 </View>
-                <Can perm={['user:suspend', 'user:unsuspend']}>
-                  <Button
-                    title={u.status === 'suspended' ? 'Lift' : 'Hold'}
-                    size="sm"
-                    variant={u.status === 'suspended' ? 'secondary' : 'danger'}
-                    onPress={() => setTarget(u)}
-                  />
-                </Can>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft }}>
+                  {u.isAdmin || u.adminRole ? <StatusBadge status={roleLabel(u.adminRole)} size="sm" /> : null}
+                  {u.status ? <StatusBadge status={u.status} size="sm" /> : null}
+                  <View style={{ flex: 1 }} />
+                  {u.createdAt ? (
+                    <Text variant="caption" color="ink5">
+                      Joined {formatDate(u.createdAt)}
+                    </Text>
+                  ) : null}
+                </View>
               </Card>
             ))}
           </View>
@@ -132,7 +140,7 @@ export function UsersScreen() {
       />
       {filter === 'suspended' ? null : (
         <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-          <ShieldAlert size={13} color="#8A8A8A" />
+          <ShieldAlert size={13} color={colors.ink5} />
           <Text variant="caption" color="ink4">
             {humanize(filter)} · {visible.length} shown
           </Text>

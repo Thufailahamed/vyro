@@ -51,7 +51,7 @@ export interface LedgerWriteInput {
 export function writeLedgerEntry(
   tx: ReturnType<typeof getDb>,
   input: LedgerWriteInput,
-): void {
+): Promise<unknown> {
   if (input.amountCents <= 0) {
     throw new Error('ledger entry amount must be positive');
   }
@@ -72,7 +72,8 @@ export function writeLedgerEntry(
     createdByUserId: input.createdByUserId ?? null,
     createdAt: Date.now(),
   };
-  tx.insert(ledgerEntries).values(row).run();
+  // Returned so new callers can await the write; legacy callers ignore it.
+  return tx.insert(ledgerEntries).values(row).run() as unknown as Promise<unknown>;
 }
 
 /**

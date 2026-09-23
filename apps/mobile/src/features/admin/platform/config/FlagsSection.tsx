@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { Braces, Flag, Plus, Sparkles, ToggleRight, Trash2 } from 'lucide-react-native';
-import { colors, fonts } from '@/theme/tokens';
+import { colors, fonts, radii } from '@/theme/tokens';
 import { errorMessage } from '@/lib/api';
 import { usePermission } from '@/features/admin/common/permissions';
 import { Appear, Can, InlineEmpty } from '@/features/admin/platform/kit';
@@ -13,6 +13,7 @@ import {
   ConfirmSheet,
   ErrorState,
   Field,
+  IconTile,
   Input,
   LinkText,
   ProgressBar,
@@ -197,7 +198,7 @@ export function FlagsSection() {
       {mode === 'visual' ? (
         items.length === 0 ? (
           <Appear i={2}>
-            <Card kind="bone" style={{ gap: 14 }}>
+            <Card kind="flat" padding={18} style={{ gap: 14 }}>
               <InlineEmpty
                 icon={ToggleRight}
                 title="No feature flags defined"
@@ -299,8 +300,9 @@ function FlagCard({
 }) {
   const danger = flag.key === 'maintenance_mode' && flag.enabled;
   return (
-    <Card kind={danger ? 'copper' : 'flat'} style={{ gap: 12 }}>
+    <Card kind={danger ? 'copper' : 'flat'} padding={18} style={{ gap: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+        <IconTile icon={ToggleRight} tone={danger ? 'danger' : flag.enabled ? 'volt' : 'paper'} size={40} />
         <View style={{ flex: 1, gap: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <Text style={{ fontFamily: fonts.monoMedium, fontSize: 14, color: colors.ink }} numberOfLines={1}>
@@ -322,7 +324,7 @@ function FlagCard({
         <Switch value={flag.enabled} disabled={!canWrite} onValueChange={(v) => onChange({ enabled: v })} />
       </View>
 
-      <View style={{ gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
+      <View style={{ gap: 10, padding: 14, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: danger ? 'rgba(255,255,255,0.45)' : colors.pearl }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text variant="overline" color="ink4">
             Rollout cohort

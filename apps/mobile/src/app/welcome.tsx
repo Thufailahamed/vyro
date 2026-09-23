@@ -6,9 +6,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { Easing, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { ArrowRight, Building2, Search, Store } from 'lucide-react-native';
+import { ArrowRight, BadgeCheck, Building2, Lock, Search, Store, Zap } from 'lucide-react-native';
 import { Button, Text, Wordmark, Kicker } from '@/ui';
-import { colors, GUTTER } from '@/theme/tokens';
+import { colors, GUTTER, radii } from '@/theme/tokens';
+
+const TRUST = [
+  { icon: BadgeCheck, label: 'Verified suppliers' },
+  { icon: Lock, label: 'Escrow-protected' },
+  { icon: Zap, label: 'Live offers' },
+];
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -95,7 +101,45 @@ export default function Welcome() {
           </Text>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(450).duration(700)} style={{ gap: 10, marginTop: 28, paddingBottom: insets.bottom + 16 }}>
+        <Animated.View entering={FadeInDown.delay(350).duration(700)} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 18 }}>
+          {TRUST.map((t) => (
+            <View
+              key={t.label}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                height: 30,
+                paddingHorizontal: 11,
+                borderRadius: 15,
+                backgroundColor: 'rgba(250,247,240,0.07)',
+                borderWidth: 1,
+                borderColor: colors.paperLine,
+              }}
+            >
+              <t.icon size={13} color={colors.volt} strokeWidth={2} />
+              <Text variant="caption" weight="semibold" color="paper">
+                {t.label}
+              </Text>
+            </View>
+          ))}
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.delay(450).duration(700)}
+          style={{
+            gap: 10,
+            marginTop: 22,
+            marginBottom: insets.bottom + 10,
+            marginHorizontal: -8,
+            padding: 12,
+            borderRadius: radii['2xl'] + 4,
+            borderCurve: 'continuous',
+            backgroundColor: 'rgba(250,247,240,0.06)',
+            borderWidth: 1,
+            borderColor: colors.paperLine,
+          }}
+        >
           <Button title="Sign in" variant="volt" size="lg" full iconRight={ArrowRight} onPress={() => router.push('/login')} />
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Button
@@ -115,7 +159,7 @@ export default function Welcome() {
               onPress={() => router.push({ pathname: '/signup', params: { intent: 'supplier' } })}
             />
           </View>
-          <Button title="Browse the catalog" variant="ghostPaper" icon={Search} full onPress={() => router.push('/buyer/catalog')} style={{ opacity: 0.9 }} />
+          <Button title="Browse the catalog" variant="ghostPaper" icon={Search} full size="sm" onPress={() => router.push('/buyer/catalog')} style={{ opacity: 0.9 }} />
         </Animated.View>
       </View>
     </View>

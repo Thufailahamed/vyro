@@ -1,29 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { cn } from '@vyro/ui';
 import { api } from '@/lib/api';
-import { formatLKR } from '@/lib/format';
-import {
-  StoreIcon,
-  Building2Icon,
-  AlertCircleIcon,
-  FileTextIcon,
-  ShieldCheckIcon,
-} from './icons';
-import {
-  PackageIcon,
-  SparklesIcon,
-  TruckIcon,
-  UsersIcon,
-  TrendingUpIcon,
-  ArrowRightIcon,
-  ExternalLinkIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  ScaleIcon,
-} from '@/components/icons';
-import { MetricNumber, Surface } from '@/components/brand/Surface';
+import { formatCompactLKR, formatLKR, greetingForNow } from '@/lib/format';
+import { StoreIcon, Building2Icon, AlertCircleIcon, ShieldCheckIcon, MapPinIcon } from './icons';
+import { PackageIcon, UsersIcon, ArrowRightIcon, CheckCircleIcon, TrendingUpIcon } from '@/components/icons';
+import { FlowCanvas } from '@/components/brand/FlowLine';
 import { CommandCenter, useCommandCenter } from './CommandCenter';
+import { AdminPage, Pill, StatCard, StatGrid } from './ui';
 
 type AdminAnalyticsRange = '7d' | '30d' | '90d';
 
@@ -43,6 +28,14 @@ type AdminAnalytics = {
   topRegions: Array<{ district: string; cents: number }>;
 };
 
+const RANGE_LABEL: Record<AdminAnalyticsRange, string> = {
+  '7d': 'last 7 days',
+  '30d': 'last 30 days',
+  '90d': 'last 90 days',
+};
+
+const DISPUTE_THRESHOLD = 0.02;
+
 function formatRelativeTime(ts: number) {
   const diffSec = Math.floor((Date.now() - ts) / 1000);
   if (diffSec < 60) return 'Just now';
@@ -56,6 +49,13 @@ function formatRelativeTime(ts: number) {
 function formatAction(action: string) {
   return action.replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+function formatDay(day: string) {
+  const d = new Date(day);
+  return Number.isNaN(d.getTime()) ? day : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+const fmtPct = (x: number) => `${Math.round(x * 100)}%`;
 
 export function AdminHomePage() {
   const [range, setRange] = useState<AdminAnalyticsRange>('30d');
@@ -71,544 +71,461 @@ export function AdminHomePage() {
   const recentEvents = commandCenterQuery.data?.recentEvents ?? [];
 
   const m = data?.metrics;
-  const fmtPct = (x: number) => `${Math.round(x * 100)}%`;
+  const disputeElevated = m ? m.disputeRate > DISPUTE_THRESHOLD : false;
 
-  // Calculate effective take rate percentage
   const effectiveTakeRatePct = useMemo(() => {
-    if (!m || m.gmvCents <= 0) return '2.50%';
-    const pct = ((m.takeRateCents / m.gmvCents) * 100).toFixed(2);
-    return `${pct}%`;
+    if (!m || m.gmvCents <= 0) return null;
+    return `${((m.takeRateCents / m.gmvCents) * 100).toFixed(2)}%`;
   }, [m]);
 
   const tiles = [
     {
       to: '/admin/businesses',
-      label: 'Active Buyers',
-      value: m ? m.activeBuyers : '—',
+      label: 'Active buyers',
+      value: m ? m.activeBuyers.toLocaleString() : '—',
       sub: 'Verified purchasing entities',
-      badge: 'Commercial Entities',
-      icon: <Building2Icon size={18} className="text-copper" />,
+      icon: <Building2Icon size={18} />,
     },
     {
       to: '/admin/suppliers',
-      label: 'Active Suppliers',
-      value: m ? m.activeSuppliers : '—',
+      label: 'Active suppliers',
+      value: m ? m.activeSuppliers.toLocaleString() : '—',
       sub: 'Verified mills & wholesale hubs',
-      badge: 'Mills & Hubs',
-      icon: <StoreIcon size={18} className="text-volt-deep" />,
+      icon: <StoreIcon size={18} />,
     },
     {
       to: '/admin/users',
-      label: 'New Signups',
-      value: m ? m.newSignups : '—',
-      sub: 'Accounts in selected window',
-      badge: `Window: ${range.toUpperCase()}`,
-      icon: <UsersIcon size={18} className="text-mint" />,
+      label: 'New signups',
+      value: m ? m.newSignups.toLocaleString() : '—',
+      sub: `Accounts created, ${RANGE_LABEL[range]}`,
+      icon: <UsersIcon size={18} />,
     },
     {
       to: '/admin/disputed',
-      label: 'Dispute Rate',
+      label: 'Dispute rate',
       value: m ? fmtPct(m.disputeRate) : '—',
-      sub: m && m.disputeRate > 0.02 ? 'Attention required' : 'Healthy operating baseline',
-      badge: m && m.disputeRate > 0.02 ? 'Elevated (>2%)' : 'Normal (<2%)',
-      isAlert: m ? m.disputeRate > 0.02 : false,
-      icon: (
-        <AlertCircleIcon
-          size={18}
-          className={m && m.disputeRate > 0.02 ? 'text-rose' : 'text-mint'}
-        />
-      ),
+      sub: m ? (disputeElevated ? 'Above the 2% baseline' : 'Within the 2% baseline') : 'Share of orders disputed',
+      icon: <AlertCircleIcon size={18} />,
+      status: m ? (disputeElevated ? ('alert' as const) : ('ok' as const)) : undefined,
     },
   ];
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-16">
-      {/* ── Executive Command Header & Attached Live Telemetry Rail ── */}
-      <header className="bg-ink text-paper border border-paper/10 relative overflow-hidden grain shadow-lg">
-        <div className="p-6 sm:p-8">
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="vyro-kicker text-volt">Operations Command</span>
-                <span className="text-paper/40">/</span>
-                <span className="text-[11px] font-mono text-paper/70">National Clearinghouse</span>
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-volt/10 border border-volt/25 text-[10px] font-mono text-volt uppercase tracking-wider font-bold">
-                  <span className="size-1.5 rounded-full bg-volt animate-pulse" />
-                  Live Telemetry
-                </span>
-                <span className="text-[10px] font-mono text-paper/40 hidden sm:inline">
-                  • Synced 60s
+    <AdminPage>
+      {/* ── Header + needs-action strip ── */}
+      <header className="relative overflow-hidden rounded-2xl bg-ink text-paper grain shadow-3">
+        <div className="absolute inset-0 opacity-40">
+          <FlowCanvas tone="paper" density="hero" />
+        </div>
+
+        <div className="relative z-10 p-6 sm:p-8">
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="vyro-kicker text-volt">VYRO Control</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-volt/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-volt">
+                  <span className="size-1.5 rounded-full bg-volt motion-safe:animate-pulse" />
+                  Live · refreshes every 60s
                 </span>
               </div>
-              <h1 className="vyro-display text-3xl sm:text-4xl text-paper font-bold tracking-tight">
-                VYRO Control
-              </h1>
-              <p className="text-xs sm:text-sm text-paper/70 max-w-2xl leading-relaxed">
-                Platform administration across verified commercial businesses, wholesale suppliers, order clearing, and dispute resolutions across 25 Sri Lankan districts.
+              <h1 className="mt-3 vyro-display text-4xl sm:text-5xl text-paper">{greetingForNow()}.</h1>
+              <p className="mt-3 max-w-xl text-sm text-paper/60">
+                Businesses, suppliers, order clearing and disputes across Sri Lanka's 25 districts — at a glance.
               </p>
             </div>
 
-            {/* Time Range Filter */}
-            <div className="flex items-center gap-1 bg-paper/5 border border-paper/15 p-1 shrink-0 self-start md:self-auto shadow-sm">
+            <div
+              className="inline-flex shrink-0 self-start rounded-lg bg-paper/[0.06] p-1 shadow-[inset_0_0_0_1px_rgba(250,247,240,0.1)] md:self-auto"
+              role="group"
+              aria-label="Date range"
+            >
               {(['7d', '30d', '90d'] as const).map((r) => (
                 <button
                   key={r}
                   type="button"
                   onClick={() => setRange(r)}
-                  className={`px-3 py-1.5 text-xs font-mono tracking-wider uppercase transition-colors ${
-                    range === r
-                      ? 'bg-volt text-ink font-bold shadow-sm'
-                      : 'text-paper/60 hover:text-paper hover:bg-paper/10'
-                  }`}
+                  aria-pressed={range === r}
+                  className={cn(
+                    'rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors duration-200',
+                    range === r ? 'bg-volt text-ink' : 'text-paper/60 hover:bg-paper/10 hover:text-paper',
+                  )}
                 >
-                  Last {r}
+                  {r.toUpperCase()}
                 </button>
               ))}
             </div>
           </div>
-        </div>
 
-        {/* Integrated Real-Time Telemetry Bar */}
-        <div className="border-t border-paper/10 bg-paper/[0.04] p-4 sm:px-8">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-paper/50 font-semibold">
-              Live Operations Queue Health
-            </span>
-            <span className="text-[10px] font-mono text-paper/40">Real-time Triage Deck</span>
+          <div className="mt-8">
+            <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-paper/45">Needs action</div>
+            <CommandCenter variant="dark" />
           </div>
-          <CommandCenter variant="dark" />
         </div>
       </header>
 
-      {/* ── KPI Metric Tiles ── */}
-      {isLoading ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-paper p-6 h-32 border border-ink/10 animate-pulse" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {tiles.map((t) => (
+      {/* ── KPI tiles ── */}
+      <StatGrid>
+        {tiles.map((t) => (
+          <StatCard
+            key={t.to}
+            to={t.to}
+            label={t.label}
+            value={t.value}
+            sub={t.sub}
+            icon={t.icon}
+            loading={isLoading}
+            status={t.status && <StatusChip status={t.status} />}
+          />
+        ))}
+      </StatGrid>
+
+      {/* ── Economics ── */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="vyro-surface p-6 lg:col-span-2" aria-labelledby="gmv-heading">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 id="gmv-heading" className="text-sm font-medium text-ink-3 font-sans tracking-normal">
+                Gross merchandise value
+              </h2>
+              <div className="mt-2 vyro-metric text-4xl sm:text-5xl leading-none text-ink">
+                {isLoading ? <span className="inline-block h-10 w-56 rounded-md bg-mist/60 animate-pulse" /> : m ? formatLKR(m.gmvCents) : '—'}
+              </div>
+              <p className="mt-2 text-xs text-ink-4">Invoiced purchasing volume, {RANGE_LABEL[range]}</p>
+            </div>
             <Link
-              key={t.to}
-              to={t.to}
-              className="bg-paper border border-ink/15 p-5 hover:border-ink hover:shadow-md transition-all duration-150 flex flex-col justify-between space-y-3 group"
+              to="/admin/finance"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-ink-3 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.12)] transition-colors hover:bg-ink hover:text-paper"
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] uppercase tracking-[0.14em] font-mono text-ink-4 group-hover:text-copper font-semibold">
-                  {t.label}
-                </span>
-                <div className="size-8 bg-bone border border-ink/10 flex items-center justify-center shrink-0 group-hover:bg-ink group-hover:text-paper transition-colors shadow-2xs">
-                  {t.icon}
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-baseline justify-between gap-2">
-                  <MetricNumber size="lg" className="text-ink font-bold">
-                    {t.value}
-                  </MetricNumber>
-                  <span
-                    className={`text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded border ${
-                      t.isAlert
-                        ? 'bg-rose/10 text-rose border-rose/25'
-                        : 'bg-bone text-ink-4 border-ink/10'
-                    }`}
-                  >
-                    {t.badge}
-                  </span>
-                </div>
-                <div className="text-[11px] text-ink-4 mt-1 truncate">{t.sub}</div>
-              </div>
+              SVAT invoicing ledger
+              <ArrowRightIcon size={12} />
             </Link>
+          </div>
+
+          <div className="mt-8">
+            {isLoading ? (
+              <div className="h-44 rounded-lg bg-mist/40 animate-pulse" />
+            ) : data?.gmvByDay && data.gmvByDay.length > 0 ? (
+              <DailyGmvChart days={data.gmvByDay} />
+            ) : (
+              <EmptyNote icon={<TrendingUpIcon size={18} />}>Daily volume will appear once orders clear in this window.</EmptyNote>
+            )}
+          </div>
+        </section>
+
+        <div className="grid gap-4">
+          <section className="vyro-surface p-6">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-medium text-ink-3 font-sans tracking-normal">Platform revenue</h2>
+              {effectiveTakeRatePct && (
+                <span className="rounded-md bg-volt-soft px-2 py-0.5 text-[11px] font-semibold text-ink">
+                  {effectiveTakeRatePct} take rate
+                </span>
+              )}
+            </div>
+            <div className="mt-3 vyro-metric text-3xl leading-none text-ink">
+              {m ? formatLKR(m.takeRateCents) : '—'}
+            </div>
+            <p className="mt-2 text-xs text-ink-4">Net platform fees from escrow clearing</p>
+          </section>
+
+          <section className="vyro-surface p-6">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-medium text-ink-3 font-sans tracking-normal">Fulfilment completion</h2>
+              {m && <StatusChip status={m.completionRate > 0.8 ? 'ok' : 'warn'} okLabel="On track" warnLabel="Below 80%" />}
+            </div>
+            <div className="mt-3 vyro-metric text-3xl leading-none text-ink">{m ? fmtPct(m.completionRate) : '—'}</div>
+            <div
+              className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-bone"
+              role="progressbar"
+              aria-label="Fulfilment completion"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round((m?.completionRate ?? 0) * 100)}
+            >
+              <div
+                className="h-full rounded-full bg-mint transition-[width] duration-480 ease-vyro"
+                style={{ width: `${Math.min(100, Math.round((m?.completionRate ?? 0) * 100))}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-ink-4">GRN sign-offs confirmed by receiving businesses</p>
+          </section>
+        </div>
+      </div>
+
+      {/* ── Categories & districts ── */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <RankedPanel
+          title="Top product categories"
+          linkTo="/admin/catalog"
+          linkLabel="Catalog"
+          loading={isLoading}
+          barClass="bg-copper"
+          rows={(data?.topCategories ?? []).map((c) => ({ key: c.categoryId, label: c.name, cents: c.cents }))}
+          rowIcon={<PackageIcon size={14} />}
+          empty="Category volume will populate as purchase orders clear."
+        />
+        <RankedPanel
+          title="Top districts"
+          linkTo="/admin/deliveries"
+          linkLabel="Deliveries"
+          loading={isLoading}
+          barClass="bg-volt-deep"
+          rows={(data?.topRegions ?? []).map((r) => ({ key: r.district, label: r.district, cents: r.cents }))}
+          rowIcon={<MapPinIcon size={14} />}
+          empty="District volume will populate as deliveries complete."
+        />
+      </div>
+
+      {/* ── Shortcuts & activity ── */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="lg:col-span-2" aria-labelledby="shortcuts-heading">
+          <h2 id="shortcuts-heading" className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4 font-sans">
+            Manage
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Shortcut to="/admin/suppliers" icon={<StoreIcon size={18} />} title="Suppliers" body="Verified millers, dispatch facilities and catalog listings." />
+            <Shortcut to="/admin/businesses" icon={<Building2Icon size={18} />} title="Buyer businesses" body="Purchasing entities, restaurant chains and credit terms." />
+            <Shortcut to="/admin/disputed" icon={<AlertCircleIcon size={18} />} title="Disputes" body="Receiving disputes, weight variances and driver sign-offs." />
+            <Shortcut to="/admin/security" icon={<ShieldCheckIcon size={18} />} title="Security & audit" body="Audit logs, session revocations and access rights." />
+          </div>
+        </section>
+
+        <section className="vyro-surface flex flex-col p-6" aria-labelledby="activity-heading">
+          <div className="flex items-center justify-between gap-2">
+            <h2 id="activity-heading" className="text-sm font-semibold text-ink font-sans tracking-normal">
+              Recent activity
+            </h2>
+            <Link to="/admin/audit" className="inline-flex items-center gap-1 text-xs font-medium text-copper hover:text-ink transition-colors">
+              Audit log
+              <ArrowRightIcon size={12} />
+            </Link>
+          </div>
+
+          {recentEvents.length > 0 ? (
+            <ol className="mt-5 space-y-0">
+              {recentEvents.slice(0, 6).map((evt, i, arr) => (
+                <li key={evt.id} className="relative flex gap-3 pb-4 last:pb-0">
+                  {i < arr.length - 1 && <span className="absolute left-[3px] top-3 bottom-0 w-px bg-ink/10" aria-hidden />}
+                  <span className="relative mt-1.5 size-[7px] shrink-0 rotate-45 bg-ink-4" aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-ink">{formatAction(evt.action)}</div>
+                    <div className="mt-0.5 flex items-center gap-2 text-[11px] text-ink-4">
+                      <span>{formatRelativeTime(evt.createdAt)}</span>
+                      <span aria-hidden>·</span>
+                      <span className="font-mono">{evt.id.slice(0, 8)}</span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="mt-5 flex-1">
+              <EmptyNote icon={<ShieldCheckIcon size={18} />}>No admin activity recorded yet.</EmptyNote>
+            </div>
+          )}
+        </section>
+      </div>
+    </AdminPage>
+  );
+}
+
+function StatusChip({
+  status,
+  okLabel = 'Normal',
+  warnLabel = 'Watch',
+  alertLabel = 'Elevated',
+}: {
+  status: 'ok' | 'warn' | 'alert';
+  okLabel?: string;
+  warnLabel?: string;
+  alertLabel?: string;
+}) {
+  const cfg = {
+    ok: { tone: 'success' as const, icon: <CheckCircleIcon size={11} />, label: okLabel },
+    warn: { tone: 'warning' as const, icon: <AlertCircleIcon size={11} />, label: warnLabel },
+    alert: { tone: 'danger' as const, icon: <AlertCircleIcon size={11} />, label: alertLabel },
+  }[status];
+  return (
+    <Pill tone={cfg.tone} icon={cfg.icon}>
+      {cfg.label}
+    </Pill>
+  );
+}
+
+function EmptyNote({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex h-full min-h-32 flex-col items-center justify-center gap-2 rounded-lg bg-bone/60 px-6 py-8 text-center">
+      <span className="text-ink-4">{icon}</span>
+      <p className="max-w-xs text-xs text-ink-4">{children}</p>
+    </div>
+  );
+}
+
+function DailyGmvChart({ days }: { days: Array<{ day: string; cents: number }> }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const max = Math.max(...days.map((d) => d.cents), 1);
+  const active = hover !== null ? days[hover] : null;
+
+  return (
+    <figure>
+      <div className="relative">
+        {/* Recessive grid: max and midpoint */}
+        <div className="pointer-events-none absolute inset-0 flex flex-col justify-between" aria-hidden>
+          {[max, max / 2, 0].map((v, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="w-16 shrink-0 text-right text-[10px] text-ink-4 num-tabular">{formatCompactLKR(v)}</span>
+              <span className={cn('h-px flex-1', i === 2 ? 'bg-ink/20' : 'bg-ink/[0.06]')} />
+            </div>
           ))}
         </div>
-      )}
 
-      {/* ── Platform Financials & Take Rate Panel ── */}
-      <Surface kind="elevated" className="p-6 sm:p-7 space-y-6 border border-ink/15 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-ink/10">
-          <div>
-            <div className="vyro-kicker text-copper">Financial Settlement Ledger</div>
-            <h3 className="font-display text-xl text-ink font-bold mt-0.5">
-              Platform Economics (Last {range})
-            </h3>
-          </div>
-          <Link
-            to="/admin/finance"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider font-bold bg-bone hover:bg-ink hover:text-paper text-ink-3 border border-ink/10 transition-colors shadow-2xs"
-          >
-            <span>SVAT Invoicing Ledger</span>
-            <ArrowRightIcon size={12} />
-          </Link>
-        </div>
-
-        <div className="grid sm:grid-cols-3 gap-5">
-          {/* GMV */}
-          <div className="p-5 bg-bone/50 border border-ink/10 space-y-1.5 flex flex-col justify-between hover:border-ink/25 transition-all">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-                  Gross Merchandise Value (GMV)
-                </span>
-                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-ink/5 text-ink-4">
-                  LKR Settled
-                </span>
-              </div>
-              <div className="vyro-metric text-2xl sm:text-3xl font-bold text-ink mt-2">
-                {m ? formatLKR(m.gmvCents) : '—'}
-              </div>
-            </div>
-            <p className="text-[11px] text-ink-4 pt-2 border-t border-ink/5">
-              Total invoiced purchasing volume across marketplace
-            </p>
-          </div>
-
-          {/* Platform Revenue */}
-          <div className="p-5 bg-bone/50 border border-ink/10 space-y-1.5 flex flex-col justify-between hover:border-ink/25 transition-all">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-                  Platform Clearing Revenue
-                </span>
-                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-volt/20 text-ink font-bold">
-                  {effectiveTakeRatePct} BPS
-                </span>
-              </div>
-              <div className="vyro-metric text-2xl sm:text-3xl font-bold text-volt-deep mt-2">
-                {m ? formatLKR(m.takeRateCents) : '—'}
-              </div>
-            </div>
-            <p className="text-[11px] text-ink-4 pt-2 border-t border-ink/5">
-              Net platform fees calculated via active escrow clearing rules
-            </p>
-          </div>
-
-          {/* Completion Rate */}
-          <div className="p-5 bg-bone/50 border border-ink/10 space-y-1.5 flex flex-col justify-between hover:border-ink/25 transition-all">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-                  Fulfillment Completion Rate
-                </span>
-                <span
-                  className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-bold ${
-                    m && m.completionRate > 0.8
-                      ? 'bg-mint/15 text-mint'
-                      : 'bg-amber/15 text-amber'
-                  }`}
-                >
-                  {m && m.completionRate > 0.8 ? 'Optimal' : 'In Transit'}
-                </span>
-              </div>
-              <div className="vyro-metric text-2xl sm:text-3xl font-bold text-mint mt-2">
-                {m ? fmtPct(m.completionRate) : '—'}
-              </div>
-            </div>
-            <div>
-              {/* Mini progress bar */}
-              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden my-1">
+        <div className="relative ml-[4.5rem] flex h-44 items-end gap-0.5" onMouseLeave={() => setHover(null)} role="img" aria-label={`Daily GMV over ${days.length} days, peak ${formatLKR(max)}`}>
+          {days.map((d, i) => {
+            const pct = Math.max(2, (d.cents / max) * 100);
+            return (
+              <div
+                key={d.day}
+                className="relative flex h-full flex-1 min-w-[3px] items-end cursor-default"
+                onMouseEnter={() => setHover(i)}
+              >
                 <div
-                  className="bg-mint h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, Math.round((m?.completionRate ?? 0) * 100))}%` }}
+                  className={cn(
+                    'w-full rounded-t-[4px] transition-colors duration-140',
+                    hover === null || hover === i ? 'bg-ink' : 'bg-ink/25',
+                  )}
+                  style={{ height: `${pct}%` }}
                 />
               </div>
-              <p className="text-[11px] text-ink-4 pt-1">
-                Dockside GRN sign-offs confirmed by receiving businesses
-              </p>
-            </div>
-          </div>
-        </div>
+            );
+          })}
 
-        {/* Daily GMV Volume Distribution (if data exists) */}
-        {data?.gmvByDay && data.gmvByDay.length > 0 && (
-          <div className="pt-4 border-t border-ink/10">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-semibold">
-                Daily Transaction Clearing Activity
-              </span>
-              <span className="text-[10px] font-mono text-ink-4">
-                {data.gmvByDay.length} Active Settlement Days
-              </span>
-            </div>
-            <div className="flex items-end gap-1.5 h-16 pt-2 pb-1 overflow-x-auto">
-              {(() => {
-                const maxCents = Math.max(...data.gmvByDay.map((d) => d.cents), 1);
-                return data.gmvByDay.map((d) => {
-                  const pct = Math.max(8, Math.round((d.cents / maxCents) * 100));
-                  return (
-                    <div
-                      key={d.day}
-                      className="flex-1 min-w-[20px] flex flex-col items-center gap-1 group relative"
-                    >
-                      <div
-                        className="w-full bg-ink/75 group-hover:bg-emerald-600 transition-colors rounded-xs"
-                        style={{ height: `${pct}%` }}
-                      />
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8 bg-ink text-paper text-[9px] font-mono px-1.5 py-0.5 whitespace-nowrap z-20 pointer-events-none shadow-sm">
-                        {d.day}: {formatLKR(d.cents)}
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-          </div>
-        )}
-      </Surface>
-
-      {/* ── Regional & Commodity Intelligence ── */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Top Product Categories */}
-        <Surface kind="elevated" className="p-6 space-y-4 border border-ink/15 shadow-sm">
-          <div className="flex items-center justify-between pb-2 border-b border-ink/10">
-            <div>
-              <div className="vyro-kicker text-copper">Commodity Volume</div>
-              <h4 className="font-display font-semibold text-ink text-base">Top Product Categories</h4>
-            </div>
-            <Link
-              to="/admin/catalog"
-              className="text-[11px] font-mono text-copper hover:text-ink transition-colors flex items-center gap-1"
+          {active && hover !== null && (
+            <div
+              className="pointer-events-none absolute -top-2 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg bg-ink px-2.5 py-1.5 text-paper shadow-3"
+              style={{ left: `${((hover + 0.5) / days.length) * 100}%` }}
             >
-              <span>Catalog</span>
-              <ArrowRightIcon size={11} />
-            </Link>
-          </div>
-
-          {data?.topCategories && data.topCategories.length > 0 ? (
-            <div className="divide-y divide-ink/10">
-              {data.topCategories.map((c) => {
-                const maxCatCents = Math.max(...data.topCategories.map((x) => x.cents), 1);
-                const sharePct = Math.round((c.cents / maxCatCents) * 100);
-                return (
-                  <div key={c.categoryId} className="py-3 space-y-1.5">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-ink flex items-center gap-2">
-                        <PackageIcon size={14} className="text-ink-4" />
-                        {c.name}
-                      </span>
-                      <span className="vyro-metric font-bold text-ink">{formatLKR(c.cents)}</span>
-                    </div>
-                    <div className="w-full bg-bone h-1 rounded-full overflow-hidden">
-                      <div
-                        className="bg-copper h-full rounded-full transition-all duration-500"
-                        style={{ width: `${sharePct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="py-8 text-center text-xs text-ink-4 space-y-1">
-              <PackageIcon size={20} className="mx-auto text-ink-4/60 mb-2" />
-              <p>Commodity category volume will populate as purchase orders clear.</p>
+              <div className="text-[10px] text-paper/60">{formatDay(active.day)}</div>
+              <div className="text-xs font-semibold num-tabular">{formatLKR(active.cents)}</div>
             </div>
           )}
-        </Surface>
-
-        {/* Logistics & Regional Coverage */}
-        <Surface kind="elevated" className="p-6 space-y-4 border border-ink/15 shadow-sm">
-          <div className="flex items-center justify-between pb-2 border-b border-ink/10">
-            <div>
-              <div className="vyro-kicker text-copper">Logistics Coverage</div>
-              <h4 className="font-display font-semibold text-ink text-base">District Clearing Hubs</h4>
-            </div>
-            <Link
-              to="/admin/deliveries"
-              className="text-[11px] font-mono text-copper hover:text-ink transition-colors flex items-center gap-1"
-            >
-              <span>Deliveries</span>
-              <ArrowRightIcon size={11} />
-            </Link>
-          </div>
-
-          {data?.topRegions && data.topRegions.length > 0 ? (
-            <div className="divide-y divide-ink/10">
-              {data.topRegions.map((r) => {
-                const maxRegCents = Math.max(...data.topRegions.map((x) => x.cents), 1);
-                const sharePct = Math.round((r.cents / maxRegCents) * 100);
-                return (
-                  <div key={r.district} className="py-3 space-y-1.5">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-ink flex items-center gap-1.5">
-                        <span className="text-xs">📍</span>
-                        {r.district}
-                      </span>
-                      <span className="vyro-metric font-bold text-ink">{formatLKR(r.cents)}</span>
-                    </div>
-                    <div className="w-full bg-bone h-1 rounded-full overflow-hidden">
-                      <div
-                        className="bg-emerald-600 h-full rounded-full transition-all duration-500"
-                        style={{ width: `${sharePct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="py-6 space-y-3">
-              <div className="p-4 bg-bone/40 border border-ink/10 rounded-lg space-y-2">
-                <div className="flex items-center justify-between text-xs font-semibold text-ink">
-                  <span className="flex items-center gap-1.5">
-                    <TruckIcon size={14} className="text-copper" />
-                    <span>25 Sri Lankan Districts Monitored</span>
-                  </span>
-                  <span className="font-mono text-[10px] text-mint uppercase font-bold">
-                    Active
-                  </span>
-                </div>
-                <p className="text-[11px] text-ink-4 leading-relaxed">
-                  Provincial routes in Western (Colombo, Gampaha), Central (Kandy), Southern (Galle), and North Western (Kurunegala) provinces.
-                </p>
-              </div>
-            </div>
-          )}
-        </Surface>
-      </div>
-
-      {/* ── Operational Triage & Management Hub ── */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between pb-2 border-b border-ink/10">
-          <div>
-            <div className="vyro-kicker text-copper">Administration Operations</div>
-            <h3 className="font-display text-lg sm:text-xl text-ink font-bold mt-0.5">
-              Control Center Dispatch & Triage
-            </h3>
-          </div>
-          <span className="text-xs font-mono text-ink-4 hidden sm:block">
-            Role-Based Access Controlled
-          </span>
-        </div>
-
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Link
-            to="/admin/suppliers"
-            className="p-5 bg-paper border border-ink/15 hover:border-ink hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-3 group"
-          >
-            <div className="space-y-2">
-              <div className="size-8 bg-bone text-ink group-hover:bg-ink group-hover:text-volt flex items-center justify-center transition-colors shadow-2xs">
-                <StoreIcon size={18} />
-              </div>
-              <h4 className="font-display font-semibold text-base text-ink group-hover:text-copper transition-colors">
-                Supplier Hubs
-              </h4>
-              <p className="text-xs text-ink-3 leading-relaxed">
-                Review verified millers, wholesale dispatch facilities, and catalog listings.
-              </p>
-            </div>
-            <div className="pt-2 border-t border-ink/10 flex items-center justify-between text-xs font-semibold text-copper group-hover:text-ink">
-              <span>Manage Suppliers</span>
-              <ArrowRightIcon size={13} className="group-hover:translate-x-1 transition-transform" />
-            </div>
-          </Link>
-
-          <Link
-            to="/admin/businesses"
-            className="p-5 bg-paper border border-ink/15 hover:border-ink hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-3 group"
-          >
-            <div className="space-y-2">
-              <div className="size-8 bg-bone text-ink group-hover:bg-ink group-hover:text-volt flex items-center justify-center transition-colors shadow-2xs">
-                <Building2Icon size={18} />
-              </div>
-              <h4 className="font-display font-semibold text-base text-ink group-hover:text-copper transition-colors">
-                Buyer Businesses
-              </h4>
-              <p className="text-xs text-ink-3 leading-relaxed">
-                Inspect registered purchasing entities, restaurant chains, and credit terms.
-              </p>
-            </div>
-            <div className="pt-2 border-t border-ink/10 flex items-center justify-between text-xs font-semibold text-copper group-hover:text-ink">
-              <span>Manage Buyers</span>
-              <ArrowRightIcon size={13} className="group-hover:translate-x-1 transition-transform" />
-            </div>
-          </Link>
-
-          <Link
-            to="/admin/disputed"
-            className="p-5 bg-paper border border-ink/15 hover:border-ink hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-3 group"
-          >
-            <div className="space-y-2">
-              <div className="size-8 bg-bone text-ink group-hover:bg-ink group-hover:text-volt flex items-center justify-center transition-colors shadow-2xs">
-                <AlertCircleIcon size={18} />
-              </div>
-              <h4 className="font-display font-semibold text-base text-ink group-hover:text-copper transition-colors">
-                Dispute Escalations
-              </h4>
-              <p className="text-xs text-ink-3 leading-relaxed">
-                Triage dockside receiving disputes, weight variances, and driver sign-offs.
-              </p>
-            </div>
-            <div className="pt-2 border-t border-ink/10 flex items-center justify-between text-xs font-semibold text-copper group-hover:text-ink">
-              <span>Inspect Disputes</span>
-              <ArrowRightIcon size={13} className="group-hover:translate-x-1 transition-transform" />
-            </div>
-          </Link>
-
-          <Link
-            to="/admin/security"
-            className="p-5 bg-paper border border-ink/15 hover:border-ink hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-3 group"
-          >
-            <div className="space-y-2">
-              <div className="size-8 bg-bone text-ink group-hover:bg-ink group-hover:text-volt flex items-center justify-center transition-colors shadow-2xs">
-                <ShieldCheckIcon size={18} />
-              </div>
-              <h4 className="font-display font-semibold text-base text-ink group-hover:text-copper transition-colors">
-                Security & Audit
-              </h4>
-              <p className="text-xs text-ink-3 leading-relaxed">
-                Review immutable audit logs, operator session revocations, and access rights.
-              </p>
-            </div>
-            <div className="pt-2 border-t border-ink/10 flex items-center justify-between text-xs font-semibold text-copper group-hover:text-ink">
-              <span>Platform Security</span>
-              <ArrowRightIcon size={13} className="group-hover:translate-x-1 transition-transform" />
-            </div>
-          </Link>
         </div>
       </div>
 
-      {/* ── Live Operational Event Stream ── */}
-      {recentEvents.length > 0 && (
-        <Surface kind="elevated" className="p-6 border border-ink/15 shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-ink/10">
-            <div className="flex items-center gap-2">
-              <span className="size-2 rounded-full bg-emerald-600 animate-pulse" />
-              <h4 className="font-display font-semibold text-ink text-sm sm:text-base">
-                Live Administrative Activity Feed
-              </h4>
-            </div>
-            <Link
-              to="/admin/audit"
-              className="text-[11px] font-mono text-copper hover:text-ink transition-colors flex items-center gap-1"
-            >
-              <span>View Audit Logs</span>
-              <ArrowRightIcon size={11} />
-            </Link>
-          </div>
+      <figcaption className="ml-[4.5rem] mt-2 flex justify-between text-[10px] text-ink-4">
+        <span>{formatDay(days[0]!.day)}</span>
+        <span>{days.length} days</span>
+        <span>{formatDay(days[days.length - 1]!.day)}</span>
+      </figcaption>
 
-          <div className="divide-y divide-ink/5">
-            {recentEvents.slice(0, 5).map((evt) => (
-              <div key={evt.id} className="py-2.5 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-3">
-                  <span className="size-1.5 rounded-full bg-ink-4" />
-                  <span className="font-mono font-semibold text-ink">
-                    {formatAction(evt.action)}
-                  </span>
-                  <span className="font-mono text-[10px] text-ink-4 hidden sm:inline">
-                    ID: {evt.id.slice(0, 8)}
-                  </span>
-                </div>
-                <span className="font-mono text-[11px] text-ink-4">
-                  {formatRelativeTime(evt.createdAt)}
+      <table className="sr-only">
+        <caption>Daily GMV</caption>
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th>GMV</th>
+          </tr>
+        </thead>
+        <tbody>
+          {days.map((d) => (
+            <tr key={d.day}>
+              <td>{formatDay(d.day)}</td>
+              <td>{formatLKR(d.cents)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </figure>
+  );
+}
+
+function RankedPanel({
+  title,
+  linkTo,
+  linkLabel,
+  loading,
+  rows,
+  barClass,
+  rowIcon,
+  empty,
+}: {
+  title: string;
+  linkTo: string;
+  linkLabel: string;
+  loading: boolean;
+  rows: Array<{ key: string; label: string; cents: number }>;
+  barClass: string;
+  rowIcon: ReactNode;
+  empty: string;
+}) {
+  const max = Math.max(...rows.map((r) => r.cents), 1);
+  const total = rows.reduce((sum, r) => sum + r.cents, 0) || 1;
+
+  return (
+    <section className="vyro-surface p-6">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-ink font-sans tracking-normal">{title}</h2>
+        <Link to={linkTo} className="inline-flex items-center gap-1 text-xs font-medium text-copper hover:text-ink transition-colors">
+          {linkLabel}
+          <ArrowRightIcon size={12} />
+        </Link>
+      </div>
+
+      {loading ? (
+        <div className="mt-5 space-y-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-8 rounded-md bg-mist/50 animate-pulse" />
+          ))}
+        </div>
+      ) : rows.length > 0 ? (
+        <ol className="mt-5 space-y-4">
+          {rows.map((r, i) => (
+            <li key={r.key}>
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="flex min-w-0 items-center gap-2 text-ink">
+                  <span className="w-4 shrink-0 text-[11px] text-ink-4 num-tabular">{i + 1}</span>
+                  <span className="shrink-0 text-ink-4">{rowIcon}</span>
+                  <span className="truncate font-medium">{r.label}</span>
+                </span>
+                <span className="shrink-0 num-tabular text-ink">
+                  {formatCompactLKR(r.cents)}
+                  <span className="ml-2 text-xs text-ink-4">{Math.round((r.cents / total) * 100)}%</span>
                 </span>
               </div>
-            ))}
-          </div>
-        </Surface>
+              <div className="mt-2 ml-6 h-1.5 overflow-hidden rounded-full bg-bone">
+                <div
+                  className={cn('h-full rounded-full transition-[width] duration-480 ease-vyro', barClass)}
+                  style={{ width: `${Math.max(2, (r.cents / max) * 100)}%` }}
+                  title={formatLKR(r.cents)}
+                />
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <div className="mt-5">
+          <EmptyNote icon={rowIcon}>{empty}</EmptyNote>
+        </div>
       )}
-    </div>
+    </section>
+  );
+}
+
+function Shortcut({ to, icon, title, body }: { to: string; icon: ReactNode; title: string; body: string }) {
+  return (
+    <Link
+      to={to}
+      className="group vyro-surface flex items-start gap-4 p-5 transition-all duration-240 ease-vyro hover:-translate-y-0.5 hover:shadow-2"
+    >
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bone text-ink transition-colors group-hover:bg-ink group-hover:text-volt">
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-base font-semibold text-ink">{title}</h3>
+          <ArrowRightIcon size={14} className="shrink-0 text-ink-4 transition-transform group-hover:translate-x-1 group-hover:text-copper" />
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-ink-3">{body}</p>
+      </div>
+    </Link>
   );
 }

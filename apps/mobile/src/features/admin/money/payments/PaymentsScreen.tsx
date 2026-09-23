@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, View , ScrollView } from 'react-native';
+import { ActivityIndicator, View, ScrollView } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { ArrowDownLeft, Banknote, Building2, CreditCard, Landmark, SlidersHorizontal, Store, Wallet, type LucideIcon } from 'lucide-react-native';
-import { colors } from '@/theme/tokens';
+import { colors, radii } from '@/theme/tokens';
 import { errorMessage } from '@/lib/api';
 import { formatCompactLKR, formatDateTime, humanize } from '@/lib/format';
 import { usePermission } from '@/features/admin/common/permissions';
@@ -16,6 +16,7 @@ import {
   Field,
   Gutter,
   IconButton,
+  IconTile,
   Input,
   ListHeader,
   ListScreen,
@@ -52,31 +53,27 @@ function PaymentCard({ p }: { p: PaymentRow }) {
   const Icon = METHOD_ICON[p.method] ?? Wallet;
   const tone = statusTone(p.status);
   return (
-    <Card kind="flat" onPress={() => go(`/admin/payments/${p.id}`)} style={{ gap: 12 }}>
-      <Row justify="space-between" align="flex-start">
-        <Row gap={10} style={{ flex: 1 }}>
-          <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon size={17} color={colors.volt} strokeWidth={1.7} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text variant="mono" numberOfLines={1}>
-              {p.poNumber || p.id.slice(0, 16)}
-            </Text>
-            <Text variant="caption" color="ink4" numberOfLines={1}>
-              {humanize(p.method)} · {formatDateTime(p.createdAt)}
-            </Text>
-          </View>
-        </Row>
+    <Card kind="flat" padding={16} onPress={() => go(`/admin/payments/${p.id}`)} style={{ gap: 12 }}>
+      <Row gap={12} align="center">
+        <IconTile icon={Icon} tone={tone === 'in' ? 'success' : tone === 'out' ? 'danger' : tone === 'warn' ? 'warning' : 'ink'} size={44} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="mono" style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 14.5, color: colors.ink }} numberOfLines={1}>
+            {p.poNumber || p.id.slice(0, 16)}
+          </Text>
+          <Text variant="caption" color="ink4" numberOfLines={1}>
+            {humanize(p.method)} · {formatDateTime(p.createdAt)}
+          </Text>
+        </View>
         <StatusBadge status={p.status} size="sm" />
       </Row>
-      <View style={{ gap: 4 }}>
-        <Row gap={6}>
+      <View style={{ gap: 6, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
+        <Row gap={8}>
           <Building2 size={13} color={colors.ink4} />
-          <Text variant="bodySm" numberOfLines={1} style={{ flex: 1 }}>
+          <Text variant="bodySm" weight="medium" numberOfLines={1} style={{ flex: 1 }}>
             {p.businessName}
           </Text>
         </Row>
-        <Row gap={6}>
+        <Row gap={8}>
           <Store size={13} color={colors.copper} />
           <Text variant="bodySm" color="ink3" numberOfLines={1} style={{ flex: 1 }}>
             {p.supplierName}
@@ -84,11 +81,9 @@ function PaymentCard({ p }: { p: PaymentRow }) {
         </Row>
       </View>
       <Row justify="space-between" align="flex-end">
-        <View>
-          <Text variant="caption" color="ink5">
-            Fee {formatCompactLKR(p.feeCents)} · Net {formatCompactLKR(p.netCents)}
-          </Text>
-        </View>
+        <Text variant="caption" color="ink5">
+          Fee {formatCompactLKR(p.feeCents)} · Net {formatCompactLKR(p.netCents)}
+        </Text>
         <MoneyText cents={p.amountCents} size="lg" tone={tone === 'neutral' ? 'neutral' : tone} />
       </Row>
     </Card>
@@ -160,7 +155,7 @@ export function PaymentsScreen() {
           placeholder="Payment id, txn ref or gateway ref"
         />
       </Gutter>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 20 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingVertical: 4 }} style={{ overflow: 'visible' }}>
         <Chip label="Any status" selected={!filters.status?.length} onPress={() => set({ status: undefined })} />
         {ALL_STATUSES.map((s) => (
           <Chip key={s} label={humanize(s)} selected={!!filters.status?.includes(s)} onPress={() => toggleStatus(s)} />

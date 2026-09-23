@@ -184,8 +184,10 @@ async function handlePayHereNotify(c: Context<{ Bindings: Env }>) {
     metadata: { provider, gatewayRef: event.gatewayRef, statusCode: event.statusCode },
   });
 
-  // Idempotent status update: only pending payments transition.
-  if (payment.status !== 'pending') {
+  // Idempotent status update: only pending payments transition — except a
+  // chargeback, which by definition arrives after the payment was confirmed.
+  const chargebackOnPaid = event.type === 'payment.chargeback' && payment.status === 'confirmed';
+  if (payment.status !== 'pending' && !chargebackOnPaid) {
     return c.json({ ok: true, alreadyProcessed: true });
   }
 
@@ -363,6 +365,13 @@ async function handlePayHereNotify(c: Context<{ Bindings: Env }>) {
         .run();
     } catch {
       // Chargeback row may already exist for this payment; keep idempotent.
+    }
+    // Hold the supplier's settlement for this payment while the chargeback is open.
+    try {
+      const { recomputeEligibilityForPayment } = await import('../finance/earnings');
+      await recomputeEligibilityForPayment(env.DB, payment.id);
+    } catch (err) {
+      console.error('[payhere.webhook] chargeback eligibility recompute failed', err);
     }
     await recordAudit(env.DB, {
       actorUserId: null,

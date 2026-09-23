@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { Building2, ChevronsUpDown, LogOut, ShieldCheck, Store, type LucideIcon } from 'lucide-react-native';
+import { Building2, Check, ChevronsUpDown, LogOut, ShieldCheck, Store, type LucideIcon } from 'lucide-react-native';
 import { useAuth, type Portal } from '@/lib/auth';
-import { Avatar, Button, ListRow, Sheet, Text, Touchable, Kicker } from '@/ui';
-import { colors, radii } from '@/theme/tokens';
+import { Avatar, Button, ListRow, ListSection, Sheet, Text, Touchable } from '@/ui';
+import { colors, radii, shadow } from '@/theme/tokens';
 
 const PORTAL_META: Record<Portal, { label: string; hint: string; icon: LucideIcon; href: string }> = {
   buyer: { label: 'Buyer workspace', hint: 'Source, order and pay', icon: Building2, href: '/buyer' },
@@ -15,6 +15,15 @@ const PORTAL_META: Record<Portal, { label: string; hint: string; icon: LucideIco
 export function switchPortal(p: Portal, setPortal: (p: Portal) => void) {
   setPortal(p);
   router.replace(PORTAL_META[p].href as never);
+}
+
+/** Volt check disc marking the active portal / org. */
+function ActiveMark() {
+  return (
+    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+      <Check size={14} color={colors.volt} strokeWidth={2.6} />
+    </View>
+  );
 }
 
 /**
@@ -41,10 +50,11 @@ export function PortalSwitcher({ current, dark }: { current: Portal; dark?: bool
           paddingRight: 10,
           height: 40,
           borderRadius: radii.pill,
-          backgroundColor: dark ? 'rgba(250,247,240,0.1)' : colors.paper,
-          borderWidth: 1,
-          borderColor: dark ? colors.paperLine : colors.lineSoft,
+          backgroundColor: dark ? 'rgba(250,247,240,0.09)' : colors.paper,
+          borderWidth: dark ? StyleSheet.hairlineWidth : 0,
+          borderColor: colors.paperLine,
           maxWidth: 220,
+          ...(dark ? null : shadow.sm),
         }}
         accessibilityLabel="Switch workspace"
       >
@@ -57,67 +67,91 @@ export function PortalSwitcher({ current, dark }: { current: Portal; dark?: bool
             {orgName}
           </Text>
         </View>
-        <ChevronsUpDown size={14} color={dark ? colors.paperMuted : colors.ink4} />
+        <View
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: 11,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: dark ? 'rgba(250,247,240,0.08)' : colors.bone,
+          }}
+        >
+          <ChevronsUpDown size={12} color={dark ? colors.paperMuted : colors.ink4} strokeWidth={2} />
+        </View>
       </Touchable>
 
       <Sheet visible={open} onClose={() => setOpen(false)} title="Workspaces" subtitle={user.email} scroll>
-        <Kicker style={{ marginTop: 4, marginBottom: 4 }}>Portals</Kicker>
-        {availablePortals.map((p, i) => {
-          const m = PORTAL_META[p];
-          return (
-            <ListRow
-              key={p}
-              icon={m.icon}
-              iconTone={p === current ? 'volt' : 'ink'}
-              title={m.label}
-              subtitle={m.hint}
-              last={i === availablePortals.length - 1}
-              trailing={p === current ? <Text variant="caption" color="voltDeep">Active</Text> : undefined}
-              onPress={() => {
-                setOpen(false);
-                if (p !== current) switchPortal(p, setPortal);
-              }}
-            />
-          );
-        })}
+        <View style={{ gap: 22 }}>
+          <ListSection label="Portals">
+            {availablePortals.map((p, i) => {
+              const m = PORTAL_META[p];
+              const active = p === current;
+              return (
+                <ListRow
+                  key={p}
+                  icon={m.icon}
+                  iconTone={active ? 'volt' : 'paper'}
+                  title={m.label}
+                  subtitle={m.hint}
+                  last={i === availablePortals.length - 1}
+                  chevron={!active}
+                  trailing={active ? <ActiveMark /> : undefined}
+                  onPress={() => {
+                    setOpen(false);
+                    if (p !== current) switchPortal(p, setPortal);
+                  }}
+                />
+              );
+            })}
+          </ListSection>
 
-        {current === 'buyer' && user.memberships.length > 1 ? (
-          <>
-            <Kicker style={{ marginTop: 18, marginBottom: 4 }}>Businesses</Kicker>
-            {user.memberships.map((m, i) => (
-              <ListRow
-                key={m.businessId}
-                leading={<Avatar name={m.businessName} size={36} tone={m.businessId === business?.businessId ? 'volt' : 'ink'} />}
-                title={m.businessName}
-                subtitle={m.role}
-                last={i === user.memberships.length - 1}
-                onPress={() => {
-                  setBusinessId(m.businessId);
-                  setOpen(false);
-                }}
-              />
-            ))}
-          </>
-        ) : null}
+          {current === 'buyer' && user.memberships.length > 1 ? (
+            <ListSection label="Businesses">
+              {user.memberships.map((m, i) => {
+                const active = m.businessId === business?.businessId;
+                return (
+                  <ListRow
+                    key={m.businessId}
+                    leading={<Avatar name={m.businessName} size={38} tone={active ? 'volt' : 'ink'} />}
+                    title={m.businessName}
+                    subtitle={m.role}
+                    last={i === user.memberships.length - 1}
+                    chevron={false}
+                    trailing={active ? <ActiveMark /> : undefined}
+                    onPress={() => {
+                      setBusinessId(m.businessId);
+                      setOpen(false);
+                    }}
+                  />
+                );
+              })}
+            </ListSection>
+          ) : null}
 
-        {current === 'supplier' && user.supplierMemberships.length > 1 ? (
-          <>
-            <Kicker style={{ marginTop: 18, marginBottom: 4 }}>Supplier orgs</Kicker>
-            {user.supplierMemberships.map((m, i) => (
-              <ListRow
-                key={m.supplierId}
-                leading={<Avatar name={m.supplierName} size={36} tone={m.supplierId === supplier?.supplierId ? 'volt' : 'copper'} />}
-                title={m.supplierName}
-                subtitle={m.role}
-                last={i === user.supplierMemberships.length - 1}
-                onPress={() => {
-                  setSupplierId(m.supplierId);
-                  setOpen(false);
-                }}
-              />
-            ))}
-          </>
-        ) : null}
+          {current === 'supplier' && user.supplierMemberships.length > 1 ? (
+            <ListSection label="Supplier orgs">
+              {user.supplierMemberships.map((m, i) => {
+                const active = m.supplierId === supplier?.supplierId;
+                return (
+                  <ListRow
+                    key={m.supplierId}
+                    leading={<Avatar name={m.supplierName} size={38} tone={active ? 'volt' : 'copper'} />}
+                    title={m.supplierName}
+                    subtitle={m.role}
+                    last={i === user.supplierMemberships.length - 1}
+                    chevron={false}
+                    trailing={active ? <ActiveMark /> : undefined}
+                    onPress={() => {
+                      setSupplierId(m.supplierId);
+                      setOpen(false);
+                    }}
+                  />
+                );
+              })}
+            </ListSection>
+          ) : null}
+        </View>
 
         {!user.supplierMemberships.length ? (
           <Button
@@ -125,7 +159,7 @@ export function PortalSwitcher({ current, dark }: { current: Portal; dark?: bool
             variant="secondary"
             icon={Store}
             full
-            style={{ marginTop: 18 }}
+            style={{ marginTop: 22 }}
             onPress={() => {
               setOpen(false);
               router.push('/onboarding/supplier');

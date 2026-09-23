@@ -266,43 +266,36 @@ export async function confirmConversationalOrder(
 
   const poIds: string[] = [];
 
-  for (const [supplierId, supItems] of bySupplier.entries()) {
-    const poId = newId();
-    const poSubtotal = supItems.reduce((s, it) => s + it.totalCents, 0);
-    const poNumber = `PO-${Date.now().toString().slice(-6)}`;
-
-    await db.insert(purchaseOrders).values({
-      id: poId,
-      poNumber,
-      businessId,
-      supplierId,
-      status: 'pending',
-      subtotalCents: poSubtotal,
-      deliveryFeeCents: 0,
-      totalCents: poSubtotal,
-      currency: 'LKR',
-      deliveryAddress: biz.address,
-      deliveryCity: biz.city,
-      deliveryDistrict: biz.district,
-      notes: 'Generated via WhatsApp / Conversational Ordering Bot',
-      createdByUserId: userId,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-
-    for (const it of supItems) {
-      await db.insert(purchaseOrderItems).values({
-        id: newId(),
-        purchaseOrderId: poId,
-        supplierProductId: it.supplierProductId,
-        productNameSnapshot: it.productName,
-        unitPriceCents: it.unitPriceCents,
-        quantity: it.quantity,
-        lineTotalCents: it.totalCents,
+  // Same creation path as checkout: validation, numbering, timeline, stock
+  // reservation and notifications. Roll back earlier suppliers' POs if a
+  // later one cannot be reserved, so a confirmation is all-or-nothing.
+  const { createPendingOrder } = await import('../orders/create');
+  const { inventoryService } = await import('../inventory/service');
+  const { discardPendingOrder } = await import('../orders/create');
+  try {
+    for (const [supplierId, supItems] of bySupplier.entries()) {
+      const out = await createPendingOrder(env, {
+        businessId,
+        supplierId,
+        createdByUserId: userId,
+        notes: 'Generated via WhatsApp / Conversational Ordering Bot',
+        source: 'whatsapp',
+        lines: supItems.map((it) => ({
+          supplierProductId: it.supplierProductId,
+          productName: it.productName,
+          unitPriceCents: it.unitPriceCents,
+          quantity: it.quantity,
+          lineTotalCents: it.totalCents,
+        })),
       });
+      poIds.push(out.poId);
     }
-
-    poIds.push(poId);
+  } catch (err) {
+    for (const id of poIds) {
+      await inventoryService.releaseForOrder(env.DB, env.NOTIFICATIONS_QUEUE, id, userId, 'conversational rollback').catch(() => undefined);
+      await discardPendingOrder(env.DB, id);
+    }
+    throw err;
   }
 
   DRAFTS_CACHE.delete(draftId);

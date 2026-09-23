@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, GraduationCap, Plus, Trash2 } from 'lucide-react-native';
+import { BookOpen, Eye, EyeOff, GraduationCap, Plus, Trash2 } from 'lucide-react-native';
 import {
   Button,
-  Card,
   ConfirmSheet,
   EmptyState,
   ErrorState,
@@ -17,13 +16,13 @@ import {
   Sheet,
   SkeletonList,
   StatusBadge,
-  Text,
   useToast,
 } from '@/ui';
 import { api, errorMessage } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { colors } from '@/theme/tokens';
 import { MonoTag } from '../../buyer/orders/kit';
+import { RecordCard } from '@/features/admin/ops/kit';
 
 interface Lesson {
   id: string;
@@ -92,34 +91,37 @@ export function AdminLearningScreen() {
           )
         }
         renderItem={({ item: l }) => (
-          <Card padding={14} style={{ gap: 6 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <Text variant="bodySm" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
-                {l.title ?? l.slug ?? l.id}
-              </Text>
-              <StatusBadge status={l.published ? 'published' : 'draft'} size="sm" label={l.published ? 'Published' : 'Draft'} />
-            </View>
-            {l.summary ? (
-              <Text variant="caption" color="ink3" numberOfLines={2}>
-                {l.summary}
-              </Text>
-            ) : null}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              {l.category ? <MonoTag label={l.category} tone="copper" /> : null}
-              {l.difficulty ? <MonoTag label={l.difficulty} tone="ink" /> : null}
-              {l.durationMin ? <MonoTag label={`${l.durationMin}m`} tone="ink" /> : null}
-              {l.updatedAt ? (
-                <Text variant="caption" color="ink5">
-                  {timeAgo(l.updatedAt)}
-                </Text>
-              ) : null}
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Button title={l.published ? 'Unpublish' : 'Publish'} size="sm" variant="secondary" loading={toggle.isPending} onPress={() => toggle.mutate(l)} />
-              <View style={{ flex: 1 }} />
-              <IconButton icon={Trash2} variant="ghost" size={32} color={colors.rose} accessibilityLabel="Delete lesson" onPress={() => setDeleteTarget(l)} />
-            </View>
-          </Card>
+          <RecordCard
+            icon={GraduationCap}
+            tone={l.published ? 'volt' : 'paper'}
+            title={l.title ?? l.slug ?? l.id}
+            subtitle={l.summary}
+            meta={l.updatedAt ? `Updated ${timeAgo(l.updatedAt)}` : null}
+            status={<StatusBadge status={l.published ? 'published' : 'draft'} size="sm" label={l.published ? 'Published' : 'Draft'} />}
+            chips={
+              l.category || l.difficulty || l.durationMin ? (
+                <>
+                  {l.category ? <MonoTag label={l.category} tone="copper" /> : null}
+                  {l.difficulty ? <MonoTag label={l.difficulty} tone="ink" /> : null}
+                  {l.durationMin ? <MonoTag label={`${l.durationMin}m`} tone="ink" /> : null}
+                </>
+              ) : undefined
+            }
+            actions={
+              <>
+                <Button
+                  title={l.published ? 'Unpublish' : 'Publish'}
+                  icon={l.published ? EyeOff : Eye}
+                  size="sm"
+                  variant={l.published ? 'paper' : 'primary'}
+                  loading={toggle.isPending}
+                  onPress={() => toggle.mutate(l)}
+                />
+                <View style={{ flex: 1 }} />
+                <IconButton icon={Trash2} variant="surface" size={34} color={colors.rose} accessibilityLabel="Delete lesson" onPress={() => setDeleteTarget(l)} />
+              </>
+            }
+          />
         )}
       />
       <CreateLessonSheet visible={createOpen} onClose={() => setCreateOpen(false)} />

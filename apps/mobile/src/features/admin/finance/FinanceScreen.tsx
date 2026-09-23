@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, RotateCcw, Undo2 } from 'lucide-react-native';
+import { Download, FileSpreadsheet, RotateCcw, Undo2, XCircle } from 'lucide-react-native';
 import {
   Button,
   Card,
@@ -9,6 +9,7 @@ import {
   ErrorState,
   Field,
   Gutter,
+  InkHero,
   Input,
   ListHeader,
   ListScreen,
@@ -22,8 +23,10 @@ import {
 import { api, errorMessage } from '@/lib/api';
 import { openDocument } from '@/lib/files';
 import { formatLKR, timeAgo } from '@/lib/format';
-import { colors, fonts } from '@/theme/tokens';
+import { colors } from '@/theme/tokens';
 import { MonoTag, Section } from '../../buyer/orders/kit';
+import { RecordCard } from '@/features/admin/ops/kit';
+import { HeroGrid, HeroMetric } from '@/features/admin/platform/kit';
 
 type FailedPayout = {
   id: string;
@@ -75,32 +78,28 @@ export function AdminFinanceScreen() {
               kicker="Money operations"
               title="Finance"
               subtitle="Failed payouts, refund issuance and ledger exports."
-              right={<Button title="Refund" icon={Undo2} variant="secondary" size="sm" onPress={() => setRefundOpen(true)} />}
+              right={<Button title="Refund" icon={Undo2} variant="paper" size="sm" onPress={() => setRefundOpen(true)} />}
             />
             <Gutter style={{ gap: 14 }}>
               {m ? (
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {[
-                    { l: 'Failed', v: m.failedCount },
-                    { l: 'Failed amount', v: formatLKR(m.failedAmountCents) },
-                    { l: 'Pending', v: m.pendingCount },
-                    { l: 'Total', v: m.totalCount },
-                  ].map((s) => (
-                    <Card key={s.l} padding={10} style={{ flex: 1, gap: 2 }}>
-                      <Text variant="overline" color="ink4" numberOfLines={1}>
-                        {s.l}
-                      </Text>
-                      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 15, color: colors.ink }} numberOfLines={1} adjustsFontSizeToFit>
-                        {s.v}
-                      </Text>
-                    </Card>
-                  ))}
-                </View>
+                <InkHero seed="admin-finance">
+                  <Text variant="overline" color="volt">
+                    Failed payout value
+                  </Text>
+                  <Text variant="metric" color="paper" style={{ marginTop: 12 }} numberOfLines={1} adjustsFontSizeToFit>
+                    {formatLKR(m.failedAmountCents)}
+                  </Text>
+                  <HeroGrid>
+                    <HeroMetric label="Failed" value={String(m.failedCount)} accent={m.failedCount > 0} />
+                    <HeroMetric label="Pending" value={String(m.pendingCount)} />
+                    <HeroMetric label="Total payouts" value={String(m.totalCount)} />
+                  </HeroGrid>
+                </InkHero>
               ) : null}
-              <Section kicker="Ledger" title="Exports" icon={Download}>
+              <Section kicker="Ledger" title="Exports" icon={FileSpreadsheet}>
                 <View style={{ flexDirection: 'row', gap: 10 }}>
-                  <Button title="Ledger CSV" variant="secondary" size="sm" icon={Download} onPress={() => void openDocument('/api/admin/finance/exports/ledger.csv')} style={{ flex: 1 }} />
-                  <Button title="Payments CSV" variant="secondary" size="sm" icon={Download} onPress={() => void openDocument('/api/admin/finance/exports/payments.csv')} style={{ flex: 1 }} />
+                  <Button title="Ledger CSV" variant="paper" size="sm" icon={Download} onPress={() => void openDocument('/api/admin/finance/exports/ledger.csv')} style={{ flex: 1 }} />
+                  <Button title="Payments CSV" variant="paper" size="sm" icon={Download} onPress={() => void openDocument('/api/admin/finance/exports/payments.csv')} style={{ flex: 1 }} />
                 </View>
               </Section>
               <Section kicker="Recovery" title="Failed payouts" icon={RotateCcw}>
@@ -121,29 +120,29 @@ export function AdminFinanceScreen() {
           )
         }
         renderItem={({ item: p }) => (
-          <Card padding={14} style={{ gap: 6 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <Text variant="bodySm" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
-                {p.supplierName ?? p.supplierId ?? 'Supplier'}
-              </Text>
-              <Text style={{ fontFamily: fonts.monoMedium, fontSize: 15, color: colors.ink }}>{formatLKR(p.amountCents ?? 0)}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <StatusBadge status={p.status} size="sm" />
-              {p.method ? <MonoTag label={p.method} tone="ink" /> : null}
-              <Text variant="caption" color="ink5">
-                {p.createdAt ? timeAgo(p.createdAt) : ''}
-              </Text>
-            </View>
+          <RecordCard
+            icon={XCircle}
+            tone="danger"
+            title={p.supplierName ?? p.supplierId ?? 'Supplier'}
+            meta={p.createdAt ? timeAgo(p.createdAt) : null}
+            amount={formatLKR(p.amountCents ?? 0)}
+            status={<StatusBadge status={p.status} size="sm" />}
+            chips={p.method ? <MonoTag label={p.method} tone="ink" /> : undefined}
+            actions={
+              <>
+                <View style={{ flex: 1 }} />
+                <Button title="Retry payout" icon={RotateCcw} size="sm" onPress={() => setRetryTarget(p)} />
+              </>
+            }
+          >
             {p.failureReason ? (
-              <Text variant="caption" style={{ color: colors.rose }}>
-                {p.failureReason}
-              </Text>
+              <View style={{ padding: 12, borderRadius: 14, borderCurve: 'continuous', backgroundColor: colors.roseSoft }}>
+                <Text variant="caption" style={{ color: colors.rose }}>
+                  {p.failureReason}
+                </Text>
+              </View>
             ) : null}
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-              <Button title="Retry payout" icon={RotateCcw} size="sm" variant="secondary" onPress={() => setRetryTarget(p)} />
-            </View>
-          </Card>
+          </RecordCard>
         )}
       />
       <RetrySheet payout={retryTarget} onClose={() => setRetryTarget(null)} onConfirm={() => retryTarget && retry.mutate(retryTarget)} loading={retry.isPending} />
@@ -166,7 +165,7 @@ function RetrySheet({ payout, onClose, onConfirm, loading }: { payout: FailedPay
           Re-submits the bank transfer with a fresh idempotency key. Verify the beneficiary account before retrying.
         </Text>
         {payout?.failureReason ? (
-          <Card kind="bone" padding={10}>
+          <Card kind="flat" padding={14} style={{ backgroundColor: colors.roseSoft }}>
             <Text variant="caption" color="ink3">
               Last failure: {payout.failureReason}
             </Text>

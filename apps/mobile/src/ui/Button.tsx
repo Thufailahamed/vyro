@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, View, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { ActivityIndicator, Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { LucideIcon } from 'lucide-react-native';
 import { colors, radii, shadow } from '@/theme/tokens';
 import { haptic } from '@/lib/haptics';
@@ -48,22 +49,22 @@ export function Touchable({
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'volt' | 'paper' | 'danger' | 'copper' | 'ghostPaper' | 'outlinePaper';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
-const V: Record<ButtonVariant, { bg: string; fg: string; border?: string; spinner: string }> = {
-  primary: { bg: colors.ink, fg: colors.paper, spinner: colors.volt },
-  secondary: { bg: 'transparent', fg: colors.ink, border: colors.lineStrong, spinner: colors.ink },
+const V: Record<ButtonVariant, { bg: string; fg: string; border?: string; spinner: string; sheen?: [string, string]; depth?: ViewStyle }> = {
+  primary: { bg: colors.ink, fg: colors.paper, spinner: colors.volt, sheen: ['rgba(250,247,240,0.12)', 'rgba(250,247,240,0)'], depth: shadow.ink },
+  secondary: { bg: colors.paper, fg: colors.ink, border: 'rgba(12,14,11,0.10)', spinner: colors.ink, depth: shadow.sm },
   ghost: { bg: 'transparent', fg: colors.ink, spinner: colors.ink },
-  volt: { bg: colors.volt, fg: colors.ink, spinner: colors.ink },
-  paper: { bg: colors.paper, fg: colors.ink, spinner: colors.ink },
-  danger: { bg: colors.rose, fg: colors.paper, spinner: colors.paper },
-  copper: { bg: colors.copper, fg: colors.paper, spinner: colors.paper },
+  volt: { bg: colors.volt, fg: colors.ink, spinner: colors.ink, sheen: ['rgba(255,255,255,0.4)', 'rgba(255,255,255,0)'], depth: shadow.volt },
+  paper: { bg: colors.paper, fg: colors.ink, spinner: colors.ink, depth: shadow.sm },
+  danger: { bg: colors.rose, fg: colors.paper, spinner: colors.paper, sheen: ['rgba(255,255,255,0.16)', 'rgba(255,255,255,0)'] },
+  copper: { bg: colors.copper, fg: colors.paper, spinner: colors.paper, sheen: ['rgba(255,255,255,0.18)', 'rgba(255,255,255,0)'] },
   ghostPaper: { bg: 'transparent', fg: colors.paper, spinner: colors.paper },
-  outlinePaper: { bg: 'transparent', fg: colors.paper, border: 'rgba(250,247,240,0.28)', spinner: colors.paper },
+  outlinePaper: { bg: 'rgba(250,247,240,0.06)', fg: colors.paper, border: 'rgba(250,247,240,0.22)', spinner: colors.paper },
 };
 
 const S: Record<ButtonSize, { h: number; px: number; font: number; icon: number }> = {
-  sm: { h: 36, px: 14, font: 13.5, icon: 15 },
-  md: { h: 48, px: 18, font: 15, icon: 17 },
-  lg: { h: 56, px: 22, font: 16.5, icon: 19 },
+  sm: { h: 38, px: 16, font: 13.5, icon: 15 },
+  md: { h: 50, px: 20, font: 15, icon: 17 },
+  lg: { h: 58, px: 24, font: 16.5, icon: 19 },
 };
 
 export interface ButtonProps {
@@ -81,8 +82,8 @@ export interface ButtonProps {
 }
 
 /**
- * Primary buttons carry the web's signature: a volt underline that sweeps
- * across the bottom edge while pressed.
+ * Capsule buttons with a soft material sheen and depth. The trailing icon
+ * sits in its own round well on primary/volt — a native-app call-to-action.
  */
 export function Button({
   title,
@@ -99,9 +100,8 @@ export function Button({
 }: ButtonProps) {
   const v = V[variant];
   const sz = S[size];
-  const sweep = useSharedValue(0.18);
-  const sweepStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: sweep.value }] }));
   const isDisabled = disabled || loading;
+  const well = !!IconRight && (variant === 'primary' || variant === 'volt') && size !== 'sm';
 
   return (
     <Touchable
@@ -109,58 +109,63 @@ export function Button({
       accessibilityLabel={accessibilityLabel ?? title}
       accessibilityState={{ disabled: !!isDisabled, busy: !!loading }}
       disabled={isDisabled}
+      scaleTo={0.965}
       onPress={() => {
         haptic.light();
         onPress?.();
-      }}
-      onPressIn={() => {
-        // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value write is the correct idiom
-        sweep.value = withTiming(1, { duration: 240 });
-      }}
-      onPressOut={() => {
-        // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value write is the correct idiom
-        sweep.value = withTiming(0.18, { duration: 320 });
       }}
       style={[
         {
           height: sz.h,
           paddingHorizontal: sz.px,
+          paddingRight: well ? 6 : sz.px,
           backgroundColor: v.bg,
-          borderRadius: radii.lg,
+          borderRadius: radii.pill,
           borderWidth: v.border ? 1 : 0,
           borderColor: v.border,
           flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'center',
+          justifyContent: well && full ? 'space-between' : 'center',
           gap: 8,
           overflow: 'hidden',
-          opacity: isDisabled && !loading ? 0.45 : 1,
+          opacity: isDisabled && !loading ? 0.42 : 1,
           alignSelf: full ? 'stretch' : 'flex-start',
         },
-        variant === 'volt' ? shadow.volt : null,
+        isDisabled ? null : v.depth,
         style,
       ]}
     >
+      {v.sheen ? (
+        <LinearGradient pointerEvents="none" colors={v.sheen} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill} />
+      ) : null}
       {loading ? (
-        <ActivityIndicator color={v.spinner} size="small" />
+        <ActivityIndicator color={v.spinner} size="small" style={{ flex: well && full ? 1 : undefined }} />
       ) : (
         <>
-          {Icon ? <Icon size={sz.icon} color={v.fg} strokeWidth={1.8} /> : null}
-          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: sz.font, letterSpacing: -0.3, color: v.fg }} numberOfLines={1}>
-            {title}
-          </Text>
-          {IconRight ? <IconRight size={sz.icon} color={v.fg} strokeWidth={1.8} /> : null}
+          {well && full ? <View style={{ width: sz.h - 12 }} /> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
+            {Icon ? <Icon size={sz.icon} color={v.fg} strokeWidth={1.9} /> : null}
+            <Text style={{ fontFamily: 'Syne_700Bold', fontSize: sz.font, letterSpacing: -0.3, color: v.fg }} numberOfLines={1}>
+              {title}
+            </Text>
+            {IconRight && !well ? <IconRight size={sz.icon} color={v.fg} strokeWidth={1.9} /> : null}
+          </View>
+          {IconRight && well ? (
+            <View
+              style={{
+                width: sz.h - 12,
+                height: sz.h - 12,
+                borderRadius: (sz.h - 12) / 2,
+                backgroundColor: variant === 'primary' ? colors.volt : colors.ink,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <IconRight size={sz.icon} color={variant === 'primary' ? colors.ink : colors.volt} strokeWidth={2.1} />
+            </View>
+          ) : null}
         </>
       )}
-      {variant === 'primary' ? (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            { position: 'absolute', left: 0, right: 0, bottom: 0, height: 2, backgroundColor: colors.volt, transformOrigin: 'left' },
-            sweepStyle,
-          ]}
-        />
-      ) : null}
     </Touchable>
   );
 }
@@ -192,7 +197,7 @@ export function IconButton({
         : variant === 'volt'
           ? colors.volt
           : variant === 'glass'
-            ? 'rgba(250,247,240,0.14)'
+            ? 'rgba(250,247,240,0.1)'
             : 'transparent';
   const fg = color ?? (variant === 'ink' || variant === 'glass' ? colors.paper : colors.ink);
   return (
@@ -212,9 +217,10 @@ export function IconButton({
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: bg,
-          borderWidth: variant === 'surface' ? 1 : 0,
-          borderColor: colors.lineSoft,
+          borderWidth: variant === 'surface' || variant === 'glass' ? StyleSheet.hairlineWidth : 0,
+          borderColor: variant === 'glass' ? 'rgba(250,247,240,0.16)' : 'rgba(12,14,11,0.08)',
         },
+        variant === 'surface' ? shadow.sm : variant === 'volt' ? shadow.volt : null,
         style,
       ]}
     >

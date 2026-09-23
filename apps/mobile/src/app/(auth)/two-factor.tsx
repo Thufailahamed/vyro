@@ -45,12 +45,13 @@ export default function TwoFactorScreen() {
           autoComplete="one-time-code"
           textContentType="oneTimeCode"
           placeholder="123 456"
-          style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 22, letterSpacing: 6 }}
+          style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 24, letterSpacing: 8 }}
+          containerStyle={{ minHeight: 64 }}
           onSubmitEditing={submit}
           autoFocus
         />
       </Field>
-      <Button title="Verify" size="lg" full loading={loading} onPress={submit} />
+      <Button title="Verify" size="lg" full loading={loading} onPress={submit} style={{ marginTop: 4 }} />
     </AuthLayout>
   );
 }

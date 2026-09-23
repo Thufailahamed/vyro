@@ -22,7 +22,7 @@ import {
 import { api, errorMessage, qs } from '@/lib/api';
 import { useBusinessId } from '@/lib/auth';
 import { formatDateTime } from '@/lib/format';
-import { colors } from '@/theme/tokens';
+import { colors, radii } from '@/theme/tokens';
 import { Enter, go, Section } from '../orders/kit';
 
 interface RfqItemDraft {
@@ -147,15 +147,15 @@ export function RfqCreateScreen() {
         <Section step={2} kicker="Items" title="Items from your cart" sub="Locked in from the active cart">
           {(cartQ.data?.items ?? []).map((c, i) => (
             <Enter key={c.id} i={i}>
-              <Card padding={12} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={{ width: 26, height: 26, borderRadius: 6, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 11, color: colors.volt }}>{i + 1}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
+                <View style={{ width: 36, height: 36, borderRadius: 12, borderCurve: 'continuous', backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 12, color: colors.volt }}>{String(i + 1).padStart(2, '0')}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text variant="bodySm" weight="semibold" numberOfLines={1}>{c.product.name}</Text>
                   <Text variant="caption" color="ink4">{c.quantity} {c.product.unit ?? 'units'}</Text>
                 </View>
-              </Card>
+              </View>
             </Enter>
           ))}
           {cartQ.isLoading ? <Text variant="caption" color="ink4">Loading cart…</Text> : null}
@@ -172,7 +172,7 @@ export function RfqCreateScreen() {
           right={<Button title="Add" icon={Plus} size="sm" variant="secondary" onPress={() => setItems((p) => [...p, blankItem()])} />}
         >
           {items.map((it, i) => (
-            <Card key={i} kind="bone" padding={12} style={{ gap: 10 }}>
+            <View key={i} style={{ gap: 10, padding: 14, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Kicker>Line {i + 1}</Kicker>
                 <Button title="Remove" icon={Trash2} size="sm" variant="ghost" disabled={items.length === 1} onPress={() => setItems((p) => p.filter((_, j) => j !== i))} />
@@ -194,7 +194,7 @@ export function RfqCreateScreen() {
               <Field label="Specs">
                 <Input value={it.specifications} onChangeText={(v) => updateItem(i, { specifications: v })} placeholder="Grade, origin, packaging…" />
               </Field>
-            </Card>
+            </View>
           ))}
         </Section>
       )}
@@ -227,7 +227,7 @@ export function RfqCreateScreen() {
       </Section>
 
       <SectionHeader kicker="How it works" title="Publish → negotiate → award" />
-      <Card kind="bone" padding={14} style={{ gap: 8 }}>
+      <Card radius={radii['2xl']} style={{ gap: 12 }}>
         <Text variant="bodySm" color="ink3">Quotes are versioned. Counter-offers create new versions — award the best and convert it into a purchase order automatically.</Text>
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
           <Checkbox checked={isOpen} onChange={setIsOpen} label="Keep RFQ open after publish" />

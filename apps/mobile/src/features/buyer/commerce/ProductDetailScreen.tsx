@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { Clock, MapPin, Package, ShoppingCart, Sparkles, Star, Store, TrendingUp, Truck } from 'lucide-react-native';
+import { ChevronRight, Clock, FileText, MapPin, Package, ShoppingCart, Sparkles, Star, Store, TrendingUp, Truck } from 'lucide-react-native';
 import {
   Banner,
   Button,
@@ -10,6 +10,8 @@ import {
   EmptyState,
   ErrorState,
   Gutter,
+  IconTile,
+  InkHero,
   ListHeader,
   ListScreen,
   ProductImage,
@@ -23,7 +25,7 @@ import {
 import { errorMessage } from '@/lib/api';
 import { useAuth, useBusinessId } from '@/lib/auth';
 import { formatLKR } from '@/lib/format';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { MonoTag, go } from '../orders/kit';
 import { availabilityLabel, leadLabel, openStorefront, useProductOffers, useSupplierReviewSummary } from './data';
 import { useAddToCart } from './useAddToCart';
@@ -79,17 +81,24 @@ export function ProductDetailScreen() {
         {product ? (
           <>
             {/* Hero image + thumbs */}
-            <ProductImage src={heroSrc} seed={product.id} style={{ width: '100%', height: 260, borderRadius: radii['2xl'] }} />
+            <View style={[{ backgroundColor: colors.paper, borderRadius: radii['3xl'], borderCurve: 'continuous', padding: 6 }, shadow.md]}>
+              <ProductImage src={heroSrc} seed={product.id} style={{ width: '100%', height: 280, borderRadius: radii['2xl'], borderCurve: 'continuous' }} />
+            </View>
             {images.length > 1 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 4 }} style={{ overflow: 'visible' }}>
                 {images.map((img, i) => {
                   const on = (activeImage ?? product.imageUrl ?? images[0]?.url) === img.url;
                   return (
-                    <Touchable key={img.id} onPress={() => setActiveImage(img.url)}>
+                    <Touchable
+                      key={img.id}
+                      onPress={() => setActiveImage(img.url)}
+                      scaleTo={0.94}
+                      style={[{ padding: 3, borderRadius: radii.lg + 3, borderCurve: 'continuous', backgroundColor: on ? colors.ink : colors.paper }, on ? shadow.ink : shadow.sm]}
+                    >
                       <ProductImage
                         src={img.url}
                         seed={`${product.id}-${i}`}
-                        style={{ width: 56, height: 56, borderRadius: radii.lg, borderWidth: on ? 2 : 0, borderColor: colors.ink, opacity: on ? 1 : 0.6 }}
+                        style={{ width: 58, height: 58, borderRadius: radii.lg, borderCurve: 'continuous', opacity: on ? 1 : 0.72 }}
                       />
                     </Touchable>
                   );
@@ -122,18 +131,20 @@ export function ProductDetailScreen() {
 
             {/* Price stats */}
             {(data?.priceStats.count ?? 0) > 0 ? (
-              <Card kind="bone" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                <View>
-                  <Text variant="overline" color="ink4">
+              <InkHero seed={`price-${product.id}`} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 }}>
+                <View style={{ gap: 4, flex: 1 }}>
+                  <Text variant="overline" color="volt">
                     Starting rate from
                   </Text>
-                  <Text variant="metricSm">{formatLKR(data!.priceStats.min)}</Text>
-                  <Text variant="caption" color="ink4">
-                    {data!.priceStats.count} live supplier quote{data!.priceStats.count === 1 ? '' : 's'}
+                  <Text variant="metric" color="paper" numberOfLines={1} adjustsFontSizeToFit>
+                    {formatLKR(data!.priceStats.min)}
+                  </Text>
+                  <Text variant="caption" color="paperMuted">
+                    {data!.priceStats.count} live supplier quote{data!.priceStats.count === 1 ? '' : 's'} · per {product.unit}
                   </Text>
                 </View>
                 <MonoTag label={`${offers.length} offers`} tone="volt" />
-              </Card>
+              </InkHero>
             ) : null}
 
             {/* Benchmarks */}
@@ -162,13 +173,17 @@ export function ProductDetailScreen() {
             ) : null}
 
             {businessId ? (
-              <Card kind="flat" onPress={() => go('/buyer/rfqs/new')} style={{ gap: 4 }}>
-                <Text variant="overline" color="ink4">
-                  Large quantity?
-                </Text>
-                <Text variant="body" weight="semibold">
-                  Need 500kg+? Request a custom supplier quote →
-                </Text>
+              <Card kind="flat" onPress={() => go('/buyer/rfqs/new')} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                <IconTile icon={FileText} tone="copper" size={44} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text variant="overline" color="ink4">
+                    Large quantity?
+                  </Text>
+                  <Text variant="body" weight="semibold">
+                    Need 500kg+? Request a custom supplier quote
+                  </Text>
+                </View>
+                <ChevronRight size={18} color={colors.ink4} />
               </Card>
             ) : null}
 
@@ -222,13 +237,11 @@ export function ProductDetailScreen() {
 
 function BenchCard({ icon: Icon, label, value, sub, onPress }: { icon: typeof Clock; label: string; value: string; sub: string; onPress?: () => void }) {
   return (
-    <Card onPress={onPress} padding={10} style={{ flex: 1, gap: 6 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-        <Icon size={11} color={colors.copper} />
-        <Text variant="overline" color="ink4" numberOfLines={1}>
-          {label}
-        </Text>
-      </View>
+    <Card onPress={onPress} padding={12} style={{ flex: 1, gap: 8 }}>
+      <IconTile icon={Icon} tone="paper" size={30} />
+      <Text variant="overline" color="ink4" numberOfLines={1}>
+        {label}
+      </Text>
       <Text variant="bodySm" weight="semibold" numberOfLines={1} adjustsFontSizeToFit>
         {value}
       </Text>
@@ -274,7 +287,7 @@ function OfferCard({
   const out = row.offer.availabilityStatus === 'out_of_stock';
 
   return (
-    <Card kind={isBestPrice ? 'elevated' : 'flat'} style={{ gap: 10, borderLeftWidth: 3, borderLeftColor: isBestPrice ? colors.volt : 'transparent' }}>
+    <Card kind={isBestPrice ? 'elevated' : 'flat'} radius={radii['2xl']} style={[{ gap: 12 }, isBestPrice ? { borderWidth: 1.5, borderColor: colors.volt } : null]}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         <MonoTag label={`Rank #${row.rank}`} tone="ink" />
         {isBestPrice ? <MonoTag label="Best price" tone="volt" /> : null}
@@ -284,14 +297,17 @@ function OfferCard({
       </View>
 
       <Touchable onPress={() => void openStorefront(row.supplier)} accessibilityLabel={`View ${row.supplier.name} storefront`}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Store size={16} color={colors.copper} />
-          <Text variant="h3" numberOfLines={1} style={{ flex: 1 }}>
-            {row.supplier.name}
-          </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <IconTile icon={Store} tone={isBestPrice ? 'volt' : 'ink'} size={42} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="h3" numberOfLines={1}>
+              {row.supplier.name}
+            </Text>
+            <StarsLine supplierId={row.supplier.id} />
+          </View>
+          <ChevronRight size={18} color={colors.ink5} />
         </View>
       </Touchable>
-      <StarsLine supplierId={row.supplier.id} />
       {row.ranking?.reasons?.length ? (
         <Text variant="caption" style={{ color: colors.copper }}>
           #{row.ranking.rank} · {row.ranking.reasons.join(' + ')}
@@ -303,20 +319,20 @@ function OfferCard({
         </Text>
       ) : null}
 
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <View style={META}>
           <MapPin size={12} color={colors.copper} />
           <Text variant="caption" color="ink3">
             {[row.supplier.city, row.supplier.district].filter(Boolean).join(', ') || 'Sri Lanka'}
           </Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <View style={META}>
           <Truck size={12} color={colors.ink4} />
           <Text variant="caption" color="ink3">
             {leadLabel(row.offer.leadTimeDays)}
           </Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <View style={META}>
           <Package size={12} color={colors.ink4} />
           <Text variant="caption" color="ink3">
             MOQ {row.offer.minOrderQty}
@@ -343,12 +359,26 @@ function OfferCard({
         </View>
       ) : null}
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderTopWidth: 1, borderTopColor: colors.lineSoft, paddingTop: 10 }}>
-        <View>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          padding: 10,
+          paddingLeft: 14,
+          borderRadius: radii.lg,
+          borderCurve: 'continuous',
+          backgroundColor: colors.pearl,
+        }}
+      >
+        <View style={{ flexShrink: 1 }}>
           <Text variant="overline" color="ink5">
             {formatLKR(row.offer.priceCents)} / {unit}
           </Text>
-          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 16, color: colors.ink }}>{formatLKR(subtotal)}</Text>
+          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 17, letterSpacing: -0.5, color: colors.ink }} numberOfLines={1} adjustsFontSizeToFit>
+            {formatLKR(subtotal)}
+          </Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Stepper value={selectedQty} min={row.offer.minOrderQty} onChange={onQty} size="sm" />
@@ -365,6 +395,16 @@ function OfferCard({
     </Card>
   );
 }
+
+const META = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 5,
+  paddingHorizontal: 9,
+  height: 26,
+  borderRadius: radii.pill,
+  backgroundColor: colors.pearl,
+};
 
 function StarsLine({ supplierId }: { supplierId: string }) {
   const { avg, count } = useSupplierReviewSummary(supplierId);

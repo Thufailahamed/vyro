@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -21,7 +21,7 @@ import {
 import { api, errorMessage } from '@/lib/api';
 import { useSupplierId } from '@/lib/auth';
 import { formatLKR, formatRs } from '@/lib/format';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import {
   Card,
   ChipRow,
@@ -35,6 +35,8 @@ import {
   ListHeader,
   ListScreen,
   ProductImage,
+  QuickAction,
+  QuickActions,
   Row,
   ScreenHeader,
   SearchBar,
@@ -164,14 +166,15 @@ export function SupplierProductsScreen() {
               <HeroStat label="Low" value={`${counts.low}`} hint={counts.low ? 'Restock soon' : 'None'} tone="amber" />
               <HeroStat label="Out" value={`${counts.out_of_stock}`} hint={counts.out_of_stock ? 'Suppressed' : 'None'} tone="rose" />
             </View>
+            <View style={{ height: 1, backgroundColor: colors.paperLine, marginVertical: 18 }} />
+            <QuickActions>
+              <QuickAction icon={Plus} label="Add" tone="volt" onPress={() => go('/supplier/products/new')} />
+              <QuickAction icon={Percent} label="Pricing" tone="glass" onPress={() => go('/supplier/pricing')} />
+              <QuickAction icon={Warehouse} label="Inventory" tone="glass" badge={counts.low + counts.out_of_stock} onPress={() => go('/supplier/inventory')} />
+              <QuickAction icon={TrendingUp} label="Analytics" tone="glass" onPress={() => go('/supplier/analytics')} />
+            </QuickActions>
           </InkHero>
         </FadeInItem>
-
-        <Row gap={8}>
-          <ToolChip icon={Percent} label="Pricing" onPress={() => go('/supplier/pricing')} />
-          <ToolChip icon={Warehouse} label="Inventory" onPress={() => go('/supplier/inventory')} />
-          <ToolChip icon={TrendingUp} label="Analytics" onPress={() => go('/supplier/analytics')} />
-        </Row>
 
         {list.length ? (
           <>
@@ -308,7 +311,7 @@ export function SupplierProductsScreen() {
 function HeroStat({ label, value, hint, tone }: { label: string; value: string; hint: string; tone: 'mint' | 'amber' | 'rose' }) {
   const dot = tone === 'mint' ? colors.mint : tone === 'amber' ? colors.amber : colors.rose;
   return (
-    <View style={{ flex: 1, padding: 12, borderRadius: radii.lg, backgroundColor: 'rgba(250,247,240,0.06)', borderWidth: 1, borderColor: colors.paperLine, gap: 4, minHeight: 78 }}>
+    <View style={{ flex: 1, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: 'rgba(250,247,240,0.07)', gap: 4, minHeight: 78 }}>
       <Row gap={5} align="center">
         <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: dot }} />
         <Text variant="overline" color="paperMuted" style={{ fontSize: 9 }} numberOfLines={1}>
@@ -320,21 +323,6 @@ function HeroStat({ label, value, hint, tone }: { label: string; value: string; 
         {hint}
       </Text>
     </View>
-  );
-}
-
-function ToolChip({ icon: Icon, label, onPress }: { icon: typeof Percent; label: string; onPress: () => void }) {
-  return (
-    <Touchable onPress={onPress} hapticOnPress style={{ flex: 1 }}>
-      <Row gap={8} style={{ height: 44, paddingHorizontal: 12, borderRadius: radii.xl, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.lineSoft }}>
-        <View style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon size={14} color={colors.volt} strokeWidth={1.8} />
-        </View>
-        <Text variant="bodySm" weight="semibold">
-          {label}
-        </Text>
-      </Row>
-    </Touchable>
   );
 }
 
@@ -381,11 +369,11 @@ function OfferCard({
           </Text>
         </Row>
       ) : null}
-      <View style={{ flexDirection: 'row', gap: 12, padding: 12 }}>
-        <View>
-          <ProductImage src={p?.imageUrl} seed={o.productId} style={{ width: 92, height: 92, borderRadius: radii.lg }} label={p?.unit ?? undefined} />
+      <View style={{ flexDirection: 'row', gap: 14, padding: 14 }}>
+        <View style={{ borderRadius: radii.xl, borderCurve: 'continuous', overflow: 'hidden', ...shadow.sm }}>
+          <ProductImage src={p?.imageUrl} seed={o.productId} style={{ width: 96, height: 96, borderRadius: radii.xl }} label={p?.unit ?? undefined} />
           {!o.active ? (
-            <View style={{ position: 'absolute', top: 6, left: 6, backgroundColor: colors.ink, borderRadius: radii.sm, paddingHorizontal: 5, paddingVertical: 1 }}>
+            <View style={{ position: 'absolute', top: 7, left: 7, backgroundColor: colors.ink, borderRadius: radii.pill, paddingHorizontal: 7, paddingVertical: 2 }}>
               <Text style={{ fontFamily: fonts.sansSemi, fontSize: 9.5, color: colors.paper, letterSpacing: 0.6 }}>HIDDEN</Text>
             </View>
           ) : null}
@@ -417,7 +405,7 @@ function OfferCard({
           </View>
         </View>
       </View>
-      <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 8, backgroundColor: colors.pearl, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft }}>
         <CardAction icon={Zap} label="Quick edit" onPress={onQuick} accent />
         <CardAction icon={o.active ? EyeOff : Eye} label={toggling ? '…' : o.active ? 'Hide' : 'Publish'} onPress={onToggleActive} />
         <CardAction icon={Pencil} label="Edit" onPress={onEdit} />
@@ -450,19 +438,20 @@ function CardAction({
       accessibilityLabel={label || 'Delist'}
       style={{
         flex: narrow ? 0 : 1,
-        width: narrow ? 52 : undefined,
-        height: 42,
+        width: narrow ? 38 : undefined,
+        height: 36,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 6,
-        borderLeftWidth: 1,
-        borderLeftColor: colors.lineSoft,
+        borderRadius: radii.pill,
+        backgroundColor: accent ? colors.ink : danger ? colors.roseSoft : colors.paper,
+        ...(accent || danger ? {} : shadow.sm),
       }}
     >
-      <Icon size={15} color={danger ? colors.rose : accent ? colors.voltDeep : colors.ink3} strokeWidth={1.9} />
+      <Icon size={15} color={danger ? colors.rose : accent ? colors.volt : colors.ink3} strokeWidth={1.9} />
       {label ? (
-        <Text variant="caption" weight="semibold" color={accent ? 'ink' : 'ink3'}>
+        <Text variant="caption" weight="semibold" color={accent ? 'paper' : 'ink2'}>
           {label}
         </Text>
       ) : null}

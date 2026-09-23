@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react';
-import { FlatList, View } from 'react-native';
+import { FlatList, ScrollView, TextInput, View } from 'react-native';
 import { useMutation } from '@tanstack/react-query';
 import { CheckCheck, Send, Sparkles } from 'lucide-react-native';
-import { Button, Card, Chip, IconButton, Input, Screen, Text, useToast } from '@/ui';
+import { Button, Chip, IconButton, IconTile, Screen, Text, useToast } from '@/ui';
 import { api, errorMessage } from '@/lib/api';
 import { useBusinessId } from '@/lib/auth';
 import { formatLKR } from '@/lib/format';
-import { colors, fonts } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { Bubble, go } from './kit';
 
 interface DraftItem {
@@ -104,31 +104,51 @@ export function ConversationalOrderScreen() {
       padded={false}
       contentStyle={{ paddingHorizontal: 20 }}
       footer={
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
-          <View style={{ flex: 1 }}>
-            <Input
-              value={input}
-              onChangeText={setInput}
-              placeholder="e.g. Send 5 bags samba rice and 2 sugar"
-              onSubmitEditing={() => send()}
-              returnKeyType="send"
-            />
-          </View>
-          <IconButton icon={Send} variant="ink" accessibilityLabel="Send" onPress={() => send()} style={{ opacity: chat.isPending || !input.trim() ? 0.4 : 1 }} />
+        <View
+          style={[
+            {
+              flexDirection: 'row',
+              gap: 8,
+              alignItems: 'center',
+              paddingLeft: 18,
+              paddingRight: 5,
+              minHeight: 54,
+              borderRadius: radii.pill,
+              backgroundColor: colors.pearl,
+            },
+            shadow.sm,
+          ]}
+        >
+          <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder="e.g. Send 5 bags samba rice and 2 sugar"
+            placeholderTextColor={colors.ink5}
+            selectionColor={colors.copper}
+            onSubmitEditing={() => send()}
+            returnKeyType="send"
+            style={{ flex: 1, fontFamily: fonts.sans, fontSize: 15, color: colors.ink, paddingVertical: 10 }}
+          />
+          <IconButton icon={Send} variant="volt" size={44} accessibilityLabel="Send" onPress={() => send()} style={{ opacity: chat.isPending || !input.trim() ? 0.4 : 1 }} />
         </View>
       }
     >
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0, marginHorizontal: -20, overflow: 'visible' }}
+        contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingVertical: 6 }}
+      >
         {QUICK_PROMPTS.map((p) => (
           <Chip key={p} label={p} onPress={() => send(p)} icon={Sparkles} />
         ))}
-      </View>
+      </ScrollView>
       <FlatList
         ref={listRef}
         data={messages}
         keyExtractor={(_, i) => String(i)}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ gap: 10, paddingBottom: 12 }}
+        contentContainerStyle={{ gap: 12, paddingTop: 8, paddingBottom: 12 }}
         renderItem={({ item }) => (
           <Bubble mine={item.sender === 'user'} meta={item.timestamp}>
             <Text variant="bodySm" color={item.sender === 'user' ? 'paper' : 'ink'}>
@@ -139,9 +159,13 @@ export function ConversationalOrderScreen() {
         )}
       />
       {chat.isPending ? (
-        <Text variant="caption" color="ink5" style={{ paddingBottom: 8 }}>
-          VYRO is typing…
-        </Text>
+        <View style={{ paddingBottom: 10 }}>
+          <Bubble mine={false}>
+            <Text variant="caption" color="ink4">
+              VYRO is typing…
+            </Text>
+          </Bubble>
+        </View>
       ) : null}
     </Screen>
   );
@@ -149,12 +173,13 @@ export function ConversationalOrderScreen() {
 
 function DraftCard({ draft, confirming, onConfirm }: { draft: OrderDraft; confirming: boolean; onConfirm: () => void }) {
   return (
-    <Card padding={12} style={{ marginTop: 8, gap: 8, backgroundColor: colors.pearl }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.lineSoft, paddingBottom: 8 }}>
-        <Text variant="bodySm" weight="semibold">
+    <View style={{ marginTop: 8, gap: 10, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 2 }}>
+        <IconTile icon={CheckCheck} tone="success" size={30} />
+        <Text variant="bodySm" weight="semibold" style={{ flex: 1 }}>
           Order draft
         </Text>
-        <Text style={{ fontFamily: fonts.monoMedium, fontSize: 14, color: colors.mint }}>{formatLKR(draft.totalCents)}</Text>
+        <Text style={{ fontFamily: fonts.monoMedium, fontSize: 15, color: colors.mint }}>{formatLKR(draft.totalCents)}</Text>
       </View>
       {draft.items.map((it, i) => (
         <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
@@ -170,6 +195,6 @@ function DraftCard({ draft, confirming, onConfirm }: { draft: OrderDraft; confir
         </Text>
       ) : null}
       <Button title="Confirm & place PO" icon={CheckCheck} size="sm" loading={confirming} onPress={onConfirm} full />
-    </Card>
+    </View>
   );
 }

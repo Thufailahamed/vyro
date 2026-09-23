@@ -66,6 +66,16 @@ vi.mock('../../src/modules/admin/money/refundsRepository', () => ({
   },
 }));
 
+// Money movement is covered by test/orders/refundExecutor.test.ts; here we
+// only assert the admin route contract and that approval settles the refund.
+vi.mock('../../src/modules/refunds/executor', () => ({
+  settleApprovedRefund: async (_env: any, id: string) => {
+    const r = state.refunds.find((x) => x.id === id);
+    if (r) r.status = 'completed';
+    return 'completed';
+  },
+}));
+
 vi.mock('../../src/modules/admin/lib/audit', () => ({
   auditAdmin: async (opts: any) => {
     state.audit.push({ action: opts.action, target: opts.target });

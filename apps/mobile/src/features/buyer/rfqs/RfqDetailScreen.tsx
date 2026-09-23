@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { TextInput, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Award, GitCompareArrows, MessageCircle, Scale, Send } from 'lucide-react-native';
+import { ArrowRight, Award, FileText, GitCompareArrows, MessageCircle, Scale, Send, Sparkles } from 'lucide-react-native';
 import {
   Button,
   Card,
   ConfirmSheet,
   EmptyState,
   ErrorState,
-  Input,
+  IconButton,
+  IconTile,
+  InkHero,
   Kicker,
   Screen,
   SectionHeader,
@@ -23,7 +25,7 @@ import {
 import { api, errorMessage } from '@/lib/api';
 import { useBusinessId } from '@/lib/auth';
 import { formatDate, formatDateTime, formatLKR, humanize, timeAgo } from '@/lib/format';
-import { colors, fonts } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { Bubble, Enter, go, Section } from '../orders/kit';
 import { useRfqAiSummary, useRfqDetail, useRfqMessages, useRfqQuotes } from './api';
 
@@ -113,18 +115,30 @@ export function RfqDetailScreen() {
         )
       }
     >
-      {rfq.description ? (
-        <Card kind="bone" padding={14}>
-          <Text variant="bodySm" color="ink3">{rfq.description}</Text>
-        </Card>
-      ) : null}
+      <InkHero seed={`rfq-detail-${id}`}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <IconTile icon={FileText} tone="glass" size={48} />
+          <StatusBadge status={rfq.status} size="sm" />
+        </View>
+        <View style={{ gap: 6, marginTop: 16 }}>
+          <Kicker color="volt">Request for quotation</Kicker>
+          <Text variant="body" color={rfq.description ? 'paper' : 'paperMuted'}>
+            {rfq.description || (rfq.deliveryLocation ? `Deliver to ${rfq.deliveryLocation}` : 'Suppliers compete on landed cost — award the best quote.')}
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.paperLine }}>
+          <HeroFigure label="Lines" value={String(items.length)} />
+          <HeroFigure label="Quotes" value={String(quoteList.length)} />
+          <HeroFigure label="Closes" value={rfq.deadline ? formatDate(rfq.deadline) : '—'} />
+        </View>
+      </InkHero>
 
       <Section step={1} kicker="Lines" title={`Requested lines (${items.length})`} sub={rfq.deliveryLocation ?? undefined}>
         {items.map((it, i) => (
           <Enter key={it.id ?? i} i={i}>
-            <Card padding={12} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <View style={{ width: 26, height: 26, borderRadius: 6, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11, color: colors.volt }}>{i + 1}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
+              <View style={{ width: 36, height: 36, borderRadius: 12, borderCurve: 'continuous', backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: colors.volt }}>{String(i + 1).padStart(2, '0')}</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text variant="bodySm" weight="semibold" numberOfLines={2}>{it.description}</Text>
@@ -132,7 +146,7 @@ export function RfqDetailScreen() {
                   {it.quantity} {it.unit}{it.targetPriceCents ? ` · target ${formatLKR(it.targetPriceCents)}` : ''}
                 </Text>
               </View>
-            </Card>
+            </View>
           </Enter>
         ))}
         <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
@@ -142,8 +156,11 @@ export function RfqDetailScreen() {
       </Section>
 
       {ai.data?.recommendation ? (
-        <Card kind="ink" flow={`rfq-ai-${id}`} padding={16} style={{ gap: 8 }}>
-          <Kicker color="volt">AI recommendation</Kicker>
+        <Card kind="ink" flow={`rfq-ai-${id}`} padding={16} style={{ gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <IconTile icon={Sparkles} tone="volt" size={32} />
+            <Kicker color="volt">AI recommendation</Kicker>
+          </View>
           <Text variant="bodySm" color="paper">{ai.data.recommendation}</Text>
         </Card>
       ) : null}
@@ -164,8 +181,14 @@ export function RfqDetailScreen() {
         ) : (
           quoteList.map((q, i) => (
             <Enter key={q.quote.id} i={i}>
-              <Card padding={14} style={{ gap: 10, borderColor: rfq.awardedQuoteId === q.quote.id ? colors.mint : undefined, borderWidth: rfq.awardedQuoteId === q.quote.id ? 1.5 : 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <View
+                style={[
+                  { gap: 12, padding: 14, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.pearl },
+                  rfq.awardedQuoteId === q.quote.id ? [{ backgroundColor: colors.paper, borderWidth: 1.5, borderColor: colors.mint }, shadow.md] : null,
+                ]}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                  <IconTile icon={rfq.awardedQuoteId === q.quote.id ? Award : Scale} tone={rfq.awardedQuoteId === q.quote.id ? 'success' : 'paper'} size={40} style={{ backgroundColor: rfq.awardedQuoteId === q.quote.id ? colors.mintSoft : colors.paper }} />
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text variant="mono" style={{ fontFamily: fonts.monoMedium }}>{q.quote.quoteNumber}</Text>
                     <Text variant="caption" color="ink4" numberOfLines={1}>
@@ -178,7 +201,7 @@ export function RfqDetailScreen() {
                   <Text variant="caption" color="ink4">
                     {q.items.length} lines{q.quote.estimatedDeliveryDate ? ` · ETA ${formatDate(q.quote.estimatedDeliveryDate)}` : ''}
                   </Text>
-                  <Text style={{ fontFamily: fonts.monoMedium, fontSize: 17, color: colors.ink }}>
+                  <Text style={{ fontFamily: fonts.monoMedium, fontSize: 18, letterSpacing: -0.5, color: colors.ink }}>
                     {formatLKR((q.quote.subtotalCents ?? 0) + (q.quote.deliveryFeeCents ?? 0) + (q.quote.taxCents ?? 0) - (q.quote.discountCents ?? 0))}
                   </Text>
                 </View>
@@ -191,9 +214,9 @@ export function RfqDetailScreen() {
                   </View>
                 ) : null}
                 {rfq.awardedQuoteId === q.quote.id ? (
-                  <Text variant="caption" color="ink" weight="semibold">Awarded — convert to PO below.</Text>
+                  <Text variant="caption" color="mint" weight="semibold">Awarded — convert to PO below.</Text>
                 ) : null}
-              </Card>
+              </View>
             </Enter>
           ))
         )}
@@ -221,11 +244,30 @@ export function RfqDetailScreen() {
         {(messages.data?.messages.length ?? 0) === 0 && !messages.isLoading ? (
           <EmptyState icon={MessageCircle} compact title="No messages" message="Open the negotiation with the first note." />
         ) : null}
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-          <View style={{ flex: 1 }}>
-            <Input value={msg} onChangeText={setMsg} placeholder="Write to suppliers…" multiline={false} onSubmitEditing={() => msg.trim() && sendMsg.mutate(msg.trim())} />
-          </View>
-          <Button title="Send" icon={Send} size="sm" loading={sendMsg.isPending} disabled={!msg.trim()} onPress={() => sendMsg.mutate(msg.trim())} />
+        <View
+          style={[
+            { flexDirection: 'row', gap: 8, alignItems: 'center', paddingLeft: 18, paddingRight: 5, minHeight: 54, marginTop: 4, borderRadius: radii.pill, backgroundColor: colors.paper },
+            shadow.card,
+          ]}
+        >
+          <TextInput
+            value={msg}
+            onChangeText={setMsg}
+            placeholder="Write to suppliers…"
+            placeholderTextColor={colors.ink5}
+            selectionColor={colors.copper}
+            returnKeyType="send"
+            onSubmitEditing={() => msg.trim() && sendMsg.mutate(msg.trim())}
+            style={{ flex: 1, fontFamily: fonts.sans, fontSize: 15, color: colors.ink, paddingVertical: 10 }}
+          />
+          <IconButton
+            icon={Send}
+            variant="volt"
+            size={44}
+            accessibilityLabel="Send message"
+            onPress={() => msg.trim() && !sendMsg.isPending && sendMsg.mutate(msg.trim())}
+            style={{ opacity: sendMsg.isPending || !msg.trim() ? 0.4 : 1 }}
+          />
         </View>
       </View>
 
@@ -252,6 +294,19 @@ export function RfqDetailScreen() {
       <View style={{ height: 8 }} />
       <Text variant="caption" color="ink5">Workspace {businessId?.slice(0, 8) ?? '—'}</Text>
     </Screen>
+  );
+}
+
+function HeroFigure({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ flex: 1, gap: 2 }}>
+      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 16, color: colors.paper }} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
+      <Text variant="overline" color="paperFaint">
+        {label}
+      </Text>
+    </View>
   );
 }
 

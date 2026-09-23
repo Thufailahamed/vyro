@@ -81,7 +81,7 @@ router.post('/repay', async (c) => {
   await db.transaction(async (tx: any) => {
     for (const dd of items as any[]) {
       if (remaining <= 0) break;
-      const bal = dd.amountCents - dd.repaidCents;
+      const bal = dd.amountCents - (dd.releasedCents ?? 0) - dd.repaidCents;
       const take = Math.min(bal, remaining);
       if (take <= 0) continue;
       await applyRepayment(tx, { businessId: parsed.data.businessId, drawdownId: dd.id, amountCents: take, paymentId: parsed.data.paymentId, userId: ctx.userId, now: Date.now() });

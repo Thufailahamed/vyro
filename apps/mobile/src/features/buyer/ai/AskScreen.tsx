@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { ArrowRight, CheckCircle2, Eraser, RefreshCw, Send, Sparkles, Store, Wrench } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Badge, Button, Card, Chip, IconButton, Input, Kicker, ScreenHeader, Text, Touchable, useToast } from '@/ui';
+import { Badge, Button, Card, Chip, IconButton, IconTile, InkHero, Kicker, ScreenHeader, Text, Touchable, useToast } from '@/ui';
 import { api, errorMessage } from '@/lib/api';
 import { useBusinessId } from '@/lib/auth';
 import { formatLKR } from '@/lib/format';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { Bubble } from '../orders/kit';
 import { go, productHref } from '../commerce/data';
 import { useVyroAI, type ChatTurn, type ComponentEnvelope } from './useVyroAI';
@@ -80,27 +80,28 @@ export function AskScreen() {
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
           ListEmptyComponent={
             <View style={{ gap: 14 }}>
-              <Card kind="bone" style={{ gap: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Sparkles size={16} color={colors.copper} />
-                  <Text variant="bodySm" weight="semibold">
-                    Try one of these
+              <InkHero seed="ask-vyro" style={{ gap: 14 }}>
+                <IconTile icon={Sparkles} tone="volt" size={48} />
+                <View style={{ gap: 4 }}>
+                  <Kicker color="volt">Try one of these</Kicker>
+                  <Text variant="h1" color="paper">
+                    What should we source today?
                   </Text>
                 </View>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {SUGGESTIONS.map((s) => (
-                    <Chip key={s} label={s} onPress={() => submit(s)} />
+                    <Chip key={s} label={s} dark onPress={() => submit(s)} />
                   ))}
                 </View>
-              </Card>
+              </InkHero>
             </View>
           }
           renderItem={({ item: t }) => <Turn turn={t} loading={state.loading} status={state.status} onPick={submit} toast={toast} />}
           ListFooterComponent={
             state.loading && state.status ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 }}>
-                <Sparkles size={14} color={colors.copper} />
-                <Text variant="caption" color="ink4">
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 12, height: 30, borderRadius: radii.pill, backgroundColor: colors.paper, ...shadow.sm }}>
+                <Sparkles size={13} color={colors.copper} />
+                <Text variant="caption" color="ink3">
                   {state.status}…
                 </Text>
               </View>
@@ -108,35 +109,43 @@ export function AskScreen() {
           }
         />
         {/* Composer */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'flex-end',
-            gap: 8,
-            paddingHorizontal: 16,
-            paddingTop: 10,
-            paddingBottom: Math.max(insets.bottom, 12),
-            borderTopWidth: 1,
-            borderTopColor: colors.lineSoft,
-            backgroundColor: colors.bone,
-          }}
-        >
-          <View style={{ flex: 1 }}>
-            <Input
+        <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 12), backgroundColor: colors.bone }}>
+          <View
+            style={[
+              {
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                paddingLeft: 18,
+                paddingRight: 5,
+                minHeight: 56,
+                borderRadius: radii.pill,
+                borderCurve: 'continuous',
+                backgroundColor: colors.paper,
+              },
+              shadow.md,
+            ]}
+          >
+            <Sparkles size={16} color={colors.copper} />
+            <TextInput
               value={input}
               onChangeText={setInput}
               placeholder="Ask about prices, suppliers, spend…"
+              placeholderTextColor={colors.ink5}
+              selectionColor={colors.copper}
               onSubmitEditing={() => submit()}
               returnKeyType="send"
+              style={{ flex: 1, fontFamily: fonts.sans, fontSize: 15.5, color: colors.ink, paddingVertical: 12 }}
+            />
+            <IconButton
+              icon={Send}
+              variant="volt"
+              size={46}
+              accessibilityLabel="Send"
+              onPress={() => submit()}
+              style={{ opacity: state.loading || !input.trim() ? 0.4 : 1 }}
             />
           </View>
-          <IconButton
-            icon={Send}
-            variant="ink"
-            accessibilityLabel="Send"
-            onPress={() => submit()}
-            style={{ opacity: state.loading || !input.trim() ? 0.4 : 1 }}
-          />
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -194,16 +203,18 @@ function Turn({
           <Text variant="body">{turn.text}</Text>
         </Bubble>
       ) : working ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}>
-          <Sparkles size={14} color={colors.copper} />
-          <Text variant="bodySm" color="ink4">
-            {status ? `${status}…` : 'Thinking…'}
-          </Text>
-        </View>
+        <Bubble mine={false}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Sparkles size={14} color={colors.copper} />
+            <Text variant="bodySm" color="ink4">
+              {status ? `${status}…` : 'Thinking…'}
+            </Text>
+          </View>
+        </Bubble>
       ) : null}
 
       {turn.error ? (
-        <Card kind="flat" style={{ borderColor: colors.rose, gap: 4 }}>
+        <Card kind="flat" style={{ backgroundColor: colors.roseSoft, gap: 4 }}>
           <Text variant="bodySm" weight="semibold" style={{ color: colors.rose }}>
             {turn.error.code}
           </Text>
@@ -282,7 +293,7 @@ function RecommendationCard({ d }: { d: Record<string, any> }) {
 
   return (
     <Card padding={0} style={{ overflow: 'hidden' }} onPress={d.productId ? () => go(productHref(String(d.productId))) : undefined}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 14, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 14, borderBottomWidth: StyleSheet.hairlineWidth * 2, borderBottomColor: colors.lineSoft }}>
         <View style={{ flex: 1, gap: 2 }}>
           <Kicker>{d.offerCount > 1 ? 'Best price' : 'Quote'}</Kicker>
           <Text variant="h3" numberOfLines={2}>
@@ -335,7 +346,7 @@ function SupplierListCard({ d }: { d: Record<string, any> }) {
             key={i}
             disabled={!href}
             onPress={href ? () => go(href) : undefined}
-            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.lineSoft }}
+            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft }}
           >
             <View style={{ flex: 1, gap: 2 }}>
               <Text variant="bodySm" weight="semibold" numberOfLines={1}>
@@ -366,7 +377,7 @@ function SpendCard({ d }: { d: Record<string, any> }) {
       <Card style={{ gap: 8 }}>
         <CardTitle kicker="Price moves" title="What changed" />
         {(d.movers ?? []).map((m: any, i: number) => (
-          <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.bone, borderRadius: radii.lg, padding: 10 }}>
+          <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.pearl, borderRadius: radii.lg, borderCurve: 'continuous', padding: 10 }}>
             <Text variant="bodySm" weight="medium" style={{ flex: 1 }} numberOfLines={1}>
               {m.productName}
             </Text>
@@ -401,7 +412,7 @@ function SpendCard({ d }: { d: Record<string, any> }) {
           {d.productName ?? d.supplierName}
         </Text>
       ) : null}
-      <Text variant="caption" color="paperFaint" style={{ borderTopWidth: 1, borderTopColor: colors.paperLine, paddingTop: 8 }}>
+      <Text variant="caption" color="paperFaint" style={{ borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.paperLine, paddingTop: 8 }}>
         {d.orderCount ?? 0} settled order{d.orderCount === 1 ? '' : 's'}
       </Text>
     </Card>
@@ -414,7 +425,7 @@ function SavingsCard({ d }: { d: Record<string, any> }) {
     <Card style={{ gap: 8 }}>
       <CardTitle kicker="Where you can save" title="Cheaper quotes" />
       {opps.slice(0, 5).map((o: any, i: number) => (
-        <View key={i} style={{ backgroundColor: colors.bone, borderRadius: radii.lg, padding: 10, gap: 4 }}>
+        <View key={i} style={{ backgroundColor: colors.pearl, borderRadius: radii.lg, borderCurve: 'continuous', padding: 10, gap: 4 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
             <Text variant="bodySm" weight="semibold" style={{ flex: 1 }} numberOfLines={1}>
               {o.productName}
@@ -446,7 +457,7 @@ function PlanCard({ d }: { d: Record<string, any> }) {
     <Card style={{ gap: 8 }}>
       <CardTitle kicker="Suggested reorder" title={String(d.title ?? 'Based on what you usually buy')} />
       {lines.map((l: any, i: number) => (
-        <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10, paddingVertical: 6, borderTopWidth: i ? 1 : 0, borderTopColor: colors.lineSoft }}>
+        <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10, paddingVertical: 6, borderTopWidth: i ? StyleSheet.hairlineWidth * 2 : 0, borderTopColor: colors.lineSoft }}>
           <Text variant="bodySm" weight="medium" style={{ flex: 1 }}>
             {l.productName}
           </Text>
@@ -506,7 +517,7 @@ function ConfirmCard({ d, toast }: { d: Record<string, any>; toast: ReturnType<t
         {state === 'confirmed' ? <Badge tone="success" icon={CheckCircle2} label={poRef ?? 'Placed'} /> : null}
       </View>
       {items.map((it: any, i: number) => (
-        <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
+        <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft }}>
           <View style={{ flex: 1 }}>
             <Text variant="bodySm" weight="semibold">
               {it.product}
@@ -518,7 +529,7 @@ function ConfirmCard({ d, toast }: { d: Record<string, any>; toast: ReturnType<t
           <Text style={{ fontFamily: fonts.monoMedium, fontSize: 13 }}>{formatLKR(it.priceCents * it.quantity)}</Text>
         </View>
       ))}
-      <View style={{ backgroundColor: colors.bone, borderRadius: radii.lg, padding: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+      <View style={{ backgroundColor: colors.pearl, borderRadius: radii.lg, borderCurve: 'continuous', padding: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <Text variant="bodySm" color="ink3">
           Estimated total
         </Text>
@@ -541,7 +552,7 @@ function WhyCard({ d }: { d: Record<string, any> }) {
         {String(d.answer ?? '')}
       </Text>
       {evidence.length ? (
-        <View style={{ borderTopWidth: 1, borderTopColor: colors.lineSoft, paddingTop: 8, gap: 4 }}>
+        <View style={{ borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft, paddingTop: 8, gap: 4 }}>
           {evidence.map((e, i) => (
             <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
               <Text variant="bodySm" color="ink4">
@@ -553,7 +564,7 @@ function WhyCard({ d }: { d: Record<string, any> }) {
         </View>
       ) : null}
       {d.recommendation ? (
-        <Text variant="bodySm" color="ink3" style={{ borderTopWidth: 1, borderTopColor: colors.lineSoft, paddingTop: 8 }}>
+        <Text variant="bodySm" color="ink3" style={{ borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft, paddingTop: 8 }}>
           {String(d.recommendation)}
         </Text>
       ) : null}
@@ -567,7 +578,7 @@ function SimulationCard({ d }: { d: Record<string, any> }) {
   return (
     <Card style={{ gap: 10 }}>
       <CardTitle kicker="If you switch" title={String(d.productName ?? 'This product')} />
-      <View style={{ flexDirection: 'row', gap: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.lineSoft, paddingVertical: 10 }}>
+      <View style={{ flexDirection: 'row', gap: 12, borderTopWidth: StyleSheet.hairlineWidth * 2, borderBottomWidth: StyleSheet.hairlineWidth * 2, borderColor: colors.lineSoft, paddingVertical: 10 }}>
         <View style={{ flex: 1 }}>
           <Text variant="caption" color="ink4">
             Now

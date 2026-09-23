@@ -2,6 +2,16 @@ import { logger } from './logger';
 
 export type ErrorCode =
   | 'VALIDATION_ERROR'
+  // Order lifecycle guards (see @vyro/shared LIFECYCLE_ERROR_COPY).
+  | 'STALE_STATE'
+  | 'REASON_REQUIRED'
+  | 'DISPUTE_WINDOW_CLOSED'
+  | 'RETURN_WINDOW_CLOSED'
+  | 'RETURN_OPEN'
+  | 'RETURNS_DISABLED'
+  | 'PAYMENT_REQUIRED'
+  | 'POD_REQUIRED'
+  | 'NOTHING_TO_ACCEPT'
   | 'UNAUTHORIZED'
   | 'CONFIRM_FAILED'
   | 'FORBIDDEN'

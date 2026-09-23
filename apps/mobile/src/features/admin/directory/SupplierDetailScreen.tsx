@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { Mail, MapPin, Phone, ShieldCheck } from 'lucide-react-native';
+import { FileText, Mail, MapPin, Phone, ShieldCheck, UserRound } from 'lucide-react-native';
 import { api, errorMessage } from '@/lib/api';
 import { formatDate, humanize } from '@/lib/format';
 import {
+  Avatar,
   Banner,
   Button,
   ConfirmSheet,
+  InkHero,
   KeyValue,
   QueryView,
   Screen,
@@ -93,23 +95,36 @@ export function SupplierDetailScreen() {
           const v = d.supplier;
           return (
             <>
-              <Section kicker="Merchant" title={v.name}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <InkHero seed={`supplier-${v.id}`}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                  <Avatar name={v.name} size={56} tone="volt" />
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text variant="overline" color="volt">
+                      Merchant
+                    </Text>
+                    <Text variant="h1" color="paper" numberOfLines={2}>
+                      {v.name}
+                    </Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
                   {v.status ? <StatusBadge status={v.status} size="sm" /> : null}
                   {v.verificationStatus ? <StatusBadge status={v.verificationStatus} size="sm" /> : null}
-                </View>
-                <View>
-                  {v.contactPerson ? (
-                    <Text variant="bodySm" color="ink3">
-                      Contact · {v.contactPerson}
+                  {v.createdAt ? (
+                    <Text variant="caption" color="paperFaint">
+                      Joined {formatDate(v.createdAt)}
                     </Text>
                   ) : null}
+                </View>
+              </InkHero>
+              <Section kicker="Contact" title={v.contactPerson ?? 'Reach the merchant'} icon={UserRound}>
+                <View style={{ gap: 4 }}>
                   <ContactLine icon={Phone} value={v.phone} href={v.phone ? `tel:${v.phone}` : undefined} />
                   <ContactLine icon={Mail} value={v.email} href={v.email ? `mailto:${v.email}` : undefined} />
                   <ContactLine icon={MapPin} value={[v.address, v.city, v.district].filter(Boolean).join(', ')} />
                 </View>
               </Section>
-              <Section kicker="Record" title="Details">
+              <Section kicker="Record" title="Details" icon={FileText}>
                 <View>
                   <KeyValue label="ID" value={v.id} mono />
                   <KeyValue label="Status" value={humanize(v.status)} />

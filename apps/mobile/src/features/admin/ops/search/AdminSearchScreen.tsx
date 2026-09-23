@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { View } from 'react-native';
-import { Building2, FileText, Package, SearchX, ShieldAlert, Store, Truck, UserRound } from 'lucide-react-native';
+import { Building2, FileText, Package, Search, SearchX, ShieldAlert, Store, Truck, UserRound } from 'lucide-react-native';
 import { errorMessage, qs } from '@/lib/api';
 import { humanize } from '@/lib/format';
-import { Card, ListCard, ListRow, QueryView, Screen, SearchBar, Text } from '@/ui';
+import { Card, IconTile, ListRow, ListSection, QueryView, Screen, SearchBar, Text } from '@/ui';
 import { useAdminGet } from '@/features/admin/common/api';
 import { Appear, go } from '@/features/admin/platform/kit';
 import { useDebounced } from '@/features/admin/ops/kit/hooks';
@@ -73,10 +73,19 @@ export function AdminSearchScreen() {
     <Screen back kicker="Command" title="Search" subtitle="One query across every registry." onRefresh={() => q.refetch()}>
       <SearchBar value={text} onChangeText={setText} placeholder="PO#, name, email, product…" autoFocus />
       {debounced.length < 2 ? (
-        <Card kind="bone">
-          <Text variant="bodySm" color="ink4">
+        <Card kind="flat" padding={20} style={{ alignItems: 'center', gap: 12 }}>
+          <IconTile icon={Search} tone="ink" size={52} />
+          <Text variant="h3" align="center">
+            Search every registry
+          </Text>
+          <Text variant="bodySm" color="ink4" align="center" style={{ maxWidth: 300 }}>
             Type at least 2 characters to search suppliers, businesses, users, orders, products, deliveries and abuse reports.
           </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 4 }}>
+            {[Store, Building2, UserRound, Package, FileText, Truck, ShieldAlert].map((I, i) => (
+              <IconTile key={i} icon={I} tone="paper" size={34} />
+            ))}
+          </View>
         </Card>
       ) : (
         <QueryView
@@ -90,23 +99,19 @@ export function AdminSearchScreen() {
             <View style={{ gap: 16 }}>
               {shown.map((g, gi) => (
                 <Appear key={g.title} i={gi}>
-                  <View style={{ gap: 8 }}>
-                    <Text variant="overline" color="copper">
-                      {g.title} · {g.rows.length}
-                    </Text>
-                    <ListCard>
-                      {g.rows.slice(0, 6).map((r, i) => (
-                        <ListRow
-                          key={r.id}
-                          title={r.title}
-                          subtitle={r.sub}
-                          icon={g.icon}
-                          last={i === Math.min(g.rows.length, 6) - 1}
-                          onPress={() => go(r.href)}
-                        />
-                      ))}
-                    </ListCard>
-                  </View>
+                  <ListSection label={`${g.title} · ${g.rows.length}`}>
+                    {g.rows.slice(0, 6).map((r, i) => (
+                      <ListRow
+                        key={r.id}
+                        title={r.title}
+                        subtitle={r.sub}
+                        icon={g.icon}
+                        iconTone={gi % 2 ? 'copper' : 'ink'}
+                        last={i === Math.min(g.rows.length, 6) - 1}
+                        onPress={() => go(r.href)}
+                      />
+                    ))}
+                  </ListSection>
                 </Appear>
               ))}
             </View>

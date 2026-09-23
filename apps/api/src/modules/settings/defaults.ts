@@ -37,6 +37,9 @@ export type SupplierSettingsShape = {
   notifyNewOrders: 0 | 1;
   notifyLowStock: 0 | 1;
   notifyPaymentReceived: 0 | 1;
+  vatRegistered: boolean;
+  vatRegistrationNo: string | null;
+  ssclRegistered: boolean;
   createdAt: number;
   updatedAt: number;
 };
@@ -116,6 +119,9 @@ export function defaultSupplierSettings(supplierId: string): SupplierSettingsSha
     notifyNewOrders: 1,
     notifyLowStock: 1,
     notifyPaymentReceived: 1,
+    vatRegistered: false,
+    vatRegistrationNo: null,
+    ssclRegistered: false,
     createdAt: now,
     updatedAt: now,
   };

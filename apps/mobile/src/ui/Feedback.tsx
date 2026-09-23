@@ -1,8 +1,8 @@
 import { useEffect, type ReactNode } from 'react';
-import { ActivityIndicator, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { AlertTriangle, CheckCircle2, Info, XCircle, type LucideIcon } from 'lucide-react-native';
-import { colors, radii, tones, type Tone } from '@/theme/tokens';
+import { colors, radii, shadow, tones, type Tone } from '@/theme/tokens';
 import { humanize } from '@/lib/format';
 import { toneForStatus } from '@/lib/status';
 import { Text } from './Text';
@@ -91,11 +91,13 @@ export function Banner({
   return (
     <View
       style={[
-        { flexDirection: 'row', gap: 10, padding: 14, borderRadius: radii.xl, backgroundColor: t.bg, borderWidth: 1, borderColor: t.border },
+        { flexDirection: 'row', gap: 12, padding: 14, borderRadius: radii.lg + 2, borderCurve: 'continuous', backgroundColor: t.bg, borderWidth: 1, borderColor: t.border },
         style,
       ]}
     >
-      <Icon size={18} color={t.dot} strokeWidth={1.8} style={{ marginTop: 1 }} />
+      <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.55)', alignItems: 'center', justifyContent: 'center' }}>
+        <Icon size={16} color={t.dot} strokeWidth={2} />
+      </View>
       <View style={{ flex: 1, gap: 2 }}>
         {title ? (
           <Text variant="bodySm" weight="semibold" style={{ color: t.fg }}>
@@ -134,31 +136,27 @@ export function EmptyState({
 }) {
   return (
     <View
-      style={{
-        alignItems: 'center',
-        paddingVertical: compact ? 28 : 48,
-        paddingHorizontal: 24,
-        borderRadius: radii['2xl'],
-        backgroundColor: colors.pearl,
-        borderWidth: 1,
-        borderColor: colors.lineSoft,
-        overflow: 'hidden',
-      }}
+      style={[
+        {
+          alignItems: 'center',
+          paddingVertical: compact ? 30 : 48,
+          paddingHorizontal: 24,
+          borderRadius: radii['2xl'],
+          borderCurve: 'continuous',
+          backgroundColor: colors.paper,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: 'rgba(12,14,11,0.06)',
+          overflow: 'hidden',
+        },
+        shadow.card,
+      ]}
     >
-      <FlowField seed={seed} tone="ink" opacity={0.35} />
+      <FlowField seed={seed} tone="ink" opacity={0.3} />
       {Icon ? (
-        <View
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            backgroundColor: colors.ink,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 16,
-          }}
-        >
-          <Icon size={24} color={colors.volt} strokeWidth={1.6} />
+        <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: 'rgba(198,220,74,0.16)', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
+          <View style={[{ width: 60, height: 60, borderRadius: 30, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }, shadow.ink]}>
+            <Icon size={25} color={colors.volt} strokeWidth={1.6} />
+          </View>
         </View>
       ) : null}
       <Text variant="h2" align="center">
@@ -169,7 +167,7 @@ export function EmptyState({
           {message}
         </Text>
       ) : null}
-      {action ? <Button title={action.label} onPress={action.onPress} size="sm" style={{ marginTop: 18, alignSelf: 'center' }} /> : null}
+      {action ? <Button title={action.label} onPress={action.onPress} style={{ marginTop: 20, alignSelf: 'center' }} /> : null}
     </View>
   );
 }
@@ -177,8 +175,8 @@ export function EmptyState({
 export function ErrorState({ message, onRetry }: { message?: string; onRetry?: () => void }) {
   return (
     <View style={{ alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24, gap: 10 }}>
-      <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.roseSoft, alignItems: 'center', justifyContent: 'center' }}>
-        <AlertTriangle size={22} color={colors.rose} strokeWidth={1.8} />
+      <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.roseSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+        <AlertTriangle size={26} color={colors.rose} strokeWidth={1.8} />
       </View>
       <Text variant="h3" align="center">
         Couldn't load this

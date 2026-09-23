@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowUpRight, Search, X } from 'lucide-react-native';
@@ -65,14 +65,14 @@ export function CatalogSearch({
             alignItems: 'center',
             gap: 10,
             height: hero ? 56 : 50,
-            paddingLeft: 14,
-            paddingRight: hero ? 6 : 12,
-            borderRadius: radii.xl,
+            paddingLeft: 16,
+            paddingRight: hero ? 6 : 14,
+            borderRadius: radii.pill,
+            borderCurve: 'continuous',
             backgroundColor: colors.paper,
-            borderWidth: focused ? 1.5 : 1,
-            borderColor: focused ? (hero ? colors.volt : colors.ink) : colors.line,
           },
-          hero ? shadow.lg : null,
+          hero ? shadow.lg : shadow.card,
+          focused ? shadow.focus : null,
         ]}
       >
         <Search size={18} color={focused ? colors.ink : colors.ink4} strokeWidth={1.8} />
@@ -102,7 +102,7 @@ export function CatalogSearch({
             onPress={submit}
             hapticOnPress
             scaleTo={0.94}
-            style={{ height: 44, paddingHorizontal: 16, borderRadius: radii.lg, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}
+            style={[{ height: 44, paddingHorizontal: 18, borderRadius: radii.pill, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }, shadow.ink]}
           >
             <Text style={{ fontFamily: fonts.displayBold, fontSize: 14, color: colors.paper }}>Search</Text>
           </Touchable>
@@ -113,7 +113,7 @@ export function CatalogSearch({
         <Animated.View
           entering={FadeIn.duration(160)}
           exiting={FadeOut.duration(120)}
-          style={[{ marginTop: 6, backgroundColor: colors.paper, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }, shadow.md]}
+          style={[{ marginTop: 8, backgroundColor: colors.paper, borderRadius: radii.xl, borderCurve: 'continuous', paddingVertical: 4, overflow: 'hidden' }, shadow.lg]}
         >
           {isFetching && hits.length === 0 ? (
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', padding: 14 }}>
@@ -140,13 +140,13 @@ export function CatalogSearch({
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 12,
-                  paddingHorizontal: 12,
-                  paddingVertical: 9,
-                  borderBottomWidth: i === hits.length - 1 ? 0 : 1,
+                  marginHorizontal: 12,
+                  paddingVertical: 10,
+                  borderBottomWidth: i === hits.length - 1 ? 0 : StyleSheet.hairlineWidth * 2,
                   borderBottomColor: colors.lineSoft,
                 }}
               >
-                <ProductImage src={hit.product.imageUrl} seed={hit.product.id} style={{ width: 40, height: 40, borderRadius: radii.md }} />
+                <ProductImage src={hit.product.imageUrl} seed={hit.product.id} style={{ width: 44, height: 44, borderRadius: radii.lg, borderCurve: 'continuous' }} />
                 <View style={{ flex: 1 }}>
                   <Text variant="bodySm" weight="semibold" numberOfLines={1}>
                     {hit.product.name}

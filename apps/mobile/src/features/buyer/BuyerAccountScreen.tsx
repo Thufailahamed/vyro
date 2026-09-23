@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
 import { View } from 'react-native';
 import {
-  ArrowLeftRight,
   Bell,
   Building2,
   CreditCard,
@@ -15,23 +14,45 @@ import {
   ShieldCheck,
   Store,
 } from 'lucide-react-native';
-import { Avatar, Button, Card, MenuGrid, MenuTile, Screen, Text, useToast } from '@/ui';
+import { Avatar, Button, InkHero, ListRow, ListSection, QuickAction, QuickActions, Screen, Text, useToast } from '@/ui';
 import { useAuth } from '@/lib/auth';
 import { errorMessage } from '@/lib/api';
 import { colors } from '@/theme/tokens';
 import { PortalSwitcher } from '../common/PortalSwitcher';
-import { go } from './orders/kit';
+import { Enter, go } from './orders/kit';
 
-const LINKS: { icon: typeof Package; label: string; hint: string; to: string; tone?: 'paper' | 'ink' | 'volt' }[] = [
-  { icon: Package, label: 'Orders', hint: 'Purchase orders & tracking', to: '/buyer/orders' },
-  { icon: FileText, label: 'RFQs', hint: 'Quote requests & compare', to: '/buyer/rfqs' },
-  { icon: Receipt, label: 'Invoices', hint: 'Billing & statements', to: '/buyer/invoices' },
-  { icon: CreditCard, label: 'VYRO Credit', hint: 'Net-terms facility', to: '/buyer/credit' },
-  { icon: Landmark, label: 'Accounts', hint: 'Ledger & payments', to: '/buyer/accounts' },
-  { icon: ShieldCheck, label: 'KYC', hint: 'Business verification', to: '/buyer/kyc' },
-  { icon: Bell, label: 'Notifications', hint: 'Alerts & updates', to: '/notifications' },
-  { icon: HelpCircle, label: 'How it works', hint: 'Procurement guide', to: '/how-it-works' },
-  { icon: Settings, label: 'Settings', hint: 'Profile & preferences', to: '/settings' },
+type Link = { icon: typeof Package; label: string; hint: string; to: string; tone?: 'ink' | 'volt' | 'copper' | 'paper' };
+
+const GROUPS: { label: string; links: Link[] }[] = [
+  {
+    label: 'Procurement',
+    links: [
+      { icon: Package, label: 'Orders', hint: 'Purchase orders & tracking', to: '/buyer/orders' },
+      { icon: FileText, label: 'RFQs', hint: 'Quote requests & compare', to: '/buyer/rfqs' },
+      { icon: Receipt, label: 'Invoices', hint: 'Billing & statements', to: '/buyer/invoices', tone: 'copper' },
+    ],
+  },
+  {
+    label: 'Money',
+    links: [
+      { icon: CreditCard, label: 'VYRO Credit', hint: 'Net-terms facility', to: '/buyer/credit', tone: 'volt' },
+      { icon: Landmark, label: 'Accounts', hint: 'Ledger & payments', to: '/buyer/accounts' },
+    ],
+  },
+  {
+    label: 'Business',
+    links: [
+      { icon: ShieldCheck, label: 'KYC', hint: 'Business verification', to: '/buyer/kyc', tone: 'copper' },
+      { icon: Bell, label: 'Notifications', hint: 'Alerts & updates', to: '/notifications' },
+    ],
+  },
+  {
+    label: 'Help & preferences',
+    links: [
+      { icon: HelpCircle, label: 'How it works', hint: 'Procurement guide', to: '/how-it-works', tone: 'paper' },
+      { icon: Settings, label: 'Settings', hint: 'Profile & preferences', to: '/settings', tone: 'paper' },
+    ],
+  },
 ];
 
 /** Buyer account tab — profile, module hub, portal switching, sign out. */
@@ -49,60 +70,92 @@ export function BuyerAccountScreen() {
   };
 
   return (
-    <Screen tabBar kicker="Buyer account" title="Your workspace" subtitle="Profile, modules and preferences.">
-      {/* Profile card */}
-      <Card style={{ gap: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Avatar name={user?.name} uri={user?.image} size={48} />
-          <View style={{ flex: 1 }}>
-            <Text variant="h3" numberOfLines={1}>
-              {user?.name ?? 'Buyer'}
-            </Text>
-            <Text variant="caption" color="ink4" numberOfLines={1}>
-              {user?.email}
-            </Text>
+    <Screen tabBar kicker="Buyer account" title="Your workspace" gap={22}>
+      {/* Profile hero */}
+      <Enter>
+        <InkHero seed={user?.email ?? 'account'} style={{ gap: 20 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <View style={{ padding: 3, borderRadius: 34, backgroundColor: 'rgba(198,220,74,0.22)' }}>
+              <Avatar name={user?.name} uri={user?.image} size={58} tone="volt" />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text variant="h1" color="paper" numberOfLines={1}>
+                {user?.name ?? 'Buyer'}
+              </Text>
+              <Text variant="caption" color="paperMuted" numberOfLines={1}>
+                {user?.email}
+              </Text>
+            </View>
           </View>
-        </View>
-        {business ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
-            <Building2 size={14} color={colors.copper} />
-            <Text variant="bodySm" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
-              {business.businessName}
-            </Text>
-            <Text variant="caption" color="ink4">
-              {business.role}
-            </Text>
-          </View>
-        ) : (
-          <View style={{ gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
-            <Text variant="bodySm" color="ink3">
-              No business profile yet — set one up to unlock ordering.
-            </Text>
-            <Button title="Set up business" size="sm" variant="secondary" icon={Store} onPress={() => go('/onboarding/business')} />
-          </View>
-        )}
-      </Card>
+          {business ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                padding: 12,
+                borderRadius: 16,
+                backgroundColor: 'rgba(250,247,240,0.06)',
+                borderWidth: 1,
+                borderColor: colors.paperLine,
+              }}
+            >
+              <Building2 size={16} color={colors.volt} />
+              <Text variant="bodySm" weight="semibold" color="paper" numberOfLines={1} style={{ flex: 1 }}>
+                {business.businessName}
+              </Text>
+              <View style={{ paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10, backgroundColor: 'rgba(198,220,74,0.16)' }}>
+                <Text variant="caption" weight="semibold" color="volt">
+                  {business.role}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={{ gap: 10 }}>
+              <Text variant="bodySm" color="paperMuted">
+                No business profile yet — set one up to unlock ordering.
+              </Text>
+              <Button title="Set up business" size="sm" variant="volt" icon={Store} onPress={() => go('/onboarding/business')} />
+            </View>
+          )}
+          <QuickActions>
+            <QuickAction icon={Package} label="Orders" tone="glass" onPress={() => go('/buyer/orders')} />
+            <QuickAction icon={FileText} label="RFQs" tone="glass" onPress={() => go('/buyer/rfqs')} />
+            <QuickAction icon={CreditCard} label="Credit" tone="glass" onPress={() => go('/buyer/credit')} />
+            <QuickAction icon={Settings} label="Settings" tone="glass" onPress={() => go('/settings')} />
+          </QuickActions>
+        </InkHero>
+      </Enter>
 
-      {/* Module hub */}
-      <MenuGrid>
-        {LINKS.map((l) => (
-          <MenuTile key={l.to} icon={l.icon} label={l.label} hint={l.hint} tone={l.tone} onPress={() => go(l.to)} />
-        ))}
-      </MenuGrid>
+      {/* Module groups */}
+      {GROUPS.map((g, gi) => (
+        <Enter key={g.label} i={gi + 1}>
+          <ListSection label={g.label}>
+            {g.links.map((l, i) => (
+              <ListRow key={l.to} icon={l.icon} iconTone={l.tone ?? 'ink'} title={l.label} subtitle={l.hint} onPress={() => go(l.to)} last={i === g.links.length - 1} />
+            ))}
+          </ListSection>
+        </Enter>
+      ))}
 
-      {/* Portal switching + sign out */}
-      <Card kind="bone" style={{ gap: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <ArrowLeftRight size={14} color={colors.copper} />
-          <Text variant="bodySm" weight="semibold">
-            Portals
+      {/* Portal switching */}
+      <Enter i={GROUPS.length + 1}>
+        <View style={{ gap: 8 }}>
+          <Text variant="overline" color="ink4" style={{ marginLeft: 6 }}>
+            Workspace
           </Text>
+          <View style={{ alignSelf: 'flex-start' }}>
+            <PortalSwitcher current="buyer" />
+          </View>
         </View>
-        <PortalSwitcher current="buyer" />
-        <View style={{ paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
-          <Button title="Sign out" icon={LogOut} variant="ghost" onPress={out} />
-        </View>
-      </Card>
+      </Enter>
+
+      {/* Sign out */}
+      <Enter i={GROUPS.length + 2}>
+        <ListSection>
+          <ListRow icon={LogOut} iconTone="danger" title="Sign out" destructive chevron={false} onPress={out} last />
+        </ListSection>
+      </Enter>
     </Screen>
   );
 }

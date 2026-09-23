@@ -3,7 +3,7 @@
  * the mobile twin of apps/web/src/accounts/shared.tsx plus money helpers.
  */
 import { useState, type ReactNode } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useInfiniteQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -278,11 +278,11 @@ export function EntryCard({
   children?: ReactNode;
 }) {
   return (
-    <Card kind="flat" padding={14} onPress={onPress} style={{ paddingLeft: 18, gap: 10 }}>
+    <Card kind="flat" padding={16} onPress={onPress} style={{ paddingLeft: 20, gap: 12 }}>
       <ToneRule tone={tone} />
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
         <View style={{ flex: 1, gap: 3 }}>
-          <Text variant="h3" numberOfLines={1}>
+          <Text variant="h3" numberOfLines={1} style={{ letterSpacing: -0.2 }}>
             {title}
           </Text>
           {subtitle ? (
@@ -302,7 +302,9 @@ export function EntryCard({
               —
             </Text>
           ) : (
-            <MoneyText cents={cents} tone={tone} signed={signed} style={{ maxWidth: 160 }} />
+            <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, borderCurve: 'continuous', backgroundColor: colors.pearl, maxWidth: 170 }}>
+              <MoneyText cents={cents} tone={tone} signed={signed} />
+            </View>
           )
         ) : null}
       </View>
@@ -333,7 +335,7 @@ export function MoneyPair({ label, cents, tone = 'neutral' }: { label: string; c
 
 export function PairRow({ children }: { children: ReactNode }) {
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft }}>
       {children}
     </View>
   );
@@ -342,8 +344,8 @@ export function PairRow({ children }: { children: ReactNode }) {
 /** Loaded-count + sum strip above a list. */
 export function ListSummary({ count, cents, label = 'shown', more }: { count: number; cents?: number; label?: string; more?: boolean }) {
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 2 }}>
-      <Text variant="caption" color="ink4">
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 4 }}>
+      <Text variant="overline" color="ink4">
         {count}
         {more ? '+' : ''} {label}
       </Text>

@@ -1,17 +1,33 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { PageHeader, Surface, ErrorBanner, Button, Input, EmptyState } from '@/components/ui';
+import { ErrorBanner, Button, Input, Textarea } from '@/components/ui';
 import {
   SearchIcon,
   CheckCircleIcon,
   AlertCircleIcon,
-  ClockIcon,
   ShieldCheckIcon,
   FileTextIcon,
   UserIcon,
 } from '@/components/icons';
 import { usePermission } from './lib/permissions';
 import { RoleBadge } from './RoleBadge';
+import {
+  AdminPage,
+  AdminPageHeader,
+  Callout,
+  CellStack,
+  DetailList,
+  EmptyBlock,
+  Panel,
+  Pill,
+  StatCard,
+  StatGrid,
+  TableCard,
+  TableSkeleton,
+  Tabs,
+  Toolbar,
+  controlClass,
+} from './ui';
 import {
   useAdminSessions,
   useRevokeSession,
@@ -45,142 +61,80 @@ export function SecurityPage() {
   const isImpersonating = Boolean(impersonationQuery.data?.active);
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-12">
-      {/* Page Header */}
-      <PageHeader
-        kicker="Governance & Identity"
-        title="Security & Access Control"
-        sub="Manage active authenticated sessions, perform audit-logged operator impersonation, enforce 2FA, and process data export requests."
+    <AdminPage>
+      <AdminPageHeader
+        kicker="Governance & identity"
+        title="Security & access control"
+        description="Manage signed-in sessions, run audit-logged impersonation, enforce 2FA and process data export requests."
       />
 
-      {/* Executive Security KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Active Sessions</span>
-            <div className="w-8 h-8 rounded-lg bg-sand/60 flex items-center justify-center text-ink">
-              <ShieldCheckIcon size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono text-ink">{sessionCount}</div>
-            <p className="text-[11px] text-ink-4 mt-0.5">Authenticated platform tokens</p>
-          </div>
-        </div>
+      <StatGrid cols={4}>
+        <StatCard
+          label="Active sessions"
+          value={sessionCount}
+          sub="Signed-in platform tokens"
+          icon={<ShieldCheckIcon size={18} />}
+          loading={sessionsQuery.isLoading}
+        />
+        <StatCard
+          label="Impersonation"
+          value={<span className="text-2xl">{isImpersonating ? 'Active' : 'None'}</span>}
+          status={isImpersonating ? <Pill tone="warning" dot>Active session</Pill> : <Pill>None active</Pill>}
+          sub="Audited troubleshooting proxy"
+          icon={<UserIcon size={18} />}
+        />
+        <StatCard
+          label="2FA policy"
+          value={<span className="text-2xl">Enforced</span>}
+          status={<Pill tone="success" dot>Admins</Pill>}
+          sub="TOTP authenticator mandatory"
+          icon={<CheckCircleIcon size={18} />}
+        />
+        <StatCard
+          label="Privacy & GDPR"
+          value={<span className="text-2xl">Art. 15</span>}
+          status={<Pill tone="success">Ready</Pill>}
+          sub="Automated user data archive"
+          icon={<FileTextIcon size={18} />}
+        />
+      </StatGrid>
 
-        <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Impersonation</span>
-            <div
-              className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                isImpersonating ? 'bg-amber/15 text-amber' : 'bg-sand/60 text-ink'
-              }`}
-            >
-              <UserIcon size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-lg font-bold font-mono text-ink truncate">
-              {isImpersonating ? 'Active Session' : 'None Active'}
-            </div>
-            <p className="text-[11px] text-ink-4 mt-0.5">Audited troubleshooting proxy</p>
-          </div>
-        </div>
+      <Tabs<Tab>
+        ariaLabel="Security sections"
+        value={tab}
+        onChange={switchTab}
+        items={[
+          { key: 'sessions', label: 'Active sessions', icon: <ShieldCheckIcon size={15} />, count: sessionCount },
+          {
+            key: 'impersonate',
+            label: (
+              <span className="inline-flex items-center gap-2">
+                Impersonation
+                {isImpersonating && (
+                  <span className="size-2 rounded-full bg-amber animate-pulse" title="Active impersonation" />
+                )}
+              </span>
+            ),
+            icon: <UserIcon size={15} />,
+          },
+          { key: '2fa', label: '2FA enforcement', icon: <CheckCircleIcon size={15} /> },
+          { key: 'export', label: 'Data export (GDPR)', icon: <FileTextIcon size={15} /> },
+        ]}
+      />
 
-        <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">2FA Policy</span>
-            <div className="w-8 h-8 rounded-lg bg-mint/15 flex items-center justify-center text-mint">
-              <CheckCircleIcon size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-lg font-bold font-mono text-ink">Enforced (Admins)</div>
-            <p className="text-[11px] text-ink-4 mt-0.5">TOTP authenticator mandatory</p>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Privacy & GDPR</span>
-            <div className="w-8 h-8 rounded-lg bg-sand/60 flex items-center justify-center text-ink">
-              <FileTextIcon size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-lg font-bold font-mono text-ink">Art. 15 Ready</div>
-            <p className="text-[11px] text-ink-4 mt-0.5">Automated user data archive</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Accessible High-Contrast Navigation Tabs */}
-      <nav className="flex items-center gap-2 border-b border-ink/10">
-        <button
-          type="button"
-          onClick={() => switchTab('sessions')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px rounded-t-lg ${
-            tab === 'sessions'
-              ? 'border-ink text-ink font-semibold bg-sand/30 shadow-sm'
-              : 'border-transparent text-ink-4 hover:text-ink hover:border-ink/20'
-          }`}
-        >
-          <ShieldCheckIcon size={16} />
-          <span>Active Sessions</span>
-          <span className="px-2 py-0.5 text-xs font-mono rounded-full bg-bone text-ink-3 border border-ink/10">
-            {sessionCount}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => switchTab('impersonate')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px rounded-t-lg ${
-            tab === 'impersonate'
-              ? 'border-ink text-ink font-semibold bg-sand/30 shadow-sm'
-              : 'border-transparent text-ink-4 hover:text-ink hover:border-ink/20'
-          }`}
-        >
-          <UserIcon size={16} />
-          <span>Impersonation</span>
-          {isImpersonating && (
-            <span className="w-2 h-2 rounded-full bg-amber animate-pulse" title="Active Impersonation" />
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => switchTab('2fa')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px rounded-t-lg ${
-            tab === '2fa'
-              ? 'border-ink text-ink font-semibold bg-sand/30 shadow-sm'
-              : 'border-transparent text-ink-4 hover:text-ink hover:border-ink/20'
-          }`}
-        >
-          <CheckCircleIcon size={16} />
-          <span>2FA Enforcement</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => switchTab('export')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px rounded-t-lg ${
-            tab === 'export'
-              ? 'border-ink text-ink font-semibold bg-sand/30 shadow-sm'
-              : 'border-transparent text-ink-4 hover:text-ink hover:border-ink/20'
-          }`}
-        >
-          <FileTextIcon size={16} />
-          <span>Data Export (GDPR)</span>
-        </button>
-      </nav>
-
-      {/* Tab Panels */}
       {tab === 'sessions' ? <SessionsTab /> : null}
       {tab === 'impersonate' ? <ImpersonationTab /> : null}
       {tab === '2fa' ? <TwoFactorTab /> : null}
       {tab === 'export' ? <ExportTab /> : null}
-    </div>
+    </AdminPage>
+  );
+}
+
+function FieldLabel({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) {
+  return (
+    <label {...(htmlFor ? { htmlFor } : {})} className="mb-1.5 block text-xs font-medium text-ink-3">
+      {children}
+    </label>
   );
 }
 
@@ -224,61 +178,68 @@ function SessionsTab() {
       {sessions.isError ? <ErrorBanner message={(sessions.error as Error).message} /> : null}
       {revoke.isError ? <ErrorBanner message={(revoke.error as Error).message} /> : null}
 
-      {/* Filter & Refresh Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-ink/10 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="relative w-72">
-            <input
-              type="text"
-              placeholder="Search by email, user ID, or IP..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-9 pl-8 pr-3 bg-paper text-xs text-ink rounded-lg border border-ink/20 focus:outline-none focus:border-ink"
-            />
-            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-ink-4">
-              <SearchIcon size={14} />
+      <TableCard
+        title="Active sessions"
+        description={`${filteredSessions.length} active session${filteredSessions.length === 1 ? '' : 's'}`}
+        actions={
+          <Button size="sm" variant="outline" onClick={() => void sessions.refetch()} loading={sessions.isFetching}>
+            Refresh list
+          </Button>
+        }
+        toolbar={
+          <Toolbar>
+            <div className="relative w-full sm:w-80">
+              <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-ink-4">
+                <SearchIcon size={14} />
+              </span>
+              <input
+                type="text"
+                placeholder="Search by email, user ID, or IP..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className={`${controlClass} w-full pl-9`}
+              />
             </div>
-          </div>
-          <span className="text-xs font-mono text-ink-4">
-            {filteredSessions.length} active session{filteredSessions.length === 1 ? '' : 's'}
-          </span>
-        </div>
-
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => void sessions.refetch()}
-          loading={sessions.isFetching}
-        >
-          Refresh List
-        </Button>
-      </div>
-
-      {/* Sessions Table */}
-      <Surface className="overflow-hidden border border-ink/10 bg-white">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
+          </Toolbar>
+        }
+      >
+        {sessions.isLoading ? (
+          <TableSkeleton rows={5} cols={6} />
+        ) : !filteredSessions.length ? (
+          <EmptyBlock
+            icon={<ShieldCheckIcon size={22} />}
+            title="No active sessions found"
+            description="No user or admin sessions match your search."
+            action={
+              search ? (
+                <Button size="sm" variant="outline" onClick={() => setSearch('')}>
+                  Clear search
+                </Button>
+              ) : null
+            }
+          />
+        ) : (
+          <table className="admin-table">
             <thead>
-              <tr className="border-b border-ink/10 bg-bone/40 text-[11px] uppercase tracking-wider font-semibold text-ink-3">
-                <th className="py-3 px-4">Session Token</th>
-                <th className="py-3 px-4">User Account</th>
-                <th className="py-3 px-4">Role Tier</th>
-                <th className="py-3 px-4">Client Network & IP</th>
-                <th className="py-3 px-4">Created & Expires</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+              <tr>
+                <th>Session token</th>
+                <th>User account</th>
+                <th>Role</th>
+                <th>Network & IP</th>
+                <th>Created & expires</th>
+                <th className="num">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink/5 text-xs">
+            <tbody>
               {filteredSessions.map((s) => (
-                <tr key={s.id} className="hover:bg-sand/20 transition-colors">
-                  {/* Session ID */}
-                  <td className="py-3.5 px-4 font-mono">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-semibold text-ink">{s.id.slice(0, 10)}…</span>
+                <tr key={s.id}>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-semibold text-ink">{s.id.slice(0, 10)}…</span>
                       <button
                         type="button"
                         onClick={() => copyToClipboard(s.id, s.id)}
-                        className="text-[10px] text-ink-4 hover:text-ink underline"
+                        className="text-xs font-medium text-copper transition-colors hover:text-ink"
                         title="Copy full session token"
                       >
                         {copiedId === s.id ? 'Copied' : 'Copy'}
@@ -286,52 +247,41 @@ function SessionsTab() {
                     </div>
                   </td>
 
-                  {/* User Account */}
-                  <td className="py-3.5 px-4">
+                  <td>
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-ink text-volt text-xs font-bold flex items-center justify-center shrink-0">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-semibold text-volt">
                         {(s.userEmail?.[0] ?? 'U').toUpperCase()}
                       </div>
-                      <div className="min-w-0">
-                        <div className="font-semibold text-ink truncate max-w-[180px]">
-                          {s.userEmail ?? 'No email'}
-                        </div>
-                        <div className="font-mono text-[10px] text-ink-4 truncate max-w-[180px]">
-                          ID: {s.userId.slice(0, 12)}…
-                        </div>
+                      <div className="max-w-[200px] min-w-0">
+                        <CellStack
+                          primary={s.userEmail ?? 'No email'}
+                          secondary={<span className="font-mono">ID: {s.userId.slice(0, 12)}…</span>}
+                        />
                       </div>
                     </div>
                   </td>
 
-                  {/* Role */}
-                  <td className="py-3.5 px-4">
-                    {s.userRole ? (
-                      <RoleBadge role={s.userRole} compact />
-                    ) : (
-                      <span className="px-2 py-0.5 text-[10px] font-mono font-medium rounded bg-bone text-ink-3 border border-ink/10">
-                        Standard User
-                      </span>
-                    )}
+                  <td>
+                    {s.userRole ? <RoleBadge role={s.userRole} compact /> : <Pill>Standard user</Pill>}
                   </td>
 
-                  {/* IP & User Agent */}
-                  <td className="py-3.5 px-4">
-                    <div className="font-mono text-ink font-semibold">{s.ip ?? 'Internal'}</div>
-                    <div className="text-[10px] text-ink-4 truncate max-w-[180px]" title={s.userAgent ?? ''}>
-                      {s.userAgent ? s.userAgent.slice(0, 30) + '…' : 'Unknown Agent'}
+                  <td>
+                    <div className="max-w-[200px]" title={s.userAgent ?? ''}>
+                      <CellStack
+                        primary={<span className="font-mono text-xs">{s.ip ?? 'Internal'}</span>}
+                        secondary={s.userAgent ? s.userAgent.slice(0, 30) + '…' : 'Unknown agent'}
+                      />
                     </div>
                   </td>
 
-                  {/* Created & Expires */}
-                  <td className="py-3.5 px-4 font-mono">
-                    <div className="text-ink">{formatDateTime(s.createdAt)}</div>
-                    <div className="text-[10px] text-ink-4">
-                      Expires: {formatDateTime(s.expiresAt)}
-                    </div>
+                  <td>
+                    <CellStack
+                      primary={<span className="num-tabular">{formatDateTime(s.createdAt)}</span>}
+                      secondary={<span className="num-tabular">Expires: {formatDateTime(s.expiresAt)}</span>}
+                    />
                   </td>
 
-                  {/* Revoke Action */}
-                  <td className="py-3.5 px-4 text-right">
+                  <td className="num">
                     {!s.revokedAt ? (
                       <Button
                         size="sm"
@@ -342,67 +292,53 @@ function SessionsTab() {
                         Revoke
                       </Button>
                     ) : (
-                      <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-rose/15 text-rose border border-rose/30">
+                      <Pill tone="danger" dot>
                         Revoked
-                      </span>
+                      </Pill>
                     )}
                   </td>
                 </tr>
               ))}
-              {!filteredSessions.length && !sessions.isLoading && (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center">
-                    <EmptyState
-                      icon={<ShieldCheckIcon size={24} />}
-                      title="No Active Sessions Found"
-                      description="No authenticated user or admin sessions match your search criteria."
-                      action={
-                        search ? (
-                          <Button size="sm" variant="outline" onClick={() => setSearch('')}>
-                            Clear Search
-                          </Button>
-                        ) : null
-                      }
-                    />
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
-        </div>
-      </Surface>
+        )}
+      </TableCard>
 
-      {/* Revoke Confirmation Modal */}
       {sessionToRevoke && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl border border-ink/20 shadow-2xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose/10 flex items-center justify-center text-rose shrink-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm animate-fade-in">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="revoke-session-title"
+            className="vyro-floating w-full max-w-md space-y-5 p-6"
+          >
+            <div className="flex items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-rose/10 text-rose">
                 <AlertCircleIcon size={20} />
-              </div>
+              </span>
               <div>
-                <h3 className="text-base font-bold text-ink">Revoke Active Session</h3>
-                <p className="text-xs text-ink-4">Immediate token invalidation</p>
+                <h3 id="revoke-session-title" className="font-sans text-lg font-semibold text-ink">
+                  Revoke active session
+                </h3>
+                <p className="mt-0.5 text-sm text-ink-4">The token is invalidated immediately.</p>
               </div>
             </div>
 
-            <div className="p-3 bg-bone/50 rounded-xl border border-ink/10 space-y-1.5 text-xs font-mono">
-              <div>
-                <span className="text-ink-4">Session:</span> {sessionToRevoke.id}
-              </div>
-              <div>
-                <span className="text-ink-4">Account:</span> {sessionToRevoke.userEmail ?? sessionToRevoke.userId}
-              </div>
-              <div>
-                <span className="text-ink-4">IP Address:</span> {sessionToRevoke.ip ?? 'Unknown'}
-              </div>
+            <div className="rounded-xl bg-bone/60 p-4">
+              <DetailList
+                items={[
+                  { label: 'Session', value: <span className="font-mono text-xs break-all">{sessionToRevoke.id}</span> },
+                  { label: 'Account', value: sessionToRevoke.userEmail ?? sessionToRevoke.userId },
+                  { label: 'IP address', value: <span className="font-mono text-xs">{sessionToRevoke.ip ?? 'Unknown'}</span> },
+                ]}
+              />
             </div>
 
-            <p className="text-xs text-ink-3 leading-relaxed">
-              Terminating this session will immediately disconnect the user and require them to re-authenticate with their credentials.
+            <p className="text-sm text-ink-3">
+              Terminating this session will immediately disconnect the user and require them to sign in again.
             </p>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-ink/10">
+            <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setSessionToRevoke(null)}>
                 Cancel
               </Button>
@@ -416,7 +352,7 @@ function SessionsTab() {
                 }}
                 loading={revoke.isPending}
               >
-                Revoke Session
+                Revoke session
               </Button>
             </div>
           </div>
@@ -447,79 +383,67 @@ function ImpersonationTab() {
   const isImpersonating = Boolean(current.data?.active);
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      {/* Security Advisory Callout */}
-      <div className="p-4 bg-amber/10 border border-amber/30 text-ink rounded-2xl flex items-start gap-3">
-        <AlertCircleIcon size={20} className="text-amber shrink-0 mt-0.5" />
-        <div className="space-y-1 text-xs leading-relaxed">
-          <span className="font-bold block text-ink">Super-Admin Impersonation Governance</span>
-          <p className="text-ink-3">
-            Impersonation temporarily allows an administrator to view the application strictly from the perspective of another user for support and debugging. All operations executed during an impersonation session are logged to the immutable audit trail.
-          </p>
-        </div>
-      </div>
+    <div className="max-w-2xl space-y-6">
+      <Callout tone="warning" title="Impersonation is audited">
+        Impersonation lets an administrator see the app from another user's perspective for support and debugging.
+        Every action taken during an impersonation session is written to the immutable audit trail.
+      </Callout>
 
       {current.isError ? <ErrorBanner message={(current.error as Error).message} /> : null}
       {start.isError ? <ErrorBanner message={(start.error as Error).message} /> : null}
       {end.isError ? <ErrorBanner message={(end.error as Error).message} /> : null}
 
-      {/* Active Impersonation Card */}
       {isImpersonating && current.data?.active ? (
-        <Surface className="p-6 bg-white border-2 border-amber/40 shadow-md space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber animate-ping" />
-              <h3 className="text-sm font-bold text-ink">Active Impersonation Session</h3>
-            </div>
-            <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-amber/15 text-amber border border-amber/30">
-              IN PROGRESS
+        <Panel
+          title={
+            <span className="inline-flex items-center gap-2">
+              <span className="size-2.5 rounded-full bg-amber animate-pulse" aria-hidden />
+              Active impersonation session
             </span>
-          </div>
-
-          <div className="p-4 bg-sand/30 rounded-xl space-y-2 text-xs font-mono">
-            <div className="flex justify-between">
-              <span className="text-ink-4">Target User ID:</span>
-              <span className="font-bold text-ink">{current.data.active.targetUserId}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-ink-4">Started At:</span>
-              <span className="text-ink">{formatDateTime(current.data.active.startedAt)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-ink-4">Operator Reason:</span>
-              <span className="text-ink max-w-xs truncate">{current.data.active.reason}</span>
-            </div>
-          </div>
-
-          {canEnd && (
-            <Button
-              variant="danger"
-              className="w-full"
-              onClick={() => end.mutate()}
-              loading={end.isPending}
-            >
-              End Impersonation Session
-            </Button>
-          )}
-        </Surface>
+          }
+          actions={
+            <Pill tone="warning" dot>
+              In progress
+            </Pill>
+          }
+          className="shadow-[inset_0_0_0_1px_rgba(196,132,58,0.4)]"
+          {...(canEnd
+            ? {
+                footer: (
+                  <div className="flex justify-end">
+                    <Button variant="danger" onClick={() => end.mutate()} loading={end.isPending}>
+                      End impersonation session
+                    </Button>
+                  </div>
+                ),
+              }
+            : {})}
+        >
+          <DetailList
+            columns={2}
+            items={[
+              {
+                label: 'Target user ID',
+                value: <span className="font-mono text-xs break-all">{current.data.active.targetUserId}</span>,
+              },
+              { label: 'Started at', value: <span className="num-tabular">{formatDateTime(current.data.active.startedAt)}</span> },
+              { label: 'Operator reason', value: current.data.active.reason },
+            ]}
+          />
+        </Panel>
       ) : null}
 
-      {/* Start Impersonation Form */}
       {canStart && !isImpersonating ? (
-        <Surface className="p-6 bg-white border border-ink/10 shadow-sm space-y-4">
-          <div>
-            <h3 className="text-sm font-bold text-ink">Start Impersonation Session</h3>
-            <p className="text-xs text-ink-4 mt-0.5">
-              Specify the target account UUID and a mandatory business justification.
-            </p>
-          </div>
-
-          <div className="space-y-3">
+        <Panel
+          title="Start impersonation session"
+          description="Enter the target account UUID and a business justification."
+          icon={<UserIcon size={16} />}
+        >
+          <div className="space-y-4">
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-                Target User ID (UUID)
-              </label>
+              <FieldLabel htmlFor="imp-target">Target user ID (UUID)</FieldLabel>
               <Input
+                id="imp-target"
                 placeholder="e.g. 0192a83b-9a8f-7cc1-..."
                 value={target}
                 onChange={(e) => setTarget(e.target.value)}
@@ -527,29 +451,28 @@ function ImpersonationTab() {
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-                Reason & Support Ticket Reference (min 5 chars)
-              </label>
-              <textarea
+              <FieldLabel htmlFor="imp-reason">Reason & support ticket reference (min 5 characters)</FieldLabel>
+              <Textarea
+                id="imp-reason"
                 placeholder="Provide ticket number or troubleshooting context..."
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={3}
-                className="w-full bg-paper p-3 text-xs border border-ink/20 rounded-xl focus:outline-none focus:border-ink leading-relaxed"
               />
             </div>
 
-            <Button
-              variant="primary"
-              className="w-full"
-              disabled={!target.trim() || reason.trim().length < 5}
-              onClick={() => start.mutate({ targetUserId: target.trim(), reason: reason.trim() })}
-              loading={start.isPending}
-            >
-              Start Impersonation
-            </Button>
+            <div className="flex justify-end">
+              <Button
+                variant="primary"
+                disabled={!target.trim() || reason.trim().length < 5}
+                onClick={() => start.mutate({ targetUserId: target.trim(), reason: reason.trim() })}
+                loading={start.isPending}
+              >
+                Start impersonation
+              </Button>
+            </div>
           </div>
-        </Surface>
+        </Panel>
       ) : null}
     </div>
   );
@@ -589,62 +512,42 @@ function TwoFactorTab() {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      {/* 2FA Policy Card */}
-      <Surface className="p-6 bg-white border border-ink/10 shadow-sm space-y-4">
-        <div>
-          <h3 className="text-sm font-bold text-ink flex items-center gap-2">
-            <span>Two-Factor Authentication (TOTP) Governance</span>
-            <span className="px-2 py-0.5 text-[10px] font-mono font-semibold rounded bg-mint/15 text-mint border border-mint/30">
-              Active Policy
-            </span>
-          </h3>
-          <p className="text-xs text-ink-4 mt-1 leading-relaxed">
-            Vyro requires two-factor authentication for all platform operators with administrative roles. Use this tool to enforce or reset 2FA requirements on specific user accounts.
-          </p>
-        </div>
+    <div className="max-w-2xl space-y-6">
+      <Panel
+        title="Two-factor authentication (TOTP)"
+        description="VYRO requires 2FA for every operator with an administrative role. Enforce or reset the requirement on a specific account."
+        icon={<ShieldCheckIcon size={16} />}
+        actions={
+          <Pill tone="success" dot>
+            Active policy
+          </Pill>
+        }
+      >
+        <div className="space-y-4">
+          {enforce.isError ? <ErrorBanner message={(enforce.error as Error).message} /> : null}
+          {unenforce.isError ? <ErrorBanner message={(unenforce.error as Error).message} /> : null}
+          {statusMessage ? <Callout tone="success">{statusMessage}</Callout> : null}
 
-        {enforce.isError ? <ErrorBanner message={(enforce.error as Error).message} /> : null}
-        {unenforce.isError ? <ErrorBanner message={(unenforce.error as Error).message} /> : null}
-        {statusMessage ? (
-          <div className="p-3 bg-mint/10 border border-mint/30 text-mint text-xs rounded-xl flex items-center gap-2">
-            <CheckCircleIcon size={16} />
-            <span>{statusMessage}</span>
-          </div>
-        ) : null}
-
-        <div className="space-y-3 pt-2">
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-              Target User ID (UUID)
-            </label>
+            <FieldLabel htmlFor="twofa-user">Target user ID (UUID)</FieldLabel>
             <Input
+              id="twofa-user"
               placeholder="Enter User UUID to manage 2FA..."
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
             />
           </div>
 
-          <div className="flex items-center gap-3 pt-2">
-            <Button
-              variant="primary"
-              disabled={!userId.trim()}
-              onClick={handleEnforce}
-              loading={enforce.isPending}
-            >
-              Enforce 2FA Requirement
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!userId.trim()}
-              onClick={handleUnenforce}
-              loading={unenforce.isPending}
-            >
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button variant="outline" disabled={!userId.trim()} onClick={handleUnenforce} loading={unenforce.isPending}>
               Unenforce 2FA
+            </Button>
+            <Button variant="primary" disabled={!userId.trim()} onClick={handleEnforce} loading={enforce.isPending}>
+              Enforce 2FA requirement
             </Button>
           </div>
         </div>
-      </Surface>
+      </Panel>
     </div>
   );
 }
@@ -665,85 +568,84 @@ function ExportTab() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <Surface className="p-6 bg-white border border-ink/10 shadow-sm space-y-4">
-        <div>
-          <h3 className="text-sm font-bold text-ink">GDPR Article 15 Data Subject Access Export</h3>
-          <p className="text-xs text-ink-4 mt-1 leading-relaxed">
-            Generate a full archive of user data including account credentials, transaction ledger, orders, reviews, addresses, and audit records.
-          </p>
-        </div>
+    <div className="max-w-2xl space-y-6">
+      <Panel
+        title="GDPR Article 15 data access export"
+        description="Generate a full archive of a user's data: account, transaction ledger, orders, reviews, addresses and audit records."
+        icon={<FileTextIcon size={16} />}
+      >
+        <div className="space-y-4">
+          {request.isError ? <ErrorBanner message={(request.error as Error).message} /> : null}
 
-        {request.isError ? <ErrorBanner message={(request.error as Error).message} /> : null}
-
-        <div className="space-y-3 pt-2">
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-              Target User ID (UUID)
-            </label>
+            <FieldLabel htmlFor="export-user">Target user ID (UUID)</FieldLabel>
             <Input
+              id="export-user"
               placeholder="Enter User UUID for data packaging..."
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
             />
           </div>
 
-          <Button
-            variant="primary"
-            disabled={!userId.trim()}
-            onClick={() =>
-              request.mutate(userId.trim(), {
-                onSuccess: (d: DataExportRow) => setExportId(d.id),
-              })
-            }
-            loading={request.isPending}
-          >
-            Generate Compliance Archive
-          </Button>
-        </div>
+          <div className="flex justify-end">
+            <Button
+              variant="primary"
+              disabled={!userId.trim()}
+              onClick={() =>
+                request.mutate(userId.trim(), {
+                  onSuccess: (d: DataExportRow) => setExportId(d.id),
+                })
+              }
+              loading={request.isPending}
+            >
+              Generate compliance archive
+            </Button>
+          </div>
 
-        {/* Live Export Status Card */}
-        {exportId && (
-          <div className="mt-4 p-4 bg-sand/30 rounded-xl border border-ink/10 space-y-3 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-ink">Export Request</span>
-              <span
-                className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded-full ${
-                  status.data?.status === 'ready'
-                    ? 'bg-mint/15 text-mint border border-mint/30'
-                    : status.data?.status === 'failed'
-                    ? 'bg-rose/15 text-rose border border-rose/30'
-                    : 'bg-amber/15 text-amber border border-amber/30'
-                }`}
-              >
-                {status.data?.status ?? 'PACKAGING'}
-              </span>
-            </div>
+          {exportId && (
+            <div className="space-y-4 rounded-xl bg-bone/60 p-4 animate-fade-in">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-ink">Export request</span>
+                <Pill
+                  dot
+                  tone={
+                    status.data?.status === 'ready' ? 'success' : status.data?.status === 'failed' ? 'danger' : 'warning'
+                  }
+                  className="capitalize"
+                >
+                  {status.data?.status ?? 'Packaging'}
+                </Pill>
+              </div>
 
-            <div className="space-y-1 text-xs font-mono">
-              <div className="text-ink-4">Export ID: {exportId}</div>
-              {status.data?.expiresAt && (
-                <div className="text-ink-4">
-                  Archive Link Expires: {formatDateTime(status.data.expiresAt)}
-                </div>
-              )}
-            </div>
+              <DetailList
+                columns={2}
+                items={[
+                  { label: 'Export ID', value: <span className="font-mono text-xs break-all">{exportId}</span> },
+                  ...(status.data?.expiresAt
+                    ? [
+                        {
+                          label: 'Archive link expires',
+                          value: <span className="num-tabular">{formatDateTime(status.data.expiresAt)}</span>,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
 
-            {status.data?.downloadUrl && (
-              <div className="pt-2">
+              {status.data?.downloadUrl && (
                 <a
                   href={status.data.downloadUrl}
                   download
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-ink text-volt text-xs font-bold rounded-lg hover:bg-charcoal transition-colors"
+                  className="inline-flex items-center gap-2 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-volt transition-colors hover:bg-charcoal"
                 >
                   <FileTextIcon size={14} />
-                  <span>Download Complete Archive</span>
+                  <span>Download complete archive</span>
                 </a>
-              </div>
-            )}
-          </div>
-        )}
-      </Surface>
+              )}
+            </div>
+          )}
+        </div>
+      </Panel>
     </div>
   );
 }

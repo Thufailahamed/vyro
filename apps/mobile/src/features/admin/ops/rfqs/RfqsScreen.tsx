@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileText, Timer } from 'lucide-react-native';
+import { Award, CheckCircle2, ClipboardList, FileText, Hourglass, Timer } from 'lucide-react-native';
 import { api, errorMessage } from '@/lib/api';
 import { formatDate, formatLKR, humanize, timeAgo } from '@/lib/format';
 import {
   BarChart,
   Button,
-  Card,
   ChipRow,
+  QuickAction,
+  QuickActions,
   ConfirmSheet,
   EmptyState,
   ErrorState,
@@ -24,6 +25,7 @@ import {
 } from '@/ui';
 import { Appear, HeroGrid, HeroMetric } from '@/features/admin/platform/kit';
 import { useDebounced } from '@/features/admin/ops/kit/hooks';
+import { Pill, RecordCard, Section } from '@/features/admin/ops/kit';
 
 interface AdminRfqRow {
   id: string;
@@ -105,7 +107,7 @@ export function RfqsScreen() {
       kicker="Operations"
       title="RFQs"
       subtitle="Quote requests awaiting supplier bids."
-      right={<Button title="Sweep" icon={Timer} size="sm" variant="secondary" onPress={() => setSweepOpen(true)} />}
+      right={<Button title="Sweep" icon={Timer} size="sm" variant="paper" onPress={() => setSweepOpen(true)} />}
       onRefresh={() => Promise.all([list.refetch(), thresholds.refetch()])}
     >
       <Appear>
@@ -113,7 +115,7 @@ export function RfqsScreen() {
           <Text variant="overline" color="volt">
             Open pipeline
           </Text>
-          <Text variant="metric" color="paper" style={{ marginTop: 10 }}>
+          <Text variant="metric" color="paper" style={{ marginTop: 12, fontSize: 44, lineHeight: 46 }}>
             {counts.open}
           </Text>
           <Text variant="caption" color="paperFaint">
@@ -124,14 +126,20 @@ export function RfqsScreen() {
             <HeroMetric label="Awarded" value={String(counts.awarded)} />
             <HeroMetric label="Closed" value={String(counts.closed)} />
           </HeroGrid>
+          <QuickActions style={{ marginTop: 20 }}>
+            <QuickAction icon={Timer} label="Run sweep" tone="volt" onPress={() => setSweepOpen(true)} />
+            <QuickAction icon={ClipboardList} label="Open" tone="glass" badge={counts.open || undefined} onPress={() => setGroup('open')} />
+            <QuickAction icon={Hourglass} label="Review" tone="glass" badge={counts.review || undefined} onPress={() => setGroup('review')} />
+            <QuickAction icon={Award} label="Awarded" tone="glass" onPress={() => setGroup('awarded')} />
+          </QuickActions>
         </InkHero>
       </Appear>
 
       <StatGrid>
-        <Stat label="Open" value={counts.open} hint="Live RFQs" />
-        <Stat label="Review" value={counts.review} hint="Quotes in" />
-        <Stat label="Awarded" value={counts.awarded} hint="Converted" />
-        <Stat label="Closed" value={counts.closed} hint="Expired etc." />
+        <Stat icon={ClipboardList} label="Open" value={counts.open} hint="Live RFQs" accent />
+        <Stat icon={Hourglass} label="Review" value={counts.review} hint="Quotes in" />
+        <Stat icon={Award} label="Awarded" value={counts.awarded} hint="Converted" />
+        <Stat icon={CheckCircle2} label="Closed" value={counts.closed} hint="Expired etc." />
       </StatGrid>
 
       <SearchBar value={search} onChangeText={setSearch} placeholder="Title, RFQ#, business…" />
@@ -151,22 +159,15 @@ export function RfqsScreen() {
         <View style={{ gap: 10 }}>
           {rows.map((r, i) => (
             <Appear key={r.id} i={i % 10}>
-              <Card kind="flat" padding={14} style={{ gap: 6 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text variant="mono" style={{ flex: 1 }} numberOfLines={1}>
-                    {r.rfqNumber}
-                  </Text>
-                  <StatusBadge status={r.status} size="sm" />
-                </View>
-                <Text variant="body" weight="semibold" numberOfLines={2}>
-                  {r.title}
-                </Text>
-                <Text variant="caption" color="ink4" numberOfLines={1}>
-                  {r.businessName ?? 'Unknown buyer'}
-                  {r.deliveryCity ? ` · ${r.deliveryCity}` : ''} · {timeAgo(r.createdAt)}
-                  {r.deadline ? ` · closes ${formatDate(r.deadline)}` : ''}
-                </Text>
-              </Card>
+              <RecordCard
+                icon={FileText}
+                tone={GROUP_MATCH.awarded(String(r.status).toLowerCase()) ? 'volt' : GROUP_MATCH.closed(String(r.status).toLowerCase()) ? 'paper' : 'ink'}
+                title={r.title}
+                subtitle={`${r.businessName ?? 'Unknown buyer'}${r.deliveryCity ? ` · ${r.deliveryCity}` : ''}`}
+                meta={`${timeAgo(r.createdAt)}${r.deadline ? ` · closes ${formatDate(r.deadline)}` : ''}`}
+                status={<StatusBadge status={r.status} size="sm" />}
+                chips={<Pill label={r.rfqNumber} />}
+              />
             </Appear>
           ))}
         </View>
@@ -174,14 +175,11 @@ export function RfqsScreen() {
 
       {all.length > 0 ? (
         <Appear i={8}>
-          <Card kind="bone" style={{ gap: 10 }}>
-            <Text variant="overline" color="copper">
-              Pipeline mix
-            </Text>
+          <Section kicker="Pipeline mix" title="RFQs by stage" icon={ClipboardList}>
             <BarChart
               data={(Object.keys(counts) as Group[]).filter((g) => g !== 'all').map((g) => ({ label: humanize(g), value: counts[g] }))}
             />
-          </Card>
+          </Section>
         </Appear>
       ) : null}
 

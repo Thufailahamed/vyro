@@ -1,17 +1,21 @@
 import { useMemo, useState } from 'react';
+import { View } from 'react-native';
 import { router } from 'expo-router';
-import { Users, Target, ChartBar } from 'lucide-react-native';
+import { ChartBar, Flame, Repeat, ShoppingBag, ShoppingBasket, Target, TriangleAlert, TrendingUp, Trophy, Users } from 'lucide-react-native';
 import { useSupplierId } from '@/lib/auth';
 import { errorMessage } from '@/lib/api';
 import { formatCompactLKR, formatDate, formatLKR, humanize } from '@/lib/format';
 import {
   AreaChart,
+  Avatar,
   BarChart,
-  Card,
   ChipRow,
   Donut,
   EmptyState,
   ErrorState,
+  IconTile,
+  InkHero,
+  Kicker,
   RankBars,
   Screen,
   SearchBar,
@@ -22,6 +26,7 @@ import {
   StatusBadge,
   Text,
 } from '@/ui';
+import { Enter, ItemCard, Section } from '@/features/supplier/ops/kit';
 import { useSupplierAnalytics, useSupplierCustomers, useSupplierLeads } from './api';
 
 /* -------------------------------- Customers ------------------------------- */
@@ -61,14 +66,18 @@ export function SupplierCustomersScreen() {
       {list.length === 0 ? (
         <EmptyState icon={Users} title="No customers yet" message="Buyers appear here after placing orders." />
       ) : (
-        list.map((c) => (
-          <Card key={c.businessId} kind="flat" onPress={() => router.push('/supplier/orders' as never)} style={{ gap: 4 }}>
-            <Text variant="h3">{c.name}</Text>
-            <Text variant="caption" color="ink4">
-              {c.totalOrders} orders · Lifetime {formatLKR(c.totalCents)}
-              {c.lastOrderAt ? ` · Last ${formatDate(c.lastOrderAt)}` : ''}
-            </Text>
-          </Card>
+        list.map((c, i) => (
+          <Enter key={c.businessId} i={i}>
+            <ItemCard
+              leading={<Avatar name={c.name} size={44} tone={i < 3 && sort === 'spend' ? 'volt' : 'ink'} />}
+              title={c.name}
+              subtitle={`${c.totalOrders} ${c.totalOrders === 1 ? 'order' : 'orders'}`}
+              meta={c.lastOrderAt ? `Last order ${formatDate(c.lastOrderAt)}` : undefined}
+              amount={formatLKR(c.totalCents)}
+              amountSub="Lifetime"
+              onPress={() => router.push('/supplier/orders' as never)}
+            />
+          </Enter>
         ))
       )}
     </Screen>
@@ -120,17 +129,23 @@ export function SupplierLeadsScreen() {
       {shown.length === 0 ? (
         <EmptyState icon={Target} title="No leads" message="Invited RFQs and buyer inquiries land here." />
       ) : (
-        shown.map((l) => (
-          <Card key={l.id} kind="flat" style={{ gap: 6 }}>
-            <StatusBadge status={l.status ?? l.tag ?? 'open'} size="sm" />
-            <Text variant="h3">{l.businessName ?? l.title ?? 'Buyer lead'}</Text>
-            <Text variant="caption" color="ink4">
-              {l.status ? humanize(l.status) : 'New'}
-              {l.totalCents ? ` · ${formatLKR(l.totalCents)}` : ''}
-              {l.updatedAt ? ` · ${formatDate(l.updatedAt)}` : ''}
-            </Text>
-          </Card>
-        ))
+        shown.map((l, i) => {
+          const tag = (l.tag ?? '').toLowerCase();
+          const converted = (l.status ?? '').toLowerCase().includes('convert');
+          return (
+            <Enter key={l.id} i={i}>
+              <ItemCard
+                icon={converted ? Trophy : tag === 'hot' ? Flame : Target}
+                iconTone={converted ? 'success' : tag === 'hot' ? 'danger' : tag === 'warm' ? 'warning' : 'paper'}
+                title={l.businessName ?? l.title ?? 'Buyer lead'}
+                subtitle={`${l.status ? humanize(l.status) : 'New'}${tag ? ` · ${humanize(tag)}` : ''}`}
+                meta={l.updatedAt ? `Updated ${formatDate(l.updatedAt)}` : undefined}
+                badge={<StatusBadge status={l.status ?? l.tag ?? 'open'} size="sm" />}
+                amount={l.totalCents ? formatLKR(l.totalCents) : undefined}
+              />
+            </Enter>
+          );
+        })
       )}
     </Screen>
   );
@@ -166,22 +181,38 @@ export function SupplierAnalyticsScreen() {
   return (
     <Screen back onRefresh={() => q.refetch()} kicker="Intelligence" title="Analytics" subtitle="Revenue, demand and catalog performance.">
       <Segmented value={range} onChange={setRange} options={[{ value: '7d', label: '7 days' }, { value: '30d', label: '30 days' }, { value: '90d', label: '90 days' }]} />
+      <Enter>
+        <InkHero seed={`analytics-${range}`}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <IconTile icon={TrendingUp} tone="glass" size={40} />
+            <Text variant="caption" color="paperMuted">
+              Last {range.replace('d', ' days')}
+            </Text>
+          </View>
+          <View style={{ marginTop: 18, gap: 6 }}>
+            <Kicker color="volt">Revenue</Kicker>
+            <Text variant="metric" color="paper" numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 38, lineHeight: 42 }}>
+              {formatCompactLKR(d.metrics.revenueCents)}
+            </Text>
+            <Text variant="caption" color="paperMuted">
+              {d.metrics.ordersCount} orders in this period
+            </Text>
+          </View>
+        </InkHero>
+      </Enter>
       <StatGrid>
-        <Stat label="Revenue" value={formatCompactLKR(d.metrics.revenueCents)} hint={`${d.metrics.ordersCount} orders`} />
-        <Stat label="Avg order" value={formatCompactLKR(d.metrics.avgOrderValueCents)} hint="Basket size" />
-        <Stat label="Repeat rate" value={`${Math.round(d.metrics.repeatCustomerRate)}%`} hint="Returning buyers" />
-        <Stat label="Low stock" value={d.metrics.lowStockCount} hint={`${d.metrics.avgLeadTimeDays}d lead`} />
+        <Stat label="Orders" value={d.metrics.ordersCount} hint="In this period" icon={ShoppingBag} accent />
+        <Stat label="Avg order" value={formatCompactLKR(d.metrics.avgOrderValueCents)} hint="Basket size" icon={ShoppingBasket} />
+        <Stat label="Repeat rate" value={`${Math.round(d.metrics.repeatCustomerRate)}%`} hint="Returning buyers" icon={Repeat} />
+        <Stat label="Low stock" value={d.metrics.lowStockCount} hint={`${d.metrics.avgLeadTimeDays}d lead`} icon={TriangleAlert} />
       </StatGrid>
-      <Card kind="flat" style={{ gap: 10 }}>
-        <Text variant="h2">Revenue trend</Text>
+      <Section icon={TrendingUp} kicker="Trend" title="Revenue trend">
         <AreaChart data={d.revenueTrend.map((p) => ({ label: p.day.slice(5), value: p.cents / 100 }))} formatValue={(v) => `Rs. ${Math.round(v).toLocaleString()}`} />
-      </Card>
-      <Card kind="flat" style={{ gap: 10 }}>
-        <Text variant="h2">Orders per day</Text>
+      </Section>
+      <Section icon={ChartBar} kicker="Demand" title="Orders per day">
         <BarChart data={d.ordersByDay.map((p) => ({ label: p.day.slice(5), value: p.count }))} />
-      </Card>
-      <Card kind="flat" style={{ gap: 10 }}>
-        <Text variant="h2">Top products</Text>
+      </Section>
+      <Section icon={Trophy} kicker="Catalog" title="Top products">
         {d.topProducts.length === 0 ? (
           <EmptyState compact title="No sales yet" message="Top SKUs rank here by revenue." />
         ) : (
@@ -194,7 +225,7 @@ export function SupplierAnalyticsScreen() {
             />
           </>
         )}
-      </Card>
+      </Section>
     </Screen>
   );
 }

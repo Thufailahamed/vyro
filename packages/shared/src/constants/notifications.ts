@@ -69,6 +69,11 @@ export const NotificationType = {
   RFQ_REVISION_REQUESTED: 'rfq.revision_requested',
   RFQ_DEADLINE_SOON: 'rfq.deadline_soon',
   QUOTE_EXPIRING: 'rfq.quote_expiring',
+  CREDIT_PAYMENT_REMINDER: 'credit.payment_reminder',
+  ORDER_PARTIALLY_ACCEPTED: 'order.partially_accepted',
+  ORDER_SLA_BREACH: 'order.sla_breach',
+  RETURN_REQUESTED: 'return.requested',
+  RETURN_UPDATED: 'return.updated',
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 
@@ -102,6 +107,7 @@ export const NOTIFICATION_CATEGORY: Record<string, NotificationCategory> = {
   [NotificationType.PAYOUT_COMPLETED]: NotificationCategory.PAYMENT,
   [NotificationType.PAYOUT_FAILED]: NotificationCategory.PAYMENT,
   [NotificationType.INVOICE_AVAILABLE]: NotificationCategory.PAYMENT,
+  [NotificationType.CREDIT_PAYMENT_REMINDER]: NotificationCategory.PAYMENT,
   [NotificationType.RECONCILIATION_EXCEPTION]: NotificationCategory.ADMIN_ALERT,
   [NotificationType.DISPUTE_RESOLVED]: NotificationCategory.ORDER,
   [NotificationType.STOCK_LOW]: NotificationCategory.STOCK,
@@ -121,6 +127,10 @@ export const NOTIFICATION_CATEGORY: Record<string, NotificationCategory> = {
   [NotificationType.RFQ_REVISION_REQUESTED]: NotificationCategory.ORDER,
   [NotificationType.RFQ_DEADLINE_SOON]: NotificationCategory.ORDER,
   [NotificationType.QUOTE_EXPIRING]: NotificationCategory.ORDER,
+  [NotificationType.ORDER_PARTIALLY_ACCEPTED]: NotificationCategory.ORDER,
+  [NotificationType.ORDER_SLA_BREACH]: NotificationCategory.ORDER,
+  [NotificationType.RETURN_REQUESTED]: NotificationCategory.ORDER,
+  [NotificationType.RETURN_UPDATED]: NotificationCategory.ORDER,
 };
 
 export function categoryForNotificationType(type: string): NotificationCategory {
@@ -186,7 +196,7 @@ export const ORDER_STATUS_COPY: Record<string, { label: string; buyer: string; s
   cancelled: {
     label: 'cancelled',
     buyer: 'This order was cancelled.',
-    supplier: 'The buyer cancelled this order.',
+    supplier: 'This order was cancelled.',
   },
   disputed: {
     label: 'disputed',

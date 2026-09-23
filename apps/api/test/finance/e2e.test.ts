@@ -128,6 +128,7 @@ beforeAll(async () => {
   const financeAdmin = (await import('../../src/modules/finance/admin')).default;
   const financeSettle = (await import('../../src/modules/finance/adminSettlements')).default;
   const poRouter = (await import('../../src/modules/purchaseOrders/routes')).default;
+  const deliveryRouter = (await import('../../src/modules/deliveries/routes')).default;
   const webhooksRouter = (await import('../../src/modules/webhooks')).default;
   const { errorEnvelope } = await import('../../src/lib/errors');
   app = new Hono();
@@ -141,6 +142,7 @@ beforeAll(async () => {
   app.route('/api/admin/finance', financeAdmin);
   app.route('/api/admin/finance', financeSettle);
   app.route('/api/purchase-orders', poRouter);
+  app.route('/api/deliveries', deliveryRouter);
   app.route('/api/webhooks', webhooksRouter);
 
   const { getDb } = await import('@vyro/db');
@@ -237,6 +239,11 @@ describe('Accounts E2E: COD lifecycle (A)', () => {
   it('fulfills, collects exact cash, completes, and becomes eligible', async () => {
     actor.ctx = asCtx('supplier-u');
     for (const to of ['accepted', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'delivered']) {
+      if (to === 'delivered') {
+        // Proof of delivery is required before a supplier can mark delivered.
+        const pod = await api('PATCH', `/api/deliveries/${ids.poA}`, { recipientName: 'Store manager', podNote: 'Signed delivery note' });
+        expect(pod.status).toBe(200);
+      }
       const r = await api('POST', `/api/purchase-orders/${ids.poA}/transition`, { to });
       expect(r.status).toBe(200);
     }

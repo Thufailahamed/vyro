@@ -49,7 +49,7 @@ export const STATUS_LABEL: Record<string, { label: string; color: string; bg: st
 export function UploadStatus({ status }: { status: string }) {
   const s = STATUS_LABEL[status] ?? STATUS_LABEL.pending;
   return (
-    <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: s.bg, borderRadius: radii.pill, paddingHorizontal: 8, paddingVertical: 2.5 }}>
+    <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: s.bg, borderRadius: radii.pill, paddingHorizontal: 9, paddingVertical: 3 }}>
       <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: s.color }} />
       <Text variant="overline" style={{ color: s.color, letterSpacing: 1 }}>
         {s.label}
@@ -74,7 +74,7 @@ export function categoryLabel(slug: string | null) {
 export function CategoryBadge({ slug, source }: { slug: string | null; source: LineItem['categorySource'] | null }) {
   const c = CAT[slug ?? 'other'] ?? CAT.other;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 7, paddingVertical: 2.5, borderRadius: radii.sm, backgroundColor: c.bg, borderWidth: 1, borderColor: c.border }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 3, borderRadius: radii.pill, backgroundColor: c.bg }}>
       <Sparkles size={10} color={c.fg} />
       <Text variant="overline" style={{ color: c.fg, letterSpacing: 1 }}>
         {c.label}

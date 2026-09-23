@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { FileText, Plus, Scale, Search, Sparkles } from 'lucide-react-native';
 import {
@@ -9,6 +9,7 @@ import {
   EmptyState,
   ErrorState,
   Gutter,
+  IconTile,
   InkHero,
   Kicker,
   ListHeader,
@@ -23,7 +24,7 @@ import {
 import { errorMessage } from '@/lib/api';
 import { useBusinessId } from '@/lib/auth';
 import { formatCompactLKR, formatDate, humanize } from '@/lib/format';
-import { colors, fonts } from '@/theme/tokens';
+import { colors, fonts, radii } from '@/theme/tokens';
 import { Enter, go } from '../orders/kit';
 import { useRfqDashboard } from './api';
 import type { RfqRow } from './api';
@@ -100,7 +101,7 @@ export function RfqsScreen() {
                   {q.data.quotesReceived} quotes received · {Math.round((q.data.rfqToPoConversion ?? 0) * 100)}% convert to PO
                 </Text>
               </View>
-              <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.paperLine, paddingTop: 14, marginTop: 16 }}>
+              <View style={{ flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.paperLine, paddingTop: 14, marginTop: 16 }}>
                 <HeroStat label="Quotes" value={q.data.quotesReceived} onPress={() => setGroup('review')} />
                 <HeroStat label="Awarded" value={q.data.awarded} onPress={() => setGroup('awarded')} />
                 <HeroStat label="Saved" value={formatCompactLKR(q.data.negotiationSavingsCents)} onPress={() => setGroup('awarded')} />
@@ -171,15 +172,18 @@ function RfqCard({ rfq: r, index }: { rfq: RfqRow; index: number }) {
   const [renderedAt] = useState(() => Date.now());
   return (
     <Enter i={index}>
-      <Card onPress={() => go(`/buyer/rfqs/${r.id}`)} padding={16} style={{ gap: 10 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-          <View style={{ flex: 1, gap: 4 }}>
+      <Card onPress={() => go(`/buyer/rfqs/${r.id}`)} padding={16} radius={radii['2xl']} style={{ gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+          <IconTile icon={FileText} tone={r.status === 'awarded' || r.status === 'converted_to_order' ? 'volt' : 'ink'} size={44} />
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text variant="h3" numberOfLines={2}>
+              {r.title}
+            </Text>
             <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: colors.copperDeep, letterSpacing: 0.3 }}>{r.rfqNumber}</Text>
-            <Text variant="h3" numberOfLines={2}>{r.title}</Text>
           </View>
           <StatusBadge status={r.status} size="sm" />
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <Meta icon={Scale}>{r.quoteCount ?? 0} quotes</Meta>
           {r.itemCount != null ? <Meta>{r.itemCount} lines</Meta> : null}
           {r.lowestLandedCents != null ? <Meta accent>from {formatCompactLKR(r.lowestLandedCents)}</Meta> : null}
@@ -188,7 +192,7 @@ function RfqCard({ rfq: r, index }: { rfq: RfqRow; index: number }) {
         {r.status === 'awarded' || r.status === 'converted_to_order' ? (
           <Text variant="caption" color="ink4">Awarded — open to convert into a purchase order.</Text>
         ) : null}
-        <View style={{ flexDirection: 'row', gap: 8, borderTopWidth: 1, borderTopColor: colors.lineSoft, paddingTop: 12 }}>
+        <View style={{ flexDirection: 'row', gap: 8, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft, paddingTop: 12 }}>
           <Button title="Open" size="sm" variant="secondary" onPress={() => go(`/buyer/rfqs/${r.id}`)} style={{ flex: 1 }} />
           <Button title="Ask AI" icon={Sparkles} size="sm" variant="ghost" onPress={() => go('/buyer/ask')} />
         </View>
@@ -199,7 +203,17 @@ function RfqCard({ rfq: r, index }: { rfq: RfqRow; index: number }) {
 
 function Meta({ children, icon: Icon, accent }: { children: React.ReactNode; icon?: typeof FileText; accent?: boolean }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        height: 26,
+        paddingHorizontal: 10,
+        borderRadius: radii.pill,
+        backgroundColor: accent ? colors.voltSoft : colors.pearl,
+      }}
+    >
       {Icon ? <Icon size={12} color={colors.copper} /> : null}
       <Text variant="caption" color={accent ? 'ink' : 'ink4'} weight={accent ? 'semibold' : undefined} style={accent ? { fontFamily: fonts.monoMedium } : undefined}>
         {children}

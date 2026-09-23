@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePageTitle } from '@/lib/usePageTitle';
@@ -7,16 +7,28 @@ import {
   Button,
   ErrorBanner,
   SuccessBanner,
-  Select,
-  Input,
   Textarea,
   Label,
   StatusBadge,
   Badge,
 } from '@/components/ui';
 import type { OrderStatus } from '@/components/ui';
-import { ORDER_TRANSITIONS, canTransition, type OrderStatus as SharedOrderStatus } from '@vyro/shared';
+import { allowedTransitions, type OrderStatus as SharedOrderStatus } from '@vyro/shared';
 import { formatLKR } from '@/lib/format';
+import {
+  formatLifecycleDate,
+  invoiceTypeLabel,
+  lifecycleErrorMessage,
+  podPhotoUrl,
+  type LifecycleOrderDetail,
+  type LifecycleOrderFields,
+} from '@/lib/orderLifecycle';
+import {
+  PaymentStateBadge,
+  PaymentSummaryList,
+  ReasonDialog,
+} from '@/components/orders/LifecycleUi';
+import { BuyerReturnsList, RequestReturnDialog } from '@/components/orders/ReturnsPanels';
 import {
   ArrowLeftIcon,
   PackageIcon,
@@ -36,6 +48,8 @@ import {
   ChevronRightIcon,
   ArrowRightIcon,
   BanknoteIcon,
+  RefreshCwIcon,
+  ExternalLinkIcon,
   UserIcon,
   CopyIcon,
   CheckCheckIcon,
@@ -52,45 +66,19 @@ import { ReviewForm } from '@/reviews/ReviewForm';
 import { useReviewEligibility } from '@/reviews/useReviewEligibility';
 import { ReorderButton } from '@/components/ReorderButton';
 
-interface OrderDetail {
-  order: {
-    id: string;
-    poNumber: string;
-    status: string;
+type OrderDetail = LifecycleOrderDetail<
+  LifecycleOrderFields & {
     direction: 'domestic' | 'export' | 'import';
     paymentMethod: 'payhere' | 'wire';
-    totalCents: number;
-    subtotalCents: number;
-    deliveryAddress: string;
-    deliveryCity: string;
-    deliveryDistrict: string;
-    notes: string | null;
-    createdAt: number;
-  };
-  items: Array<{
-    id: string;
-    productNameSnapshot: string;
-    quantity: number;
-    unitPriceCents: number;
-    discountPctSnapshot?: number | null;
-    lineTotalCents: number;
-  }>;
-  events: Array<{
-    id: string;
-    fromStatus: string | null;
-    toStatus: string;
-    createdAt: number;
-    reason: string | null;
-  }>;
-}
+  }
+>;
 
-// Business-side allowed transitions, derived from the API truth
-function allowedTransitionsFor(status: string): string[] {
-  const next = ORDER_TRANSITIONS[status as SharedOrderStatus] as readonly string[] | undefined;
-  if (!next) return [];
-  return next.filter((to) =>
-    canTransition(status as SharedOrderStatus, to as SharedOrderStatus, 'business'),
-  );
+interface PoInvoice {
+  id: string;
+  number: string;
+  type: string;
+  totalCents: number;
+  issuedAt: number;
 }
 
 const JOURNEY = [
@@ -187,12 +175,11 @@ export function OrderDetailPage() {
   usePageTitle(`Order ${id?.slice(0, 8) ?? ''}`);
   const qc = useQueryClient();
   const toast = useToast();
-  const [to, setTo] = useState('');
-  const [reason, setReason] = useState('');
   const [err, setErr] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [loading, setLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [reasonFor, setReasonFor] = useState<'cancelled' | 'disputed' | null>(null);
+  const [returnOpen, setReturnOpen] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundReason, setRefundReason] = useState('');
   const [refundSubmitting, setRefundSubmitting] = useState(false);
@@ -216,6 +203,13 @@ export function OrderDetailPage() {
     enabled: !!id,
   });
 
+  const { data: invoicesData } = useQuery({
+    queryKey: ['po-invoices', id],
+    queryFn: () => api.get<{ invoices: PoInvoice[] }>(`/invoices?poId=${id}`),
+    enabled: !!id,
+    retry: false,
+  });
+
   const refundablePayment = useMemo(() => {
     const confirmed = (paymentsData?.payments ?? [])
       .filter((p) => p.status === 'confirmed')
@@ -223,25 +217,24 @@ export function OrderDetailPage() {
     return confirmed[0] ?? null;
   }, [paymentsData]);
 
-  async function transition() {
+  /** Reason-carrying transitions (cancel / dispute). Throws so the dialog shows the error. */
+  async function transitionWithReason(to: 'cancelled' | 'disputed', reason: string) {
     setErr('');
     setSuccessMsg('');
-    if (!to) {
-      setErr('Please choose a target status.');
-      return;
-    }
-    setLoading(true);
-    try {
-      await api.post(`/purchase-orders/${id}/transition`, { to, reason: reason || undefined });
-      await refetch();
-      setReason('');
-      setSuccessMsg(`Status changed to ${statusLabel(to)}.`);
-      toast.show(toast.success(`Status updated to ${statusLabel(to)}`));
-    } catch (e) {
-      setErr(e instanceof ApiError ? e.message : 'Failed to update order status');
-    } finally {
-      setLoading(false);
-    }
+    await api.post(`/purchase-orders/${id}/transition`, { to, reason });
+    await refetch();
+    void qc.invalidateQueries({ queryKey: ['payments', id] });
+    setSuccessMsg(
+      to === 'cancelled'
+        ? 'Order cancelled. Any captured payment is refunded automatically.'
+        : 'Dispute opened. The Vyro trust team will review it.',
+    );
+    toast.show(toast.success(to === 'cancelled' ? 'Order cancelled' : 'Dispute opened'));
+  }
+
+  async function refreshAll() {
+    await refetch();
+    void qc.invalidateQueries({ queryKey: ['po-invoices', id] });
   }
 
   async function confirmReceipt() {
@@ -255,7 +248,7 @@ export function OrderDetailPage() {
       setSuccessMsg('Receipt confirmed. Funds released to the supplier.');
       toast.show(toast.success('Receipt confirmed · funds released'));
     } catch (e) {
-      setErr(e instanceof ApiError ? e.message : 'Could not confirm receipt');
+      setErr(lifecycleErrorMessage(e, 'Could not confirm receipt'));
     } finally {
       setConfirming(false);
     }
@@ -280,15 +273,11 @@ export function OrderDetailPage() {
     }
   }
 
-  const allowed = useMemo(() => {
+  const allowed = useMemo<SharedOrderStatus[]>(() => {
+    if (data?.lifecycle) return data.lifecycle.allowedTransitions;
     if (!data?.order?.status) return [];
-    return allowedTransitionsFor(data.order.status);
-  }, [data?.order?.status]);
-
-  useEffect(() => {
-    const next = allowed[0];
-    if (next) setTo(next);
-  }, [allowed]);
+    return allowedTransitions(data.order.status as SharedOrderStatus, 'business');
+  }, [data?.lifecycle, data?.order?.status]);
 
   /* ── Loading / Error states ────────────────────────────── */
 
@@ -325,7 +314,22 @@ export function OrderDetailPage() {
     );
   }
 
-  const { order, items, events } = data;
+  const { order, items, events, paymentSummary, delivery, returns = [], lifecycle } = data;
+  const now = Date.now();
+  const disputeWindowOpen = !lifecycle?.disputeWindowEndsAt || lifecycle.disputeWindowEndsAt > now;
+  const canDispute = allowed.includes('disputed') && disputeWindowOpen;
+  const canCancel = allowed.includes('cancelled');
+  const canRequestReturn =
+    (lifecycle?.returnsEnabled ?? false) &&
+    (order.status === 'delivered' || order.status === 'completed') &&
+    !!lifecycle?.returnWindowEndsAt &&
+    lifecycle.returnWindowEndsAt > now;
+  const showReturns = returns.length > 0 || canRequestReturn;
+  const partiallyFulfilled = order.originalTotalCents != null && order.originalTotalCents !== order.totalCents;
+  const invoices = invoicesData?.invoices ?? [];
+  const hasDeliveryInfo =
+    !!delivery &&
+    !!(delivery.carrier || delivery.trackingNumber || delivery.recipientName || delivery.podNote || delivery.hasPodPhoto);
   const isTerminal = ['rejected', 'cancelled', 'disputed', 'failed'].includes(order.status);
   const totalQty = items.reduce((s, it) => s + it.quantity, 0);
   const totalDiscount = items.reduce((sum, it) => {
@@ -387,6 +391,7 @@ export function OrderDetailPage() {
                 {statusIcon}
                 {statusLabel(order.status)}
               </span>
+              <PaymentStateBadge state={paymentSummary?.state} />
             </div>
             <h1 className="vyro-display text-4xl sm:text-5xl text-balance text-ink leading-[0.95]">
               {order.poNumber}
@@ -438,6 +443,15 @@ export function OrderDetailPage() {
 
       <ErrorBanner message={err} />
       {successMsg && <SuccessBanner message={successMsg} />}
+      {partiallyFulfilled && (
+        <div className="flex items-start gap-3 bg-amber/10 text-amber text-sm p-4 rounded-xl">
+          <AlertCircleIcon size={18} className="shrink-0 mt-0.5" />
+          <div className="font-medium">
+            Supplier could fulfil part of this order; new total {formatLKR(order.totalCents)} (was{' '}
+            {formatLKR(order.originalTotalCents ?? order.totalCents)}). Any overpayment is refunded automatically.
+          </div>
+        </div>
+      )}
 
       {/* ── Main 2-Column Layout ─────────────────────────── */}
       <div className="grid lg:grid-cols-12 gap-6 items-start">
@@ -491,9 +505,24 @@ export function OrderDetailPage() {
                           </div>
                         </td>
                         <td className="py-4 text-center">
-                          <span className="inline-flex items-center justify-center min-w-[2.5rem] h-7 px-2 rounded-md bg-bone font-mono text-sm font-semibold text-ink-1 border border-ink/5">
-                            {it.quantity}
-                          </span>
+                          {it.requestedQuantity != null && it.requestedQuantity !== it.quantity ? (
+                            <span className="inline-flex items-center gap-1 font-mono text-sm" title="Requested → accepted">
+                              <span className="line-through text-ink-4">{it.requestedQuantity}</span>
+                              <ArrowRightIcon size={10} className="text-ink-4" />
+                              <span className="inline-flex items-center justify-center min-w-[2.5rem] h-7 px-2 rounded-md bg-amber/10 font-semibold text-ink-1 border border-amber/30">
+                                {it.quantity}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center justify-center min-w-[2.5rem] h-7 px-2 rounded-md bg-bone font-mono text-sm font-semibold text-ink-1 border border-ink/5">
+                              {it.quantity}
+                            </span>
+                          )}
+                          {it.fulfilmentStatus === 'unavailable' && (
+                            <div className="text-[10px] text-rose mt-1">
+                              Unavailable{it.unavailableReason ? ` — ${it.unavailableReason}` : ''}
+                            </div>
+                          )}
                         </td>
                         <td className="py-4 text-right font-mono text-sm text-ink-2">
                           {formatLKR(it.unitPriceCents)}
@@ -597,11 +626,97 @@ export function OrderDetailPage() {
                 </div>
               </div>
             )}
+            {hasDeliveryInfo && delivery && (
+              <div className="mt-4 p-4 rounded-xl border border-ink/10 bg-bone/30 space-y-3">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
+                  Shipment{delivery.status ? ` · ${statusLabel(delivery.status)}` : ''}
+                </div>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {delivery.carrier && (
+                    <div>
+                      <dt className="text-ink-4">Carrier</dt>
+                      <dd className="mt-0.5 font-semibold text-ink-1">{delivery.carrier}</dd>
+                    </div>
+                  )}
+                  {delivery.trackingNumber && (
+                    <div>
+                      <dt className="text-ink-4">Tracking number</dt>
+                      <dd className="mt-0.5 font-mono font-semibold text-ink-1">
+                        {delivery.trackingUrl ? (
+                          <a
+                            href={delivery.trackingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-copper hover:underline inline-flex items-center gap-1"
+                          >
+                            {delivery.trackingNumber} <ExternalLinkIcon size={11} />
+                          </a>
+                        ) : (
+                          delivery.trackingNumber
+                        )}
+                      </dd>
+                    </div>
+                  )}
+                  {delivery.recipientName && (
+                    <div>
+                      <dt className="text-ink-4">Received by</dt>
+                      <dd className="mt-0.5 font-semibold text-ink-1">{delivery.recipientName}</dd>
+                    </div>
+                  )}
+                  {delivery.deliveredAt && (
+                    <div>
+                      <dt className="text-ink-4">Delivered</dt>
+                      <dd className="mt-0.5 font-mono font-semibold text-ink-1">
+                        {formatDateTime(delivery.deliveredAt)}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+                {delivery.podNote && (
+                  <p className="text-xs text-ink-2 italic bg-paper px-3 py-2 border-l-2 border-copper/40">
+                    &ldquo;{delivery.podNote}&rdquo;
+                  </p>
+                )}
+                {delivery.hasPodPhoto && (
+                  <a href={podPhotoUrl(order.id)} target="_blank" rel="noopener noreferrer" className="inline-block">
+                    <img
+                      src={podPhotoUrl(order.id)}
+                      alt="Proof of delivery"
+                      className="max-h-48 rounded-lg border border-ink/10"
+                    />
+                  </a>
+                )}
+              </div>
+            )}
           </SectionCard>
+
+          {/* Returns */}
+          {showReturns && (
+            <SectionCard
+              step={3}
+              eyebrow="Returns"
+              title="Returns"
+              sub={
+                canRequestReturn && lifecycle?.returnWindowEndsAt
+                  ? `You can request a return until ${formatLifecycleDate(lifecycle.returnWindowEndsAt)}`
+                  : 'Return requests raised on this order'
+              }
+              countLabel={`${returns.length} RMA${returns.length === 1 ? '' : 's'}`}
+              countTone="copper"
+              icon={<RefreshCwIcon size={16} />}
+            >
+              {canRequestReturn && (
+                <Button variant="secondary" size="sm" onClick={() => setReturnOpen(true)}>
+                  <RefreshCwIcon size={13} /> Request a return
+                </Button>
+              )}
+              <BuyerReturnsList returns={returns} onChanged={() => void refreshAll()} />
+            </SectionCard>
+          )}
 
           {/* Activity Timeline */}
           <SectionCard
-            step={3}
+            step={showReturns ? 4 : 3}
             eyebrow="History"
             title="Activity timeline"
             sub="Status changes and system events for this purchase order"
@@ -668,7 +783,7 @@ export function OrderDetailPage() {
         {/* ── Right Column: Payment & Actions ─────────── */}
         <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-6 lg:self-start">
           {/* Confirm Receipt — when delivered */}
-          {order.status === 'delivered' && (
+          {order.status === 'delivered' && allowed.includes('completed') && (
             <Surface className="overflow-hidden">
               <div className="border-l-4 border-mint p-5 space-y-3">
                 <div className="flex items-center gap-2">
@@ -688,12 +803,32 @@ export function OrderDetailPage() {
                 >
                   <CheckCheckIcon size={14} /> Yes — Confirm receipt
                 </Button>
+                {lifecycle?.autoCompleteAt && (
+                  <p className="text-[11px] text-ink-4 flex items-center gap-1.5">
+                    <ClockIcon size={11} /> Auto-completes on {formatLifecycleDate(lifecycle.autoCompleteAt)}
+                    {returns.some((r) => ['requested', 'approved', 'received'].includes(r.status)) &&
+                      ' (paused while a return is open)'}
+                  </p>
+                )}
               </div>
             </Surface>
           )}
 
           {/* Rate supplier — once delivered */}
           {order.status === 'delivered' && <RateSupplierBlock orderId={order.id} />}
+
+          {/* Payment position */}
+          {paymentSummary && (
+            <Surface className="p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
+                  <BanknoteIcon size={12} className="text-copper" /> Payment summary
+                </div>
+                <PaymentStateBadge state={paymentSummary.state} />
+              </div>
+              <PaymentSummaryList summary={paymentSummary} />
+            </Surface>
+          )}
 
           {/* Payment Panel */}
           <PaymentPanel
@@ -748,54 +883,68 @@ export function OrderDetailPage() {
             </dl>
           </Surface>
 
-          {/* Update Status */}
-          {allowed.length > 0 && (
-            <Surface className="p-5 space-y-4">
+          {/* Order actions (driven by lifecycle.allowedTransitions) */}
+          {(canCancel || allowed.includes('disputed')) && (
+            <Surface className="p-5 space-y-3">
               <div className="flex items-center gap-2">
                 <div className="size-8 rounded-lg bg-ink/10 text-ink-2 flex items-center justify-center">
                   <ClockIcon size={16} />
                 </div>
-                <h3 className="font-display text-base font-semibold text-ink-1">Update status</h3>
+                <h3 className="font-display text-base font-semibold text-ink-1">Order actions</h3>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="status-to" className="flex items-center gap-1.5">
-                  <span>Move to</span>
-                </Label>
-                <Select id="status-to" value={to} onChange={(e) => setTo(e.target.value)}>
-                  {allowed.map((s) => (
-                    <option key={s} value={s}>
-                      {statusLabel(s)}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-1.5">
-                  <Label htmlFor="status-reason">Reason</Label>
-                  <span className="ml-1 font-mono text-[10px] uppercase tracking-wider text-ink-4 font-normal">
-                    optional
-                  </span>
+              {canCancel && (
+                <div className="space-y-1.5">
+                  <Button variant="danger" className="w-full" onClick={() => setReasonFor('cancelled')}>
+                    <XIcon size={14} /> Cancel order
+                  </Button>
+                  <p className="text-[10px] text-ink-4 leading-relaxed">
+                    Any captured payment is refunded automatically.
+                  </p>
                 </div>
-                <Input
-                  id="status-reason"
-                  placeholder="e.g. Driver arrived 30 min late"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="bg-paper"
-                />
+              )}
+              {allowed.includes('disputed') &&
+                (canDispute ? (
+                  <div className="space-y-1.5">
+                    <Button variant="secondary" className="w-full" onClick={() => setReasonFor('disputed')}>
+                      <AlertCircleIcon size={14} /> Open dispute
+                    </Button>
+                    {lifecycle?.disputeWindowEndsAt && (
+                      <p className="text-[10px] text-ink-4 leading-relaxed">
+                        You can open a dispute until {formatLifecycleDate(lifecycle.disputeWindowEndsAt)}.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-ink-4">The dispute window for this order has closed.</p>
+                ))}
+            </Surface>
+          )}
+
+          {/* Invoices & credit notes */}
+          {invoices.length > 0 && (
+            <Surface className="p-4 space-y-3">
+              <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
+                <FileTextIcon size={12} className="text-copper" /> Invoices
               </div>
-              <Button
-                onClick={() => void transition()}
-                loading={loading}
-                variant={to === 'cancelled' || to === 'disputed' ? 'danger' : 'primary'}
-                className="w-full"
-              >
-                Apply status change
-                <ArrowRightIcon size={14} />
-              </Button>
-              <p className="text-[10px] text-ink-4 leading-relaxed">
-                Allowed transitions are based on your role and the current order state.
-              </p>
+              <ul className="divide-y divide-ink/5">
+                {invoices.map((inv) => (
+                  <li key={inv.id} className="py-2 flex items-center justify-between gap-2 text-xs">
+                    <Link
+                      to={`/orders/${order.id}/invoice/${inv.id}`}
+                      className="min-w-0 hover:text-copper transition-colors"
+                    >
+                      <div className="font-mono font-semibold text-ink-1 truncate">{inv.number}</div>
+                      <div className={cn('text-[10px] uppercase tracking-wider', inv.type === 'credit_note' ? 'text-mint' : 'text-ink-4')}>
+                        {invoiceTypeLabel(inv.type)}
+                      </div>
+                    </Link>
+                    <span className="font-mono font-semibold text-ink-1 shrink-0">
+                      {inv.type === 'credit_note' ? '−' : ''}
+                      {formatLKR(inv.totalCents)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </Surface>
           )}
 
@@ -870,6 +1019,44 @@ export function OrderDetailPage() {
           </div>
         </div>
       </div>
+
+      <ReasonDialog
+        open={reasonFor !== null}
+        title={reasonFor === 'disputed' ? 'Open a dispute' : 'Cancel this order'}
+        subtitle={order.poNumber}
+        description={
+          reasonFor === 'disputed' ? (
+            <>
+              Tell the Vyro trust team what went wrong. Held funds stay in escrow until the dispute is
+              resolved.
+              {lifecycle?.disputeWindowEndsAt &&
+                ` You can open a dispute until ${formatLifecycleDate(lifecycle.disputeWindowEndsAt)}.`}
+            </>
+          ) : (
+            'The supplier is notified and any captured payment is refunded to you automatically.'
+          )
+        }
+        confirmLabel={reasonFor === 'disputed' ? 'Open dispute' : 'Cancel order'}
+        placeholder={
+          reasonFor === 'disputed' ? 'e.g. 12 of 50 cartons arrived damaged' : 'e.g. Ordered by mistake'
+        }
+        icon={reasonFor === 'disputed' ? <AlertCircleIcon size={18} /> : <XIcon size={18} />}
+        onClose={() => setReasonFor(null)}
+        onSubmit={(reason) => transitionWithReason(reasonFor!, reason)}
+      />
+
+      {returnOpen && (
+        <RequestReturnDialog
+          poId={order.id}
+          items={items}
+          returns={returns}
+          onClose={() => setReturnOpen(false)}
+          onCreated={() => {
+            void refreshAll();
+            setSuccessMsg('Return requested. The supplier will review it.');
+          }}
+        />
+      )}
 
       {/* ── Refund Modal ─────────────────────────────────── */}
       {refundOpen && refundablePayment && (

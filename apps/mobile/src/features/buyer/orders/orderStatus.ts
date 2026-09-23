@@ -1,24 +1,13 @@
 import type { TimelineStep } from '@/ui';
+import { allowedTransitions } from '@/lib/orderLifecycle';
 
-/** Copied from packages/shared/src/constants/orderStatus.ts (mobile doesn't depend on @vyro/shared). */
-const TRANSITION_RULES: readonly { from: string; to: string; actors: readonly string[] }[] = [
-  { from: 'pending', to: 'accepted', actors: ['supplier'] },
-  { from: 'pending', to: 'rejected', actors: ['supplier'] },
-  { from: 'pending', to: 'cancelled', actors: ['business'] },
-  { from: 'accepted', to: 'preparing', actors: ['supplier'] },
-  { from: 'accepted', to: 'cancelled', actors: ['business'] },
-  { from: 'preparing', to: 'ready_for_pickup', actors: ['supplier'] },
-  { from: 'preparing', to: 'cancelled', actors: ['business'] },
-  { from: 'ready_for_pickup', to: 'out_for_delivery', actors: ['supplier'] },
-  { from: 'out_for_delivery', to: 'delivered', actors: ['supplier'] },
-  { from: 'delivered', to: 'completed', actors: ['business'] },
-  { from: 'delivered', to: 'disputed', actors: ['admin', 'business'] },
-  { from: 'completed', to: 'disputed', actors: ['admin', 'business'] },
-];
-
-/** Transitions the buyer (business actor) may perform from `status`. */
+/**
+ * Transitions the buyer (business actor) may perform from `status`.
+ * Fallback only — the detail response's `lifecycle.allowedTransitions` is authoritative.
+ * The rule table is copied into lib/orderLifecycle.ts from packages/shared.
+ */
 export function buyerTransitions(status: string): string[] {
-  return TRANSITION_RULES.filter((r) => r.from === status && r.actors.includes('business')).map((r) => r.to);
+  return allowedTransitions(status, 'business');
 }
 
 export const STATUS_FILTERS = [
@@ -115,4 +104,10 @@ export function statusHeadline(status: string): string {
 
 export function statusLabel(s: string) {
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const INVOICE_TYPE_LABEL: Record<string, string> = { receipt: 'Receipt', tax_invoice: 'Tax invoice', credit_note: 'Credit note' };
+
+export function invoiceTypeLabel(type: string): string {
+  return INVOICE_TYPE_LABEL[type] ?? statusLabel(type);
 }

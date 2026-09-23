@@ -2,17 +2,20 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleAlert, FileText, Send } from 'lucide-react-native';
+import { CircleAlert, FileText, ListChecks, MessageSquare, Send } from 'lucide-react-native';
 import { api, errorMessage, qs } from '@/lib/api';
 import { useSupplierId } from '@/lib/auth';
 import { formatDate, formatLKR } from '@/lib/format';
-import { colors } from '@/theme/tokens';
+import { colors, fonts, radii } from '@/theme/tokens';
 import {
+  Badge,
   Button,
   Card,
   EmptyState,
   ErrorState,
   Field,
+  IconTile,
+  InkHero,
   Input,
   KeyValue,
   Screen,
@@ -20,7 +23,7 @@ import {
   Text,
   useToast,
 } from '@/ui';
-import { RfqPill } from '@/features/supplier/ops/kit';
+import { Enter, HeroMetric, RfqPill, Section } from '@/features/supplier/ops/kit';
 
 type RfqItem = { id: string; description: string; quantity: number; unit: string; targetPriceCents?: number | null };
 type Quote = { quote: { id: string; status: string; totalCents: number; quoteNumber: string } };
@@ -102,6 +105,7 @@ export function SupplierQuoteDetailScreen() {
       ? 'The submission deadline has passed — quoting is closed.'
       : 'This RFQ has no line items to price.';
   const allPriced = items.every((it) => Number(prices[it.id] ?? 0) > 0);
+  const pricedCount = items.filter((it) => Number(prices[it.id] ?? 0) > 0).length;
 
   return (
     <Screen
@@ -110,6 +114,7 @@ export function SupplierQuoteDetailScreen() {
       kicker="Quotations"
       title={rfq.title}
       subtitle={`${rfq.rfqNumber}${rfq.deadline ? ` · Due ${formatDate(rfq.deadline)}` : ''}`}
+      keyboard
       footer={
         quotable ? (
           <Button
@@ -123,41 +128,69 @@ export function SupplierQuoteDetailScreen() {
         ) : undefined
       }
     >
-      <RfqPill status={rfq.status} />
+      <Enter>
+        <InkHero seed={`rfq-${rfq.id}`}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <IconTile icon={FileText} tone="glass" size={42} />
+            <RfqPill status={rfq.status} />
+          </View>
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+            <HeroMetric label="Line items" value={String(items.length)} sub={rfq.rfqNumber} tone="volt" style={{ flex: 1 }} />
+            <HeroMetric
+              label="Deadline"
+              value={rfq.deadline ? formatDate(rfq.deadline) : 'Open'}
+              sub={deadlinePassed ? 'Passed' : quotable ? 'Accepting quotes' : 'Closed'}
+              tone={deadlinePassed ? 'rose' : 'paper'}
+              style={{ flex: 1 }}
+            />
+            <HeroMetric label="My quotes" value={String(myQuotes.length)} sub={myQuotes.length ? 'Submitted' : 'None yet'} tone={myQuotes.length ? 'mint' : 'paper'} style={{ flex: 1 }} />
+          </View>
+        </InkHero>
+      </Enter>
       {!quotable ? (
-        <Card kind="flat" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.amberSoft, borderColor: 'rgba(196,132,58,0.3)' }}>
-          <CircleAlert size={17} color={colors.amber} />
+        <Card kind="flat" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <IconTile icon={CircleAlert} tone="warning" size={38} />
           <Text variant="bodySm" weight="medium" color="ink2" style={{ flex: 1 }}>
             {closedReason}
           </Text>
         </Card>
       ) : null}
       {myQuotes.length ? (
-        <Card kind="flat">
-          <Text variant="h2">My quotes</Text>
-          {myQuotes.map((qq, i) => (
-            <KeyValue key={qq.quote.id ?? i} label={qq.quote.quoteNumber} value={formatLKR(qq.quote.totalCents)} mono />
-          ))}
-        </Card>
+        <Section icon={Send} kicker="Submitted" title="My quotes">
+          <View style={{ marginTop: -8 }}>
+            {myQuotes.map((qq, i) => (
+              <KeyValue key={qq.quote.id ?? i} label={qq.quote.quoteNumber} value={formatLKR(qq.quote.totalCents)} mono last={i === myQuotes.length - 1} />
+            ))}
+          </View>
+        </Section>
       ) : null}
-      <Card kind="flat" style={{ gap: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text variant="h2">Line items</Text>
-          {quotable ? (
-            <Text variant="caption" color={allPriced ? 'mint' : 'ink4'}>
-              {allPriced ? 'Ready to submit' : 'Price every line to submit'}
-            </Text>
-          ) : null}
-        </View>
-        {items.map((it) => (
-          <View key={it.id} style={{ gap: 6 }}>
-            <Text variant="body" weight="medium">
-              {it.description}
-            </Text>
-            <Text variant="caption" color="ink4">
-              Qty {it.quantity} {it.unit}
-              {it.targetPriceCents ? ` · Target ${formatLKR(it.targetPriceCents)}` : ''}
-            </Text>
+      <Section
+        icon={ListChecks}
+        kicker="Step 1 · Pricing"
+        title="Line items"
+        right={
+          quotable ? (
+            <Badge label={allPriced ? 'Ready' : `${pricedCount}/${items.length}`} tone={allPriced ? 'success' : 'neutral'} dot size="sm" />
+          ) : null
+        }
+        sub={quotable ? (allPriced ? 'Ready to submit' : 'Price every line to submit') : undefined}
+      >
+        {items.map((it, i) => (
+          <View key={it.id} style={{ gap: 10, padding: 14, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
+            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+              <View style={{ width: 28, height: 28, borderRadius: 10, borderCurve: 'continuous', backgroundColor: Number(prices[it.id] ?? 0) > 0 ? colors.volt : colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11.5, lineHeight: 14, color: Number(prices[it.id] ?? 0) > 0 ? colors.ink : colors.volt }}>{i + 1}</Text>
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text variant="body" weight="medium">
+                  {it.description}
+                </Text>
+                <Text variant="caption" color="ink4">
+                  Qty {it.quantity} {it.unit}
+                  {it.targetPriceCents ? ` · Target ${formatLKR(it.targetPriceCents)}` : ''}
+                </Text>
+              </View>
+            </View>
             <Field label={`Unit price (LKR) — ${it.unit}`}>
               <Input
                 value={prices[it.id] ?? ''}
@@ -168,12 +201,12 @@ export function SupplierQuoteDetailScreen() {
             </Field>
           </View>
         ))}
-      </Card>
-      <Card kind="flat">
+      </Section>
+      <Section icon={MessageSquare} kicker="Step 2 · Terms" title="Message to buyer">
         <Field label="Message to buyer (optional)">
           <Input value={msg} onChangeText={setMsg} placeholder="Lead time, packaging, delivery…" multiline />
         </Field>
-      </Card>
+      </Section>
     </Screen>
   );
 }

@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { router } from 'expo-router';
-import { ArrowLeft, Copy, Sparkles, Store } from 'lucide-react-native';
-import { IconButton, InkHero, Kicker, Pulse, Text, Touchable } from '@/ui';
+import { ArrowLeft, ChevronRight, Copy, Sparkles, Store } from 'lucide-react-native';
+import { IconButton, IconTile, InkHero, Kicker, Pulse, Text, Touchable } from '@/ui';
 import { colors, fonts, radii } from '@/theme/tokens';
 import { formatDate, formatDateTime, formatLKR } from '@/lib/format';
 import { TERMINAL, journeyIndex, statusHeadline, statusLabel } from '../orderStatus';
@@ -49,7 +49,7 @@ export function OrderHero({
   const live = !terminal && status !== 'completed';
 
   return (
-    <InkHero seed={poNumber} style={{ padding: 18 }}>
+    <InkHero seed={poNumber} style={{ padding: 18, borderRadius: radii['3xl'] }}>
       <View style={{ gap: 20 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <IconButton
@@ -138,7 +138,17 @@ export function OrderHero({
           </View>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.paperLine, paddingTop: 14, gap: 12 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-end',
+            justifyContent: 'space-between',
+            borderTopWidth: StyleSheet.hairlineWidth * 2,
+            borderTopColor: colors.paperLine,
+            paddingTop: 14,
+            gap: 12,
+          }}
+        >
           <View style={{ gap: 4, flex: 1 }}>
             <Text variant="overline" color="paperFaint">
               Order total
@@ -151,7 +161,7 @@ export function OrderHero({
             </Text>
           </View>
           {discountCents > 0 ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(198,220,74,0.14)', borderRadius: radii.md, paddingHorizontal: 8, paddingVertical: 5 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(198,220,74,0.14)', borderRadius: radii.pill, paddingHorizontal: 10, height: 28 }}>
               <Sparkles size={12} color={colors.volt} />
               <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11, color: colors.volt }}>−{formatLKR(discountCents)}</Text>
             </View>
@@ -162,11 +172,20 @@ export function OrderHero({
           <Touchable
             onPress={onSupplier}
             disabled={!onSupplier}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(250,247,240,0.06)', borderRadius: radii.xl, padding: 12 }}
+            scaleTo={0.98}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+              backgroundColor: 'rgba(250,247,240,0.07)',
+              borderRadius: radii.xl,
+              borderCurve: 'continuous',
+              padding: 12,
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: 'rgba(250,247,240,0.1)',
+            }}
           >
-            <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.volt, alignItems: 'center', justifyContent: 'center' }}>
-              <Store size={16} color={colors.ink} strokeWidth={1.8} />
-            </View>
+            <IconTile icon={Store} tone="volt" size={40} />
             <View style={{ flex: 1 }}>
               <Text variant="overline" color="paperFaint">
                 Supplier
@@ -176,9 +195,12 @@ export function OrderHero({
               </Text>
             </View>
             {onSupplier ? (
-              <Text variant="caption" color="volt">
-                Storefront →
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, height: 28, paddingLeft: 10, paddingRight: 6, borderRadius: radii.pill, backgroundColor: 'rgba(250,247,240,0.09)' }}>
+                <Text variant="caption" weight="semibold" color="paper">
+                  Storefront
+                </Text>
+                <ChevronRight size={14} color={colors.volt} />
+              </View>
             ) : null}
           </Touchable>
         ) : null}

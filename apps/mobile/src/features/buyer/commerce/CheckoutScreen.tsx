@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building2, Clock, CreditCard, FileText, Package, ShieldCheck, Store, Truck } from 'lucide-react-native';
 import {
@@ -10,6 +11,7 @@ import {
   EmptyState,
   ErrorState,
   Gutter,
+  IconTile,
   Input,
   ListHeader,
   ListScreen,
@@ -24,7 +26,7 @@ import {
 import { api, ApiError, errorMessage, qs } from '@/lib/api';
 import { useBusinessId } from '@/lib/auth';
 import { formatLKR } from '@/lib/format';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { MonoTag, Section, go } from '../orders/kit';
 import { leadLabel, useCart, useRepeatOffersPreview } from './data';
 import type { BusinessDetail, CartItem, CreditFacilityResponse } from './types';
@@ -45,6 +47,7 @@ export function CheckoutScreen() {
   const qc = useQueryClient();
   const toast = useToast();
   const cart = useCart(businessId);
+  const insets = useSafeAreaInsets();
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('paynow');
   const [creditTerms, setCreditTerms] = useState<'net14' | 'net30'>('net30');
@@ -190,7 +193,7 @@ export function CheckoutScreen() {
         }
         ListFooterComponent={
           items.length ? (
-            <View style={{ gap: 12, marginTop: 6 }}>
+            <View style={{ gap: 12, marginTop: 6, paddingBottom: 150 }}>
               {/* Delivery instructions */}
               <Section step={2} title="Delivery & receiving notes" sub="Appended to every purchase order issued to suppliers">
                 <ChipRow
@@ -215,9 +218,19 @@ export function CheckoutScreen() {
                     ['Flexible settlement', 'Pay online via PayHere (cards / FriMi / Genie) or bank wire.'],
                     ['Escrow release', 'Funds release only after goods are received and inspected.'],
                   ].map(([t, d], i) => (
-                    <View key={t} style={{ flexDirection: 'row', gap: 10 }}>
-                      <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11, color: colors.volt }}>{i + 1}</Text>
+                    <View key={t} style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                      <View
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 11,
+                          borderCurve: 'continuous',
+                          backgroundColor: colors.voltSoft,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: colors.voltDeep }}>{i + 1}</Text>
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text variant="bodySm" weight="semibold">
@@ -229,8 +242,19 @@ export function CheckoutScreen() {
                       </View>
                     </View>
                   ))}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
-                    <CreditCard size={14} color={colors.copper} />
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: 12,
+                      marginTop: 4,
+                      borderRadius: radii.lg,
+                      borderCurve: 'continuous',
+                      backgroundColor: colors.pearl,
+                    }}
+                  >
+                    <CreditCard size={16} color={colors.copper} />
                     <Text variant="caption" color="ink4" style={{ flex: 1 }}>
                       PayHere Online (Visa, MasterCard, Amex) · Corporate bank wire · 256-bit TLS
                     </Text>
@@ -239,9 +263,9 @@ export function CheckoutScreen() {
               </Section>
 
               {/* Summary + payment method */}
-              <Card style={{ gap: 12 }}>
+              <Card radius={radii['2xl']} style={{ gap: 12 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text variant="h3">Procurement summary</Text>
+                  <Text variant="h2">Procurement summary</Text>
                   <MonoTag label={`${supplierCount} supplier PO${supplierCount === 1 ? '' : 's'}`} tone="ink" />
                 </View>
                 <SummaryRow label="Gross catalog subtotal" value={formatLKR(subtotal)} />
@@ -249,7 +273,17 @@ export function CheckoutScreen() {
                 {repeatDiscount > 0 ? <SummaryRow label="Repeat offer discount" value={`−${formatLKR(repeatDiscount)}`} mint /> : null}
                 <SummaryRow label="Vyro escrow & processing" value="Free (included)" mint />
                 <SummaryRow label="Freight & logistics" value="Per depot dispatch" dim />
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', borderTopWidth: 1, borderTopColor: colors.lineSoft, paddingTop: 10 }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-end',
+                    padding: 14,
+                    borderRadius: radii.lg,
+                    borderCurve: 'continuous',
+                    backgroundColor: colors.pearl,
+                  }}
+                >
                   <View>
                     <Text variant="overline">Total PO value</Text>
                     <Text variant="caption" color="ink4">
@@ -260,7 +294,7 @@ export function CheckoutScreen() {
                 </View>
 
                 {/* Payment method */}
-                <View style={{ borderTopWidth: 1, borderTopColor: colors.lineSoft, paddingTop: 10, gap: 8 }}>
+                <View style={{ borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft, paddingTop: 12, gap: 8 }}>
                   <Text variant="overline">Payment method</Text>
                   {creditAvailable ? (
                     <>
@@ -300,10 +334,10 @@ export function CheckoutScreen() {
           ) : null
         }
         renderItem={({ item: group, index }) => (
-          <Card padding={0} style={{ overflow: 'hidden' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: 14, backgroundColor: colors.bone, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                <Store size={16} color={colors.copper} />
+          <Card padding={14} radius={radii['2xl']} style={{ gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingBottom: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                <IconTile icon={Store} tone="ink" size={42} />
                 <View style={{ flex: 1 }}>
                   <Text variant="body" weight="semibold" numberOfLines={1}>
                     {group.supplierName}
@@ -319,8 +353,17 @@ export function CheckoutScreen() {
               </View>
             </View>
             {group.items.map((it, i) => (
-              <View key={it.id} style={{ flexDirection: 'row', gap: 12, padding: 12, borderBottomWidth: i === group.items.length - 1 ? 0 : 1, borderBottomColor: colors.lineSoft }}>
-                <ProductImage src={it.product.imageUrl} seed={it.product.name} style={{ width: 48, height: 48, borderRadius: radii.md }} />
+              <View
+                key={it.id}
+                style={{
+                  flexDirection: 'row',
+                  gap: 12,
+                  paddingVertical: 12,
+                  borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth * 2,
+                  borderTopColor: colors.lineSoft,
+                }}
+              >
+                <ProductImage src={it.product.imageUrl} seed={it.product.name} style={{ width: 56, height: 56, borderRadius: radii.lg, borderCurve: 'continuous' }} />
                 <View style={{ flex: 1, gap: 2 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
                     <Text variant="bodySm" weight="semibold" numberOfLines={2} style={{ flex: 1 }}>
@@ -339,7 +382,17 @@ export function CheckoutScreen() {
                 </View>
               </View>
             ))}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 12, backgroundColor: colors.bone, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingHorizontal: 14,
+                height: 38,
+                borderRadius: radii.pill,
+                backgroundColor: colors.pearl,
+              }}
+            >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Truck size={13} color={colors.mint} />
                 <Text variant="caption" color="ink4">
@@ -357,7 +410,36 @@ export function CheckoutScreen() {
         )}
       />
       {items.length ? (
-        <View style={{ position: 'absolute', left: 20, right: 20, bottom: 16 }}>
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            paddingHorizontal: 20,
+            paddingTop: 14,
+            paddingBottom: Math.max(insets.bottom, 14),
+            gap: 10,
+            backgroundColor: colors.paper,
+            borderTopLeftRadius: radii['2xl'],
+            borderTopRightRadius: radii['2xl'],
+            borderCurve: 'continuous',
+            boxShadow: '0px -6px 26px rgba(12,14,11,0.08)',
+          }}
+        >
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 4 }}>
+            <View>
+              <Text variant="overline" color="ink4">
+                Total PO value
+              </Text>
+              <Text variant="caption" color="ink5">
+                {supplierCount} PO{supplierCount === 1 ? '' : 's'} · {paymentMethod === 'credit' ? 'VYRO credit' : 'Pay now'}
+              </Text>
+            </View>
+            <Text variant="metricSm" numberOfLines={1} adjustsFontSizeToFit>
+              {formatLKR(total)}
+            </Text>
+          </View>
           <Button
             title={kycMissing ? 'KYC required before checkout' : `Confirm & issue ${supplierCount} PO${supplierCount === 1 ? '' : 's'}`}
             icon={kycMissing ? ShieldCheck : FileText}
@@ -391,18 +473,20 @@ function PayOption({ label, sub, active, onPress }: { label: string; sub: string
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ selected: active }}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        padding: 12,
-        borderRadius: radii.lg,
-        borderWidth: active ? 1.5 : 1,
-        borderColor: active ? colors.ink : colors.line,
-        backgroundColor: active ? colors.pearl : colors.paper,
-      }}
+      style={[
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          padding: 14,
+          borderRadius: radii.xl,
+          borderCurve: 'continuous',
+          backgroundColor: active ? colors.paper : colors.pearl,
+        },
+        active ? [shadow.md, { borderWidth: 1.5, borderColor: colors.volt }] : null,
+      ]}
     >
-      <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: active ? 6 : 1.5, borderColor: active ? colors.ink : colors.lineStrong, backgroundColor: active ? colors.volt : 'transparent' }} />
+      <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: active ? 6 : 1.5, borderColor: active ? colors.ink : colors.lineStrong, backgroundColor: active ? colors.volt : 'transparent' }} />
       <View style={{ flex: 1 }}>
         <Text variant="bodySm" weight="semibold">
           {label}

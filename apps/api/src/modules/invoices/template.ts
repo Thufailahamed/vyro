@@ -10,10 +10,26 @@ interface RenderInput {
   supplier: Supplier;
   po: PurchaseOrder;
   brandName: string;
+  /** Applied rates (0 when the supplier is not registered for that tax). */
+  tax?: { vatBps: number; ssclBps: number };
 }
 
 export function renderInvoiceHtml(input: RenderInput): string {
   const { invoice, items, business, supplier, po, brandName } = input;
+  const vatBps = input.tax?.vatBps ?? 0;
+  const ssclBps = input.tax?.ssclBps ?? 0;
+  // A "Tax Invoice" (IRD) may only be issued by a VAT-registered supplier.
+  const title =
+    invoice.type === 'credit_note'
+      ? 'Credit Note'
+      : invoice.type === 'tax_invoice'
+        ? (vatBps > 0 ? 'Tax Invoice' : 'Invoice')
+        : 'Receipt';
+  const pct = (bps: number) => `${(bps / 100).toFixed(bps % 100 === 0 ? 0 : 1)}%`;
+  const deliverTo = [po.deliveryAddress, [po.deliveryCity, po.deliveryDistrict].filter(Boolean).join(', ')]
+    .filter(Boolean)
+    .map((l) => `<p>${escapeHtml(String(l))}</p>`)
+    .join('');
   const fmt = (cents: number) =>
     new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 2 }).format(cents / 100);
   const dateFmt = new Intl.DateTimeFormat('en-GB', { year: 'numeric', month: 'short', day: '2-digit' });
@@ -62,7 +78,7 @@ export function renderInvoiceHtml(input: RenderInput): string {
   <div class="header">
     <div>
       <div class="brand">${escapeHtml(brandName)}</div>
-      <div style="font-size:13px;color:#555;margin-top:4px;">${invoice.type === 'tax_invoice' ? 'Tax Invoice' : 'Receipt'}</div>
+      <div style="font-size:13px;color:#555;margin-top:4px;">${title}</div>
     </div>
     <div class="meta">
       <div><strong>${escapeHtml(invoice.number)}</strong></div>
@@ -79,6 +95,7 @@ export function renderInvoiceHtml(input: RenderInput): string {
       <p>${escapeHtml(supplier.contactPerson ?? '')}</p>
       <p>${escapeHtml(supplier.email)}</p>
       <p>${escapeHtml(supplier.phone ?? '')}</p>
+      ${invoice.supplierVatNo ? `<p>VAT reg. no: ${escapeHtml(invoice.supplierVatNo)}</p>` : ''}
     </div>
     <div class="party">
       <h3>Billed to</h3>
@@ -86,8 +103,10 @@ export function renderInvoiceHtml(input: RenderInput): string {
       <p>${escapeHtml(business.contactPerson)}</p>
       <p>${escapeHtml(business.address)}</p>
       <p>${escapeHtml(business.city)}, ${escapeHtml(business.district)}</p>
+      ${invoice.buyerTaxId ? `<p>VAT/TIN: ${escapeHtml(invoice.buyerTaxId)}</p>` : ''}
     </div>
   </div>
+  ${deliverTo ? `<div class="party" style="margin-bottom:8px;"><h3>Deliver to</h3>${deliverTo}</div>` : ''}
 
   <table>
     <thead>
@@ -102,13 +121,15 @@ export function renderInvoiceHtml(input: RenderInput): string {
   </table>
 
   <div class="totals">
-    <div class="row"><span>Subtotal</span><span>${fmt(invoice.subtotalCents)}</span></div>
-    <div class="row"><span>Tax</span><span>${fmt(invoice.taxCents)}</span></div>
+    <div class="row"><span>${invoice.taxCents > 0 ? 'Value excl. taxes' : 'Subtotal'}</span><span>${fmt(invoice.subtotalCents)}</span></div>
+    ${ssclBps > 0 ? `<div class="row"><span>SSCL (${pct(ssclBps)})</span><span>${fmt(invoice.ssclCents)}</span></div>` : ''}
+    ${vatBps > 0 ? `<div class="row"><span>VAT (${pct(vatBps)})</span><span>${fmt(invoice.vatCents)}</span></div>` : ''}
+    ${invoice.taxCents === 0 ? `<div class="row"><span>Tax</span><span>${fmt(0)}</span></div>` : ''}
     <div class="row grand"><span>Total</span><span>${fmt(invoice.totalCents)} ${invoice.currency}</span></div>
   </div>
 
   <div class="footer">
-    Generated electronically by ${escapeHtml(brandName)}. This is a valid ${invoice.type === 'tax_invoice' ? 'tax invoice' : 'payment receipt'}.
+    ${invoice.taxCents > 0 ? 'Prices are inclusive of the taxes shown. ' : ''}Generated electronically by ${escapeHtml(brandName)}. This is a valid ${title.toLowerCase()}.
   </div>
 </div>
 </body>

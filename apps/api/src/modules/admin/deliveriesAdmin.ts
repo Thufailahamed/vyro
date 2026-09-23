@@ -9,6 +9,7 @@ import { deliveries, purchaseOrders, businesses, suppliers } from '@vyro/db/sche
 import { eq, and, or, like, desc } from 'drizzle-orm';
 import { adminListQuery, adminReasonBody } from '@vyro/validation';
 import { auditAdmin } from './lib/audit';
+import { applyTransition } from '../orders/lifecycle';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -96,8 +97,10 @@ router.post('/:id/reassign', async (c) => {
   const row = await db.select().from(deliveries).where(eq(deliveries.id, c.req.param('id'))).get();
   if (!row) throw httpError(404, 'NOT_FOUND', 'Delivery not found');
 
+  // assigned_by_user_id records WHO assigned (FK users); the assignee lives in the audit trail.
+  const actor = c.get('ctx') as { userId?: string } | undefined;
   const patch: Record<string, unknown> = {
-    assignedByUserId: parsed.data.assigneeId,
+    assignedByUserId: actor?.userId ?? row.assignedByUserId,
     updatedAt: Date.now(),
   };
   if (parsed.data.driverName) patch.driverName = parsed.data.driverName;
@@ -131,7 +134,7 @@ router.post('/:id/mark-lost', async (c) => {
 
   await db
     .update(deliveries)
-    .set({ status: 'failed', updatedAt: Date.now() })
+    .set({ status: 'failed', failedReason: parsed.data.reason, updatedAt: Date.now() })
     .where(eq(deliveries.id, row.id))
     .run();
 
@@ -170,6 +173,19 @@ router.post('/:id/update-status', async (c) => {
   if (parsed.data.status === 'picked_up' && !row.pickedUpAt) patch.pickedUpAt = now;
   if (parsed.data.status === 'delivered' && !row.deliveredAt) patch.deliveredAt = now;
 
+  // Delivered drop-offs advance the order through the shared pipeline first,
+  // so the two state machines cannot diverge.
+  if (parsed.data.status === 'delivered') {
+    const po = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, row.purchaseOrderId)).get();
+    const ctx = c.get('ctx') as { userId?: string } | undefined;
+    const actor = { role: 'admin' as const, userId: ctx?.userId ?? null };
+    if (po && po.status === 'ready_for_pickup') {
+      await applyTransition(c.env, { poId: po.id, to: 'out_for_delivery', actor, reason: parsed.data.reason, opts: { via: 'admin.delivery' } });
+    }
+    if (po && (po.status === 'ready_for_pickup' || po.status === 'out_for_delivery')) {
+      await applyTransition(c.env, { poId: po.id, to: 'delivered', actor, reason: parsed.data.reason, opts: { via: 'admin.delivery' } });
+    }
+  }
   await db.update(deliveries).set(patch as any).where(eq(deliveries.id, row.id)).run();
 
   await auditAdmin({

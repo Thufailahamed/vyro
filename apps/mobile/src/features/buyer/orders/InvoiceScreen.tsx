@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { FileText, Printer, Share2 } from 'lucide-react-native';
-import { Button, Card, EmptyState, ErrorState, KeyValue, ListCard, Screen, SkeletonList, Text, useToast } from '@/ui';
+import { Button, EmptyState, ErrorState, IconTile, InkHero, KeyValue, Screen, SkeletonList, Text, useToast } from '@/ui';
 import { api, errorMessage } from '@/lib/api';
 import { formatDateTime, formatLKR } from '@/lib/format';
-import { colors, fonts } from '@/theme/tokens';
+import { colors, fonts, radii } from '@/theme/tokens';
 import { MonoTag, Section, go } from './kit';
+import { invoiceTypeLabel } from './orderStatus';
 import { shareApiFile } from './share';
 import type { InvoiceItem } from './types';
 
@@ -15,7 +16,7 @@ interface InvoiceDetail {
   invoice: {
     id: string;
     number: string;
-    type: 'receipt' | 'tax_invoice';
+    type: 'receipt' | 'tax_invoice' | 'credit_note';
     purchaseOrderId: string;
     businessId?: string;
     supplierId?: string;
@@ -89,24 +90,30 @@ export function InvoiceScreen() {
   return (
     <Screen
       back
-      kicker={invoice.type === 'tax_invoice' ? 'Tax invoice' : 'Receipt'}
+      kicker={invoiceTypeLabel(invoice.type)}
       title={invoice.number}
       subtitle={`Issued ${formatDateTime(invoice.issuedAt)}${invoice.dueAt ? ` · due ${formatDateTime(invoice.dueAt)}` : ''}`}
       onRefresh={() => q.refetch()}
       footer={<Button title="Share / print invoice" icon={Share2} size="lg" full loading={sharing} onPress={share} />}
     >
-      <Card kind="ink" padding={18} style={{ gap: 6 }}>
+      <InkHero seed={`invoice-${invoice.id}`} style={{ gap: 6 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+          <IconTile icon={FileText} tone="glass" size={48} />
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <MonoTag label={invoiceTypeLabel(invoice.type)} tone="paper" />
+            <MonoTag label={`PO ref`} tone="volt" />
+          </View>
+        </View>
         <Text variant="overline" color="volt">
           Total {invoice.currency === 'LKR' ? '(LKR)' : invoice.currency}
         </Text>
-        <Text variant="metric" color="paper">
+        <Text variant="metric" color="paper" numberOfLines={1} adjustsFontSizeToFit>
           {formatLKR(invoice.totalCents)}
         </Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-          <MonoTag label={invoice.type === 'tax_invoice' ? 'Tax invoice' : 'Receipt'} tone="paper" />
-          <MonoTag label={`PO ref`} tone="paper" />
-        </View>
-      </Card>
+        <Text variant="caption" color="paperMuted">
+          {items.length} line{items.length === 1 ? '' : 's'} · tax {formatLKR(invoice.taxCents)}
+        </Text>
+      </InkHero>
 
       <Section kicker="Lines" title={`Items (${items.length})`} icon={FileText}>
         {items.length === 0 ? (
@@ -118,8 +125,18 @@ export function InvoiceScreen() {
             {items.map((it, i) => (
               <View
                 key={it.id}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.lineSoft }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  paddingVertical: 12,
+                  borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth * 2,
+                  borderTopColor: colors.lineSoft,
+                }}
               >
+                <View style={{ width: 36, height: 36, borderRadius: 12, borderCurve: 'continuous', backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: colors.ink3 }}>{String(i + 1).padStart(2, '0')}</Text>
+                </View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text variant="bodySm" weight="semibold" numberOfLines={2}>
                     {it.description}
@@ -136,15 +153,17 @@ export function InvoiceScreen() {
       </Section>
 
       <Section kicker="Totals" title="Summary" icon={Printer}>
-        <ListCard>
+        <View>
           <KeyValue label="Subtotal" value={formatLKR(invoice.subtotalCents)} mono />
           <KeyValue label="Tax" value={formatLKR(invoice.taxCents)} mono />
           <KeyValue label="Total" value={formatLKR(invoice.totalCents)} mono last emphasize />
-        </ListCard>
+        </View>
         {invoice.notes ? (
-          <Text variant="bodySm" color="ink4">
-            {invoice.notes}
-          </Text>
+          <View style={{ padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
+            <Text variant="bodySm" color="ink4">
+              {invoice.notes}
+            </Text>
+          </View>
         ) : null}
       </Section>
 

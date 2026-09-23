@@ -30,6 +30,7 @@ import {
   ChevronRightIcon,
 } from '@/components/icons';
 import { cn } from '@vyro/ui';
+import { invoiceTypeLabel } from '@/lib/orderLifecycle';
 
 type Tab = 'overview' | 'payments' | 'invoices' | 'refunds' | 'transactions' | 'credit';
 
@@ -626,7 +627,7 @@ function Invoices({ businessId }: { businessId: string }) {
                 </td>
                 <td className="px-6 py-4">
                   <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider bg-bone border border-ink/10 text-ink-2">
-                    {inv.type.replace(/_/g, ' ')}
+                    {invoiceTypeLabel(inv.type)}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right">

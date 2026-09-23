@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
-import { Award, CheckCircle2, Clock, MapPin, Package, ShieldCheck, ShoppingCart, Star, Store, Truck } from 'lucide-react-native';
+import { Award, CheckCircle2, ChevronRight, Clock, MapPin, Megaphone, Package, ShieldCheck, ShoppingCart, Star, Store, Truck } from 'lucide-react-native';
 import {
   Badge,
   Button,
@@ -11,11 +11,13 @@ import {
   EmptyState,
   ErrorState,
   Gutter,
+  IconTile,
   InkHero,
   ListHeader,
   ListScreen,
   ProductImage,
   ScreenHeader,
+  SectionHeader,
   SkeletonList,
   StatusBadge,
   Text,
@@ -68,9 +70,17 @@ export function StorefrontScreen() {
           <>
             <InkHero seed={supplier.id}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                <View style={{ flex: 1, gap: 6 }}>
+                <IconTile icon={Store} tone="glass" size={52} />
+                {supplier.verificationStatus === 'verified' ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, height: 28, borderRadius: radii.pill, backgroundColor: colors.volt }}>
+                    <ShieldCheck size={13} color={colors.ink} strokeWidth={2} />
+                    <Text style={{ fontFamily: fonts.sansSemi, fontSize: 11.5, color: colors.ink }}>Verified</Text>
+                  </View>
+                ) : null}
+              </View>
+              <View style={{ marginTop: 16 }}>
+                <View style={{ gap: 6 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Store size={16} color={colors.volt} />
                     {supplier.businessTypeName ? (
                       <Text variant="overline" color="volt" numberOfLines={1}>
                         {supplier.businessTypeName}
@@ -97,7 +107,6 @@ export function StorefrontScreen() {
                     ) : null}
                   </View>
                 </View>
-                {supplier.verificationStatus === 'verified' ? <ShieldCheck size={26} color={colors.volt} /> : null}
               </View>
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
                 <MonoTag label={`${offers.length} lot${offers.length === 1 ? '' : 's'}`} tone="paper" />
@@ -116,12 +125,7 @@ export function StorefrontScreen() {
               </View>
             ) : null}
 
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
-              <Text variant="h2">Published lots</Text>
-              <Text variant="caption" color="ink4">
-                {offers.length} active SKU{offers.length === 1 ? '' : 's'}
-              </Text>
-            </View>
+            <SectionHeader kicker={`${offers.length} active SKU${offers.length === 1 ? '' : 's'}`} title="Published lots" style={{ marginBottom: 0, marginTop: 6 }} />
           </>
         ) : null}
       </Gutter>
@@ -164,14 +168,14 @@ export function StorefrontScreen() {
             {/* Reviews */}
             <Section icon={Star} kicker="Commercial track record" title="Buyer reviews" sub={reviewSummary.count ? `${reviewSummary.avg?.toFixed(1) ?? '—'} / 5 · ${reviewSummary.count} verified purchase review${reviewSummary.count === 1 ? '' : 's'}` : 'No reviews yet'}>
               {reviewSummary.count ? (
-                <View style={{ gap: 4 }}>
+                <View style={{ gap: 6, padding: 14, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
                   {([5, 4, 3, 2, 1] as const).map((star) => (
                     <View key={star} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <Text variant="caption" color="ink4" style={{ width: 16 }}>
                         {star}★
                       </Text>
-                      <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.mist, overflow: 'hidden' }}>
-                        <View style={{ height: 6, backgroundColor: colors.volt, width: `${reviewSummary.count ? (reviewSummary.distribution[star] / reviewSummary.count) * 100 : 0}%` }} />
+                      <View style={{ flex: 1, height: 8, borderRadius: 4, backgroundColor: colors.mist, overflow: 'hidden' }}>
+                        <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.volt, width: `${reviewSummary.count ? (reviewSummary.distribution[star] / reviewSummary.count) * 100 : 0}%` }} />
                       </View>
                       <Text variant="caption" color="ink4" style={{ width: 24, textAlign: 'right' }}>
                         {reviewSummary.distribution[star]}
@@ -190,7 +194,7 @@ export function StorefrontScreen() {
                 onChange={setSort}
               />
               {(reviews.data?.reviews ?? []).slice(0, reviewsShown).map((r) => (
-                <View key={r.id} style={{ gap: 4, borderTopWidth: 1, borderTopColor: colors.lineSoft, paddingTop: 10 }}>
+                <View key={r.id} style={{ gap: 6, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft, paddingTop: 12 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                     <View style={{ flexDirection: 'row', gap: 2 }}>
                       {[1, 2, 3, 4, 5].map((s) => (
@@ -203,7 +207,7 @@ export function StorefrontScreen() {
                   </View>
                   {r.body ? <Text variant="bodySm" color="ink3">{r.body}</Text> : null}
                   {r.reply ? (
-                    <View style={{ backgroundColor: colors.bone, borderRadius: radii.lg, padding: 10, gap: 2 }}>
+                    <View style={{ backgroundColor: colors.pearl, borderRadius: radii.lg, borderCurve: 'continuous', borderTopLeftRadius: 4, padding: 12, gap: 2, marginLeft: 10 }}>
                       <Text variant="caption" weight="semibold" color="copper">
                         Supplier response
                       </Text>
@@ -220,7 +224,7 @@ export function StorefrontScreen() {
             </Section>
 
             {/* Safeguards */}
-            <Card kind="bone" style={{ gap: 10 }}>
+            <Card radius={radii['2xl']} style={{ gap: 12 }}>
               <Text variant="overline" color="copper">
                 Wholesale procurement guarantee
               </Text>
@@ -229,9 +233,9 @@ export function StorefrontScreen() {
                 'Direct bulk RFQ negotiation and freight dispatch.',
                 'Automated 3-way reconciliation with tax invoices.',
               ].map((t) => (
-                <View key={t} style={{ flexDirection: 'row', gap: 8 }}>
-                  <ShieldCheck size={14} color={colors.mint} />
-                  <Text variant="caption" color="ink3" style={{ flex: 1 }}>
+                <View key={t} style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <IconTile icon={ShieldCheck} tone="success" size={32} />
+                  <Text variant="bodySm" color="ink3" style={{ flex: 1 }}>
                     {t}
                   </Text>
                 </View>
@@ -241,14 +245,27 @@ export function StorefrontScreen() {
             {/* Sponsored */}
             {sponsored.length ? (
               <Section kicker="Promoted" title="Sponsored products" icon={Award}>
-                {sponsored.map((s) => (
-                  <Touchable key={s.slotId} onPress={() => go(productHref(s.productId!))} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 }}>
-                    <Text variant="bodySm" weight="medium">
+                {sponsored.map((s, i) => (
+                  <Touchable
+                    key={s.slotId}
+                    onPress={() => go(productHref(s.productId!))}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      paddingVertical: 10,
+                      borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth * 2,
+                      borderTopColor: colors.lineSoft,
+                    }}
+                  >
+                    <IconTile icon={Megaphone} tone="warning" size={34} />
+                    <Text variant="bodySm" weight="medium" style={{ flex: 1 }}>
                       Sponsored product
                     </Text>
                     <Text variant="caption" color="ink4">
                       Slot #{s.position}
                     </Text>
+                    <ChevronRight size={16} color={colors.ink5} />
                   </Touchable>
                 ))}
               </Section>
@@ -263,15 +280,15 @@ export function StorefrontScreen() {
 function OfferTile({ offer: o, adding, canOrder, onAdd }: { offer: StorefrontOffer; adding: boolean; canOrder: boolean; onAdd: () => void }) {
   const avail = availabilityLabel(o.availabilityStatus);
   return (
-    <Card padding={0} style={{ overflow: 'hidden' }} onPress={() => go(productHref(o.productId))}>
+    <Card padding={6} radius={radii['2xl']} onPress={() => go(productHref(o.productId))}>
       <View>
-        <ProductImage src={o.productImage} seed={o.productId} style={{ width: '100%', height: 132 }} />
+        <ProductImage src={o.productImage} seed={o.productId} style={{ width: '100%', height: 150, borderRadius: radii.xl, borderCurve: 'continuous' }} />
         <View style={{ position: 'absolute', top: 10, left: 10, right: 10, flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-          {o.brand ? <Pill label={o.brand} /> : <View />}
+          {o.brand ? <Pill tone="paper" label={o.brand} /> : <View />}
           {o.leadTimeDays != null ? <Pill icon={Clock} label={leadLabel(o.leadTimeDays, true)} tone="ink" /> : null}
         </View>
       </View>
-      <View style={{ padding: 12, gap: 6 }}>
+      <View style={{ paddingHorizontal: 10, paddingTop: 12, paddingBottom: 8, gap: 6 }}>
           <Text variant="body" weight="semibold" numberOfLines={2}>
             {o.productName ?? 'Product'}
           </Text>
@@ -286,8 +303,13 @@ function OfferTile({ offer: o, adding, canOrder, onAdd }: { offer: StorefrontOff
               </Text>
             ) : null}
           </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 15, color: colors.ink }}>
+          <View
+            style={[
+              { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 4, padding: 8, paddingLeft: 14, borderRadius: radii.pill },
+              { backgroundColor: colors.pearl },
+            ]}
+          >
+            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 16, letterSpacing: -0.4, color: colors.ink, flexShrink: 1 }} numberOfLines={1}>
               {formatLKR(o.priceCents)}
               <Text variant="caption" color="ink4">
                 {' '}

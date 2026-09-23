@@ -58,7 +58,7 @@ vi.mock(setup.SRC + '/modules/payouts/repository', () => ({
 }));
 
 vi.mock(setup.SRC + '/modules/settings/supplierRepository', () => ({
-  getOrCreateSupplierSettings: vi.fn(async (_d1, _supplierId, _ctxUserId) => ({
+  readSupplierSettingsForSystem: vi.fn(async (_d1, _supplierId) => ({
     id: 'settings-' + _supplierId,
     supplierId: _supplierId,
     payoutMethod: state.payoutMethod,

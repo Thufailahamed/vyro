@@ -32,12 +32,16 @@ export const refunds = sqliteTable(
     processedAt: integer('processed_at'),
     completedAt: integer('completed_at'),
     failureReason: text('failure_reason'),
+    purchaseOrderId: text('purchase_order_id'),
+    source: text('source', { enum: ['cancel', 'reject', 'partial_accept', 'return', 'dispute', 'manual'] }),
+    sourceRefId: text('source_ref_id'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
   },
   (t) => ({
     paymentIdx: index('refunds_payment_idx').on(t.paymentId),
     statusIdx: index('refunds_status_idx').on(t.status),
+    poIdx: index('refunds_po_idx').on(t.purchaseOrderId),
   }),
 );
 

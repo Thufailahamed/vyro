@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { ArrowDownLeft, ArrowUpRight, CheckCircle2, CreditCard, Layers, Package, PauseCircle, PlayCircle, ShieldAlert, Wallet } from 'lucide-react-native';
 import { colors, radii } from '@/theme/tokens';
 import { errorMessage } from '@/lib/api';
@@ -15,6 +15,7 @@ import {
   Donut,
   ErrorState,
   Field,
+  IconTile,
   Input,
   LinkText,
   ProgressBar,
@@ -181,11 +182,9 @@ export function PayoutsSection() {
     <View style={{ gap: 12 }}>
       {canApprove ? (
         <Appear>
-          <Card kind="bone" style={{ gap: 12 }}>
-            <Row gap={10} align="flex-start">
-              <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-                <Layers size={18} color={colors.volt} strokeWidth={1.7} />
-              </View>
+          <Card kind="flat" padding={18} style={{ gap: 14 }}>
+            <Row gap={12} align="center">
+              <IconTile icon={Layers} tone="ink" size={42} />
               <View style={{ flex: 1, gap: 2 }}>
                 <Text variant="h3">Create disbursement batch</Text>
                 <Text variant="caption" color="ink4">
@@ -345,8 +344,8 @@ export function LedgerSection() {
           ) : null}
 
           <Appear i={3}>
-            <Card kind="flat" padding={0} style={{ paddingHorizontal: 14 }}>
-              <View style={{ paddingTop: 14, paddingBottom: 4 }}>
+            <Card kind="flat" padding={0} style={{ paddingHorizontal: 16 }}>
+              <View style={{ paddingTop: 16, paddingBottom: 4 }}>
                 <Text variant="overline" color="copper">
                   Double-entry by account category
                 </Text>
@@ -356,7 +355,7 @@ export function LedgerSection() {
                   const net = r.creditCents - r.debitCents;
                   const total = r.creditCents + r.debitCents || 1;
                   return (
-                    <View key={r.accountType} style={{ paddingVertical: 12, gap: 8, borderBottomWidth: i === d.byAccountType.length - 1 ? 0 : 1, borderBottomColor: colors.lineSoft }}>
+                    <View key={r.accountType} style={{ paddingVertical: 12, gap: 8, borderBottomWidth: i === d.byAccountType.length - 1 ? 0 : StyleSheet.hairlineWidth * 2, borderBottomColor: colors.lineSoft }}>
                       <Row justify="space-between">
                         <Text variant="body" weight="semibold" style={{ flex: 1 }} numberOfLines={1}>
                           {humanize(r.accountType)}

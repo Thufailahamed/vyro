@@ -10,6 +10,8 @@ import {
   EmptyState,
   ErrorState,
   IconButton,
+  IconTile,
+  InkHero,
   ListScreen,
   ListHeader,
   Gutter,
@@ -25,7 +27,7 @@ import {
 import { api, errorMessage, qs } from '@/lib/api';
 import { useBusinessId } from '@/lib/auth';
 import { formatLKR } from '@/lib/format';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { MonoTag } from '../orders/kit';
 import { availabilityLabel, catalogHref, go, productHref, useCart, useRepeatOffersPreview } from './data';
 import type { CartItem, LineHint } from './types';
@@ -142,6 +144,7 @@ export function CartScreen() {
             />
           )
         }
+        ListFooterComponent={items.length > 0 ? <View style={{ height: 170 }} /> : null}
         renderItem={({ item: [supplierName, group], index }) => (
           <SupplierGroup
             index={index}
@@ -207,42 +210,36 @@ function SupplierGroup({
   const supplierDiscount = group.lines.reduce((a, b) => a + (b.discountCents || 0), 0);
 
   return (
-    <Card padding={0} style={{ overflow: 'hidden' }}>
+    <Card padding={14} radius={radii['2xl']} style={{ gap: 12 }}>
       {/* Supplier PO header */}
-      <View style={{ backgroundColor: colors.bone, padding: 14, gap: 6, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <View style={{ gap: 10, paddingHorizontal: 2, paddingTop: 2 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <IconTile icon={Store} tone="ink" size={44} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="h2" numberOfLines={1}>
+              {supplierName}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Truck size={12} color={colors.ink4} />
+              <Text variant="caption" color="ink4" numberOfLines={1} style={{ flexShrink: 1 }}>
+                {maxLead}d lead · {[group.supplier.city, group.supplier.district].filter(Boolean).join(', ') || 'Sri Lanka'}
+              </Text>
+            </View>
+          </View>
+          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 16, letterSpacing: -0.4, color: colors.ink }}>{formatLKR(sub)}</Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <MonoTag label={`Draft PO-${String(index + 1).padStart(2, '0')}`} tone="ink" />
           {group.supplier.verificationStatus === 'verified' ? <MonoTag label="Verified mill" tone="mint" /> : null}
           {repeatOffer ? <MonoTag label={`Repeat −${repeatOffer.percent}%`} tone="volt" /> : null}
-          <Text variant="caption" color="ink4" numberOfLines={1}>
-            {[group.supplier.city, group.supplier.district].filter(Boolean).join(', ') || 'Sri Lanka'}
-          </Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
-          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Store size={16} color={colors.copper} strokeWidth={1.8} />
-            <Text variant="h2" numberOfLines={1} style={{ flex: 1 }}>
-              {supplierName}
-            </Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Truck size={12} color={colors.ink4} />
-              <Text variant="caption" color="ink4">
-                {maxLead}d lead
-              </Text>
-            </View>
-            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 16, color: colors.ink }}>{formatLKR(sub)}</Text>
-          </View>
         </View>
       </View>
 
       {/* Lines */}
-      {group.lines.map((it, i) => (
+      {group.lines.map((it) => (
         <CartLine
           key={it.id}
           item={it}
-          last={i === group.lines.length - 1}
           hint={hintsByItem.get(it.id)}
           updating={updatingId === it.id}
           onStep={(d) => onStep(it, d)}
@@ -252,7 +249,17 @@ function SupplierGroup({
       ))}
 
       {supplierDiscount > 0 ? (
-        <View style={{ backgroundColor: colors.mintSoft, paddingHorizontal: 14, paddingVertical: 8, flexDirection: 'row', justifyContent: 'space-between' }}>
+        <View
+          style={{
+            backgroundColor: colors.mintSoft,
+            borderRadius: radii.pill,
+            paddingHorizontal: 14,
+            height: 34,
+            alignItems: 'center',
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+          }}
+        >
           <Text variant="caption" style={{ color: colors.mint }}>
             Wholesale volume discount applied
           </Text>
@@ -265,7 +272,6 @@ function SupplierGroup({
 
 function CartLine({
   item: it,
-  last,
   hint,
   updating,
   onStep,
@@ -273,7 +279,6 @@ function CartLine({
   onRemove,
 }: {
   item: CartItem;
-  last: boolean;
   hint?: LineHint;
   updating: boolean;
   onStep: (delta: number) => void;
@@ -285,12 +290,12 @@ function CartLine({
   const avail = availabilityLabel(it.offer.availabilityStatus);
 
   return (
-    <View style={{ padding: 14, gap: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.lineSoft, opacity: updating ? 0.6 : 1 }}>
+    <View style={{ padding: 10, gap: 12, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.pearl, opacity: updating ? 0.6 : 1 }}>
       <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Touchable onPress={() => go(productHref(it.product.id))} accessibilityLabel={it.product.name}>
-          <ProductImage src={it.product.imageUrl} seed={it.product.id} style={{ width: 56, height: 56, borderRadius: radii.lg }} />
+        <Touchable onPress={() => go(productHref(it.product.id))} accessibilityLabel={it.product.name} scaleTo={0.95} style={[{ borderRadius: radii.lg }, shadow.sm]}>
+          <ProductImage src={it.product.imageUrl} seed={it.product.id} style={{ width: 72, height: 72, borderRadius: radii.lg, borderCurve: 'continuous' }} />
         </Touchable>
-        <View style={{ flex: 1, gap: 3 }}>
+        <View style={{ flex: 1, gap: 4 }}>
           <Text variant="body" weight="semibold" numberOfLines={2} onPress={() => go(productHref(it.product.id))}>
             {it.product.name}
           </Text>
@@ -303,15 +308,7 @@ function CartLine({
             <StatusBadge status={it.offer.availabilityStatus} size="sm" label={avail.label} />
           </View>
         </View>
-        <View style={{ alignItems: 'flex-end', gap: 2 }}>
-          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 15, color: colors.ink }}>{formatLKR(it.lineTotalCents)}</Text>
-          {it.discountCents > 0 ? (
-            <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: colors.mint }}>save {formatLKR(it.discountCents)}</Text>
-          ) : null}
-          {it.discountCents > 0 ? (
-            <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: colors.ink5, textDecorationLine: 'line-through' }}>{formatLKR(gross)}</Text>
-          ) : null}
-        </View>
+        <IconButton icon={Trash2} variant="ghost" color={colors.rose} size={32} accessibilityLabel={`Remove ${it.product.name}`} onPress={onRemove} />
       </View>
 
       {belowMoq ? (
@@ -328,16 +325,41 @@ function CartLine({
         />
       ) : null}
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <Stepper value={it.quantity} min={0} onChange={(v) => (v < it.offer.minOrderQty ? onSet(it.offer.minOrderQty) : onSet(v))} size="sm" />
-        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-          <Button title={`MOQ ${it.offer.minOrderQty}`} variant="ghost" size="sm" onPress={() => onSet(it.offer.minOrderQty)} />
-          <Button title="+10" variant="ghost" size="sm" onPress={() => onStep(10)} />
-          <Button title="+25" variant="ghost" size="sm" onPress={() => onStep(25)} />
-          <IconButton icon={Trash2} variant="ghost" color={colors.rose} size={34} accessibilityLabel={`Remove ${it.product.name}`} onPress={onRemove} />
+        <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
+          {it.discountCents > 0 ? (
+            <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: colors.ink5, textDecorationLine: 'line-through' }}>{formatLKR(gross)}</Text>
+          ) : null}
+          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 16.5, letterSpacing: -0.4, color: colors.ink }} numberOfLines={1} adjustsFontSizeToFit>
+            {formatLKR(it.lineTotalCents)}
+          </Text>
+          {it.discountCents > 0 ? (
+            <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: colors.mint }}>save {formatLKR(it.discountCents)}</Text>
+          ) : null}
         </View>
       </View>
+      <View style={{ flexDirection: 'row', gap: 6 }}>
+        <PresetChip label={`MOQ ${it.offer.minOrderQty}`} onPress={() => onSet(it.offer.minOrderQty)} />
+        <PresetChip label="+10" onPress={() => onStep(10)} />
+        <PresetChip label="+25" onPress={() => onStep(25)} />
+      </View>
     </View>
+  );
+}
+
+function PresetChip({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Touchable
+      onPress={onPress}
+      hapticOnPress
+      scaleTo={0.94}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={[{ height: 30, paddingHorizontal: 12, borderRadius: radii.pill, backgroundColor: colors.paper, justifyContent: 'center' }, shadow.sm]}
+    >
+      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11.5, color: colors.ink2 }}>{label}</Text>
+    </Touchable>
   );
 }
 
@@ -359,46 +381,37 @@ function SummaryBar({
   blocked: boolean;
 }) {
   return (
-    <View
-      style={{
-        position: 'absolute',
-        left: 12,
-        right: 12,
-        bottom: 96,
-        borderRadius: radii['2xl'],
-        backgroundColor: colors.ink,
-        padding: 14,
-        gap: 10,
-      }}
-    >
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View style={{ flexDirection: 'row', gap: 14 }}>
-          <MiniStat label="POs" value={String(supplierCount)} />
-          <MiniStat label="Lines" value={String(lineCount)} />
-          <MiniStat label="Units" value={units.toLocaleString()} />
-          {discount > 0 ? <MiniStat label="Saved" value={`−${formatLKR(discount)}`} volt /> : null}
+    <View style={{ position: 'absolute', left: 12, right: 12, bottom: 96 }}>
+      <InkHero seed="cart-summary" style={[{ padding: 16, gap: 12 }, shadow.lg]}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+          <View style={{ flexDirection: 'row', gap: 14 }}>
+            <MiniStat label="POs" value={String(supplierCount)} />
+            <MiniStat label="Lines" value={String(lineCount)} />
+            <MiniStat label="Units" value={units.toLocaleString()} />
+            {discount > 0 ? <MiniStat label="Saved" value={`−${formatLKR(discount)}`} volt /> : null}
+          </View>
+          <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
+            <Text variant="overline" color="paperFaint">
+              Total
+            </Text>
+            <Text variant="metricSm" color="volt" numberOfLines={1} adjustsFontSizeToFit>
+              {formatLKR(total)}
+            </Text>
+          </View>
         </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text variant="overline" color="paperFaint">
-            Total
-          </Text>
-          <Text variant="metricSm" color="volt" numberOfLines={1} adjustsFontSizeToFit>
-            {formatLKR(total)}
-          </Text>
-        </View>
-      </View>
-      <Button
-        title={blocked ? 'Resolve minimums to continue' : `Issue ${supplierCount} PO${supplierCount === 1 ? '' : 's'} & checkout`}
-        iconRight={ArrowRight}
-        variant="volt"
-        full
-        size="lg"
-        disabled={blocked}
-        onPress={() => go('/buyer/checkout')}
-      />
-      <Text style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.paperFaint, textAlign: 'center' }}>
-        Escrow-protected · direct mill-gate prices · {formatLKR(subtotal)} gross
-      </Text>
+        <Button
+          title={blocked ? 'Resolve minimums to continue' : `Issue ${supplierCount} PO${supplierCount === 1 ? '' : 's'} & checkout`}
+          iconRight={ArrowRight}
+          variant="volt"
+          full
+          size="lg"
+          disabled={blocked}
+          onPress={() => go('/buyer/checkout')}
+        />
+        <Text style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.paperFaint, textAlign: 'center' }}>
+          Escrow-protected · direct mill-gate prices · {formatLKR(subtotal)} gross
+        </Text>
+      </InkHero>
     </View>
   );
 }

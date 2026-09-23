@@ -1,11 +1,12 @@
 import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { Award, Trophy, Truck } from 'lucide-react-native';
+import { Award, Split, Store, Trophy, Truck } from 'lucide-react-native';
 import {
   Button,
   Card,
   EmptyState,
   ErrorState,
+  IconTile,
   InkHero,
   Kicker,
   Screen,
@@ -17,7 +18,7 @@ import {
 } from '@/ui';
 import { api, errorMessage } from '@/lib/api';
 import { formatDate, formatLKR, humanize } from '@/lib/format';
-import { colors, fonts } from '@/theme/tokens';
+import { colors, fonts, radii } from '@/theme/tokens';
 import { Enter, go } from '../orders/kit';
 import { useRfqAiSummary, useRfqCompare } from './api';
 
@@ -71,13 +72,16 @@ export function RfqCompareScreen() {
     >
       <Enter i={0}>
         <InkHero seed={`compare-${id}`}>
-          <Kicker color="volt">Best landed cost</Kicker>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <IconTile icon={Trophy} tone="volt" size={36} />
+            <Kicker color="volt">Best landed cost</Kicker>
+          </View>
           {best ? (
             <>
               <Text variant="h1" color="paper" style={{ marginTop: 8 }} numberOfLines={2}>
                 {best.supplier?.name ?? 'Best quote'}
               </Text>
-              <Text variant="metricSm" color="volt" style={{ marginTop: 6 }}>
+              <Text variant="metric" color="volt" style={{ marginTop: 6 }} numberOfLines={1} adjustsFontSizeToFit>
                 {formatLKR(best.landedCents)}
               </Text>
               <Text variant="caption" color="paperMuted" style={{ marginTop: 4 }}>
@@ -103,14 +107,17 @@ export function RfqCompareScreen() {
       </Enter>
 
       {d.splitOptimization.supplierCount > 1 ? (
-        <Card kind="volt" padding={14} style={{ gap: 4 }}>
-          <Kicker>Split optimisation</Kicker>
-          <Text variant="h3">
-            {formatLKR(d.splitOptimization.splitLandedEstimateCents)} across {d.splitOptimization.supplierCount} suppliers
-          </Text>
-          <Text variant="caption" color="ink3">
-            Best per-item mix saves vs any single quote. Award per line from the detail screen.
-          </Text>
+        <Card kind="volt" padding={16} style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
+          <IconTile icon={Split} tone="ink" size={44} />
+          <View style={{ flex: 1, gap: 4 }}>
+            <Kicker color="ink3">Split optimisation</Kicker>
+            <Text variant="h3">
+              {formatLKR(d.splitOptimization.splitLandedEstimateCents)} across {d.splitOptimization.supplierCount} suppliers
+            </Text>
+            <Text variant="caption" color="ink3">
+              Best per-item mix saves vs any single quote. Award per line from the detail screen.
+            </Text>
+          </View>
         </Card>
       ) : null}
 
@@ -124,17 +131,17 @@ export function RfqCompareScreen() {
           return (
             <Enter key={q.quote.id} i={i + 1}>
               <Card
+                kind={isBest ? 'elevated' : 'flat'}
                 padding={16}
-                style={{ gap: 12, borderColor: isBest ? colors.mint : undefined, borderWidth: isBest ? 1.5 : 1 }}
+                radius={radii['2xl']}
+                style={[{ gap: 14 }, isBest ? { borderWidth: 1.5, borderColor: colors.mint } : null]}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                  <IconTile icon={isBest ? Trophy : Store} tone={isBest ? 'success' : 'ink'} size={44} />
                   <View style={{ flex: 1, gap: 2 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      {isBest ? <Trophy size={14} color={colors.mint} /> : null}
-                      <Text variant="h3" numberOfLines={1} style={{ flex: 1 }}>
-                        {q.supplier?.name ?? 'Supplier'}
-                      </Text>
-                    </View>
+                    <Text variant="h3" numberOfLines={1}>
+                      {q.supplier?.name ?? 'Supplier'}
+                    </Text>
                     <Text variant="caption" color="ink4" style={{ fontFamily: fonts.monoMedium }}>
                       {q.quote.quoteNumber} · {humanize(q.quote.status)}
                     </Text>
@@ -142,12 +149,12 @@ export function RfqCompareScreen() {
                   <StatusBadge status={q.valid ? (q.isPartial ? 'partial' : 'valid') : 'invalid'} size="sm" />
                 </View>
 
-                <View style={{ gap: 0 }}>
+                <View style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
                   <CompareLine label="Subtotal" value={q.quote.subtotalCents} />
                   <CompareLine label="Delivery" value={q.quote.deliveryFeeCents} />
                   <CompareLine label="Tax" value={q.quote.taxCents} />
                   <CompareLine label="Discount" value={-(q.quote.discountCents ?? 0)} accent />
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, marginTop: 10, borderTopWidth: 1.5, borderTopColor: colors.line }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, marginTop: 6, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
                     <Text variant="overline" color="ink4">Landed total</Text>
                     <Text style={{ fontFamily: fonts.monoMedium, fontSize: 19, color: isBest ? colors.mint : colors.ink }}>
                       {formatLKR(q.landedCents)}
@@ -162,7 +169,7 @@ export function RfqCompareScreen() {
                   {isFastest ? <Text variant="caption" color="copper" weight="semibold">· Fastest</Text> : null}
                 </View>
 
-                <Button title={isBest ? 'Award best quote' : 'Award this quote'} icon={Award} size="sm" variant={isBest ? 'primary' : 'secondary'} onPress={() => award(q.quote.id)} />
+                <Button title={isBest ? 'Award best quote' : 'Award this quote'} icon={Award} size="md" full variant={isBest ? 'primary' : 'secondary'} onPress={() => award(q.quote.id)} />
               </Card>
             </Enter>
           );

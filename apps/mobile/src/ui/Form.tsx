@@ -1,7 +1,7 @@
 import { forwardRef, useState, type ReactNode } from 'react';
-import { Pressable, Switch as RNSwitch, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Switch as RNSwitch, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 import { Check, ChevronDown, Eye, EyeOff, Minus, Plus, Search, X, type LucideIcon } from 'lucide-react-native';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { haptic } from '@/lib/haptics';
 import { Text } from './Text';
 import { Touchable } from './Button';
@@ -29,7 +29,7 @@ export function Field({
       {label || right ? (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
           {label ? (
-            <Text variant="caption" color="ink3" style={{ fontFamily: fonts.sansSemi, letterSpacing: 0.4 }}>
+            <Text variant="caption" color="ink3" style={{ fontFamily: fonts.sansSemi, letterSpacing: 0.3, fontSize: 12.5, marginLeft: 2 }}>
               {label}
               {required ? <Text variant="caption" color="copper"> *</Text> : null}
             </Text>
@@ -68,7 +68,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
 ) {
   const [focused, setFocused] = useState(false);
   const [hidden, setHidden] = useState(!!secureTextEntry);
-  const border = invalid ? colors.rose : focused ? (dark ? colors.volt : colors.ink) : dark ? colors.paperLine : colors.line;
+  const border = invalid ? colors.rose : focused ? (dark ? colors.volt : colors.ink) : dark ? colors.paperLine : 'rgba(12,14,11,0.09)';
   return (
     <View
       style={[
@@ -76,14 +76,16 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
           flexDirection: 'row',
           alignItems: multiline ? 'flex-start' : 'center',
           gap: 10,
-          minHeight: multiline ? 110 : 50,
-          paddingHorizontal: 14,
-          paddingVertical: multiline ? 12 : 0,
+          minHeight: multiline ? 116 : 54,
+          paddingHorizontal: 16,
+          paddingVertical: multiline ? 14 : 0,
           borderRadius: radii.lg + 2,
+          borderCurve: 'continuous',
           backgroundColor: dark ? 'rgba(250,247,240,0.06)' : colors.paper,
-          borderWidth: focused ? 1.5 : 1,
+          borderWidth: 1.5,
           borderColor: border,
         },
+        focused && !invalid ? shadow.focus : !dark ? shadow.sm : null,
         containerStyle,
       ]}
     >
@@ -160,13 +162,14 @@ export function SearchBar({
           flexDirection: 'row',
           alignItems: 'center',
           gap: 10,
-          height: 48,
-          paddingHorizontal: 14,
-          borderRadius: radii.xl,
+          height: 50,
+          paddingHorizontal: 16,
+          borderRadius: radii.pill,
           backgroundColor: dark ? 'rgba(250,247,240,0.08)' : colors.paper,
-          borderWidth: 1,
-          borderColor: dark ? colors.paperLine : colors.line,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: dark ? colors.paperLine : 'rgba(12,14,11,0.08)',
         },
+        dark ? null : shadow.card,
         style,
       ]}
     >
@@ -185,8 +188,13 @@ export function SearchBar({
         style={{ flex: 1, fontFamily: fonts.sans, fontSize: 15.5, color: dark ? colors.paper : colors.ink }}
       />
       {value ? (
-        <Pressable onPress={() => onChangeText('')} hitSlop={10} accessibilityLabel="Clear search">
-          <X size={17} color={dark ? colors.paperMuted : colors.ink4} />
+        <Pressable
+          onPress={() => onChangeText('')}
+          hitSlop={10}
+          accessibilityLabel="Clear search"
+          style={{ width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: dark ? 'rgba(250,247,240,0.14)' : colors.ink6 }}
+        >
+          <X size={13} color={dark ? colors.paper : colors.ink3} strokeWidth={2.4} />
         </Pressable>
       ) : null}
     </View>
@@ -226,23 +234,29 @@ export function Select<T extends string = string>({
           setOpen(true);
         }}
         scaleTo={0.99}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          height: 50,
-          paddingHorizontal: 14,
-          borderRadius: radii.lg + 2,
-          backgroundColor: colors.paper,
-          borderWidth: 1,
-          borderColor: colors.line,
-          opacity: disabled ? 0.5 : 1,
-        }}
+        style={[
+          {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            height: 54,
+            paddingHorizontal: 16,
+            borderRadius: radii.lg + 2,
+            borderCurve: 'continuous',
+            backgroundColor: colors.paper,
+            borderWidth: 1.5,
+            borderColor: 'rgba(12,14,11,0.09)',
+            opacity: disabled ? 0.5 : 1,
+          },
+          shadow.sm,
+        ]}
       >
         <Text variant="body" color={current ? 'ink' : 'ink5'} numberOfLines={1} style={{ flex: 1 }}>
           {current?.label ?? placeholder}
         </Text>
-        <ChevronDown size={18} color={colors.ink4} />
+        <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center' }}>
+          <ChevronDown size={16} color={colors.ink3} />
+        </View>
       </Touchable>
       <Sheet visible={open} onClose={() => setOpen(false)} title={title ?? placeholder} scroll>
         <View style={{ paddingBottom: 8 }}>
@@ -262,8 +276,12 @@ export function Select<T extends string = string>({
                   alignItems: 'center',
                   gap: 12,
                   paddingVertical: 14,
-                  borderBottomWidth: i === options.length - 1 ? 0 : 1,
-                  borderBottomColor: colors.lineSoft,
+                  paddingHorizontal: 14,
+                  marginBottom: i === options.length - 1 ? 0 : 6,
+                  borderRadius: radii.lg,
+                  backgroundColor: on ? colors.paper : 'transparent',
+                  borderWidth: 1,
+                  borderColor: on ? colors.ink : 'transparent',
                 }}
               >
                 <View style={{ flex: 1 }}>
@@ -328,8 +346,8 @@ export function ToggleRow({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 14,
-        paddingVertical: 13,
-        borderBottomWidth: last ? 0 : 1,
+        paddingVertical: 14,
+        borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth * 2,
         borderBottomColor: colors.lineSoft,
       }}
     >
@@ -420,9 +438,17 @@ export function Stepper({
       disabled={disabled}
       scaleTo={0.88}
       accessibilityLabel={label}
-      style={{ width: h, height: h, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.3 : 1 }}
+      style={{
+        width: h - 4,
+        height: h - 4,
+        borderRadius: (h - 4) / 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: dark ? 'rgba(250,247,240,0.08)' : colors.bone,
+        opacity: disabled ? 0.3 : 1,
+      }}
     >
-      <Icon size={16} color={dark ? colors.paper : colors.ink} strokeWidth={2} />
+      <Icon size={16} color={dark ? colors.paper : colors.ink} strokeWidth={2.2} />
     </Touchable>
   );
   return (
@@ -431,9 +457,11 @@ export function Stepper({
         flexDirection: 'row',
         alignItems: 'center',
         borderRadius: radii.pill,
-        borderWidth: 1,
-        borderColor: dark ? colors.paperLine : colors.line,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: dark ? colors.paperLine : 'rgba(12,14,11,0.08)',
         backgroundColor: dark ? 'rgba(250,247,240,0.06)' : colors.paper,
+        padding: 2,
+        ...(dark ? null : shadow.sm),
       }}
     >
       {btn(Minus, () => set(value - step), value <= min, 'Decrease quantity')}
@@ -476,20 +504,24 @@ export function RadioCards<T extends string>({
               onChange(o.value);
             }}
             scaleTo={0.985}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
-              padding: 14,
-              borderRadius: radii.xl,
-              borderWidth: on ? 1.5 : 1,
-              borderColor: on ? colors.ink : colors.line,
-              backgroundColor: on ? colors.pearl : colors.paper,
-              opacity: o.disabled ? 0.45 : 1,
-            }}
+            style={[
+              {
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                padding: 16,
+                borderRadius: radii.xl,
+                borderCurve: 'continuous',
+                borderWidth: 1.5,
+                borderColor: on ? colors.ink : 'rgba(12,14,11,0.07)',
+                backgroundColor: colors.paper,
+                opacity: o.disabled ? 0.45 : 1,
+              },
+              on ? shadow.md : shadow.sm,
+            ]}
           >
             {Icon ? (
-              <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: on ? colors.ink : colors.bone, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 40, height: 40, borderRadius: 13, borderCurve: 'continuous', backgroundColor: on ? colors.ink : colors.bone, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon size={18} color={on ? colors.volt : colors.ink} strokeWidth={1.7} />
               </View>
             ) : null}

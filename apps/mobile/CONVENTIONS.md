@@ -65,6 +65,22 @@ The web brand is editorial and warm: bone/paper grounds, near-black ink,
 one electric **volt** accent, a **copper** counter-accent, Syne headlines,
 mono numerals. Premium comes from restraint, rhythm and motion — not colour.
 
+The app keeps the web's palette and type but must feel **native, not like a
+website**: soft 20–26px continuous corners, layered `shadow.*` depth instead
+of 1px borders, capsule buttons, inset-grouped lists, round quick actions,
+and a large title that collapses into a blurred nav bar on scroll (automatic
+for any `<Screen>`/`<ListScreen>` whose `ScreenHeader` has a `title`).
+
+- Hand-rolled surfaces: `backgroundColor: colors.paper`, `borderRadius: radii.xl`,
+  `borderCurve: 'continuous'`, `...shadow.card`. No `borderWidth: 1` +
+  `colors.line` boxes: that is the web look.
+- Icon holders: `<IconTile icon tone>` (rounded square), not bare icons.
+- Grouped settings/links: `<ListSection label>` + `<ListRow icon>` rows.
+- Dashboard shortcuts: `<QuickActions><QuickAction icon label tone /></QuickActions>`
+  (use `tone="glass"` inside an `InkHero`).
+- Section heads: `<SectionHeader title action>` renders a "See all ›" pill;
+  standalone use `<PillAction>`.
+
 - Every screen renders inside `<Screen>` (scrolling) or `<ListScreen>` (FlatList).
   Tab screens pass `tabBar` so content clears the floating tab bar.
 - Headers: `<Screen kicker="Operations" title="Orders" subtitle="…" back right={…}>`.

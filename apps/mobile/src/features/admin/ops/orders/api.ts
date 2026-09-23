@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api, qs } from '@/lib/api';
+import { allowedTransitions } from '@/lib/orderLifecycle';
 
 export type AdminOrderItem = {
   id: string;
@@ -53,6 +54,9 @@ export type AdminOrder = {
   notes?: string | null;
   rejectionReason?: string | null;
   cancelledReason?: string | null;
+  disputeReason?: string | null;
+  disputeOpenedBy?: string | null;
+  originalTotalCents?: number | null;
   createdByUserId?: string;
   acceptedAt?: number | null;
   rejectedAt?: number | null;
@@ -119,15 +123,11 @@ export const ORDER_STATUS_TABS = [
   { id: 'rejected', label: 'Rejected' },
 ] as const;
 
-export const OVERRIDE_STATUSES = [
-  'pending',
-  'accepted',
-  'rejected',
-  'preparing',
-  'ready_for_pickup',
-  'out_for_delivery',
-  'delivered',
-  'completed',
-  'cancelled',
-  'disputed',
-] as const;
+/**
+ * Legal admin override targets from `status` (rule table copied from
+ * packages/shared into lib/orderLifecycle). The API rejects anything else,
+ * and `disputed` can only be exited through dispute resolution.
+ */
+export function overrideTargets(status: string): string[] {
+  return allowedTransitions(status, 'admin');
+}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ListTree, Play, Plus, RotateCcw } from 'lucide-react-native';
+import { Inbox, ListTree, Play, Plus, RotateCcw } from 'lucide-react-native';
 import {
   Banner,
   Button,
@@ -10,6 +10,7 @@ import {
   ErrorState,
   Field,
   Gutter,
+  IconTile,
   Input,
   ListHeader,
   ListScreen,
@@ -25,6 +26,7 @@ import { api, errorMessage } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { colors, fonts } from '@/theme/tokens';
 import { MonoTag, Section } from '../../buyer/orders/kit';
+import { Inset, RecordCard } from '@/features/admin/ops/kit';
 
 type QueueName = 'audit' | 'notifications' | 'invoices';
 type QueueHealth = { queue: QueueName; backlog: number; ackLast1h: number; errLast1h: number; p50Ms: number; p95Ms: number };
@@ -67,7 +69,7 @@ export function QueuesScreen() {
               back
               kicker="Message queues"
               title="Queue health"
-              right={<Button title="Enqueue" icon={Plus} variant="secondary" size="sm" onPress={() => setEnqueueOpen(true)} />}
+              right={<Button title="Enqueue" icon={Plus} variant="paper" size="sm" onPress={() => setEnqueueOpen(true)} />}
             />
             <Gutter style={{ gap: 14 }}>
               {health.isLoading ? (
@@ -75,11 +77,12 @@ export function QueuesScreen() {
               ) : (
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   {(health.data?.queues ?? []).map((qh) => (
-                    <Card key={qh.queue} padding={12} style={{ flex: 1, gap: 4 }}>
+                    <Card key={qh.queue} padding={14} style={{ flex: 1, gap: 4 }}>
+                      <IconTile icon={Inbox} tone={qh.backlog > 50 || qh.errLast1h > 0 ? 'danger' : 'ink'} size={32} style={{ marginBottom: 6 }} />
                       <Text variant="overline" color="copper" numberOfLines={1}>
                         {qh.queue}
                       </Text>
-                      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 18, color: qh.backlog > 50 || qh.errLast1h > 0 ? colors.rose : colors.ink }}>{qh.backlog}</Text>
+                      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 22, letterSpacing: -0.6, color: qh.backlog > 50 || qh.errLast1h > 0 ? colors.rose : colors.ink }}>{qh.backlog}</Text>
                       <Text variant="caption" color="ink4">
                         backlog
                       </Text>
@@ -108,26 +111,29 @@ export function QueuesScreen() {
           )
         }
         renderItem={({ item: e }) => (
-          <Card padding={14} style={{ gap: 6 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <StatusBadge status={e.event} size="sm" />
-              <MonoTag label={e.queue} tone="copper" />
-              <Text variant="caption" color="ink5" style={{ flex: 1, textAlign: 'right' }}>
-                {timeAgo(e.createdAt)}
-              </Text>
-            </View>
-            <Text variant="caption" color="ink3" numberOfLines={2}>
-              {e.msgId}
-            </Text>
+          <RecordCard
+            icon={ListTree}
+            tone={e.event === 'dlq' ? 'danger' : e.event === 'retry' ? 'warning' : 'paper'}
+            title={e.msgId}
+            titleMono
+            meta={timeAgo(e.createdAt)}
+            status={<StatusBadge status={e.event} size="sm" />}
+            chips={<MonoTag label={e.queue} tone="copper" />}
+            actions={
+              <>
+                <View style={{ flex: 1 }} />
+                <Button title="Retry" icon={RotateCcw} variant="paper" size="sm" loading={retry.isPending && retry.variables === e.id} onPress={() => retry.mutate(e.id)} />
+              </>
+            }
+          >
             {e.error ? (
-              <Text variant="caption" style={{ color: colors.rose }} numberOfLines={2}>
-                {e.error}
-              </Text>
+              <Inset style={{ backgroundColor: colors.roseSoft, padding: 12 }}>
+                <Text variant="caption" style={{ color: colors.rose }} numberOfLines={3}>
+                  {e.error}
+                </Text>
+              </Inset>
             ) : null}
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-              <Button title="Retry" icon={RotateCcw} variant="secondary" size="sm" loading={retry.isPending && retry.variables === e.id} onPress={() => retry.mutate(e.id)} />
-            </View>
-          </Card>
+          </RecordCard>
         )}
       />
       <EnqueueSheet visible={enqueueOpen} onClose={() => setEnqueueOpen(false)} />

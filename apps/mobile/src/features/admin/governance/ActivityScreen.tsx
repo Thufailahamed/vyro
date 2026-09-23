@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { History } from 'lucide-react-native';
+import { Filter, History } from 'lucide-react-native';
 import { colors } from '@/theme/tokens';
 import { api, errorMessage, qs } from '@/lib/api';
 import { formatDateTime, humanize, timeAgo } from '@/lib/format';
-import { Card, EmptyState, ErrorState, Field, Input, Screen, SkeletonList, Text } from '@/ui';
+import { Card, EmptyState, ErrorState, Field, IconTile, Input, ListCard, ListRow, Screen, SkeletonList, Text } from '@/ui';
 import { LoadMore } from '@/features/admin/ops/kit';
 import { Appear, CodeBlock } from '@/features/admin/platform/kit';
 
@@ -39,14 +39,22 @@ export function ActivityScreen() {
 
   return (
     <Screen back kicker="Governance" title="Activity" subtitle="Every signed admin action, newest first." onRefresh={() => q.refetch()}>
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Field label="Action" style={{ flex: 1 }}>
-          <Input value={action} onChangeText={setAction} placeholder="order.override" autoCapitalize="none" />
-        </Field>
-        <Field label="Target" style={{ flex: 1 }}>
-          <Input value={targetType} onChangeText={setTargetType} placeholder="purchase_order" autoCapitalize="none" />
-        </Field>
-      </View>
+      <Card kind="flat" padding={16} style={{ gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <IconTile icon={Filter} tone="paper" size={30} />
+          <Text variant="overline" color="ink4">
+            Filter the trail
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Field label="Action" style={{ flex: 1 }}>
+            <Input value={action} onChangeText={setAction} placeholder="order.override" autoCapitalize="none" />
+          </Field>
+          <Field label="Target" style={{ flex: 1 }}>
+            <Input value={targetType} onChangeText={setTargetType} placeholder="purchase_order" autoCapitalize="none" />
+          </Field>
+        </View>
+      </Card>
       {q.isLoading ? (
         <SkeletonList rows={6} height={84} />
       ) : q.isError ? (
@@ -55,26 +63,26 @@ export function ActivityScreen() {
         <EmptyState icon={History} title="No audit entries" message="Try clearing the filters." />
       ) : (
         <View style={{ gap: 10 }}>
-          {rows.map((e, i) => (
-            <Appear key={e.id} i={i % 10}>
-              <Card kind="flat" padding={13} style={{ gap: 4 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text variant="body" weight="semibold" style={{ flex: 1 }} numberOfLines={1}>
-                    {humanize(e.action)}
-                  </Text>
-                  <Text variant="caption" color="ink5">
-                    {timeAgo(e.createdAt)}
-                  </Text>
-                </View>
-                <Text variant="caption" color="ink4" numberOfLines={1}>
-                  {e.actorEmail ?? e.actorId.slice(0, 8)} · {humanize(e.targetType)} {e.targetId.slice(0, 8)}
-                </Text>
-                <Text variant="caption" color="ink5">
-                  {formatDateTime(e.createdAt)}
-                </Text>
-              </Card>
-            </Appear>
-          ))}
+          <Appear>
+            <ListCard>
+              {rows.map((e, i) => (
+                <ListRow
+                  key={e.id}
+                  title={humanize(e.action)}
+                  subtitle={`${e.actorEmail ?? e.actorId.slice(0, 8)} · ${humanize(e.targetType)} ${e.targetId.slice(0, 8)}`}
+                  meta={formatDateTime(e.createdAt)}
+                  icon={History}
+                  iconTone={i % 3 === 0 ? 'ink' : 'paper'}
+                  trailing={
+                    <Text variant="caption" color="ink5">
+                      {timeAgo(e.createdAt)}
+                    </Text>
+                  }
+                  last={i === rows.length - 1}
+                />
+              ))}
+            </ListCard>
+          </Appear>
           <LoadMore
             hasMore={!!q.hasNextPage}
             loading={q.isFetchingNextPage}

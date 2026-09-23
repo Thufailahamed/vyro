@@ -2,10 +2,10 @@ import { type ReactNode } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ArrowRight, Camera, Check, CheckCircle2, GraduationCap, ImageIcon, Plus, type LucideIcon } from 'lucide-react-native';
-import { colors, fonts, radii, tones } from '@/theme/tokens';
+import { colors, fonts, radii, shadow, tones } from '@/theme/tokens';
 import { useSupplierId } from '@/lib/auth';
 import { haptic } from '@/lib/haptics';
-import { Card, Kicker, ListRow, ProductImage, Row, Sheet, Skeleton, Text, Touchable } from '@/ui';
+import { Card, IconTile, Kicker, ListRow, PillAction, ProductImage, Row, Sheet, Skeleton, Text, Touchable } from '@/ui';
 import { AVAIL_LABEL, AVAIL_ORDER, AVAIL_TONE, go, productMeta, useOnboardingGate, type Availability, type CatalogProduct } from './api';
 
 /** Staggered entrance used by every list in this area. */
@@ -30,8 +30,6 @@ export function StockChip({ status, qty, unit }: { status: Availability; qty?: n
         height: 24,
         borderRadius: radii.pill,
         backgroundColor: t.bg,
-        borderWidth: 1,
-        borderColor: t.border,
       }}
     >
       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: t.dot }} />
@@ -56,12 +54,10 @@ export function MetaChip({ icon: Icon, label, tone = 'bone' }: { icon?: LucideIc
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
-        paddingHorizontal: 7,
+        paddingHorizontal: 8,
         height: 24,
-        borderRadius: radii.md,
+        borderRadius: radii.pill,
         backgroundColor: bg,
-        borderWidth: tone === 'bone' ? 1 : 0,
-        borderColor: colors.lineSoft,
       }}
     >
       {Icon ? <Icon size={11} color={tone === 'ink' ? colors.volt : fg} strokeWidth={2} /> : null}
@@ -85,7 +81,7 @@ export function AvailabilityToggle({
   compact?: boolean;
 }) {
   return (
-    <View style={{ flexDirection: 'row', backgroundColor: colors.mist, borderRadius: radii.lg + 2, padding: 3, gap: 3, opacity: disabled ? 0.6 : 1 }}>
+    <View style={{ flexDirection: 'row', backgroundColor: 'rgba(12,14,11,0.06)', borderRadius: radii.pill, padding: 3, gap: 3, opacity: disabled ? 0.6 : 1 }}>
       {AVAIL_ORDER.map((s) => {
         const on = s === value;
         const t = tones[AVAIL_TONE[s]];
@@ -101,7 +97,7 @@ export function AvailabilityToggle({
             style={{
               flex: 1,
               height: compact ? 30 : 36,
-              borderRadius: radii.lg,
+              borderRadius: radii.pill,
               alignItems: 'center',
               justifyContent: 'center',
               flexDirection: 'row',
@@ -143,13 +139,12 @@ export function PresetChips({
             }}
             scaleTo={0.94}
             style={{
-              paddingHorizontal: 10,
-              height: 30,
+              paddingHorizontal: 12,
+              height: 32,
               justifyContent: 'center',
-              borderRadius: radii.md + 1,
+              borderRadius: radii.pill,
               backgroundColor: on ? colors.ink : colors.paper,
-              borderWidth: 1,
-              borderColor: on ? colors.ink : colors.line,
+              ...(on ? {} : shadow.sm),
             }}
           >
             <Text style={{ fontFamily: on ? fonts.monoMedium : fonts.mono, fontSize: 12, color: on ? colors.volt : colors.ink3 }}>{o.label}</Text>
@@ -179,25 +174,28 @@ export function StepSection({
   children?: ReactNode;
 }) {
   return (
-    <Card kind="flat" padding={16} style={{ gap: 16 }}>
+    <Card kind="flat" padding={18} style={{ gap: 16 }}>
       <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
         {step !== undefined ? (
           <View
             style={{
-              width: 30,
-              height: 30,
-              borderRadius: 15,
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+              borderCurve: 'continuous',
               backgroundColor: complete ? colors.mint : colors.ink,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            {complete ? <Check size={15} color={colors.paper} strokeWidth={2.6} /> : <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: colors.volt }}>{step}</Text>}
+            {complete ? <Check size={15} color={colors.paper} strokeWidth={2.6} /> : <Text style={{ fontFamily: fonts.monoMedium, fontSize: 13, color: colors.volt }}>{step}</Text>}
           </View>
         ) : null}
         <View style={{ flex: 1, gap: 3 }}>
           <Kicker>{kicker}</Kicker>
-          <Text variant="h2">{title}</Text>
+          <Text variant="h2" style={{ fontSize: 17.5, lineHeight: 22 }}>
+            {title}
+          </Text>
           {sub ? (
             <Text variant="caption" color="ink4">
               {sub}
@@ -220,7 +218,7 @@ export function TrainingBanner({ variant = 'banner' }: { variant?: 'banner' | 'i
   if (variant === 'inline') {
     return (
       <Touchable onPress={() => go('/supplier/learning')} hapticOnPress>
-        <Row gap={8} style={{ paddingVertical: 10, paddingHorizontal: 12, borderRadius: radii.lg, backgroundColor: colors.amberSoft }}>
+        <Row gap={10} style={{ paddingVertical: 10, paddingHorizontal: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.amberSoft }}>
           <GraduationCap size={15} color={colors.amber} />
           <Text variant="caption" style={{ flex: 1, color: tones.warning.fg }}>
             Complete training to publish ({data.missing.length} pending)
@@ -231,11 +229,9 @@ export function TrainingBanner({ variant = 'banner' }: { variant?: 'banner' | 'i
     );
   }
   return (
-    <Card kind="flat" padding={14} style={{ backgroundColor: colors.amberSoft, borderColor: tones.warning.border, gap: 10 }}>
-      <Row gap={10} align="flex-start">
-        <View style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: 'rgba(196,132,58,0.18)', alignItems: 'center', justifyContent: 'center' }}>
-          <GraduationCap size={17} color={colors.amber} />
-        </View>
+    <Card kind="flat" padding={16} style={{ gap: 12 }}>
+      <Row gap={12} align="flex-start">
+        <IconTile icon={GraduationCap} tone="warning" size={40} />
         <View style={{ flex: 1, gap: 4 }}>
           <Text variant="bodySm" weight="semibold">
             Complete training to publish ({data.missing.length} pending)
@@ -253,7 +249,7 @@ export function TrainingBanner({ variant = 'banner' }: { variant?: 'banner' | 'i
         </View>
       </Row>
       <Touchable onPress={() => go('/supplier/learning')} hapticOnPress style={{ alignSelf: 'flex-start' }}>
-        <Row gap={6} style={{ backgroundColor: colors.ink, paddingHorizontal: 12, height: 32, borderRadius: radii.lg }}>
+        <Row gap={6} style={{ backgroundColor: colors.ink, paddingHorizontal: 14, height: 34, borderRadius: radii.pill }}>
           <Text variant="caption" color="paper" weight="semibold">
             Open training
           </Text>
@@ -271,9 +267,9 @@ export function HowItWorks({ title, steps }: { title: string; steps: { title: st
       <Kicker color="ink4">{title}</Kicker>
       {steps.map((s, i) => (
         <FadeInItem key={s.title} index={i}>
-          <Card kind="bone" padding={14}>
+          <Card kind="flat" padding={14}>
             <Row gap={12} align="flex-start">
-              <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 30, height: 30, borderRadius: 10, borderCurve: 'continuous', backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: colors.volt }}>{i + 1}</Text>
               </View>
               <View style={{ flex: 1, gap: 3 }}>
@@ -304,25 +300,23 @@ export function QuickStartGrid({ title, hint, products, cta }: { title: string; 
             {hint}
           </Text>
         </View>
-        <Text variant="caption" color="copper" weight="semibold" onPress={() => go('/supplier/products/new')}>
-          Full catalog →
-        </Text>
+        <PillAction label="Full catalog" onPress={() => go('/supplier/products/new')} />
       </Row>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {products.map((p, i) => (
           <FadeInItem key={p.id} index={i} style={{ flexBasis: '47%', flexGrow: 1 }}>
             <Card kind="flat" padding={0} onPress={() => go(`/supplier/products/new?productId=${encodeURIComponent(p.id)}`)} style={{ overflow: 'hidden' }}>
-              <ProductImage src={p.imageUrl} seed={p.id} style={{ height: 92 }} />
-              <View style={{ padding: 10, gap: 6 }}>
+              <ProductImage src={p.imageUrl} seed={p.id} style={{ height: 100 }} />
+              <View style={{ padding: 12, gap: 6 }}>
                 <Text variant="bodySm" weight="semibold" numberOfLines={1}>
                   {p.name}
                 </Text>
                 <Text variant="caption" color="ink4" numberOfLines={1}>
                   {productMeta(p) || 'Standard SKU'}
                 </Text>
-                <Row gap={4}>
-                  <Plus size={12} color={colors.copper} />
-                  <Text variant="caption" color="copper" weight="semibold" numberOfLines={1}>
+                <Row gap={4} style={{ alignSelf: 'flex-start', paddingHorizontal: 10, height: 26, borderRadius: radii.pill, backgroundColor: colors.ink }}>
+                  <Plus size={12} color={colors.volt} />
+                  <Text variant="caption" color="paper" weight="semibold" numberOfLines={1}>
                     {cta}
                   </Text>
                 </Row>
@@ -340,7 +334,7 @@ export function InkTip({ kicker, text, icon: Icon }: { kicker: string; text: str
   return (
     <Card kind="ink" flow={kicker} padding={16}>
       <Row gap={12} align="flex-start">
-        <Icon size={19} color={colors.volt} strokeWidth={1.8} />
+        <IconTile icon={Icon} tone="glass" size={38} />
         <View style={{ flex: 1, gap: 4 }}>
           <Kicker color="volt">{kicker}</Kicker>
           <Text variant="bodySm" color="paperMuted">
@@ -365,16 +359,16 @@ export function ImageSourceSheet({ visible, onClose, onPick }: { visible: boolea
 /** Loading placeholder shaped like an offer card. */
 export function OfferCardSkeleton() {
   return (
-    <Card kind="flat" padding={12}>
-      <Row gap={12} align="flex-start">
-        <Skeleton width={88} height={88} radius={radii.lg} />
+    <Card kind="flat" padding={14}>
+      <Row gap={14} align="flex-start">
+        <Skeleton width={96} height={96} radius={radii.xl} />
         <View style={{ flex: 1, gap: 8 }}>
           <Skeleton width="80%" height={16} />
           <Skeleton width="50%" height={12} />
           <Skeleton width="40%" height={20} />
           <Row gap={6}>
             <Skeleton width={70} height={22} radius={radii.pill} />
-            <Skeleton width={60} height={22} radius={radii.md} />
+            <Skeleton width={60} height={22} radius={radii.pill} />
           </Row>
         </View>
       </Row>
@@ -403,9 +397,7 @@ export function CheckRow({ done, label, optional }: { done: boolean; label: stri
           borderRadius: 10,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: done ? colors.mintSoft : colors.bone,
-          borderWidth: 1,
-          borderColor: done ? tones.success.border : colors.line,
+          backgroundColor: done ? colors.mintSoft : colors.mist,
         }}
       >
         {done ? <CheckCircle2 size={13} color={colors.mint} /> : null}

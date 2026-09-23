@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { colors } from '@/theme/tokens';
 import { useLocalSearchParams } from 'expo-router';
-import { ArrowRight, Landmark, ReceiptText, RotateCcw, ShieldCheck } from 'lucide-react-native';
+import { ArrowRight, BookOpenCheck, FileText, Landmark, ReceiptText, RotateCcw, ShieldCheck, Undo2 } from 'lucide-react-native';
 import { api, errorMessage } from '@/lib/api';
 import { formatDateTime, formatLKR, humanize } from '@/lib/format';
 import {
@@ -10,6 +11,8 @@ import {
   Card,
   ConfirmSheet,
   Field,
+  IconTile,
+  InkHero,
   Input,
   KeyValue,
   QueryView,
@@ -96,7 +99,7 @@ export function PaymentDetailScreen() {
           return (
             <>
               <Appear>
-                <Card kind="ink" flow="payment-detail" style={{ gap: 10 }}>
+                <InkHero seed="payment-detail" style={{ gap: 10 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <StatusBadge status={p.status} />
                     <Text variant="caption" color="paperMuted">
@@ -109,11 +112,11 @@ export function PaymentDetailScreen() {
                   <Text variant="caption" color="paperFaint">
                     Fee {formatLKR(p.feeCents)} · net {formatLKR(p.netCents)} · {p.currency}
                   </Text>
-                </Card>
+                </InkHero>
               </Appear>
 
               <Appear i={1}>
-                <Section kicker="Summary" title="Payment record">
+                <Section kicker="Summary" title="Payment record" icon={FileText}>
                   <View>
                     <KeyValue label="Status" value={humanize(p.status)} />
                     <KeyValue label="Method" value={humanize(p.method)} />
@@ -130,27 +133,23 @@ export function PaymentDetailScreen() {
 
               {b.purchaseOrder ? (
                 <Appear i={2}>
-                  <Card
-                    onPress={() => go(`/admin/order/${b.purchaseOrder!.id}`)}
-                    style={{ gap: 8 }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <ReceiptText size={16} color="#B87A4E" />
+                  <Card onPress={() => go(`/admin/order/${b.purchaseOrder!.id}`)} padding={16} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <IconTile icon={ReceiptText} tone="copper" size={44} />
+                    <View style={{ flex: 1, gap: 3 }}>
                       <Text variant="overline" color="copper">
                         Linked purchase order
                       </Text>
-                      <View style={{ flex: 1 }} />
-                      <ArrowRight size={16} color="#8A8A8A" />
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text variant="h3" style={{ flex: 1 }} numberOfLines={1}>
+                      <Text variant="h3" numberOfLines={1}>
                         {b.purchaseOrder.poNumber}
                       </Text>
-                      <StatusBadge status={b.purchaseOrder.status} size="sm" />
+                      <Text variant="caption" color="ink4">
+                        {formatLKR(b.purchaseOrder.totalCents)} · {formatDateTime(b.purchaseOrder.createdAt)}
+                      </Text>
                     </View>
-                    <Text variant="bodySm" color="ink4">
-                      {formatLKR(b.purchaseOrder.totalCents)} · {formatDateTime(b.purchaseOrder.createdAt)}
-                    </Text>
+                    <View style={{ alignItems: 'flex-end', gap: 8 }}>
+                      <StatusBadge status={b.purchaseOrder.status} size="sm" />
+                      <ArrowRight size={16} color={colors.ink5} />
+                    </View>
                   </Card>
                 </Appear>
               ) : null}
@@ -170,15 +169,25 @@ export function PaymentDetailScreen() {
               </Appear>
 
               <Appear i={4}>
-                <Section kicker={`Refunds · ${b.refunds.length}`} title="Refund history">
+                <Section kicker={`Refunds · ${b.refunds.length}`} title="Refund history" icon={Undo2}>
                   {b.refunds.length === 0 ? (
                     <Text variant="bodySm" color="ink4">
                       No refunds raised against this payment.
                     </Text>
                   ) : (
                     <View>
-                      {b.refunds.map((r) => (
-                        <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 }}>
+                      {b.refunds.map((r, i) => (
+                        <View
+                          key={r.id}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 10,
+                            paddingVertical: 12,
+                            borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth * 2,
+                            borderTopColor: colors.lineSoft,
+                          }}
+                        >
                           <View style={{ flex: 1 }}>
                             <Text variant="mono" numberOfLines={1}>
                               {r.id.slice(0, 12)}
@@ -188,7 +197,7 @@ export function PaymentDetailScreen() {
                             </Text>
                           </View>
                           <StatusBadge status={r.status} size="sm" />
-                          <Text variant="bodySm" weight="semibold">
+                          <Text variant="mono" style={{ fontFamily: 'IBMPlexMono_500Medium', color: colors.rose }}>
                             {formatLKR(r.amountCents)}
                           </Text>
                         </View>
@@ -199,15 +208,26 @@ export function PaymentDetailScreen() {
               </Appear>
 
               <Appear i={5}>
-                <Section kicker={`Ledger · ${b.ledger.length}`} title="Money trail">
+                <Section kicker={`Ledger · ${b.ledger.length}`} title="Money trail" icon={BookOpenCheck}>
                   {b.ledger.length === 0 ? (
                     <Text variant="bodySm" color="ink4">
                       No ledger entries yet.
                     </Text>
                   ) : (
                     <View>
-                      {b.ledger.slice(0, 12).map((l) => (
-                        <View key={l.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 }}>
+                      {b.ledger.slice(0, 12).map((l, i) => (
+                        <View
+                          key={l.id}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 10,
+                            paddingVertical: 12,
+                            borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth * 2,
+                            borderTopColor: colors.lineSoft,
+                          }}
+                        >
+                          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: l.direction === 'credit' ? colors.mint : colors.copper }} />
                           <View style={{ flex: 1 }}>
                             <Text variant="bodySm" numberOfLines={1}>
                               {l.description}
@@ -216,7 +236,9 @@ export function PaymentDetailScreen() {
                               {l.accountType} · {l.direction} · {formatDateTime(l.createdAt)}
                             </Text>
                           </View>
-                          <Text variant="mono">{formatLKR(l.amountCents)}</Text>
+                          <Text variant="mono" style={{ fontFamily: 'IBMPlexMono_500Medium' }}>
+                            {formatLKR(l.amountCents)}
+                          </Text>
                         </View>
                       ))}
                     </View>

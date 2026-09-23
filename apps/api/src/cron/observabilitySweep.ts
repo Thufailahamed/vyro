@@ -148,7 +148,8 @@ async function fireAlert(
             title: rule.name,
             body: `${rule.description} — value=${value}, threshold=${rule.threshold}`,
             link: '/admin/observability/alerts',
-            source: 'admin',
+            // D1 CHECK (migration 0020) only allows 'system'|'ai'; admin rows are identified by recipient_role.
+            source: 'system',
             sourceRef: rule.name,
             severity: rule.severity,
             createdAt: Date.now(),

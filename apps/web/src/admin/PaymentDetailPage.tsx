@@ -1,7 +1,22 @@
-import { Link, useParams } from 'react-router-dom';
-import { PageHeader, Surface, ErrorBanner } from '@/components/ui';
+import { useParams } from 'react-router-dom';
+import { ErrorBanner } from '@/components/ui';
 import { usePermission } from './lib/permissions';
 import { useAdminPaymentDetail } from './useAdminPaymentDetail';
+import {
+  AdminPage,
+  AdminPageHeader,
+  Callout,
+  Card,
+  CardHeader,
+  DetailList,
+  EmptyBlock,
+  Pill,
+  Skeleton,
+  StatCard,
+  StatGrid,
+  StatusPill,
+  TableCard,
+} from './ui';
 
 function fmtCents(c: number, currency = 'LKR') {
   return `${(c / 100).toFixed(2)} ${currency}`;
@@ -11,6 +26,12 @@ function fmtTs(t: number | null | undefined) {
   return new Date(t).toISOString().slice(0, 16).replace('T', ' ');
 }
 
+const Mono = ({ children }: { children: React.ReactNode }) => <span className="font-mono text-xs">{children}</span>;
+
+function Count({ n }: { n: number }) {
+  return <Pill className="num-tabular">{n}</Pill>;
+}
+
 export function PaymentDetailPage() {
   const can = usePermission('payment:read');
   const { id = '' } = useParams<{ id: string }>();
@@ -18,176 +39,205 @@ export function PaymentDetailPage() {
 
   if (!can) return <ErrorBanner message="You need payment:read permission" />;
   if (!id) return <ErrorBanner message="No payment id" />;
-  if (q.isLoading) return <div className="text-sm text-ink-500">Loading…</div>;
+  if (q.isLoading) {
+    return (
+      <AdminPage>
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-9 w-72" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        <StatGrid cols={3}>
+          {[0, 1, 2].map((i) => <StatCard key={i} label="Loading" value="" loading />)}
+        </StatGrid>
+        <Skeleton className="h-64 w-full" />
+      </AdminPage>
+    );
+  }
   if (q.isError) return <ErrorBanner message={(q.error as Error).message} />;
   const b = q.data!;
   const p = b.payment;
+  const events = b.events ?? [];
+
+  const summaryItems = [
+    { key: 'method', label: 'Method', value: p.method },
+    { key: 'created', label: 'Created', value: fmtTs(p.createdAt) },
+    { key: 'paid', label: 'Paid', value: fmtTs(p.paidAt) },
+    { key: 'confirmed', label: 'Confirmed', value: fmtTs(p.confirmedAt) },
+    { key: 'confirmedBy', label: 'Confirmed by', value: p.confirmedByUserId ? <Mono>{p.confirmedByUserId}</Mono> : '—' },
+    ...(p.transactionReference ? [{ key: 'txn', label: 'Txn ref', value: <Mono>{p.transactionReference}</Mono> }] : []),
+    ...(p.gatewayRef ? [{ key: 'gw', label: 'Gateway ref', value: <Mono>{p.gatewayRef}</Mono> }] : []),
+    ...(p.idempotencyKey ? [{ key: 'idem', label: 'Idempotency', value: <Mono>{p.idempotencyKey}</Mono> }] : []),
+    ...(p.notes ? [{ key: 'notes', label: 'Notes', value: p.notes }] : []),
+  ];
 
   return (
-    <div className="space-y-6">
-      <div className="text-xs">
-        <Link to="/admin/payments" className="text-volt underline">← Back to payments</Link>
-      </div>
-      <PageHeader
-        title={`Payment ${p.id.slice(0, 24)}…`}
-        sub={`${p.poNumber} · ${p.businessName} → ${p.supplierName}`}
+    <AdminPage>
+      <AdminPageHeader
+        back={{ to: '/admin/payments', label: 'Back to payments' }}
+        kicker="Payments"
+        title={<span className="font-mono text-2xl sm:text-3xl">{`Payment ${p.id.slice(0, 24)}…`}</span>}
+        description={`${p.poNumber} · ${p.businessName} → ${p.supplierName}`}
+        meta={
+          <>
+            <StatusPill status={p.status} />
+            <Pill>{p.method}</Pill>
+          </>
+        }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Surface className="p-4">
-          <h3 className="text-xs text-ink-500 uppercase mb-2">Summary</h3>
-          <dl className="text-sm space-y-1">
-            <Row label="Status"><span className="font-mono uppercase">{p.status}</span></Row>
-            <Row label="Method">{p.method}</Row>
-            <Row label="Amount">{fmtCents(p.amountCents, p.currency)}</Row>
-            <Row label="Fee">{fmtCents(p.feeCents, p.currency)}</Row>
-            <Row label="Net">{fmtCents(p.netCents, p.currency)}</Row>
-            <Row label="Created">{fmtTs(p.createdAt)}</Row>
-            <Row label="Paid">{fmtTs(p.paidAt)}</Row>
-            <Row label="Confirmed">{fmtTs(p.confirmedAt)}</Row>
-            <Row label="Confirmed by">{p.confirmedByUserId ?? '—'}</Row>
-            {p.transactionReference ? <Row label="Txn ref"><span className="font-mono text-xs">{p.transactionReference}</span></Row> : null}
-            {p.gatewayRef ? <Row label="Gateway ref"><span className="font-mono text-xs">{p.gatewayRef}</span></Row> : null}
-            {p.idempotencyKey ? <Row label="Idempotency"><span className="font-mono text-xs">{p.idempotencyKey}</span></Row> : null}
-            {p.statusReason ? <Row label="Reason"><span className="text-rose">{p.statusReason}</span></Row> : null}
-            {p.notes ? <Row label="Notes">{p.notes}</Row> : null}
-          </dl>
-        </Surface>
+      {p.statusReason ? (
+        <Callout tone="danger" title="Reason">{p.statusReason}</Callout>
+      ) : null}
 
-        <Surface className="p-4">
-          <h3 className="text-xs text-ink-500 uppercase mb-2">Purchase order</h3>
+      <StatGrid cols={3}>
+        <StatCard label="Amount" value={<span className="num-tabular">{fmtCents(p.amountCents, p.currency)}</span>} />
+        <StatCard label="Fee" value={<span className="num-tabular">{fmtCents(p.feeCents, p.currency)}</span>} />
+        <StatCard label="Net" value={<span className="num-tabular">{fmtCents(p.netCents, p.currency)}</span>} />
+      </StatGrid>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader title="Summary" />
+          <DetailList
+            className="mt-5"
+            items={[{ key: 'status', label: 'Status', value: <StatusPill status={p.status} /> }, ...summaryItems]}
+          />
+        </Card>
+
+        <Card>
+          <CardHeader title="Purchase order" />
           {b.purchaseOrder ? (
-            <dl className="text-sm space-y-1">
-              <Row label="PO"><span className="font-mono">{b.purchaseOrder.poNumber}</span></Row>
-              <Row label="Status">{b.purchaseOrder.status}</Row>
-              <Row label="Total">{fmtCents(b.purchaseOrder.totalCents, p.currency)}</Row>
-              <Row label="Created">{fmtTs(b.purchaseOrder.createdAt)}</Row>
-              <Row label="Delivery">{fmtTs(b.purchaseOrder.deliveryAt)}</Row>
-            </dl>
-          ) : <div className="text-sm text-ink-500">Not linked</div>}
-        </Surface>
+            <DetailList
+              className="mt-5"
+              items={[
+                { key: 'po', label: 'PO', value: <span className="font-mono">{b.purchaseOrder.poNumber}</span> },
+                { key: 'status', label: 'Status', value: <StatusPill status={b.purchaseOrder.status} /> },
+                { key: 'total', label: 'Total', value: <span className="num-tabular">{fmtCents(b.purchaseOrder.totalCents, p.currency)}</span> },
+                { key: 'created', label: 'Created', value: fmtTs(b.purchaseOrder.createdAt) },
+                { key: 'delivery', label: 'Delivery', value: fmtTs(b.purchaseOrder.deliveryAt) },
+              ]}
+            />
+          ) : <p className="mt-5 text-sm text-ink-4">Not linked</p>}
+        </Card>
 
-        <Surface className="p-4">
-          <h3 className="text-xs text-ink-500 uppercase mb-2">Parties</h3>
-          {b.business ? (
-            <dl className="text-sm space-y-1">
-              <Row label="Business"><span className="font-mono">{b.business.id}</span> · {b.business.name}</Row>
-              <Row label="Email">{b.business.email ?? '—'}</Row>
-            </dl>
-          ) : null}
-          {b.supplier ? (
-            <dl className="text-sm space-y-1 mt-2">
-              <Row label="Supplier"><span className="font-mono">{b.supplier.id}</span> · {b.supplier.name}</Row>
-              <Row label="Email">{b.supplier.email ?? '—'}</Row>
-            </dl>
-          ) : null}
-        </Surface>
+        <Card>
+          <CardHeader title="Parties" />
+          <div className="mt-5 space-y-5">
+            {b.business ? (
+              <DetailList
+                items={[
+                  { key: 'b', label: 'Business', value: <>{b.business.name} <span className="block font-mono text-xs text-ink-4">{b.business.id}</span></> },
+                  { key: 'be', label: 'Email', value: b.business.email ?? '—' },
+                ]}
+              />
+            ) : null}
+            {b.supplier ? (
+              <DetailList
+                className={b.business ? 'border-t border-ink/[0.07] pt-5' : undefined}
+                items={[
+                  { key: 's', label: 'Supplier', value: <>{b.supplier.name} <span className="block font-mono text-xs text-ink-4">{b.supplier.id}</span></> },
+                  { key: 'se', label: 'Email', value: b.supplier.email ?? '—' },
+                ]}
+              />
+            ) : null}
+          </div>
+        </Card>
       </div>
 
       {p.gatewayPayload ? (
-        <Surface className="p-4">
-          <h3 className="text-xs text-ink-500 uppercase mb-2">Gateway payload</h3>
-          <pre className="text-[10px] whitespace-pre-wrap break-all bg-bone p-2 rounded">{p.gatewayPayload}</pre>
-        </Surface>
+        <Card>
+          <CardHeader title="Gateway payload" description="Raw payload as received from the provider" />
+          <pre className="mt-4 max-h-80 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-bone p-3 font-mono text-[11px] text-ink-3 scrollbar-thin">{p.gatewayPayload}</pre>
+        </Card>
       ) : null}
 
-      <Surface className="p-4">
-        <h3 className="text-xs text-ink-500 uppercase mb-2">Refunds ({b.refunds.length})</h3>
-        <table className="w-full text-sm">
-          <thead><tr className="text-left text-ink-500">
-            <th>Refund</th><th>Amount</th><th>Status</th><th>Reason</th><th>Processed</th>
-          </tr></thead>
-          <tbody>
-            {b.refunds.map((r) => (
-              <tr key={r.id} className="border-t border-ink/10">
-                <td className="font-mono text-xs">{r.id}</td>
-                <td>{fmtCents(r.amountCents, p.currency)}</td>
-                <td>{r.status}</td>
-                <td className="text-xs">{r.reason ?? '—'}</td>
-                <td className="text-xs">{fmtTs(r.processedAt)}</td>
-              </tr>
-            ))}
-            {!b.refunds.length ? <tr><td colSpan={5} className="py-3 text-center text-ink-500">No refunds</td></tr> : null}
-          </tbody>
-        </table>
-      </Surface>
+      <TableCard title="Refunds" actions={<Count n={b.refunds.length} />}>
+        {b.refunds.length ? (
+          <table className="admin-table">
+            <thead><tr>
+              <th>Refund</th><th className="num">Amount</th><th>Status</th><th>Reason</th><th>Processed</th>
+            </tr></thead>
+            <tbody>
+              {b.refunds.map((r) => (
+                <tr key={r.id}>
+                  <td><Mono>{r.id}</Mono></td>
+                  <td className="num">{fmtCents(r.amountCents, p.currency)}</td>
+                  <td><StatusPill status={r.status} /></td>
+                  <td className="text-ink-3">{r.reason ?? '—'}</td>
+                  <td className="whitespace-nowrap text-ink-3">{fmtTs(r.processedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyBlock className="py-8" title="No refunds" />}
+      </TableCard>
 
-      <Surface className="p-4">
-        <h3 className="text-xs text-ink-500 uppercase mb-2">Chargebacks ({b.chargebacks.length})</h3>
-        <table className="w-full text-sm">
-          <thead><tr className="text-left text-ink-500">
-            <th>CB</th><th>Status</th><th>Reason</th><th>Opened</th><th>Resolved</th><th>Notes</th>
-          </tr></thead>
-          <tbody>
-            {b.chargebacks.map((cb) => (
-              <tr key={cb.id} className="border-t border-ink/10">
-                <td className="font-mono text-xs">{cb.id}</td>
-                <td>{cb.status}</td>
-                <td className="text-xs">{cb.reason}</td>
-                <td className="text-xs">{fmtTs(cb.createdAt)}</td>
-                <td className="text-xs">{fmtTs(cb.resolvedAt)}</td>
-                <td className="text-xs">{cb.notes ?? '—'}</td>
-              </tr>
-            ))}
-            {!b.chargebacks.length ? <tr><td colSpan={6} className="py-3 text-center text-ink-500">No chargebacks</td></tr> : null}
-          </tbody>
-        </table>
-      </Surface>
+      <TableCard title="Chargebacks" actions={<Count n={b.chargebacks.length} />}>
+        {b.chargebacks.length ? (
+          <table className="admin-table">
+            <thead><tr>
+              <th>CB</th><th>Status</th><th>Reason</th><th>Opened</th><th>Resolved</th><th>Notes</th>
+            </tr></thead>
+            <tbody>
+              {b.chargebacks.map((cb) => (
+                <tr key={cb.id}>
+                  <td><Mono>{cb.id}</Mono></td>
+                  <td><StatusPill status={cb.status} /></td>
+                  <td className="text-ink-3">{cb.reason}</td>
+                  <td className="whitespace-nowrap text-ink-3">{fmtTs(cb.createdAt)}</td>
+                  <td className="whitespace-nowrap text-ink-3">{fmtTs(cb.resolvedAt)}</td>
+                  <td className="text-ink-3">{cb.notes ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyBlock className="py-8" title="No chargebacks" />}
+      </TableCard>
 
-      <Surface className="p-4">
-        <h3 className="text-xs text-ink-500 uppercase mb-2">
-          Notification history ({(b.events ?? []).length})
-        </h3>
-        <table className="w-full text-sm">
-          <thead><tr className="text-left text-ink-500">
-            <th>Received</th><th>Provider</th><th>Event</th><th>Code</th><th>Gateway payment</th><th>Status</th>
-          </tr></thead>
-          <tbody>
-            {(b.events ?? []).map((e) => (
-              <tr key={e.id} className="border-t border-ink/10">
-                <td className="text-xs">{fmtTs(e.receivedAt)}</td>
-                <td className="font-mono text-xs">{e.provider}</td>
-                <td className="font-mono text-xs">{e.eventType}</td>
-                <td className="text-xs">{e.statusCode ?? '—'}</td>
-                <td className="font-mono text-xs">{e.providerPaymentId ?? '—'}</td>
-                <td className="text-xs">{e.processingStatus}</td>
-              </tr>
-            ))}
-            {!(b.events ?? []).length ? <tr><td colSpan={6} className="py-3 text-center text-ink-500">No notifications received</td></tr> : null}
-          </tbody>
-        </table>
-      </Surface>
+      <TableCard title="Notification history" actions={<Count n={events.length} />}>
+        {events.length ? (
+          <table className="admin-table">
+            <thead><tr>
+              <th>Received</th><th>Provider</th><th>Event</th><th>Code</th><th>Gateway payment</th><th>Status</th>
+            </tr></thead>
+            <tbody>
+              {events.map((e) => (
+                <tr key={e.id}>
+                  <td className="whitespace-nowrap text-ink-3">{fmtTs(e.receivedAt)}</td>
+                  <td><Mono>{e.provider}</Mono></td>
+                  <td><Mono>{e.eventType}</Mono></td>
+                  <td className="num-tabular">{e.statusCode ?? '—'}</td>
+                  <td><Mono>{e.providerPaymentId ?? '—'}</Mono></td>
+                  <td><StatusPill status={e.processingStatus} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyBlock className="py-8" title="No notifications received" />}
+      </TableCard>
 
-      <Surface className="p-4">
-        <h3 className="text-xs text-ink-500 uppercase mb-2">Ledger entries ({b.ledger.length})</h3>
-        <table className="w-full text-sm">
-          <thead><tr className="text-left text-ink-500">
-            <th>When</th><th>Account</th><th>Dir</th><th>Amount</th><th>Ref</th><th>Description</th>
-          </tr></thead>
-          <tbody>
-            {b.ledger.map((l) => (
-              <tr key={l.id} className="border-t border-ink/10">
-                <td className="text-xs">{fmtTs(l.createdAt)}</td>
-                <td className="font-mono text-xs">{l.accountType}</td>
-                <td className={l.direction === 'credit' ? 'text-mint' : 'text-rose'}>{l.direction}</td>
-                <td className="tabular-nums">{fmtCents(l.amountCents, l.currency)}</td>
-                <td className="font-mono text-xs">{l.refType}/{l.refId.slice(0, 12)}</td>
-                <td className="text-xs">{l.description}</td>
-              </tr>
-            ))}
-            {!b.ledger.length ? <tr><td colSpan={6} className="py-3 text-center text-ink-500">No ledger activity</td></tr> : null}
-          </tbody>
-        </table>
-      </Surface>
-    </div>
-  );
-}
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex justify-between gap-3">
-      <dt className="text-ink-500">{label}</dt>
-      <dd className="text-right">{children}</dd>
-    </div>
+      <TableCard title="Ledger entries" actions={<Count n={b.ledger.length} />}>
+        {b.ledger.length ? (
+          <table className="admin-table">
+            <thead><tr>
+              <th>When</th><th>Account</th><th>Direction</th><th className="num">Amount</th><th>Ref</th><th>Description</th>
+            </tr></thead>
+            <tbody>
+              {b.ledger.map((l) => (
+                <tr key={l.id}>
+                  <td className="whitespace-nowrap text-ink-3">{fmtTs(l.createdAt)}</td>
+                  <td><Mono>{l.accountType}</Mono></td>
+                  <td><Pill tone={l.direction === 'credit' ? 'success' : 'danger'}>{l.direction}</Pill></td>
+                  <td className="num">{fmtCents(l.amountCents, l.currency)}</td>
+                  <td><Mono>{l.refType}/{l.refId.slice(0, 12)}</Mono></td>
+                  <td className="text-ink-3">{l.description}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyBlock className="py-8" title="No ledger activity" />}
+      </TableCard>
+    </AdminPage>
   );
 }

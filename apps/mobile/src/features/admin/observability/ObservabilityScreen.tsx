@@ -1,15 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { View } from 'react-native';
-import { Activity, Bell, ListTree, Play, Timer } from 'lucide-react-native';
+import { StyleSheet, View } from 'react-native';
+import { Activity, AlertOctagon, Bell, BellOff, ListTree, Play, Timer } from 'lucide-react-native';
 import {
   Button,
-  Card,
   EmptyState,
   ErrorState,
   Gutter,
+  InkHero,
   ListHeader,
   ListScreen,
   Loader,
+  Pulse,
+  QuickAction,
+  QuickActions,
   ScreenHeader,
   SkeletonList,
   StatusBadge,
@@ -20,6 +23,7 @@ import { api, errorMessage } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { colors, fonts } from '@/theme/tokens';
 import { MonoTag, Section, go } from '../../buyer/orders/kit';
+import { HeroMetric, RecordCard } from '@/features/admin/ops/kit';
 
 type HealthSnapshot = {
   dbLatencyMs: number;
@@ -79,35 +83,53 @@ export function ObservabilityScreen() {
             kicker="Platform telemetry"
             title="Observability"
             subtitle={h ? `Snapshot ${timeAgo(h.capturedAt)}` : undefined}
-            right={
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Button title="Alerts" icon={Bell} variant="secondary" size="sm" onPress={() => go('/admin/observability/alerts')} />
-                <Button title="Queues" icon={ListTree} variant="secondary" size="sm" onPress={() => go('/admin/observability/queues')} />
-              </View>
-            }
           />
           <Gutter style={{ gap: 14 }}>
-            {health.isLoading ? (
-              <SkeletonList rows={2} height={90} />
-            ) : health.isError ? (
-              <ErrorState message={errorMessage(health.error)} onRetry={() => health.refetch()} />
-            ) : (
-              <>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            <InkHero seed="admin-observability">
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text variant="overline" color="volt">
+                  Platform health
+                </Text>
+                {h ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Pulse color={metrics.some((m) => m.warn) ? colors.amber : colors.volt} size={6} />
+                    <Text variant="caption" color="paperMuted">
+                      {metrics.filter((m) => m.warn).length ? `${metrics.filter((m) => m.warn).length} warnings` : 'Nominal'}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              {health.isLoading ? (
+                <SkeletonList rows={1} height={90} />
+              ) : health.isError ? (
+                <Text variant="bodySm" color="paperMuted" style={{ marginTop: 12 }}>
+                  Snapshot unavailable
+                </Text>
+              ) : (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 16, columnGap: 14, marginTop: 16 }}>
                   {metrics.map((m) => (
-                    <Card key={m.label} padding={12} style={{ width: '31%', flexGrow: 1, gap: 4, borderWidth: m.warn ? 1 : 0, borderColor: colors.amber }}>
-                      <Text variant="overline" color="ink4" numberOfLines={1}>
-                        {m.label}
-                      </Text>
-                      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 17, color: m.warn ? colors.amber : colors.ink }}>{m.value}</Text>
-                    </Card>
+                    <HeroMetric key={m.label} label={m.label} value={m.value} tone={m.warn ? 'rose' : 'paper'} />
                   ))}
                 </View>
+              )}
+              <View style={{ height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.paperLine, marginTop: 20, marginBottom: 18 }} />
+              <QuickActions style={{ justifyContent: 'flex-start', gap: 12 }}>
+                <QuickAction icon={Bell} label="Alerts" tone="glass" onPress={() => go('/admin/observability/alerts')} />
+                <QuickAction icon={ListTree} label="Queues" tone="glass" onPress={() => go('/admin/observability/queues')} />
+              </QuickActions>
+            </InkHero>
+            {health.isError ? <ErrorState message={errorMessage(health.error)} onRetry={() => health.refetch()} /> : null}
+            {!health.isLoading && !health.isError ? (
+              <>
                 {h?.recentErrors?.length ? (
                   <Section kicker="Errors" title="Recent errors" icon={Activity}>
                     {h.recentErrors.slice(0, 8).map((e, i) => (
-                      <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
-                        <Text variant="caption" color="ink3" numberOfLines={1} style={{ flex: 1 }}>
+                      <View
+                        key={i}
+                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingTop: i ? 10 : 0, borderTopWidth: i ? StyleSheet.hairlineWidth * 2 : 0, borderTopColor: colors.lineSoft }}
+                      >
+                        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.rose }} />
+                        <Text variant="caption" color="ink3" numberOfLines={1} style={{ flex: 1, fontFamily: fonts.mono }}>
                           {e.action}
                         </Text>
                         <Text variant="caption" color="ink5">
@@ -123,24 +145,25 @@ export function ObservabilityScreen() {
                   </Text>
                 </Section>
               </>
-            )}
+            ) : null}
           </Gutter>
         </ListHeader>
       }
       ListEmptyComponent={cron.isLoading ? <Loader label="Loading jobs…" /> : <EmptyState icon={Timer} title="No cron jobs" message="The scheduler registry is empty." />}
       renderItem={({ item: j }) => (
-        <Card padding={14} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text variant="bodySm" weight="semibold">
-              {j.name}
-            </Text>
-            <Text variant="caption" color="ink4" numberOfLines={1}>
-              {j.description}
-            </Text>
-          </View>
-          <MonoTag label={j.schedule} tone="ink" />
-          <Button title="Run" icon={Play} size="sm" variant="secondary" loading={trigger.isPending && trigger.variables === j.name} onPress={() => trigger.mutate(j.name)} />
-        </Card>
+        <RecordCard
+          icon={Timer}
+          tone="paper"
+          title={j.name}
+          subtitle={j.description}
+          chips={<MonoTag label={j.schedule} tone="ink" />}
+          actions={
+            <>
+              <View style={{ flex: 1 }} />
+              <Button title="Run now" icon={Play} size="sm" loading={trigger.isPending && trigger.variables === j.name} onPress={() => trigger.mutate(j.name)} />
+            </>
+          }
+        />
       )}
     />
   );
@@ -195,34 +218,35 @@ export function ObservabilityAlertsScreen() {
         rules.isLoading ? <SkeletonList rows={4} height={84} /> : rules.isError ? <ErrorState message={errorMessage(rules.error)} onRetry={() => rules.refetch()} /> : <EmptyState icon={Bell} title="No rules" />
       }
       renderItem={({ item: r }) => (
-        <Card padding={14} style={{ gap: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <Text variant="bodySm" weight="semibold" style={{ flex: 1 }} numberOfLines={1}>
-              {r.name}
-            </Text>
-            <StatusBadge status={r.silenced ? 'silenced' : r.enabled ? 'active' : 'disabled'} size="sm" label={r.silenced ? 'Silenced' : r.enabled ? 'Active' : 'Disabled'} />
-          </View>
-          <Text variant="caption" color="ink3">
-            {r.description}
-          </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            <MonoTag label={r.component} tone="copper" />
-            <MonoTag label={r.severity} tone={r.severity === 'critical' ? 'rose' : 'amber'} />
-            <MonoTag label={`${r.comparator} ${r.threshold}`} tone="ink" />
-            <MonoTag label={r.window} tone="ink" />
-          </View>
-          {r.silenced ? (
-            <Button title="Unsilence" variant="ghost" size="sm" loading={unsilence.isPending} onPress={() => unsilence.mutate(r.name)} />
-          ) : (
-            <Button
-              title="Silence 1h"
-              variant="secondary"
-              size="sm"
-              loading={silence.isPending}
-              onPress={() => silence.mutate({ ruleName: r.name, durationMinutes: 60, reason: 'Planned maintenance' })}
-            />
-          )}
-        </Card>
+        <RecordCard
+          icon={r.silenced ? BellOff : AlertOctagon}
+          tone={r.silenced ? 'paper' : r.severity === 'critical' ? 'danger' : 'warning'}
+          title={r.name}
+          subtitle={r.description}
+          status={<StatusBadge status={r.silenced ? 'silenced' : r.enabled ? 'active' : 'disabled'} size="sm" label={r.silenced ? 'Silenced' : r.enabled ? 'Active' : 'Disabled'} />}
+          chips={
+            <>
+              <MonoTag label={r.component} tone="copper" />
+              <MonoTag label={r.severity} tone={r.severity === 'critical' ? 'rose' : 'amber'} />
+              <MonoTag label={`${r.comparator} ${r.threshold}`} tone="ink" />
+              <MonoTag label={r.window} tone="ink" />
+            </>
+          }
+          actions={
+            r.silenced ? (
+              <Button title="Unsilence" icon={Bell} variant="paper" size="sm" loading={unsilence.isPending} onPress={() => unsilence.mutate(r.name)} />
+            ) : (
+              <Button
+                title="Silence 1h"
+                icon={BellOff}
+                variant="paper"
+                size="sm"
+                loading={silence.isPending}
+                onPress={() => silence.mutate({ ruleName: r.name, durationMinutes: 60, reason: 'Planned maintenance' })}
+              />
+            )
+          }
+        />
       )}
     />
   );

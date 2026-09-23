@@ -1,23 +1,22 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Flag, Star } from 'lucide-react-native';
+import { Check, Flag, Star, Trash2 } from 'lucide-react-native';
 import { api, errorMessage, qs } from '@/lib/api';
 import { formatDateTime, humanize } from '@/lib/format';
 import {
   Banner,
   Button,
-  Card,
   ConfirmSheet,
   EmptyState,
   ErrorState,
   Screen,
   SkeletonList,
   StatusBadge,
-  Text,
   useToast,
 } from '@/ui';
-import { Appear , Can } from '@/features/admin/platform/kit';
+import { Appear, Can } from '@/features/admin/platform/kit';
+import { RecordCard } from '@/features/admin/ops/kit';
 
 interface ReviewFlag {
   id: string;
@@ -90,24 +89,22 @@ export function ReviewsScreen() {
         <View style={{ gap: 10 }}>
           {rows.map((f, i) => (
             <Appear key={f.id} i={i % 10}>
-              <Card kind="flat" padding={14} style={{ gap: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Flag size={14} color="#B87A4E" />
-                  <Text variant="bodySm" weight="semibold" style={{ flex: 1 }} numberOfLines={2}>
-                    {f.reason}
-                  </Text>
-                  <StatusBadge status={f.status} size="sm" />
-                </View>
-                <Text variant="caption" color="ink4" numberOfLines={1}>
-                  {f.supplierName ?? f.supplierId?.slice(0, 8) ?? 'Supplier'} · {formatDateTime(f.createdAt)}
-                </Text>
-                <Can perm="product:moderate">
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <Button title="Keep review" size="sm" variant="secondary" onPress={() => setTarget({ flag: f, action: 'keep' })} />
-                    <Button title="Remove" size="sm" variant="danger" onPress={() => setTarget({ flag: f, action: 'remove' })} />
-                  </View>
-                </Can>
-              </Card>
+              <RecordCard
+                icon={Flag}
+                tone="copper"
+                title={f.reason}
+                subtitle={f.supplierName ?? f.supplierId?.slice(0, 8) ?? 'Supplier'}
+                meta={formatDateTime(f.createdAt)}
+                status={<StatusBadge status={f.status} size="sm" />}
+                actions={
+                  <Can perm="product:moderate">
+                    <View style={{ flexDirection: 'row', gap: 8, flex: 1 }}>
+                      <Button title="Keep review" icon={Check} size="sm" variant="paper" onPress={() => setTarget({ flag: f, action: 'keep' })} style={{ flex: 1 }} />
+                      <Button title="Remove" icon={Trash2} size="sm" variant="danger" onPress={() => setTarget({ flag: f, action: 'remove' })} style={{ flex: 1 }} />
+                    </View>
+                  </Can>
+                }
+              />
             </Appear>
           ))}
         </View>

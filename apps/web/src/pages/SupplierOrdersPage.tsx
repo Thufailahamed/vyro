@@ -25,6 +25,8 @@ import { MetricNumber, Surface } from '@/components/brand/Surface';
 import { useToast } from '@vyro/ui';
 import { useSupplierId } from '@/supplier/useSupplierId';
 import { SupplierErrorState, SupplierLoadingState } from '@/supplier/SupplierPageState';
+import { lifecycleErrorMessage } from '@/lib/orderLifecycle';
+import { PaymentStateBadge, PodDialog, ReasonDialog } from '@/components/orders/LifecycleUi';
 
 interface Order {
   id: string;
@@ -35,6 +37,7 @@ interface Order {
   deliveryCity?: string;
   deliveryDistrict?: string;
   businessId?: string;
+  paymentState?: string | null;
 }
 
 type OrderDetail = {
@@ -88,6 +91,8 @@ export function SupplierOrdersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [tab, setTab] = useState<'all' | 'incoming' | 'fulfillment' | 'completed'>('all');
   const [activeDrawerPoId, setActiveDrawerPoId] = useState<string | null>(null);
+  const [rejectPo, setRejectPo] = useState<Order | null>(null);
+  const [podPoId, setPodPoId] = useState<string | null>(null);
 
   const ordersQuery = useQuery({
     queryKey: ['supplier', supplierId, 'po'],
@@ -108,26 +113,50 @@ export function SupplierOrdersPage() {
     enabled: !!activeDrawerPoId,
   });
 
-  async function transition(poId: string, to: string) {
+  async function refreshOrder(poId: string) {
+    await qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'po'] });
+    void qc.invalidateQueries({ queryKey: ['supplier-order', poId] });
+    if (activeDrawerPoId === poId) {
+      await qc.invalidateQueries({ queryKey: ['purchase-order', activeDrawerPoId] });
+    }
+  }
+
+  async function transition(poId: string, to: string, reason?: string) {
     setBusyId(poId);
     try {
-      await api.post(`/purchase-orders/${poId}/transition`, { to });
-      toast.success(`Order advanced to ${to.replace(/_/g, ' ')}`);
-      await qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'po'] });
-      if (activeDrawerPoId === poId) {
-        await qc.invalidateQueries({ queryKey: ['purchase-order', activeDrawerPoId] });
-      }
+      await api.post(`/purchase-orders/${poId}/transition`, { to, ...(reason ? { reason } : {}) });
+      toast.show(toast.success(`Order advanced to ${to.replace(/_/g, ' ')}`));
+      await refreshOrder(poId);
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : 'Transition failed');
+      if (reason) throw e; // shown inline by the reason dialog
+      if (e instanceof ApiError && e.code === 'POD_REQUIRED') {
+        setPodPoId(poId);
+      } else {
+        toast.show(toast.error(lifecycleErrorMessage(e, 'Transition failed')));
+      }
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  /** Quick accept = accept every line in full; partial acceptance lives on the order page. */
+  async function acceptInFull(poId: string) {
+    setBusyId(poId);
+    try {
+      await api.post(`/purchase-orders/${poId}/accept`, {});
+      toast.show(toast.success('Order accepted'));
+      await refreshOrder(poId);
+    } catch (e) {
+      toast.show(toast.error(lifecycleErrorMessage(e, 'Could not accept the order')));
     } finally {
       setBusyId(null);
     }
   }
 
   const handleRefresh = async () => {
-    toast.info('Syncing orders with network…');
+    toast.show(toast.info('Syncing orders with network…'));
     await ordersQuery.refetch();
-    toast.success('Orders up to date');
+    toast.show(toast.success('Orders up to date'));
   };
 
   const orders = ordersQuery.data?.orders ?? [];
@@ -508,6 +537,7 @@ export function SupplierOrdersPage() {
                         {o.poNumber}
                       </span>
                       <StatusDots status={(o.status as OrderStatus) ?? 'pending'} />
+                      <PaymentStateBadge state={o.paymentState} />
                       {isPendingStatus && (
                         <Badge variant="warning" className="text-[10px] font-mono uppercase">
                           Action Required
@@ -542,8 +572,9 @@ export function SupplierOrdersPage() {
                           size="sm"
                           variant="success"
                           loading={busyId === o.id}
-                          onClick={() => void transition(o.id, 'accepted')}
+                          onClick={() => void acceptInFull(o.id)}
                           className="gap-1 shadow-xs"
+                          title="Accept all lines in full — open the order to accept partially"
                         >
                           <CheckCircleIcon size={14} />
                           Accept PO
@@ -552,7 +583,7 @@ export function SupplierOrdersPage() {
                           size="sm"
                           variant="danger"
                           disabled={busyId === o.id}
-                          onClick={() => void transition(o.id, 'rejected')}
+                          onClick={() => setRejectPo(o)}
                           title="Reject purchase order"
                         >
                           <XIcon size={14} />
@@ -563,7 +594,7 @@ export function SupplierOrdersPage() {
                         size="sm"
                         variant="primary"
                         loading={busyId === o.id}
-                        onClick={() => void transition(o.id, next)}
+                        onClick={() => (next === 'delivered' ? setPodPoId(o.id) : void transition(o.id, next))}
                         className="shadow-xs"
                       >
                         {NEXT_LABEL[next] ?? next}
@@ -580,9 +611,9 @@ export function SupplierOrdersPage() {
                       Quick View
                     </Button>
 
-                    <Link to={`/orders/${o.id}`}>
+                    <Link to={`/supplier/orders/${o.id}`}>
                       <Button variant="ghost" size="sm" className="text-xs">
-                        Invoice →
+                        View →
                       </Button>
                     </Link>
                   </div>
@@ -592,6 +623,30 @@ export function SupplierOrdersPage() {
           </div>
         )}
       </div>
+
+      <ReasonDialog
+        open={!!rejectPo}
+        title="Reject purchase order"
+        {...(rejectPo ? { subtitle: rejectPo.poNumber } : {})}
+        description="The buyer will see your reason."
+        confirmLabel="Reject order"
+        placeholder="e.g. Out of stock until next month"
+        onClose={() => setRejectPo(null)}
+        onSubmit={(reason) => transition(rejectPo!.id, 'rejected', reason)}
+      />
+
+      {podPoId && (
+        <PodDialog
+          open
+          poId={podPoId}
+          onClose={() => setPodPoId(null)}
+          onCaptured={async () => {
+            await api.post(`/purchase-orders/${podPoId}/transition`, { to: 'delivered' });
+            toast.show(toast.success('Marked delivered'));
+            await refreshOrder(podPoId);
+          }}
+        />
+      )}
 
       {/* Quick Order Detail Drawer */}
       {activeDrawerPoId && (
@@ -660,8 +715,8 @@ export function SupplierOrdersPage() {
                 </div>
 
                 <div className="flex items-center justify-between pt-3 border-t border-line">
-                  <Link to={`/orders/${drawerQuery.data.order.id}`} className="text-xs text-copper hover:underline font-semibold flex items-center gap-1">
-                    <span>Open Full Legal Order & Invoicing</span>
+                  <Link to={`/supplier/orders/${drawerQuery.data.order.id}`} className="text-xs text-copper hover:underline font-semibold flex items-center gap-1">
+                    <span>Open full order</span>
                     <ArrowRightIcon size={12} />
                   </Link>
                   <Button variant="ghost" size="sm" onClick={() => setActiveDrawerPoId(null)}>

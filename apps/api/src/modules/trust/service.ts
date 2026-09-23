@@ -39,7 +39,7 @@ async function loadSupplierFacts(d1: D1Database, supplierId: string, nowMs: numb
       `SELECT count(*) AS total,
               sum(case when delivered_at <= delivery_promised_at then 1 else 0 end) AS on_time
        FROM purchase_orders
-       WHERE supplier_id = ?1 AND status = 'delivered' AND delivery_promised_at IS NOT NULL
+       WHERE supplier_id = ?1 AND status IN ('delivered', 'completed') AND delivery_promised_at IS NOT NULL
        ORDER BY delivered_at DESC
        LIMIT ?2`,
     )

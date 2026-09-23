@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Truck } from 'lucide-react-native';
+import { ArrowUpRight, PackageX, Truck } from 'lucide-react-native';
 import { api, errorMessage, qs } from '@/lib/api';
 import { formatDateTime, formatLKR, humanize, timeAgo } from '@/lib/format';
 import {
   Button,
-  Card,
   ChipRow,
   EmptyState,
   ErrorState,
@@ -18,10 +17,9 @@ import {
   Sheet,
   SkeletonList,
   StatusBadge,
-  Text,
   useToast,
 } from '@/ui';
-import { AdminHeaderActions, ReasonSheet } from '@/features/admin/ops/kit';
+import { AdminHeaderActions, Pill, ReasonSheet, RecordCard } from '@/features/admin/ops/kit';
 import { Appear, go } from '@/features/admin/platform/kit';
 import { useDebounced } from '@/features/admin/ops/kit/hooks';
 
@@ -94,31 +92,31 @@ export function DeliveriesScreen() {
         <View style={{ gap: 10 }}>
           {rows.map((d, i) => (
             <Appear key={d.id} i={i % 10}>
-              <Card kind="flat" padding={14} style={{ gap: 10 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text variant="mono" style={{ flex: 1 }} numberOfLines={1}>
-                    {d.poNumber ?? d.purchaseOrderId.slice(0, 10)}
-                  </Text>
-                  <StatusBadge status={d.status} size="sm" />
-                </View>
-                <Text variant="bodySm" color="ink3" numberOfLines={1}>
-                  {d.businessName ?? 'Buyer'} → {d.supplierName ?? 'Supplier'}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text variant="caption" color="ink4" style={{ flex: 1 }} numberOfLines={1}>
-                    {[d.deliveryCity, d.deliveryDistrict].filter(Boolean).join(', ') || 'No destination'}
-                    {d.driverName ? ` · ${d.driverName}` : ''}
-                    {d.createdAt ? ` · ${timeAgo(d.createdAt)}` : ''}
-                  </Text>
-                  {d.totalCents != null ? <Text variant="mono">{formatLKR(d.totalCents)}</Text> : null}
-                </View>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Button title="Order" size="sm" variant="ghost" onPress={() => go(`/admin/order/${d.purchaseOrderId}`)} />
-                  <View style={{ flex: 1 }} />
-                  <Button title="Advance" size="sm" variant="secondary" onPress={() => { setTarget(d); setNextStatus('in_transit'); }} />
-                  <Button title="Lost" size="sm" variant="danger" onPress={() => setLost(d)} />
-                </View>
-              </Card>
+              <RecordCard
+                icon={Truck}
+                tone={d.status === 'failed' ? 'danger' : d.status === 'delivered' ? 'success' : 'ink'}
+                title={`${d.businessName ?? 'Buyer'} → ${d.supplierName ?? 'Supplier'}`}
+                subtitle={[d.deliveryCity, d.deliveryDistrict].filter(Boolean).join(', ') || 'No destination'}
+                meta={[d.driverName, d.createdAt ? timeAgo(d.createdAt) : null].filter(Boolean).join(' · ') || null}
+                amount={d.totalCents != null ? formatLKR(d.totalCents) : null}
+                status={<StatusBadge status={d.status} size="sm" />}
+                chips={<Pill label={d.poNumber ?? d.purchaseOrderId.slice(0, 10)} />}
+                actions={
+                  <>
+                    <Button title="Order" icon={ArrowUpRight} size="sm" variant="paper" onPress={() => go(`/admin/order/${d.purchaseOrderId}`)} />
+                    <View style={{ flex: 1 }} />
+                    <Button
+                      title="Advance"
+                      size="sm"
+                      onPress={() => {
+                        setTarget(d);
+                        setNextStatus('in_transit');
+                      }}
+                    />
+                    <Button title="Lost" icon={PackageX} size="sm" variant="danger" onPress={() => setLost(d)} />
+                  </>
+                }
+              />
             </Appear>
           ))}
         </View>

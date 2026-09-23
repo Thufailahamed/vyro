@@ -89,8 +89,8 @@ export default function SignupScreen() {
       <Field label="Password" required hint="At least 8 characters.">
         <Input icon={Lock} value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" textContentType="newPassword" />
       </Field>
-      <Button title="Create account" size="lg" full loading={loading} onPress={submit} iconRight={ArrowRight} />
-      <Text variant="caption" color="ink4" align="center">
+      <Button title="Create account" size="lg" full loading={loading} onPress={submit} iconRight={ArrowRight} style={{ marginTop: 4 }} />
+      <Text variant="caption" color="ink4" align="center" style={{ paddingHorizontal: 12 }}>
         By continuing you agree to the VYRO Terms and Privacy Policy.
       </Text>
     </AuthLayout>

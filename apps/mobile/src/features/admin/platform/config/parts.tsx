@@ -3,9 +3,9 @@ import { useState, type ReactNode } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Check, Copy, type LucideIcon } from 'lucide-react-native';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { haptic } from '@/lib/haptics';
-import { Button, Card, Pulse, Text } from '@/ui';
+import { Button, Card, IconTile, Pulse, Text } from '@/ui';
 
 /** Mono pill for keys, event names, ids. */
 export function MonoTag({ label, tone = 'bone', dark }: { label: string; tone?: 'bone' | 'volt' | 'ink'; dark?: boolean }) {
@@ -15,12 +15,10 @@ export function MonoTag({ label, tone = 'bone', dark }: { label: string; tone?: 
     <View
       style={{
         alignSelf: 'flex-start',
-        paddingHorizontal: 7,
-        paddingVertical: 2.5,
-        borderRadius: radii.sm,
-        backgroundColor: bg,
-        borderWidth: tone === 'bone' ? 1 : 0,
-        borderColor: dark ? colors.paperLine : colors.lineSoft,
+        paddingHorizontal: 9,
+        paddingVertical: 3,
+        borderRadius: radii.pill,
+        backgroundColor: tone === 'bone' && !dark ? colors.bone : bg,
       }}
     >
       <Text numberOfLines={1} style={{ fontFamily: fonts.monoMedium, fontSize: 11, lineHeight: 15, color: fg }}>
@@ -94,9 +92,11 @@ export function CodeInput({
         color: colors.ink,
         backgroundColor: colors.paper,
         borderRadius: radii.xl,
-        borderWidth: focused ? 1.5 : 1,
-        borderColor: invalid ? colors.rose : focused ? colors.ink : colors.line,
-        padding: 14,
+        borderCurve: 'continuous',
+        borderWidth: invalid || focused ? 1.5 : 0,
+        borderColor: invalid ? colors.rose : colors.ink,
+        padding: 16,
+        ...(focused ? shadow.focus : shadow.card),
         opacity: editable ? 1 : 0.75,
       }}
     />
@@ -121,8 +121,8 @@ export function DraftBar({
   saving?: boolean;
 }) {
   return (
-    <Card kind="ink" padding={14} style={{ gap: 12 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+    <Card kind="ink" padding={16} radius={radii['2xl']} style={{ gap: 14 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Pulse color={colors.volt} size={7} />
         <Text variant="bodySm" weight="semibold" color="paper" style={{ flex: 1 }}>
           {label ?? `${count} unsaved change${count === 1 ? '' : 's'}`}
@@ -140,9 +140,7 @@ export function DraftBar({
 export function SectionIntro({ icon: Icon, title, text, right }: { icon: LucideIcon; title: string; text?: string; right?: ReactNode }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon size={18} color={colors.volt} strokeWidth={1.7} />
-      </View>
+      <IconTile icon={Icon} tone="ink" size={42} />
       <View style={{ flex: 1, gap: 2 }}>
         <Text variant="h2">{title}</Text>
         {text ? (
@@ -161,7 +159,7 @@ export function ChangeList({ lines }: { lines: string[] }) {
   if (!lines.length) return null;
   const shown = lines.slice(0, 8);
   return (
-    <View style={{ backgroundColor: colors.pearl, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.lineSoft, padding: 12, gap: 6 }}>
+    <View style={{ backgroundColor: colors.pearl, borderRadius: radii.lg, borderCurve: 'continuous', padding: 14, gap: 6 }}>
       {shown.map((l, i) => (
         <Text key={i} style={{ fontFamily: fonts.mono, fontSize: 12, lineHeight: 17, color: colors.ink2 }}>
           {l}

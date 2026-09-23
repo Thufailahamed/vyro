@@ -9,11 +9,9 @@ import {
   EmptyState,
   ErrorState,
   Field,
-  Gutter,
   IconButton,
   Input,
   Screen,
-  ScreenHeader,
   Segmented,
   Sheet,
   SkeletonList,
@@ -26,6 +24,7 @@ import { api, errorMessage } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { colors, fonts } from '@/theme/tokens';
 import { MonoTag, Section } from '../../buyer/orders/kit';
+import { Inset } from '@/features/admin/ops/kit';
 
 type Tab = 'flags' | 'webhooks' | 'emails';
 type WebhookRow = { id: string; name: string; url: string; eventTypes: string[]; active: boolean; createdAt: number };
@@ -35,9 +34,8 @@ type WebhookDelivery = { id: string; eventType: string; status: string; attempts
 export function PlatformScreen() {
   const [tab, setTab] = useState<Tab>('flags');
   return (
-    <Screen>
-      <ScreenHeader back kicker="Platform control" title="Platform" subtitle="Runtime flags, outbound webhooks and email templates." />
-      <Gutter style={{ gap: 14 }}>
+    <Screen back kicker="Platform control" title="Platform" subtitle="Runtime flags, outbound webhooks and email templates." gap={14}>
+      <View style={{ gap: 14 }}>
         <Segmented<Tab>
           options={[
             { value: 'flags', label: 'Flags' },
@@ -50,7 +48,7 @@ export function PlatformScreen() {
         {tab === 'flags' ? <JsonConfigSection section="feature-flags" icon={Flag} title="Feature flags" /> : null}
         {tab === 'emails' ? <JsonConfigSection section="email-templates" icon={Mail} title="Email templates" /> : null}
         {tab === 'webhooks' ? <WebhooksSection /> : null}
-      </Gutter>
+      </View>
     </Screen>
   );
 }
@@ -151,14 +149,15 @@ function WebhooksSection() {
       {webhooks.isError ? <ErrorState message={errorMessage(webhooks.error)} onRetry={() => webhooks.refetch()} /> : null}
       {webhooks.data?.length === 0 ? <EmptyState icon={Webhook} title="No webhooks" message="Create one to receive platform events." /> : null}
       {(webhooks.data ?? []).map((w) => (
-        <Card key={w.id} kind="bone" padding={12} style={{ gap: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <Text variant="bodySm" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
+        <Inset key={w.id} style={{ gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: w.active ? colors.mint : colors.ink5 }} />
+            <Text variant="body" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
               {w.name}
             </Text>
             <Switch value={w.active} onValueChange={(v) => toggle.mutate({ id: w.id, active: v })} />
           </View>
-          <Text variant="caption" color="ink4" numberOfLines={1}>
+          <Text variant="caption" color="ink4" numberOfLines={1} style={{ fontFamily: fonts.mono }}>
             {w.url}
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
@@ -167,11 +166,11 @@ function WebhooksSection() {
             ))}
           </View>
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-            <Button title="Deliveries" variant="ghost" size="sm" onPress={() => setDeliveriesFor(w.id)} />
+            <Button title="Deliveries" variant="paper" size="sm" onPress={() => setDeliveriesFor(w.id)} />
             <View style={{ flex: 1 }} />
-            <IconButton icon={Trash2} variant="ghost" size={32} color={colors.rose} accessibilityLabel="Delete webhook" onPress={() => setDisableTarget(w)} />
+            <IconButton icon={Trash2} variant="surface" size={34} color={colors.rose} accessibilityLabel="Delete webhook" onPress={() => setDisableTarget(w)} />
           </View>
-        </Card>
+        </Inset>
       ))}
       <CreateWebhookSheet visible={createOpen} onClose={() => setCreateOpen(false)} />
       <DeliveriesSheet webhookId={deliveriesFor} onClose={() => setDeliveriesFor(null)} />
@@ -263,7 +262,7 @@ function DeliveriesSheet({ webhookId, onClose }: { webhookId: string | null; onC
         {q.isLoading ? <SkeletonList rows={4} height={60} /> : null}
         {q.data?.length === 0 ? <Text variant="caption" color="ink4">No deliveries yet.</Text> : null}
         {(q.data ?? []).map((d) => (
-          <Card key={d.id} kind="bone" padding={12} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Card key={d.id} kind="flat" padding={14} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ flex: 1, gap: 2 }}>
               <Text variant="bodySm" weight="semibold">
                 {d.eventType}

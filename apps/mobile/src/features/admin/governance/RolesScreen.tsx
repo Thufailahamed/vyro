@@ -1,28 +1,36 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { KeyRound, MailPlus, UserMinus } from 'lucide-react-native';
+import { Mail, MailPlus, UserMinus } from 'lucide-react-native';
 import { api, errorMessage } from '@/lib/api';
 import { formatDate, humanize } from '@/lib/format';
 import {
   Avatar,
   Button,
-  Card,
   ConfirmSheet,
   Field,
+  IconTile,
   Input,
+  ListCard,
+  ListRow,
   QueryView,
   Screen,
+  SectionHeader,
   Select,
   Sheet,
   StatusBadge,
-  Text,
   useToast,
 } from '@/ui';
 import { useAdminGet } from '@/features/admin/common/api';
-import { ADMIN_ROLES, INVITABLE_ROLES, ROLE_META, hasPermission, useAdminRole, type AdminRole } from '@/features/admin/common/permissions';
+import {
+  ADMIN_ROLES,
+  INVITABLE_ROLES,
+  ROLE_META,
+  hasPermission,
+  useAdminRole,
+  type AdminRole,
+} from '@/features/admin/common/permissions';
 import { Appear, go } from '@/features/admin/platform/kit';
-import { Section } from '@/features/admin/ops/kit';
 
 interface AdminUser {
   id: string;
@@ -46,8 +54,15 @@ export function RolesScreen() {
   const invitable = role ? INVITABLE_ROLES[role] : [];
   const qc = useQueryClient();
   const toast = useToast();
-  const admins = useAdminGet<{ items: AdminUser[] }>(['admin-users', 'admins'], '/admin/users?isAdmin=true');
-  const invites = useAdminGet<{ invites: Invite[] }>(['admin-invites'], '/admin/invites', hasPermission(role, 'admin:invite') || hasPermission(role, 'admin:read'));
+  const admins = useAdminGet<{ items: AdminUser[] }>(
+    ['admin-users', 'admins'],
+    '/admin/users?isAdmin=true',
+  );
+  const invites = useAdminGet<{ invites: Invite[] }>(
+    ['admin-invites'],
+    '/admin/invites',
+    hasPermission(role, 'admin:invite') || hasPermission(role, 'admin:read'),
+  );
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<AdminRole>('support');
@@ -84,67 +99,104 @@ export function RolesScreen() {
       onRefresh={refresh}
       footer={
         invitable.length ? (
-          <Button title="Invite operator" icon={MailPlus} full size="lg" onPress={() => setInviteOpen(true)} />
+          <Button
+            title="Invite operator"
+            icon={MailPlus}
+            full
+            size="lg"
+            onPress={() => setInviteOpen(true)}
+          />
         ) : undefined
       }
     >
       <Appear>
-        <Section kicker={`Operators · ${(admins.data?.items ?? []).length}`} title="Seats" icon={KeyRound}>
-          <QueryView query={admins} empty={(d) => (d.items ?? []).length === 0} emptyTitle="No operators" emptyMessage="Invite the first operator below.">
+        <View>
+          <SectionHeader
+            kicker={`Operators · ${(admins.data?.items ?? []).length}`}
+            title="Seats"
+          />
+          <QueryView
+            query={admins}
+            empty={(d) => (d.items ?? []).length === 0}
+            emptyTitle="No operators"
+            emptyMessage="Invite the first operator below."
+          >
             {(d) => (
-              <View style={{ gap: 10 }}>
-                {(d.items ?? []).map((u) => (
-                  <Card key={u.id} kind="flat" padding={13} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <Avatar name={u.name} size={40} />
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text variant="body" weight="semibold" numberOfLines={1}>
-                        {u.name}
-                      </Text>
-                      <Text variant="caption" color="ink4" numberOfLines={1}>
-                        {u.email}
-                      </Text>
-                      <View style={{ marginTop: 2 }}>
-                        {u.adminRole ? (
-                          <StatusBadge status={ROLE_META[u.adminRole as AdminRole]?.label ?? humanize(u.adminRole)} size="sm" />
-                        ) : null}
-                      </View>
+              <ListCard>
+                {(d.items ?? []).map((u, i, arr) => (
+                  <View key={u.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <ListRow
+                        title={u.name}
+                        subtitle={u.email}
+                        leading={<Avatar name={u.name} size={42} tone="ink" />}
+                        trailing={
+                          u.adminRole ? (
+                            <StatusBadge
+                              status={
+                                ROLE_META[u.adminRole as AdminRole]?.label ?? humanize(u.adminRole)
+                              }
+                              size="sm"
+                            />
+                          ) : undefined
+                        }
+                        last={i === arr.length - 1}
+                      />
                     </View>
                     {hasPermission(role, 'admin:role_change') ? (
-                      <Button title="Demote" size="sm" variant="ghost" onPress={() => setDemote(u)} />
+                      <Button
+                        title="Demote"
+                        size="sm"
+                        variant="paper"
+                        onPress={() => setDemote(u)}
+                      />
                     ) : null}
-                  </Card>
+                  </View>
                 ))}
-              </View>
+              </ListCard>
             )}
           </QueryView>
-        </Section>
+        </View>
       </Appear>
 
       <Appear i={1}>
-        <Section kicker={`Invites · ${(invites.data?.invites ?? []).length}`} title="Pending">
-          <QueryView query={invites} empty={(d) => (d.invites ?? []).length === 0} emptyTitle="No pending invites" emptyMessage="Outstanding invites appear here until accepted.">
+        <View>
+          <SectionHeader
+            kicker={`Invites · ${(invites.data?.invites ?? []).length}`}
+            title="Pending"
+          />
+          <QueryView
+            query={invites}
+            empty={(d) => (d.invites ?? []).length === 0}
+            emptyTitle="No pending invites"
+            emptyMessage="Outstanding invites appear here until accepted."
+          >
             {(d) => (
-              <View style={{ gap: 10 }}>
-                {(d.invites ?? []).map((inv) => (
-                  <Card key={inv.id} kind="bone" padding={13} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text variant="body" weight="semibold" numberOfLines={1}>
-                        {inv.email}
-                      </Text>
-                      <Text variant="caption" color="ink4">
-                        {humanize(inv.role)}
-                        {inv.expiresAt ? ` · expires ${formatDate(inv.expiresAt)}` : ''}
-                      </Text>
-                    </View>
-                    {hasPermission(role, 'admin:invite') ? (
-                      <Button title="Revoke" size="sm" variant="danger" icon={UserMinus} onPress={() => setRevoke(inv)} />
-                    ) : null}
-                  </Card>
+              <ListCard>
+                {(d.invites ?? []).map((inv, i, arr) => (
+                  <ListRow
+                    key={inv.id}
+                    title={inv.email}
+                    subtitle={`${humanize(inv.role)}${inv.expiresAt ? ` · expires ${formatDate(inv.expiresAt)}` : ''}`}
+                    leading={<IconTile icon={Mail} tone="copper" size={42} />}
+                    trailing={
+                      hasPermission(role, 'admin:invite') ? (
+                        <Button
+                          title="Revoke"
+                          size="sm"
+                          variant="danger"
+                          icon={UserMinus}
+                          onPress={() => setRevoke(inv)}
+                        />
+                      ) : undefined
+                    }
+                    last={i === arr.length - 1}
+                  />
                 ))}
-              </View>
+              </ListCard>
             )}
           </QueryView>
-        </Section>
+        </View>
       </Appear>
 
       <Sheet
@@ -152,21 +204,44 @@ export function RolesScreen() {
         onClose={() => setInviteOpen(false)}
         title="Invite operator"
         subtitle="They accept from the admin login screen."
-        footer={<Button title="Send invite" full size="lg" loading={busy} disabled={!email.includes('@') || !invitable.length} onPress={sendInvite} />}
+        footer={
+          <Button
+            title="Send invite"
+            full
+            size="lg"
+            loading={busy}
+            disabled={!email.includes('@') || !invitable.length}
+            onPress={sendInvite}
+          />
+        }
       >
         <View style={{ gap: 14 }}>
           <Field label="Work email" required>
-            <Input value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="ops@vyro.lk" />
+            <Input
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholder="ops@vyro.lk"
+            />
           </Field>
           <Field label="Role" required>
             <Select<AdminRole>
               value={inviteRole}
               onChange={setInviteRole}
               title="Operator role"
-              options={(invitable.length ? [...invitable] : [...ADMIN_ROLES]).map((r) => ({ value: r, label: ROLE_META[r].label }))}
+              options={(invitable.length ? [...invitable] : [...ADMIN_ROLES]).map((r) => ({
+                value: r,
+                label: ROLE_META[r].label,
+              }))}
             />
           </Field>
-          <Button title="View all users" variant="ghost" onPress={() => go('/admin/users')} />
+          <Button
+            title="View all users"
+            variant="paper"
+            onPress={() => go('/admin/users')}
+            style={{ alignSelf: 'center' }}
+          />
         </View>
       </Sheet>
 

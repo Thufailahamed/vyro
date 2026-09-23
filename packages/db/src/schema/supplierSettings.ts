@@ -25,6 +25,10 @@ export const supplierSettings = sqliteTable(
     bankBranch: text('bank_branch'),
     bankAccountHolder: text('bank_account_holder'),
     bankVerified: integer('bank_verified', { mode: 'boolean' }).notNull().default(false),
+    // Sri Lanka tax registration — drives the VAT/SSCL breakdown on invoices.
+    vatRegistered: integer('vat_registered', { mode: 'boolean' }).notNull().default(false),
+    vatRegistrationNo: text('vat_registration_no'),
+    ssclRegistered: integer('sscl_registered', { mode: 'boolean' }).notNull().default(false),
     notifyNewOrders: integer('notify_new_orders').notNull().default(1),
     notifyLowStock: integer('notify_low_stock').notNull().default(1),
     notifyPaymentReceived: integer('notify_payment_received').notNull().default(1),

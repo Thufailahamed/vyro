@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from 'react';
-import { Linking, Share, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Linking, Share, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Bell, Check, CheckCircle2, Search, X, XCircle, type LucideIcon } from 'lucide-react-native';
-import { Badge, Button, Card, ConfirmSheet, Field, IconButton, Input, Kicker, Sheet, Text, Touchable, type ButtonVariant } from '@/ui';
+import { Badge, Button, Card, ConfirmSheet, Field, IconButton, IconTile, Input, Kicker, Sheet, Text, Touchable, type ButtonVariant } from '@/ui';
 import { colors, radii, shadow } from '@/theme/tokens';
 import { TAB_BAR_SPACE } from '@/ui';
 import { usePermission } from '@/features/admin/common/permissions';
@@ -60,17 +60,17 @@ export function Section({
   style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <Card kind={kind} padding={padding} style={[{ gap: 10 }, style]}>
+    <Card kind={kind} padding={padding} radius={radii.xl} style={[{ gap: 12 }, style]}>
       {kicker || title || action ? (
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-          {Icon ? (
-            <View style={{ width: 32, height: 32, borderRadius: 9, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon size={16} color={colors.volt} strokeWidth={1.8} />
-            </View>
-          ) : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 2 }}>
+          {Icon ? <IconTile icon={Icon} tone="ink" size={38} /> : null}
           <View style={{ flex: 1, gap: 2 }}>
             {kicker ? <Kicker>{kicker}</Kicker> : null}
-            {title ? <Text variant="h2">{title}</Text> : null}
+            {title ? (
+              <Text variant="h2" numberOfLines={2}>
+                {title}
+              </Text>
+            ) : null}
           </View>
           {action}
         </View>
@@ -85,7 +85,7 @@ export function Pill({ label, tone = 'mist', icon: Icon }: { label: string; tone
   const bg = tone === 'ink' ? colors.ink : tone === 'volt' ? colors.voltSoft : tone === 'copper' ? colors.copperSoft : colors.mist;
   const fg = tone === 'ink' ? colors.volt : tone === 'volt' ? colors.voltDeep : tone === 'copper' ? colors.copperDeep : colors.ink3;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: bg, borderRadius: radii.sm, paddingHorizontal: 6, paddingVertical: 2 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: bg, borderRadius: radii.pill, paddingHorizontal: 8, paddingVertical: 3 }}>
       {Icon ? <Icon size={11} color={fg} strokeWidth={2} /> : null}
       <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 10.5, lineHeight: 14, color: fg }} numberOfLines={1}>
         {label}
@@ -202,29 +202,35 @@ export function SelectionBar({
       style={[
         {
           position: 'absolute',
-          left: 12,
-          right: 12,
+          left: 14,
+          right: 14,
           bottom: (tabBar ? TAB_BAR_SPACE - 18 : 12) + insets.bottom,
           backgroundColor: colors.ink,
-          borderRadius: radii['2xl'],
-          padding: 12,
-          gap: 10,
+          borderRadius: radii['3xl'],
+          borderCurve: 'continuous',
+          paddingVertical: 12,
+          paddingHorizontal: 14,
+          gap: 12,
           borderWidth: 1,
-          borderColor: colors.paperLine,
+          borderColor: 'rgba(250,247,240,0.08)',
         },
         shadow.lg,
       ]}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <View style={{ backgroundColor: colors.volt, borderRadius: radii.pill, paddingHorizontal: 9, paddingVertical: 2 }}>
-          <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 12, color: colors.ink }}>{count}</Text>
+        <View style={{ backgroundColor: colors.volt, borderRadius: radii.pill, minWidth: 32, height: 28, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 13, lineHeight: 16, color: colors.ink }}>{count}</Text>
         </View>
         <Text variant="bodySm" weight="semibold" color="paper" style={{ flex: 1 }}>
           selected{count > cap ? ` · cap ${cap}` : ''}
         </Text>
         {onSelectAll ? (
-          <Touchable onPress={onSelectAll} hapticOnPress>
-            <Text variant="caption" color="volt">
+          <Touchable
+            onPress={onSelectAll}
+            hapticOnPress
+            style={{ height: 30, paddingHorizontal: 12, borderRadius: radii.pill, backgroundColor: 'rgba(198,220,74,0.14)', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Text variant="caption" weight="semibold" color="volt">
               Select all
             </Text>
           </Touchable>
@@ -329,21 +335,21 @@ export function BulkResultSheet({ result, onClose, onRetryFailed }: { result: Bu
       {result ? (
         <View style={{ gap: 14 }}>
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Card kind="bone" padding={12} style={{ flex: 1, gap: 4 }}>
+            <Card kind="flat" padding={14} style={{ flex: 1, gap: 4, backgroundColor: colors.mintSoft }}>
               <Text variant="overline" color="ink4">Succeeded</Text>
               <Text variant="metricSm" style={{ color: colors.mint }}>{result.succeeded.length}</Text>
             </Card>
-            <Card kind="bone" padding={12} style={{ flex: 1, gap: 4 }}>
+            <Card kind="flat" padding={14} style={{ flex: 1, gap: 4, backgroundColor: result.failed.length ? colors.roseSoft : colors.paper }}>
               <Text variant="overline" color="ink4">Failed</Text>
               <Text variant="metricSm" style={{ color: result.failed.length ? colors.rose : colors.ink4 }}>{result.failed.length}</Text>
             </Card>
-            <Card kind="bone" padding={12} style={{ flex: 1, gap: 4 }}>
+            <Card kind="flat" padding={14} style={{ flex: 1, gap: 4 }}>
               <Text variant="overline" color="ink4">Total</Text>
               <Text variant="metricSm">{result.total}</Text>
             </Card>
           </View>
           {result.failed.map((f) => (
-            <View key={f.id} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <View key={f.id} style={{ flexDirection: 'row', gap: 10, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
               <XCircle size={14} color={colors.rose} />
               <Text variant="mono" numberOfLines={1} style={{ flex: 1 }}>
                 {f.id}
@@ -371,8 +377,10 @@ export function BulkResultSheet({ result, onClose, onRetryFailed }: { result: Bu
 export function ContactLine({ icon: Icon, value, href }: { icon: LucideIcon; value?: string | null; href?: string }) {
   if (!value) return null;
   return (
-    <Touchable onPress={href ? () => Linking.openURL(href).catch(() => {}) : undefined} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 3 }}>
-      <Icon size={14} color={colors.copper} strokeWidth={1.8} />
+    <Touchable onPress={href ? () => Linking.openURL(href).catch(() => {}) : undefined} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 }}>
+      <View style={{ width: 28, height: 28, borderRadius: 9, borderCurve: 'continuous', backgroundColor: colors.copperSoft, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon size={14} color={colors.copperDeep} strokeWidth={1.8} />
+      </View>
       <Text variant="bodySm" color={href ? 'ink' : 'ink3'} numberOfLines={1} style={{ flex: 1 }}>
         {value}
       </Text>
@@ -405,6 +413,105 @@ export function HeroMetric({ label, value, hint, tone = 'paper' }: { label: stri
           {hint}
         </Text>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * Native list item for admin registries: tinted icon tile, title/subtitle,
+ * trailing status + mono amount, optional chips row and action footer.
+ */
+export function RecordCard({
+  icon,
+  tone = 'ink',
+  leading,
+  title,
+  titleMono,
+  subtitle,
+  meta,
+  status,
+  amount,
+  chips,
+  actions,
+  onPress,
+  children,
+  style,
+}: {
+  icon?: LucideIcon;
+  tone?: 'ink' | 'volt' | 'copper' | 'paper' | 'danger' | 'success' | 'warning';
+  leading?: ReactNode;
+  title: string;
+  titleMono?: boolean;
+  subtitle?: string | null;
+  meta?: string | null;
+  status?: ReactNode;
+  amount?: string | null;
+  chips?: ReactNode;
+  actions?: ReactNode;
+  onPress?: () => void;
+  children?: ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <Card kind="flat" padding={16} onPress={onPress} style={[{ gap: 12 }, style]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        {leading ?? (icon ? <IconTile icon={icon} tone={tone} size={44} /> : null)}
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text
+            variant={titleMono ? 'mono' : 'h3'}
+            style={titleMono ? { fontFamily: 'IBMPlexMono_500Medium', fontSize: 14.5, color: colors.ink } : undefined}
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
+          {subtitle ? (
+            <Text variant="bodySm" color="ink4" numberOfLines={2}>
+              {subtitle}
+            </Text>
+          ) : null}
+          {meta ? (
+            <Text variant="caption" color="ink5" numberOfLines={1}>
+              {meta}
+            </Text>
+          ) : null}
+        </View>
+        {status || amount ? (
+          <View style={{ alignItems: 'flex-end', gap: 5, maxWidth: '42%' }}>
+            {amount ? (
+              <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 14.5, letterSpacing: -0.3, color: colors.ink }} numberOfLines={1} adjustsFontSizeToFit>
+                {amount}
+              </Text>
+            ) : null}
+            {status}
+          </View>
+        ) : null}
+      </View>
+      {chips ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{chips}</View> : null}
+      {children}
+      {actions ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: 8,
+            paddingTop: 12,
+            borderTopWidth: StyleSheet.hairlineWidth * 2,
+            borderTopColor: colors.lineSoft,
+          }}
+        >
+          {actions}
+        </View>
+      ) : null}
+    </Card>
+  );
+}
+
+/** Borderless pearl tile nested inside a card (sub-records, previews, notes). */
+export function Inset({ children, style, dim }: { children: ReactNode; style?: StyleProp<ViewStyle>; dim?: boolean }) {
+  return (
+    <View style={[{ padding: 14, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl, opacity: dim ? 0.55 : 1 }, style]}>
+      {children}
     </View>
   );
 }

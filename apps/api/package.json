@@ -9,7 +9,7 @@
     "deploy": "wrangler deploy --env production",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --testTimeout=30000 --hookTimeout=60000",
     "db:migrate:local": "wrangler d1 migrations apply vyro --local",
     "db:migrate:remote": "wrangler d1 migrations apply vyro --remote",
     "db:migrate:list": "wrangler d1 migrations list vyro --local",

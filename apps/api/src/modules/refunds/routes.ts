@@ -7,19 +7,9 @@ import { getDb } from '@vyro/db';
 import { payments as paymentsTable, purchaseOrders, businessMembers } from '@vyro/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { createRefundSchema } from '@vyro/validation/payment';
-import { NotificationType } from '@vyro/shared';
-import { recordAudit } from '../supplierProducts/repository';
-import { resolveGateway } from '@vyro/payments';
-import { writeLedgerEntry } from '../ledger';
-import {
-  createRefund,
-  findRefund,
-  listRefundsForPayment,
-  sumCompletedRefundsForPayment,
-  updateRefundStatus,
-} from './repository';
+import { findRefund, listRefundsForPayment } from './repository';
+import { executeRefund } from './executor';
 import { requireBusinessPaymentRole, isSupplierMember } from '../payments/membership';
-import { notifyOrderParties } from '../notifications/dispatcher';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -84,139 +74,22 @@ router.post('/:paymentId/refund', session(), async (c) => {
     if (!allowed) throw httpError(403, 'FORBIDDEN', 'Insufficient role to refund');
   }
 
-  // Amount validation
-  const alreadyRefunded = await sumCompletedRefundsForPayment(c.env.DB, payment.id);
-  const maxRefundable = payment.amountCents - alreadyRefunded;
-  if (maxRefundable <= 0) {
-    throw httpError(409, 'CONFLICT', 'Payment already fully refunded');
-  }
-  const refundCents = parsed.data.amountCents ?? maxRefundable;
-  if (refundCents > maxRefundable) {
-    throw httpError(400, 'VALIDATION_ERROR', `refund amount exceeds refundable (${maxRefundable})`);
-  }
-
-  // Proportional fee refund
-  const feeRefundCents = payment.feeCents > 0
-    ? Math.round((refundCents * payment.feeCents) / payment.amountCents)
-    : 0;
-
-  const db = getDb(c.env.DB);
-  const refund = await db.transaction(async (tx) => {
-    const refundRow = await createRefund(c.env.DB, {
-      paymentId: payment.id,
-      amountCents: refundCents,
-      reason: parsed.data.reason ?? null,
-      requestedByUserId: ctx.userId,
-    });
-
-    // Update payment status if fully refunded
-    const newRefundedTotal = alreadyRefunded + refundCents;
-    if (newRefundedTotal >= payment.amountCents) {
-      tx.update(paymentsTable)
-        .set({
-          status: 'refunded',
-          statusReason: parsed.data.reason ?? null,
-          updatedAt: Date.now(),
-        })
-        .where(eq(paymentsTable.id, payment.id))
-        .run();
-    }
-
-    // Gateway call (online) OR mark completed (offline)
-    const env = c.env as Env;
-    const { adapter } = resolveGateway(env);
-    const useGateway = payment.method === 'online' && !!payment.gatewayRef;
-
-    if (useGateway) {
-      await updateRefundStatus(c.env.DB, refundRow.id, 'processing', { processedAt: null });
-      const result = await adapter.refund({
-        paymentGatewayRef: payment.gatewayRef!,
-        refundId: refundRow.id,
-        amountCents: refundCents,
-        reason: parsed.data.reason ?? '',
-      });
-      if (result.status === 'completed') {
-        await updateRefundStatus(c.env.DB, refundRow.id, 'completed', {
-          gatewayRefundId: result.gatewayRefundId,
-          processedAt: Date.now(),
-        });
-      } else if (result.status === 'failed') {
-        await updateRefundStatus(c.env.DB, refundRow.id, 'failed', {
-          failureReason: 'gateway refused refund',
-          processedAt: Date.now(),
-        });
-        throw httpError(502, 'INTERNAL', 'Gateway refund failed');
-      } else {
-        // pending: webhook will finalize
-      }
-    } else {
-      // Offline refund: mark completed immediately and write ledger
-      await updateRefundStatus(c.env.DB, refundRow.id, 'completed', { processedAt: Date.now() });
-      writeLedgerEntry(tx as any, {
-        accountType: 'business',
-        accountId: po.businessId,
-        direction: 'debit',
-        amountCents: refundCents,
-        refType: 'refund',
-        refId: refundRow.id,
-        description: `Refund for payment ${payment.id}`,
-        createdByUserId: ctx.userId,
-      });
-      if (feeRefundCents > 0) {
-        writeLedgerEntry(tx as any, {
-          accountType: 'platform',
-          accountId: 'platform',
-          direction: 'debit',
-          amountCents: feeRefundCents,
-          refType: 'refund',
-          refId: refundRow.id,
-          description: `Platform fee refund ${refundRow.id}`,
-          createdByUserId: ctx.userId,
-        });
-      }
-    }
-
-    return refundRow;
-  });
-
-  const fresh = (await findRefund(c.env.DB, refund.id)) ?? refund;
-
-  await recordAudit(c.env.DB, {
+  // One executor for every refund. Buyers raise a request that ops approve
+  // (offline money may be held by the supplier); admins process immediately.
+  const outcome = await executeRefund(c.env, {
+    paymentId: payment.id,
+    ...(parsed.data.amountCents !== undefined ? { amountCents: parsed.data.amountCents } : {}),
+    source: 'manual',
+    reason: parsed.data.reason ?? null,
     actorUserId: ctx.userId,
-    action: 'refund.create',
-    resourceType: 'purchase_order',
-    resourceId: po.id,
-    metadata: {
-      refundId: fresh.id,
-      paymentId: payment.id,
-      amountCents: refundCents,
-      feeRefundCents,
-    },
+    idempotencyKey: c.req.header('idempotency-key')
+      ? `manual:${payment.id}:${c.req.header('idempotency-key')}`
+      : `manual:${payment.id}:${crypto.randomUUID()}`,
+    mode: ctx.isAdmin ? 'auto' : 'queue',
   });
-
-  // Best-effort buyer + supplier notifications.
-  try {
-    const initiated = fresh.status === 'requested' || fresh.status === 'processing';
-    await notifyOrderParties(
-      c.env.DB,
-      c.env.NOTIFICATIONS_QUEUE,
-      { id: po.id, poNumber: po.poNumber, businessId: po.businessId, supplierId: po.supplierId },
-      {
-        type: initiated ? NotificationType.REFUND_INITIATED : NotificationType.REFUND_COMPLETED,
-        title: initiated
-          ? `Refund requested for PO ${po.poNumber}`
-          : `Refund completed for PO ${po.poNumber}`,
-        body: initiated
-          ? `A refund of ${refundCents} cents is being processed.`
-          : `A refund of ${refundCents} cents has been completed.`,
-        link: `/orders/${po.id}`,
-        audience: 'both',
-        excludeUserId: ctx.userId,
-      },
-    );
-  } catch (err) {
-    console.error('[refunds.create] notify failed', err);
-  }
+  if (!outcome) throw httpError(409, 'CONFLICT', 'Payment already fully refunded');
+  const fresh = (await findRefund(c.env.DB, outcome.refundId))!;
+  if (fresh.status === 'failed') throw httpError(502, 'INTERNAL', 'Gateway refund failed');
 
   return c.json({ id: fresh.id, status: fresh.status, amountCents: fresh.amountCents }, 201);
 });

@@ -1,10 +1,11 @@
-import { Linking, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { Banknote, FileText, MapPin, Phone, Truck, UserRound } from 'lucide-react-native';
-import { Button, Skeleton, StatusBadge, Text, Timeline, type TimelineStep } from '@/ui';
+import { Button, IconTile, KeyValue, Skeleton, StatusBadge, Text, Timeline, type TimelineStep } from '@/ui';
+import { PodPhoto } from '@/features/common/orderLifecycle';
 import { api } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
-import { colors, radii } from '@/theme/tokens';
+import { colors, radii, shadow } from '@/theme/tokens';
 import { Section } from '../kit';
 import type { Delivery, OrderDetail } from '../types';
 
@@ -42,15 +43,23 @@ export function useDelivery(poId: string | undefined, enabled: boolean) {
   });
 }
 
+const TILE = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 12,
+  padding: 12,
+  borderRadius: radii.xl,
+  borderCurve: 'continuous' as const,
+  backgroundColor: colors.pearl,
+};
+
 /** Logistics: receiving dock, settlement, notes and live delivery tracking. */
 export function DeliveryCard({ order, delivery, loading }: { order: OrderDetail['order']; delivery: Delivery | null | undefined; loading: boolean }) {
   return (
     <Section step={2} kicker="Logistics" title="Delivery & tracking" sub="Receiving dock, driver and transit milestones">
       <View style={{ gap: 10 }}>
-        <View style={{ flexDirection: 'row', gap: 12, padding: 12, borderRadius: radii.xl, backgroundColor: colors.pearl, borderWidth: 1, borderColor: colors.lineSoft }}>
-          <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-            <MapPin size={17} color={colors.volt} strokeWidth={1.8} />
-          </View>
+        <View style={TILE}>
+          <IconTile icon={MapPin} tone="ink" size={40} />
           <View style={{ flex: 1, gap: 2 }}>
             <Text variant="overline" color="ink5">
               Receiving dock
@@ -63,10 +72,8 @@ export function DeliveryCard({ order, delivery, loading }: { order: OrderDetail[
             </Text>
           </View>
         </View>
-        <View style={{ flexDirection: 'row', gap: 12, padding: 12, borderRadius: radii.xl, backgroundColor: colors.pearl, borderWidth: 1, borderColor: colors.lineSoft }}>
-          <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.copperSoft, alignItems: 'center', justifyContent: 'center' }}>
-            <Banknote size={17} color={colors.copperDeep} strokeWidth={1.8} />
-          </View>
+        <View style={TILE}>
+          <IconTile icon={Banknote} tone="copper" size={40} />
           <View style={{ flex: 1, gap: 2 }}>
             <Text variant="overline" color="ink5">
               Settlement
@@ -80,8 +87,8 @@ export function DeliveryCard({ order, delivery, loading }: { order: OrderDetail[
           </View>
         </View>
         {order.notes ? (
-          <View style={{ flexDirection: 'row', gap: 10, padding: 12, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.lineSoft, borderLeftWidth: 3, borderLeftColor: colors.copper }}>
-            <FileText size={14} color={colors.copper} style={{ marginTop: 2 }} />
+          <View style={[TILE, { backgroundColor: colors.copperSoft }]}>
+            <IconTile icon={FileText} tone="paper" size={40} />
             <View style={{ flex: 1, gap: 2 }}>
               <Text variant="overline" color="ink5">
                 Delivery notes
@@ -97,16 +104,16 @@ export function DeliveryCard({ order, delivery, loading }: { order: OrderDetail[
       {loading ? (
         <Skeleton height={120} radius={radii.xl} />
       ) : delivery ? (
-        <View style={{ gap: 14, borderTopWidth: 1, borderTopColor: colors.lineSoft, paddingTop: 14 }}>
+        <View style={{ gap: 14, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft, paddingTop: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Truck size={16} color={colors.ink} strokeWidth={1.8} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <IconTile icon={Truck} tone="paper" size={34} />
               <Text variant="h3">Shipment</Text>
             </View>
             <StatusBadge status={delivery.status} size="sm" />
           </View>
           {delivery.driverName || delivery.driverPhone ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radii.xl, backgroundColor: colors.ink }}>
+            <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.ink }, shadow.ink]}>
               <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(198,220,74,0.16)', alignItems: 'center', justifyContent: 'center' }}>
                 <UserRound size={17} color={colors.volt} />
               </View>
@@ -123,9 +130,36 @@ export function DeliveryCard({ order, delivery, loading }: { order: OrderDetail[
               ) : null}
             </View>
           ) : null}
+          {delivery.carrier || delivery.trackingNumber ? (
+            <View style={{ paddingHorizontal: 14, paddingVertical: 2, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
+              {delivery.carrier ? <KeyValue label="Carrier" value={delivery.carrier} last={!delivery.trackingNumber} /> : null}
+              {delivery.trackingNumber ? <KeyValue label="Tracking number" value={delivery.trackingNumber} mono last /> : null}
+              {delivery.trackingUrl ? (
+                <Button title="Track shipment" variant="ghost" size="sm" onPress={() => Linking.openURL(delivery.trackingUrl!)} />
+              ) : null}
+            </View>
+          ) : null}
+          {delivery.recipientName || delivery.podNote || delivery.hasPodPhoto ? (
+            <View style={{ gap: 10, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.mintSoft }}>
+              <Text variant="overline" color="ink5">
+                Proof of delivery{delivery.podCapturedAt ? ` · ${formatDateTime(delivery.podCapturedAt)}` : ''}
+              </Text>
+              {delivery.recipientName ? (
+                <Text variant="bodySm" weight="semibold">
+                  Received by {delivery.recipientName}
+                </Text>
+              ) : null}
+              {delivery.podNote ? (
+                <Text variant="bodySm" color="ink3">
+                  {delivery.podNote}
+                </Text>
+              ) : null}
+              {delivery.hasPodPhoto ? <PodPhoto poId={delivery.purchaseOrderId ?? order.id} /> : null}
+            </View>
+          ) : null}
           {delivery.status === 'failed' ? (
             <Text variant="bodySm" color="rose">
-              Delivery attempt failed — the supplier will reschedule. Message them below.
+              {delivery.failedReason ? `Delivery attempt failed: ${delivery.failedReason}. ` : 'Delivery attempt failed — '}the supplier will reschedule. Message them below.
             </Text>
           ) : (
             <Timeline steps={deliverySteps(delivery)} />

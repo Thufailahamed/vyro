@@ -11,6 +11,7 @@ import { useSellerKyc } from './useSellerKyc';
 import {
   LayoutGridIcon,
   PackageIcon,
+  RefreshCwIcon,
   TruckIcon,
   BanknoteIcon,
   LayersIcon,
@@ -58,6 +59,7 @@ const NAV_GROUPS: SupplierNavGroup[] = [
     items: [
       { to: '/supplier', label: 'Dashboard', icon: LayoutGridIcon, end: true },
       { to: '/supplier/orders', label: 'Orders', icon: PackageIcon },
+      { to: '/supplier/returns', label: 'Returns', icon: RefreshCwIcon },
       { to: '/supplier/quotes', label: 'Quote Requests', icon: FileTextIcon },
       { to: '/supplier/leads', label: 'Leads', icon: TargetIcon },
       { to: '/supplier/deliveries', label: 'Deliveries', icon: TruckIcon },

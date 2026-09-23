@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api, qs } from '@/lib/api';
+import type { LifecycleDetailFields, LifecycleItemFields, LifecycleOrderFields } from '@/lib/orderLifecycle';
 
 /* Shared supplier-portal types + hooks. Endpoints mirror apps/web supplier pages. */
 
@@ -23,15 +24,28 @@ export type Po = {
   deliveryDistrict?: string;
 };
 
-export type PoDetail = {
-  order: Po & {
-    notes?: string | null;
-    rejectionReason?: string | null;
-    deliveryAddress?: string | null;
-    businessId?: string | null;
-  };
-  items: { id: string; productName?: string; productNameSnapshot?: string; quantity: number; unitPriceCents?: number; unitPriceCentsSnapshot?: number; totalCents?: number; lineTotalCents?: number; unit?: string }[];
-  events: { id: string; fromStatus: string | null; toStatus: string; reason?: string | null; createdAt: number }[];
+export type PoDetail = LifecycleDetailFields & {
+  order: Po &
+    LifecycleOrderFields & {
+      notes?: string | null;
+      rejectionReason?: string | null;
+      cancelledReason?: string | null;
+      deliveryAddress?: string | null;
+      businessId?: string | null;
+      updatedAt?: number;
+    };
+  items: ({
+    id: string;
+    productName?: string;
+    productNameSnapshot?: string;
+    quantity: number;
+    unitPriceCents?: number;
+    unitPriceCentsSnapshot?: number;
+    totalCents?: number;
+    lineTotalCents?: number;
+    unit?: string;
+  } & LifecycleItemFields)[];
+  events: { id: string; fromStatus: string | null; toStatus: string; reason?: string | null; metadata?: string | null; createdAt: number }[];
 };
 
 export type Payment = {
@@ -278,7 +292,8 @@ export function useSponsorInvoices(supplierId: string | undefined) {
 export function usePoDetail(poId: string | undefined) {
   return useQuery({
     queryKey: ['purchase-order', poId],
-    queryFn: () => api.get<PoDetail>(`/purchase-orders/${poId}`),
+    // `as=supplier` so `lifecycle.allowedTransitions` is computed for the supplier side.
+    queryFn: () => api.get<PoDetail>(`/purchase-orders/${poId}?as=supplier`),
     enabled: !!poId,
   });
 }

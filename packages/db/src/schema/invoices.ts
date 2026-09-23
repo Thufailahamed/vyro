@@ -12,7 +12,7 @@ export const invoiceSequences = sqliteTable(
       .notNull()
       .references(() => suppliers.id),
     year: integer('year').notNull(),
-    type: text('type', { enum: ['receipt', 'tax_invoice'] }).notNull(),
+    type: text('type', { enum: ['receipt', 'tax_invoice', 'credit_note'] }).notNull(),
     lastNumber: integer('last_number').notNull().default(0),
   },
   (t) => ({
@@ -25,7 +25,7 @@ export const invoices = sqliteTable(
   {
     id: text('id').primaryKey(),
     number: text('number').notNull().unique(),
-    type: text('type', { enum: ['receipt', 'tax_invoice'] }).notNull(),
+    type: text('type', { enum: ['receipt', 'tax_invoice', 'credit_note'] }).notNull(),
     paymentId: text('payment_id').references(() => payments.id),
     purchaseOrderId: text('purchase_order_id')
       .notNull()
@@ -38,6 +38,11 @@ export const invoices = sqliteTable(
       .references(() => suppliers.id),
     subtotalCents: integer('subtotal_cents').notNull(),
     taxCents: integer('tax_cents').notNull().default(0),
+    /** Breakdown of taxCents (prices are tax-inclusive: total = subtotal + tax). */
+    vatCents: integer('vat_cents').notNull().default(0),
+    ssclCents: integer('sscl_cents').notNull().default(0),
+    supplierVatNo: text('supplier_vat_no'),
+    buyerTaxId: text('buyer_tax_id'),
     totalCents: integer('total_cents').notNull(),
     currency: text('currency').notNull().default('LKR'),
     issuedAt: integer('issued_at').notNull(),

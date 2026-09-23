@@ -20,6 +20,7 @@ import {
   ClockIcon,
   MenuIcon,
   XIcon,
+  RefreshCwIcon,
 } from './icons';
 import { Button } from './ui';
 import { BrandMark, BrandWordmark } from './brand/BrandMark';
@@ -234,6 +235,7 @@ function WorkspaceShell() {
     { to: '/ask', label: 'Ask VYRO', icon: SparklesIcon, show: !!user, accent: true },
     { to: '/search', label: 'Marketplace', icon: SearchIcon, show: true },
     { to: '/orders', label: 'Purchase Orders', icon: PackageIcon, show: !!user },
+    { to: '/returns', label: 'Returns', icon: RefreshCwIcon, show: !!businessId },
     { to: '/accounts', label: 'Accounts', icon: BanknoteIcon, show: !!businessId },
     { to: '/credit', label: 'Credit', icon: ClockIcon, show: !!businessId },
     { to: '/rfqs', label: 'Bulk Quotes', icon: FileTextIcon, show: !!businessId },
@@ -565,6 +567,7 @@ function MobileNavDrawer({
               { to: '/ask', label: 'Ask VYRO', icon: SparklesIcon, show: !!user, accent: true },
               { to: '/search', label: 'Marketplace', icon: SearchIcon, show: true },
               { to: '/orders', label: 'Purchase Orders', icon: PackageIcon, show: !!user },
+              { to: '/returns', label: 'Returns', icon: RefreshCwIcon, show: !!business?.businessId },
               { to: '/accounts', label: 'Accounts', icon: BanknoteIcon, show: !!business?.businessId },
               { to: '/credit', label: 'Credit', icon: ClockIcon, show: !!business?.businessId },
               { to: '/rfqs', label: 'Bulk Quotes', icon: FileTextIcon, show: !!business?.businessId },

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Share, View } from 'react-native';
+import { Share, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -28,6 +28,7 @@ import {
   EmptyState,
   ErrorState,
   IconButton,
+  IconTile,
   InkHero,
   Kicker,
   ProgressBar,
@@ -45,7 +46,7 @@ import { Gate } from '@/features/common/Gate';
 import { api, errorMessage, qs } from '@/lib/api';
 import { useBusinessId } from '@/lib/auth';
 import { formatCompactLKR, formatDateTime, formatLKR, humanize } from '@/lib/format';
-import { colors, fonts } from '@/theme/tokens';
+import { colors, fonts, radii } from '@/theme/tokens';
 import {
   go,
   KpiGrid,
@@ -324,8 +325,16 @@ function OverviewTab({ businessId, onSeeAll }: { businessId: string; onSeeAll: (
                 hapticOnPress
                 scaleTo={0.985}
                 onPress={() => go(`/buyer/accounts/payment/${p.id}`)}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, paddingVertical: 12, borderBottomWidth: i === arr.length - 1 ? 0 : 1, borderBottomColor: colors.lineSoft }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  paddingVertical: 12,
+                  borderBottomWidth: i === arr.length - 1 ? 0 : StyleSheet.hairlineWidth * 2,
+                  borderBottomColor: colors.lineSoft,
+                }}
               >
+                <IconTile icon={CreditCard} tone="paper" size={38} />
                 <View style={{ flex: 1, gap: 4 }}>
                   <Row gap={8}>
                     <StatusBadge status={p.status} size="sm" />
@@ -344,10 +353,8 @@ function OverviewTab({ businessId, onSeeAll }: { businessId: string; onSeeAll: (
       </Animated.View>
 
       <Animated.View entering={enter(4)}>
-        <Card kind="bone" style={{ flexDirection: 'row', gap: 12 }}>
-          <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.mintSoft, alignItems: 'center', justifyContent: 'center' }}>
-            <ShieldCheck size={18} color={colors.mint} strokeWidth={1.8} />
-          </View>
+        <Card radius={radii['2xl']} style={{ flexDirection: 'row', gap: 14 }}>
+          <IconTile icon={ShieldCheck} tone="success" size={42} />
           <View style={{ flex: 1, gap: 4 }}>
             <Kicker>Escrow-protected settlement</Kicker>
             <Text variant="bodySm" color="ink3">
@@ -381,7 +388,7 @@ function toneForBar(c: string): 'volt' | 'copper' | 'success' | 'warning' | 'ink
 
 function HeroFigure({ label, value, tone }: { label: string; value: string; tone: 'paper' | 'rose' }) {
   return (
-    <View style={{ flex: 1, padding: 12, borderRadius: 10, backgroundColor: 'rgba(250,247,240,0.06)', borderWidth: 1, borderColor: colors.paperLine, gap: 4 }}>
+    <View style={{ flex: 1, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: 'rgba(250,247,240,0.07)', gap: 4 }}>
       <Text variant="overline" color="paperMuted">
         {label}
       </Text>
@@ -467,8 +474,9 @@ function PaymentsTab({ businessId }: { businessId: string }) {
           </Text>
           {items.map((p, i) => (
             <Animated.View key={p.id} entering={enter(i)}>
-              <Card onPress={() => go(`/buyer/accounts/payment/${p.id}`)} padding={14} style={{ gap: 10 }}>
-                <Row justify="space-between" align="flex-start">
+              <Card onPress={() => go(`/buyer/accounts/payment/${p.id}`)} padding={14} style={{ gap: 12 }}>
+                <Row justify="space-between" align="center" gap={12}>
+                  <IconTile icon={CreditCard} tone={p.status === 'confirmed' ? 'success' : p.status === 'failed' || p.status === 'cancelled' ? 'danger' : 'paper'} size={42} />
                   <View style={{ flex: 1, gap: 3 }}>
                     <Text variant="mono" style={{ fontFamily: fonts.monoMedium }} numberOfLines={1}>
                       {p.paymentNumber ?? p.id.slice(0, 12)}
@@ -522,8 +530,9 @@ function InvoicesTab({ businessId }: { businessId: string }) {
       ) : (
         invoices.map((inv, i) => (
           <Animated.View key={inv.id} entering={enter(i)}>
-            <Card onPress={() => go(`/buyer/order/${inv.purchaseOrderId}/invoice/${inv.id}`)} padding={14} style={{ gap: 10 }}>
-              <Row justify="space-between" align="flex-start">
+            <Card onPress={() => go(`/buyer/order/${inv.purchaseOrderId}/invoice/${inv.id}`)} padding={14} style={{ gap: 12 }}>
+              <Row justify="space-between" align="center" gap={12}>
+                <IconTile icon={FileText} tone="ink" size={42} />
                 <View style={{ flex: 1, gap: 3 }}>
                   <Text variant="mono" style={{ fontFamily: fonts.monoMedium }}>
                     {inv.number}
@@ -579,19 +588,20 @@ function RefundsTab({ businessId }: { businessId: string }) {
       ) : (
         refunds.map((r, i) => (
           <Animated.View key={r.id} entering={enter(i)}>
-            <Card onPress={() => go(`/buyer/accounts/payment/${r.paymentId}`)} padding={14} style={{ gap: 8 }}>
-              <Row justify="space-between">
-                <Row gap={8} style={{ flex: 1 }}>
-                  <Text variant="mono" style={{ fontFamily: fonts.monoMedium }} numberOfLines={1}>
+            <Card onPress={() => go(`/buyer/accounts/payment/${r.paymentId}`)} padding={14} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <IconTile icon={RefreshCw} tone="copper" size={42} />
+              <View style={{ flex: 1, gap: 4 }}>
+                <Row gap={8}>
+                  <Text variant="mono" style={{ fontFamily: fonts.monoMedium, flexShrink: 1 }} numberOfLines={1}>
                     {r.refundNumber ?? r.id.slice(0, 12)}
                   </Text>
                   <StatusBadge status={r.status} size="sm" />
                 </Row>
-                <MoneyText cents={r.amountCents} />
-              </Row>
-              <Text variant="caption" color="ink4">
-                {r.reason ?? 'No reason given'} · {formatDateTime(r.createdAt)}
-              </Text>
+                <Text variant="caption" color="ink4" numberOfLines={2}>
+                  {r.reason ?? 'No reason given'} · {formatDateTime(r.createdAt)}
+                </Text>
+              </View>
+              <MoneyText cents={r.amountCents} />
             </Card>
           </Animated.View>
         ))
@@ -666,9 +676,7 @@ function TransactionsTab({ businessId }: { businessId: string }) {
             return (
               <Animated.View key={t.id} entering={enter(i)}>
                 <Card padding={14} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: isCredit ? colors.mintSoft : colors.roseSoft, alignItems: 'center', justifyContent: 'center' }}>
-                    {isCredit ? <ArrowDownLeft size={16} color={colors.mint} /> : <ArrowUpRight size={16} color={colors.rose} />}
-                  </View>
+                  <IconTile icon={isCredit ? ArrowDownLeft : ArrowUpRight} tone={isCredit ? 'success' : 'danger'} size={42} />
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text variant="bodySm" weight="semibold" numberOfLines={1}>
                       {t.description}

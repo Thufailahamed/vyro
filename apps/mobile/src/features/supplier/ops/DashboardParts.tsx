@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { Share, View } from 'react-native';
 import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
-import { CheckCheck, Copy, ExternalLink, Package, ShieldCheck, Sparkles, Star, ThumbsUp } from 'lucide-react-native';
+import { CheckCheck, Copy, ExternalLink, Inbox, Link2, Package, ShieldCheck, Sparkles, Star, ThumbsUp } from 'lucide-react-native';
 import { api, qs } from '@/lib/api';
 import { WEB_URL } from '@/lib/config';
 import { formatCompactLKR, formatDate } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
-import { Button, Card, Kicker, ProgressBar, Segmented, Skeleton, Text, Touchable } from '@/ui';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { Button, Card, IconTile, ProgressBar, Segmented, Skeleton, Text, Touchable } from '@/ui';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { go, Section } from './kit';
 
 /* ------------------------------ Repeat offers ----------------------------- */
@@ -34,19 +34,19 @@ export function RepeatOfferTile({ supplierId, dark }: { supplierId: string; dark
   const q = useRepeatOffers(supplierId);
   if (!q.data) return null;
   return (
-    <Card kind={dark ? 'ink' : 'flat'} padding={14} style={{ flex: 1, minWidth: 140, gap: 8 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Sparkles size={14} color={dark ? colors.volt : colors.mint} />
-        <Text variant="overline" color={dark ? 'paperMuted' : 'ink4'}>
+    <Card kind={dark ? 'ink' : 'flat'} padding={16} style={{ flex: 1, minWidth: 140, gap: 12 }}>
+      <IconTile icon={Sparkles} tone={dark ? 'glass' : 'success'} size={34} />
+      <View style={{ gap: 3 }}>
+        <Text variant="metricSm" color={dark ? 'paper' : 'ink'}>
+          {q.data.triggeredCount}
+        </Text>
+        <Text variant="caption" weight="semibold" color={dark ? 'paperMuted' : 'ink3'} numberOfLines={1}>
           Repeat offers (30d)
         </Text>
+        <Text variant="caption" color={dark ? 'paperFaint' : 'ink5'}>
+          orders with discount · {formatCompactLKR(q.data.totalSavingsCents)} savings extended
+        </Text>
       </View>
-      <Text variant="metricSm" color={dark ? 'paper' : 'ink'}>
-        {q.data.triggeredCount}
-      </Text>
-      <Text variant="caption" color={dark ? 'paperFaint' : 'ink4'}>
-        orders with discount · {formatCompactLKR(q.data.totalSavingsCents)} savings extended
-      </Text>
     </Card>
   );
 }
@@ -95,12 +95,11 @@ function HelpfulButton({ reviewId, initial }: { reviewId: string; initial: numbe
         flexDirection: 'row',
         alignItems: 'center',
         gap: 5,
-        paddingHorizontal: 10,
-        height: 28,
+        paddingHorizontal: 11,
+        height: 30,
         borderRadius: radii.pill,
-        borderWidth: 1,
-        borderColor: on ? 'rgba(122,143,34,0.4)' : colors.line,
         backgroundColor: on ? colors.voltSoft : colors.paper,
+        ...(on ? {} : shadow.sm),
         opacity: m.isPending ? 0.5 : 1,
       }}
     >
@@ -139,7 +138,7 @@ export function ReviewsPanel({ supplierId }: { supplierId: string }) {
 
   return (
     <Section icon={Star} kicker="Buyer reviews & reputation" title="Commercial reputation" sub="Verified commercial orders only">
-      <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
+      <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center', padding: 14, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
         <View style={{ gap: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
             <Text variant="metric">{s?.avg != null ? s.avg.toFixed(1) : '—'}</Text>
@@ -182,8 +181,8 @@ export function ReviewsPanel({ supplierId }: { supplierId: string }) {
           <Skeleton height={70} radius={radii.xl} />
         </View>
       ) : items.length === 0 ? (
-        <View style={{ padding: 18, borderRadius: radii.xl, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.line, alignItems: 'center', gap: 6 }}>
-          <Text style={{ fontSize: 22, color: colors.amber }}>★</Text>
+        <View style={{ padding: 20, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.pearl, alignItems: 'center', gap: 6 }}>
+          <IconTile icon={Star} tone="warning" size={44} style={{ marginBottom: 4 }} />
           <Text variant="h3">No reviews yet</Text>
           <Text variant="caption" color="ink4" align="center">
             When buyers accept deliveries and complete purchase orders, they're prompted to leave performance feedback.
@@ -192,7 +191,7 @@ export function ReviewsPanel({ supplierId }: { supplierId: string }) {
       ) : (
         <View style={{ gap: 10 }}>
           {items.map((r) => (
-            <View key={r.id} style={{ padding: 12, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.lineSoft, backgroundColor: colors.pearl, gap: 8 }}>
+            <View key={r.id} style={{ padding: 14, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.pearl, gap: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <Stars value={r.rating} size={12} />
                 <Text variant="mono" style={{ fontFamily: fonts.monoMedium }}>
@@ -208,7 +207,7 @@ export function ReviewsPanel({ supplierId }: { supplierId: string }) {
               </View>
               <Text variant="bodySm">{r.body}</Text>
               {r.reply ? (
-                <View style={{ borderLeftWidth: 2, borderLeftColor: colors.copper, paddingLeft: 10, gap: 2 }}>
+                <View style={{ padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.paper, gap: 3, borderLeftWidth: 3, borderLeftColor: colors.copper }}>
                   <Text variant="caption" color="copper" weight="semibold">
                     Official supplier response · {formatDate(r.reply.createdAt)}
                   </Text>
@@ -259,10 +258,8 @@ export function StorefrontCard({ supplierId, supplierName, currentSlug }: { supp
       <Text variant="bodySm" color="ink3">
         Buyers explore your verified credentials, live SKU pricing and send RFQs or purchase orders directly.
       </Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: radii.lg, backgroundColor: colors.pearl, borderWidth: 1, borderColor: colors.lineSoft }}>
-        <Text variant="mono" color="ink4">
-          URL
-        </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, paddingRight: 14, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
+        <IconTile icon={Link2} tone="ink" size={32} />
         <Text variant="mono" numberOfLines={1} style={{ flex: 1 }}>
           {url}
         </Text>
@@ -284,20 +281,24 @@ export function StorefrontCard({ supplierId, supplierName, currentSlug }: { supp
         <Button title="Share" variant="secondary" size="sm" style={{ flex: 1 }} onPress={() => Share.share({ message: url, url })} />
         <Button title="View" icon={ExternalLink} size="sm" style={{ flex: 1 }} onPress={() => go(`/buyer/store/${slug}`)} />
       </View>
-      <View style={{ gap: 6 }}>
-        {[
-          ['Verified credentials', 'Facility KYB status, city and trust seal.'],
-          ['Live product catalog', 'All published SKUs with volume pricing tiers.'],
-          ['Direct RFQ intake', 'Buyers submit quote requests straight to you.'],
-        ].map(([t, h]) => (
-          <View key={t} style={{ flexDirection: 'row', gap: 8 }}>
-            <Kicker color="voltDeep">•</Kicker>
-            <Text variant="caption" color="ink3" style={{ flex: 1 }}>
-              <Text variant="caption" weight="semibold" color="ink">
+      <View style={{ gap: 10 }}>
+        {(
+          [
+            [ShieldCheck, 'Verified credentials', 'Facility KYB status, city and trust seal.'],
+            [Package, 'Live product catalog', 'All published SKUs with volume pricing tiers.'],
+            [Inbox, 'Direct RFQ intake', 'Buyers submit quote requests straight to you.'],
+          ] as const
+        ).map(([Icon, t, h]) => (
+          <View key={t} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <IconTile icon={Icon} tone="paper" size={32} />
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text variant="bodySm" weight="semibold">
                 {t}
-              </Text>{' '}
-              — {h}
-            </Text>
+              </Text>
+              <Text variant="caption" color="ink4">
+                {h}
+              </Text>
+            </View>
           </View>
         ))}
       </View>

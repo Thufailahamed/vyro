@@ -32,6 +32,8 @@ import {
   XIcon,
   FileTextIcon,
   GraduationCapIcon,
+  RefreshCwIcon,
+  SettingsIcon,
 } from '@/components/icons';
 
 export interface AdminUser {
@@ -89,8 +91,12 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
   const { user, loading } = useAdminAuth();
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-16 text-sm text-ink-4">
-        Loading control session...
+      <div className="flex flex-col items-center justify-center gap-3 p-24 text-sm text-ink-4">
+        <svg className="size-5 animate-spin text-ink-4" fill="none" viewBox="0 0 24 24" aria-hidden>
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        Loading control session…
       </div>
     );
   }
@@ -115,11 +121,73 @@ interface NavSection {
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    'group relative flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-xs transition-all duration-150 select-none',
+    'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors duration-150 select-none',
     isActive
-      ? 'bg-paper/10 text-paper font-semibold shadow-xs before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:bg-volt before:rounded-r'
-      : 'text-paper/60 hover:text-paper hover:bg-paper/5',
+      ? 'bg-paper/[0.09] text-paper before:absolute before:-left-3 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-full before:bg-volt'
+      : 'text-paper/55 hover:bg-paper/[0.05] hover:text-paper',
   );
+
+function NavSections({ sections, onNavigate }: { sections: NavSection[]; onNavigate?: () => void }) {
+  return (
+    <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4 scrollbar-thin" aria-label="Admin">
+      {sections.map((section) => {
+        const visibleItems = section.items.filter((item) => item.show !== false);
+        if (visibleItems.length === 0) return null;
+        return (
+          <div key={section.title}>
+            <div className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-paper/30">
+              {section.title}
+            </div>
+            <div className="space-y-0.5">
+              {visibleItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  {...(item.end ? { end: true } : {})}
+                  className={navLinkClass}
+                  {...(onNavigate ? { onClick: onNavigate } : {})}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span
+                        className={cn(
+                          'shrink-0 transition-colors duration-150',
+                          isActive ? 'text-volt' : 'text-paper/35 group-hover:text-paper/75',
+                        )}
+                      >
+                        <item.icon size={16} />
+                      </span>
+                      <span className="flex-1 truncate">{item.label}</span>
+                      {item.badge ? (
+                        <span className="rounded-full bg-volt/15 px-1.5 text-[10px] font-semibold text-volt">
+                          {item.badge}
+                        </span>
+                      ) : null}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </nav>
+  );
+}
+
+function ControlWordmark() {
+  return (
+    <span className="flex items-center gap-2.5">
+      <span className="flex size-8 items-center justify-center rounded-lg bg-paper/[0.06] shadow-[inset_0_0_0_1px_rgba(250,247,240,0.08)]">
+        <BrandMark size={18} tone="volt" />
+      </span>
+      <span className="flex flex-col leading-none">
+        <span className="vyro-display text-[15px] tracking-wide text-paper">VYRO</span>
+        <span className="mt-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-volt">Control</span>
+      </span>
+    </span>
+  );
+}
 
 export function AdminShell() {
   const { user, setUser } = useAdminAuth();
@@ -141,6 +209,7 @@ export function AdminShell() {
         { to: '/admin/learning', label: 'Training center', icon: GraduationCapIcon },
         { to: '/admin/deliveries', label: 'Deliveries', icon: TruckIcon },
         { to: '/admin/disputed', label: 'Disputes', icon: AlertTriangleIcon },
+        { to: '/admin/returns', label: 'Returns', icon: RefreshCwIcon },
         { to: '/admin/reviews/flags', label: 'Review Flags', icon: AlertTriangleIcon },
       ],
     },
@@ -232,6 +301,12 @@ export function AdminShell() {
             hasPermission(role, 'webhook:read'),
         },
         {
+          to: '/admin/order-lifecycle',
+          label: 'Order Lifecycle',
+          icon: SettingsIcon,
+          show: !role || hasPermission(role, 'feature_flag:read'),
+        },
+        {
           to: '/admin/security',
           label: 'Security & 2FA',
           icon: ShieldCheckIcon,
@@ -263,286 +338,175 @@ export function AdminShell() {
     navigate('/admin/login');
   };
 
+  const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'Operator');
+  const initial = (user?.name || user?.email || 'A').charAt(0).toUpperCase();
+
   return (
     <div className="min-h-dvh bg-bone text-ink lg:flex">
-      {/* Desktop Sticky Sidebar */}
-      <aside className="hidden lg:flex w-64 shrink-0 flex-col bg-void text-paper h-dvh sticky top-0 border-r border-paper/10 select-none">
-        {/* Brand Header */}
-        <div className="flex items-center justify-between px-4 h-14 border-b border-paper/10 shrink-0 bg-void">
-          <Link to="/admin" className="flex items-center gap-2.5 group">
-            <BrandMark size={22} tone="volt" />
-            <div className="flex flex-col">
-              <span className="vyro-display text-sm font-bold tracking-wider text-paper group-hover:text-volt transition-colors">
-                VYRO
-              </span>
-              <span className="text-[9px] font-mono tracking-widest text-volt uppercase -mt-0.5">
-                Control
-              </span>
-            </div>
+      {/* Desktop sidebar */}
+      <aside className="sticky top-0 hidden h-dvh w-[17rem] shrink-0 select-none flex-col bg-void text-paper lg:flex">
+        <div className="flex h-16 shrink-0 items-center justify-between px-5">
+          <Link to="/admin" className="group" aria-label="VYRO Control overview">
+            <ControlWordmark />
           </Link>
           {hasNotifPerm ? <BellButton /> : null}
         </div>
 
-        {/* Search Command */}
-        <div className="px-3 py-2.5 border-b border-paper/10 shrink-0 bg-void">
+        <div className="shrink-0 px-3 pb-2">
           <GlobalSearchBar ref={searchRef} />
         </div>
 
-        {/* Navigation grouped list with smooth scroll */}
-        {user ? (
-          <nav className="flex-1 px-3 py-3 overflow-y-auto scrollbar-thin space-y-5">
-            {sections.map((section) => {
-              const visibleItems = section.items.filter((item) => item.show !== false);
-              if (visibleItems.length === 0) return null;
-              return (
-                <div key={section.title} className="space-y-1">
-                  <div className="px-2.5 text-[10px] font-mono font-bold tracking-widest text-paper/35 uppercase">
-                    {section.title}
-                  </div>
-                  <div className="space-y-0.5">
-                    {visibleItems.map((item) => (
-                      <NavLink
-                        key={item.to}
-                        to={item.to}
-                        {...(item.end ? { end: true } : {})}
-                        className={navLinkClass}
-                      >
-                        {({ isActive }) => (
-                          <>
-                            <span
-                              className={cn(
-                                'shrink-0 transition-colors duration-150',
-                                isActive ? 'text-volt' : 'text-paper/40 group-hover:text-paper/80',
-                              )}
-                            >
-                              <item.icon size={15} />
-                            </span>
-                            <span className="truncate flex-1">{item.label}</span>
-                            {item.badge ? (
-                              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-volt/15 text-volt border border-volt/30">
-                                {item.badge}
-                              </span>
-                            ) : null}
-                          </>
-                        )}
-                      </NavLink>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </nav>
-        ) : (
-          <p className="p-4 text-xs text-paper/40">Sign in to administer</p>
-        )}
+        {user ? <NavSections sections={sections} /> : <p className="flex-1 p-5 text-xs text-paper/40">Sign in to administer</p>}
 
-        {/* User Session Footer — Always Visible & Fixed at Bottom */}
-        <div className="shrink-0 border-t border-paper/10 bg-void p-3 space-y-2.5">
+        <div className="shrink-0 space-y-3 border-t border-paper/[0.07] p-3">
           {user ? (
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="size-7 rounded-xs bg-paper/10 border border-paper/10 text-volt font-mono font-bold text-xs flex items-center justify-center shrink-0">
-                  {(user.name || user.email || 'A').charAt(0).toUpperCase()}
+            <div className="flex items-center gap-3 rounded-xl bg-paper/[0.04] p-2.5">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-volt text-sm font-bold text-ink">
+                {initial}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-medium text-paper" title={user.name || user.email}>
+                  {displayName}
                 </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-medium text-paper truncate" title={user.name || user.email}>
-                    {user.name || (user.email ? user.email.split('@')[0] : 'Operator')}
-                  </div>
-                  <div className="text-[10px] font-mono text-paper/40 truncate">
-                    {user.email || 'Admin Control'}
-                  </div>
+                <div className="mt-0.5">
+                  {user.adminRole ? (
+                    <RoleBadge role={user.adminRole} compact />
+                  ) : (
+                    <span className="truncate text-[11px] text-paper/40">{user.email || 'Admin Control'}</span>
+                  )}
                 </div>
               </div>
-              {user.adminRole ? <RoleBadge role={user.adminRole} compact /> : null}
-            </div>
-          ) : null}
-
-          <div className="flex items-center justify-between pt-2 border-t border-paper/5 text-xs">
-            <Link
-              to="/"
-              className="inline-flex items-center gap-1.5 text-paper/40 hover:text-volt transition-colors"
-              title="Return to marketplace"
-            >
-              <ArrowLeftIcon size={12} />
-              <span>Marketplace</span>
-            </Link>
-            {user ? (
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="inline-flex items-center gap-1.5 text-paper/40 hover:text-rose transition-colors cursor-pointer"
-                title="Sign out of admin session"
+                className="flex size-8 shrink-0 items-center justify-center rounded-lg text-paper/40 transition-colors hover:bg-rose/15 hover:text-rose"
+                title="Sign out"
+                aria-label="Sign out"
               >
-                <LogOutIcon size={12} />
-                <span>Sign out</span>
+                <LogOutIcon size={15} />
               </button>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
+
+          <Link
+            to="/"
+            className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-paper/40 transition-colors hover:text-volt"
+          >
+            <ArrowLeftIcon size={12} />
+            Back to marketplace
+          </Link>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <div className="flex-1 min-w-0">
-        {/* Mobile Header */}
-        <header className="lg:hidden h-14 px-4 flex items-center justify-between border-b border-paper/10 bg-void text-paper">
+      {/* Main */}
+      <div className="min-w-0 flex-1">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between bg-void px-4 text-paper lg:hidden">
           <button
             type="button"
             aria-label="Open navigation"
             aria-expanded={drawerOpen}
             aria-controls="admin-drawer"
             onClick={() => setDrawerOpen((v) => !v)}
-            className="p-1.5 text-paper/70 hover:text-volt transition-colors"
+            className="flex size-9 items-center justify-center rounded-lg text-paper/70 transition-colors hover:bg-paper/10 hover:text-volt"
           >
             <MenuIcon size={20} />
           </button>
-          <Link to="/admin" className="flex items-center gap-2">
-            <BrandMark size={20} tone="volt" />
-            <span className="vyro-display text-sm font-bold tracking-wider">VYRO CONTROL</span>
+          <Link to="/admin" aria-label="VYRO Control overview">
+            <ControlWordmark />
           </Link>
-          <div className="flex items-center gap-2">
-            {hasNotifPerm ? <BellButton /> : null}
-            <Link to="/" className="text-xs text-paper/50 hover:text-volt transition-colors">
-              Store
-            </Link>
-          </div>
+          <div className="flex items-center gap-1">{hasNotifPerm ? <BellButton /> : <span className="size-9" />}</div>
         </header>
-        <main id="main-content" className="max-w-stage mx-auto px-4 sm:px-8 py-8">
+
+        <main id="main-content" className="mx-auto max-w-stage px-4 py-6 sm:px-8 sm:py-8">
           <Outlet />
         </main>
       </div>
 
-      {/* Mobile Drawer */}
+      {/* Mobile drawer */}
       {drawerOpen ? (
         <div
           id="admin-drawer"
-          className="lg:hidden fixed inset-0 z-50 bg-ink/70 backdrop-blur-xs"
+          className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-sm lg:hidden"
           onClick={() => setDrawerOpen(false)}
         >
           <div
-            className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-void text-paper flex flex-col shadow-xl"
+            className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-void text-paper shadow-5 animate-fade-in"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-label="Admin navigation"
           >
-            <div className="flex items-center justify-between px-4 h-14 border-b border-paper/10 shrink-0">
-              <Link
-                to="/admin"
-                onClick={() => setDrawerOpen(false)}
-                className="flex items-center gap-2.5"
-              >
-                <BrandMark size={22} tone="volt" />
-                <div className="flex flex-col">
-                  <span className="vyro-display text-sm font-bold tracking-wider text-paper">
-                    VYRO
-                  </span>
-                  <span className="text-[9px] font-mono tracking-widest text-volt uppercase -mt-0.5">
-                    Control
-                  </span>
-                </div>
+            <div className="flex h-16 shrink-0 items-center justify-between px-5">
+              <Link to="/admin" onClick={() => setDrawerOpen(false)}>
+                <ControlWordmark />
               </Link>
               <button
                 type="button"
                 onClick={() => setDrawerOpen(false)}
-                className="p-1.5 text-paper/50 hover:text-paper"
+                aria-label="Close navigation"
+                className="flex size-8 items-center justify-center rounded-lg text-paper/50 hover:bg-paper/10 hover:text-paper"
               >
                 <XIcon size={18} />
               </button>
             </div>
 
-            <div className="px-3 py-2.5 border-b border-paper/10 shrink-0">
+            <div className="shrink-0 px-3 pb-2">
               <GlobalSearchBar ref={searchRef} />
             </div>
 
-            <nav className="flex-1 px-3 py-3 overflow-y-auto scrollbar-thin space-y-5">
-              {sections.map((section) => {
-                const visibleItems = section.items.filter((item) => item.show !== false);
-                if (visibleItems.length === 0) return null;
-                return (
-                  <div key={section.title} className="space-y-1">
-                    <div className="px-2.5 text-[10px] font-mono font-bold tracking-widest text-paper/35 uppercase">
-                      {section.title}
-                    </div>
-                    <div className="space-y-0.5">
-                      {visibleItems.map((item) => (
-                        <NavLink
-                          key={item.to}
-                          to={item.to}
-                          {...(item.end ? { end: true } : {})}
-                          className={navLinkClass}
-                          onClick={() => setDrawerOpen(false)}
-                        >
-                          {({ isActive }) => (
-                            <>
-                              <span
-                                className={cn(
-                                  'shrink-0 transition-colors duration-150',
-                                  isActive ? 'text-volt' : 'text-paper/40 group-hover:text-paper/80',
-                                )}
-                              >
-                                <item.icon size={15} />
-                              </span>
-                              <span className="truncate flex-1">{item.label}</span>
-                              {item.badge ? (
-                                <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-volt/15 text-volt border border-volt/30">
-                                  {item.badge}
-                                </span>
-                              ) : null}
-                            </>
-                          )}
-                        </NavLink>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </nav>
+            <NavSections sections={sections} onNavigate={() => setDrawerOpen(false)} />
 
-            <div className="shrink-0 p-3 border-t border-paper/10 bg-void flex items-center justify-between text-xs">
+            <div className="flex shrink-0 items-center justify-between border-t border-paper/[0.07] p-4 text-xs">
               <Link
                 to="/"
                 className="inline-flex items-center gap-1.5 text-paper/40 hover:text-volt"
                 onClick={() => setDrawerOpen(false)}
               >
                 <ArrowLeftIcon size={12} />
-                <span>Marketplace</span>
+                Marketplace
               </Link>
               {user && (
                 <button
+                  type="button"
                   onClick={async () => {
                     setDrawerOpen(false);
                     await handleSignOut();
                   }}
-                  className="inline-flex items-center gap-1.5 text-paper/40 hover:text-rose cursor-pointer"
+                  className="inline-flex items-center gap-1.5 text-paper/40 hover:text-rose"
                 >
                   <LogOutIcon size={12} />
-                  <span>Sign out</span>
+                  Sign out
                 </button>
               )}
             </div>
           </div>
         </div>
       ) : null}
+
       {shortcuts.helpOpen ? (
         <div
-          className="fixed inset-0 z-50 bg-ink/60 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm"
           onClick={() => shortcuts.setHelpOpen(false)}
         >
           <div
-            className="bg-paper border border-ink/10 rounded-lg p-6 max-w-md w-full"
+            className="vyro-floating w-full max-w-md p-6 animate-fade-in"
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label="Keyboard shortcuts"
           >
-            <h3 className="text-lg font-medium mb-3">Keyboard shortcuts</h3>
-            <table className="w-full text-sm">
-              <tbody>
-                {shortcuts.SHORTCUTS.map(([key, desc]) => (
-                  <tr key={key} className="border-t border-ink/10">
-                    <td className="py-1 font-mono text-xs">{key}</td>
-                    <td className="py-1 text-ink-500">{desc}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="text-xs text-ink-500 mt-3">Press ? or Esc to close.</p>
+            <h3 className="font-sans text-base font-semibold tracking-normal text-ink">Keyboard shortcuts</h3>
+            <dl className="mt-4 divide-y divide-ink/[0.07]">
+              {shortcuts.SHORTCUTS.map(([key, desc]) => (
+                <div key={key} className="flex items-center justify-between gap-4 py-2.5 text-sm">
+                  <dt className="text-ink-3">{desc}</dt>
+                  <dd>
+                    <kbd className="rounded-md bg-bone px-2 py-0.5 font-mono text-xs text-ink shadow-[inset_0_-1px_0_rgba(12,14,11,0.15),inset_0_0_0_1px_rgba(12,14,11,0.1)]">
+                      {key}
+                    </kbd>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <p className={cn('mt-4 text-xs text-ink-4')}>Press ? or Esc to close.</p>
           </div>
         </div>
       ) : null}

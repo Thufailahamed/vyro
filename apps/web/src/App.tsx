@@ -26,6 +26,11 @@ const OrderDetailPage = lazy(() => import('./pages/OrderDetailPage').then((m) =>
 const ConversationalOrderPage = lazy(() => import('./pages/ConversationalOrderPage').then((m) => ({ default: m.ConversationalOrderPage })));
 const BuyerKycPage = lazy(() => import('./pages/BuyerKycPage').then((m) => ({ default: m.BuyerKycPage })));
 const SupplierOrdersPage = lazy(() => import('./pages/SupplierOrdersPage').then((m) => ({ default: m.SupplierOrdersPage })));
+const SupplierOrderDetailPage = lazy(() => import('./supplier/SupplierOrderDetailPage').then((m) => ({ default: m.SupplierOrderDetailPage })));
+const SupplierReturnsPage = lazy(() => import('./supplier/ReturnsPage').then((m) => ({ default: m.SupplierReturnsPage })));
+const BuyerReturnsPage = lazy(() => import('./pages/ReturnsPage').then((m) => ({ default: m.ReturnsPage })));
+const AdminReturnsQueuePage = lazy(() => import('./admin/ReturnsQueuePage').then((m) => ({ default: m.ReturnsQueuePage })));
+const AdminOrderLifecycleSettingsPage = lazy(() => import('./admin/OrderLifecycleSettingsPage').then((m) => ({ default: m.OrderLifecycleSettingsPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
@@ -157,6 +162,7 @@ export default function App() {
           element={<RequireAuth><PaymentReturnPage outcome="cancel" /></RequireAuth>}
         />
         <Route path="/orders/:poId/invoice/:invoiceId" element={<RequireAuth><InvoicePage /></RequireAuth>} />
+        <Route path="/returns" element={<RequireBusiness><BuyerReturnsPage /></RequireBusiness>} />
         <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
         <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
         <Route path="/ask" element={<RequireAuth><AskPage /></RequireAuth>} />
@@ -197,6 +203,8 @@ export default function App() {
           <Route path="businesses" element={<RequireAdmin><BusinessesPage /></RequireAdmin>} />
           <Route path="businesses/:id" element={<RequireAdmin><BusinessDetailPage /></RequireAdmin>} />
           <Route path="disputed" element={<RequireAdmin><DisputedPage /></RequireAdmin>} />
+          <Route path="returns" element={<RequireAdmin><AdminReturnsQueuePage /></RequireAdmin>} />
+          <Route path="order-lifecycle" element={<RequireAdmin><AdminOrderLifecycleSettingsPage /></RequireAdmin>} />
           <Route path="orders" element={<RequireAdmin><AdminOrdersPage /></RequireAdmin>} />
           <Route path="orders/:id" element={<RequireAdmin><AdminOrderDetailPage /></RequireAdmin>} />
           <Route path="deliveries" element={<RequireAdmin><AdminDeliveriesPage /></RequireAdmin>} />
@@ -239,6 +247,8 @@ export default function App() {
       <Route path="/supplier" element={<SupplierShell />}>
         <Route index element={<SupplierDashboardPage />} />
         <Route path="orders" element={<SupplierOrdersPage />} />
+        <Route path="orders/:id" element={<SupplierOrderDetailPage />} />
+        <Route path="returns" element={<SupplierReturnsPage />} />
         <Route path="products" element={<SupplierProductsPage />} />
         <Route path="products/new" element={<SupplierProductFormPage mode="create" />} />
         <Route path="products/:id/edit" element={<SupplierProductFormPage mode="edit" />} />

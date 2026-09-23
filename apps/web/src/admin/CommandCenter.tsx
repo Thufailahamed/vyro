@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { cn } from '@vyro/ui';
 import { api } from '@/lib/api';
-import { ArrowRightIcon, ShieldCheckIcon, AlertCircleIcon } from '@/components/icons';
+import { ArrowRightIcon, AlertCircleIcon, CheckCircleIcon } from '@/components/icons';
 
 export type CommandCenterData = {
   needsAction: {
@@ -24,6 +25,7 @@ export function useCommandCenter() {
 
 export function CommandCenter({ variant = 'dark' }: { variant?: 'dark' | 'light' }) {
   const { data, isLoading, isError } = useCommandCenter();
+  const dark = variant === 'dark';
 
   if (isLoading) {
     return (
@@ -31,9 +33,7 @@ export function CommandCenter({ variant = 'dark' }: { variant?: 'dark' | 'light'
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className={`h-20 animate-pulse ${
-              variant === 'dark' ? 'bg-paper/5 border border-paper/10' : 'bg-slate-100 border border-ink/10'
-            }`}
+            className={cn('h-[104px] rounded-xl animate-pulse', dark ? 'bg-paper/[0.06]' : 'bg-mist/60')}
           />
         ))}
       </div>
@@ -44,104 +44,68 @@ export function CommandCenter({ variant = 'dark' }: { variant?: 'dark' | 'light'
   const n = data.needsAction;
 
   const items = [
-    {
-      label: 'Stuck Payments',
-      value: n.stuckPayments,
-      to: '/admin/finance?tab=refunds',
-      hint: 'Refund & escrow holds',
-    },
-    {
-      label: 'Payout Failures',
-      value: n.payoutFailures,
-      to: '/admin/finance?tab=payouts',
-      hint: 'Supplier bank batches',
-    },
-    {
-      label: 'SLA Breaches',
-      value: n.slaBreaches,
-      to: '/admin/deliveries',
-      hint: 'Dispatch time-outs',
-    },
-    {
-      label: 'Open Disputes',
-      value: n.openDisputes,
-      to: '/admin/disputed',
-      hint: 'Dockside GRN variances',
-    },
+    { label: 'Stuck payments', value: n.stuckPayments, to: '/admin/finance?tab=refunds', hint: 'Refund & escrow holds' },
+    { label: 'Payout failures', value: n.payoutFailures, to: '/admin/finance?tab=payouts', hint: 'Supplier bank batches' },
+    { label: 'SLA breaches', value: n.slaBreaches, to: '/admin/deliveries', hint: 'Dispatch time-outs' },
+    { label: 'Open disputes', value: n.openDisputes, to: '/admin/disputed', hint: 'Dockside GRN variances' },
   ];
 
   return (
-    <section aria-label="Needs action telemetry triage" className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <section aria-label="Needs action" className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {items.map((i) => {
         const hasIssue = i.value > 0;
         return (
           <Link
             key={i.label}
             to={i.to}
-            className={`p-3.5 transition-all duration-150 flex flex-col justify-between group ${
-              variant === 'dark'
+            className={cn(
+              'group relative flex flex-col justify-between rounded-xl p-4 transition-colors duration-200',
+              dark
                 ? hasIssue
-                  ? 'border border-rose/60 bg-rose/15 hover:bg-rose/25 hover:border-rose'
-                  : 'border border-paper/15 bg-paper/5 hover:border-paper/35 hover:bg-paper/10'
+                  ? 'bg-rose/[0.14] shadow-[inset_0_0_0_1px_rgba(196,90,74,0.45)] hover:bg-rose/20'
+                  : 'bg-paper/[0.04] shadow-[inset_0_0_0_1px_rgba(250,247,240,0.08)] hover:bg-paper/[0.08]'
                 : hasIssue
-                  ? 'border border-rose/40 bg-rose/5 hover:border-rose hover:bg-rose/10 shadow-xs'
-                  : 'border border-ink/15 bg-white hover:border-ink hover:shadow-xs'
-            }`}
+                  ? 'bg-rose/5 shadow-[inset_0_0_0_1px_rgba(196,90,74,0.35)] hover:bg-rose/10'
+                  : 'bg-paper shadow-[inset_0_0_0_1px_rgba(12,14,11,0.1)] hover:shadow-[inset_0_0_0_1px_rgba(12,14,11,0.3)]',
+            )}
           >
-            <div className="flex items-center justify-between gap-1">
-              <span
-                className={`text-[10px] font-mono uppercase tracking-wider font-semibold truncate ${
-                  variant === 'dark'
-                    ? 'text-paper/70 group-hover:text-paper'
-                    : 'text-ink-4 group-hover:text-ink'
-                }`}
-              >
+            <div className="flex items-center justify-between gap-2">
+              <span className={cn('text-xs font-medium truncate', dark ? 'text-paper/70' : 'text-ink-3')}>
                 {i.label}
               </span>
               {hasIssue ? (
-                <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase font-bold text-rose px-1.5 py-0.2 rounded bg-rose/20 border border-rose/30 animate-pulse">
-                  <span className="size-1.5 rounded-full bg-rose" />
+                <span className="inline-flex items-center gap-1 rounded-full bg-rose/20 px-2 py-0.5 text-[10px] font-semibold text-rose">
+                  <AlertCircleIcon size={11} />
                   Action
                 </span>
               ) : (
-                <span
-                  className={`inline-flex items-center gap-1 text-[9px] font-mono uppercase font-semibold ${
-                    variant === 'dark' ? 'text-mint/90' : 'text-emerald-700'
-                  }`}
-                >
-                  <span className="size-1.5 rounded-full bg-mint" />
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-mint">
+                  <CheckCircleIcon size={11} />
                   Clear
                 </span>
               )}
             </div>
 
-            <div className="mt-2.5 flex items-baseline justify-between">
+            <div className="mt-3 flex items-end justify-between gap-2">
               <div
-                className={`text-2xl sm:text-3xl font-bold font-mono tracking-tight ${
-                  hasIssue ? 'text-rose' : variant === 'dark' ? 'text-paper' : 'text-ink'
-                }`}
+                className={cn(
+                  'vyro-metric text-3xl leading-none',
+                  hasIssue ? 'text-rose' : dark ? 'text-paper' : 'text-ink',
+                )}
               >
                 {i.value}
               </div>
-              <span
-                className={`text-[11px] font-mono transition-all flex items-center gap-0.5 opacity-60 group-hover:opacity-100 ${
-                  variant === 'dark'
-                    ? 'text-volt group-hover:translate-x-0.5'
-                    : 'text-copper group-hover:translate-x-0.5'
-                }`}
-              >
-                <span>Triage</span>
-                <ArrowRightIcon size={12} />
-              </span>
+              <ArrowRightIcon
+                size={14}
+                className={cn(
+                  'mb-0.5 shrink-0 opacity-0 -translate-x-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0',
+                  dark ? 'text-volt' : 'text-copper',
+                )}
+                aria-hidden
+              />
             </div>
 
-            <div
-              className={`text-[10px] font-mono mt-1 truncate ${
-                variant === 'dark' ? 'text-paper/40' : 'text-ink-4'
-              }`}
-            >
-              {i.hint}
-            </div>
+            <div className={cn('mt-1.5 text-[11px] truncate', dark ? 'text-paper/40' : 'text-ink-4')}>{i.hint}</div>
           </Link>
         );
       })}

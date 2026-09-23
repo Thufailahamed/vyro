@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import {
@@ -9,6 +9,7 @@ import {
   Copy,
   MapPin,
   Package,
+  RotateCcw,
   ShieldCheck,
   Sparkles,
   Truck,
@@ -18,13 +19,15 @@ import { useSupplierId } from '@/lib/auth';
 import { errorMessage } from '@/lib/api';
 import { formatDate, formatLKR, formatCompactLKR, humanize } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
-import { colors, fonts, radii, shadow, type ColorName } from '@/theme/tokens';
+import { colors, fonts, radii, shadow, tones, type ColorName } from '@/theme/tokens';
 import {
   Card,
   ChipRow,
   EmptyState,
   ErrorState,
   Gutter,
+  IconButton,
+  IconTile,
   ListHeader,
   ListScreen,
   ScreenHeader,
@@ -38,6 +41,7 @@ import {
 import { usePurchaseOrders, destination, NEXT, type Po } from '@/features/supplier/ops/api';
 import { OrderActions } from '@/features/supplier/ops/OrderActions';
 import { Enter } from '@/features/supplier/ops/kit';
+import { PAYMENT_STATE_LABEL } from '@/lib/orderLifecycle';
 
 type Filter = 'all' | 'pending' | 'transit' | 'done' | 'attention';
 
@@ -78,13 +82,7 @@ function StatCard({
 }) {
   const bg = active ? colors.ink : colors.paper;
   const fg: ColorName = active ? 'paper' : 'ink';
-  const border = active
-    ? colors.ink
-    : accent === 'amber'
-      ? 'rgba(196,132,58,0.28)'
-      : accent === 'mint'
-        ? 'rgba(61,139,110,0.28)'
-        : colors.lineSoft;
+  const tile = active ? 'glass' : accent === 'amber' ? 'warning' : accent === 'mint' ? 'success' : 'copper';
 
   return (
     <Touchable
@@ -98,38 +96,24 @@ function StatCard({
         minWidth: 100,
         backgroundColor: bg,
         borderRadius: radii.xl,
-        padding: 12,
-        gap: 6,
-        borderWidth: 1,
-        borderColor: border,
-        ...shadow.sm,
+        borderCurve: 'continuous',
+        padding: 14,
+        gap: 10,
+        ...(active ? shadow.ink : shadow.card),
       }}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text variant="overline" color={active ? 'paperMuted' : 'ink4'} numberOfLines={1}>
+      {Icon ? <IconTile icon={Icon} tone={tile} size={30} /> : null}
+      <View style={{ gap: 2 }}>
+        <Text variant="metricSm" color={fg} numberOfLines={1} adjustsFontSizeToFit>
+          {value}
+        </Text>
+        <Text variant="caption" weight="semibold" color={active ? 'paperMuted' : 'ink3'} numberOfLines={1}>
           {label}
         </Text>
-        {Icon ? (
-          <Icon
-            size={13}
-            color={
-              active
-                ? colors.volt
-                : accent === 'amber'
-                  ? colors.amber
-                  : accent === 'mint'
-                    ? colors.mint
-                    : colors.copper
-            }
-          />
-        ) : null}
+        <Text variant="caption" color={active ? 'paperFaint' : 'ink5'} numberOfLines={1} style={{ fontSize: 10.5 }}>
+          {sub}
+        </Text>
       </View>
-      <Text variant="metricSm" color={fg} numberOfLines={1} adjustsFontSizeToFit>
-        {value}
-      </Text>
-      <Text variant="caption" color={active ? 'paperFaint' : 'ink5'} numberOfLines={1}>
-        {sub}
-      </Text>
     </Touchable>
   );
 }
@@ -178,9 +162,9 @@ function OrderPipelineBar({ status }: { status: string }) {
             <View
               key={num}
               style={{
-                height: 4,
+                height: 5,
                 flex: 1,
-                borderRadius: 2,
+                borderRadius: 3,
                 backgroundColor: isDone
                   ? isCurrent && num === 1
                     ? colors.amber
@@ -222,13 +206,7 @@ function OrderCard({ item }: { item: Po }) {
       onPress={() => router.push(`/supplier/order/${item.id}` as never)}
       padding={0}
       radius={radii['2xl']}
-      style={{
-        backgroundColor: colors.paper,
-        borderWidth: 1,
-        borderColor: isPending ? 'rgba(196,132,58,0.32)' : colors.lineSoft,
-        overflow: 'hidden',
-        ...shadow.sm,
-      }}
+      style={{ overflow: 'hidden' }}
     >
       {/* Top Urgent Alert Bar for Pending Orders */}
       {isPending ? (
@@ -242,12 +220,12 @@ function OrderCard({ item }: { item: Po }) {
             paddingVertical: 7,
           }}
         >
-          <Sparkles size={13} color="#8F5A1E" />
+          <Sparkles size={13} color={tones.warning.fg} />
           <Text
             style={{
               fontFamily: fonts.sansSemi,
               fontSize: 11,
-              color: '#8F5A1E',
+              color: tones.warning.fg,
               letterSpacing: 0.3,
               textTransform: 'uppercase',
             }}
@@ -262,20 +240,7 @@ function OrderCard({ item }: { item: Po }) {
         {/* Header: PO Number + Status Badge */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: radii.md,
-                backgroundColor: isPending ? colors.amberSoft : colors.pearl,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 1,
-                borderColor: isPending ? 'rgba(196,132,58,0.2)' : colors.lineSoft,
-              }}
-            >
-              <Package size={17} color={isPending ? colors.amber : colors.ink} strokeWidth={1.8} />
-            </View>
+            <IconTile icon={Package} tone={isPending ? 'warning' : 'ink'} size={40} />
             <View style={{ gap: 2 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text variant="mono" weight="semibold" color="ink" style={{ fontSize: 13.5 }}>
@@ -287,9 +252,11 @@ function OrderCard({ item }: { item: Po }) {
                     void copyPoNumber();
                   }}
                   hitSlop={8}
+                  scaleTo={0.88}
                   accessibilityLabel="Copy purchase order number"
+                  style={{ width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bone }}
                 >
-                  <Copy size={13} color={colors.ink4} />
+                  <Copy size={11} color={colors.ink4} />
                 </Touchable>
               </View>
               <Text variant="caption" color="ink5">
@@ -297,7 +264,10 @@ function OrderCard({ item }: { item: Po }) {
               </Text>
             </View>
           </View>
-          <StatusBadge status={item.status} size="sm" />
+          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+            <StatusBadge status={item.status} size="sm" />
+            {item.paymentState ? <StatusBadge status={item.paymentState} label={PAYMENT_STATE_LABEL[item.paymentState]} size="sm" /> : null}
+          </View>
         </View>
 
         {/* Logistics Information Deck */}
@@ -305,10 +275,9 @@ function OrderCard({ item }: { item: Po }) {
           style={{
             backgroundColor: colors.pearl,
             borderRadius: radii.lg,
+            borderCurve: 'continuous',
             padding: 12,
             gap: 8,
-            borderWidth: 1,
-            borderColor: colors.lineSoft,
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -322,7 +291,7 @@ function OrderCard({ item }: { item: Po }) {
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
-              borderTopWidth: 1,
+              borderTopWidth: StyleSheet.hairlineWidth * 2,
               borderTopColor: colors.lineSoft,
               paddingTop: 8,
             }}
@@ -344,7 +313,7 @@ function OrderCard({ item }: { item: Po }) {
             )}
           </View>
           {item.notes ? (
-            <View style={{ borderTopWidth: 1, borderTopColor: colors.lineSoft, paddingTop: 6 }}>
+            <View style={{ borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft, paddingTop: 6 }}>
               <Text variant="caption" color="ink4" numberOfLines={2}>
                 <Text variant="caption" weight="semibold" color="ink3">
                   Note:{' '}
@@ -364,7 +333,7 @@ function OrderCard({ item }: { item: Po }) {
             <Text variant="overline" color="ink4">
               TOTAL ORDER VALUE
             </Text>
-            <Text variant="h1" color="ink">
+            <Text variant="metricSm" color="ink">
               {formatLKR(item.totalCents)}
             </Text>
           </View>
@@ -373,16 +342,14 @@ function OrderCard({ item }: { item: Po }) {
               flexDirection: 'row',
               alignItems: 'center',
               gap: 5,
-              paddingHorizontal: 8,
-              paddingVertical: 4,
+              paddingHorizontal: 9,
+              paddingVertical: 5,
               borderRadius: radii.pill,
-              backgroundColor: colors.pearl,
-              borderWidth: 1,
-              borderColor: colors.lineSoft,
+              backgroundColor: colors.mintSoft,
             }}
           >
             <ShieldCheck size={12} color={colors.mint} strokeWidth={2} />
-            <Text style={{ fontFamily: fonts.sansMedium, fontSize: 11, color: colors.ink3 }}>
+            <Text style={{ fontFamily: fonts.sansMedium, fontSize: 11, color: colors.mint }}>
               Escrow Secured
             </Text>
           </View>
@@ -392,7 +359,7 @@ function OrderCard({ item }: { item: Po }) {
       {/* Action Footer */}
       <View
         style={{
-          borderTopWidth: 1,
+          borderTopWidth: StyleSheet.hairlineWidth * 2,
           borderTopColor: colors.lineSoft,
           paddingHorizontal: 16,
           paddingVertical: 12,
@@ -462,6 +429,7 @@ export function SupplierOrdersScreen() {
         kicker="Operations Console"
         title="Orders"
         subtitle={`${all.length} purchase orders routed to your depot.`}
+        right={<IconButton icon={RotateCcw} variant="surface" accessibilityLabel="Returns" onPress={() => router.push('/supplier/returns' as never)} />}
       />
 
       {/* Operational KPI Deck */}

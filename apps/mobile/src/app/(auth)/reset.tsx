@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { KeyRound, Lock } from 'lucide-react-native';
 import { AuthLayout } from '@/features/auth/AuthLayout';
-import { Banner, Button, Field, Input , useToast } from '@/ui';
+import { Banner, Button, Field, Input, useToast } from '@/ui';
 import { api, errorMessage } from '@/lib/api';
 
 /** Opened from the reset email deep link (`vyro://reset?token=…`) or by pasting the token. */
@@ -46,7 +46,7 @@ export default function ResetScreen() {
       <Field label="Confirm password">
         <Input icon={Lock} value={confirm} onChangeText={setConfirm} secureTextEntry textContentType="newPassword" onSubmitEditing={submit} />
       </Field>
-      <Button title="Update password" size="lg" full loading={loading} onPress={submit} />
+      <Button title="Update password" size="lg" full loading={loading} onPress={submit} style={{ marginTop: 4 }} />
     </AuthLayout>
   );
 }

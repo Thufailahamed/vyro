@@ -126,6 +126,40 @@ curl https://vyro-api.thufailahamed627.workers.dev/api/admin/cron \
   -H "Cookie: <admin session>"
 ```
 
+## Order lifecycle automation
+
+Every order status change goes through one pipeline,
+`apps/api/src/modules/orders/lifecycle.ts` (`applyTransition`). Refunds,
+credit release, stock, settlement eligibility and notifications all hang off
+it. The test `apps/api/test/orders/statusWriteGuard.test.ts` fails CI if any
+other module writes `purchase_orders.status`.
+
+The hourly `order-lifecycle` cron (`apps/api/src/cron/orderLifecycle.ts`) does four things:
+
+| Job | Default | Effect |
+|---|---|---|
+| Auto-cancel | 48h pending | Cancels orders the supplier never answered. Refunds online payments, queues offline refunds, releases stock and credit. |
+| Auto-complete | 3 days after delivery | Completes delivered orders that have no open return, so supplier earnings become payable. |
+| Return escalation | 3 days | Alerts `ops` about return requests the supplier hasn't answered. Returns are never auto-approved. |
+| SLA breach | past `delivery_promised_at` | Notifies both parties and `ops` once per order. The command centre shows a live count. |
+
+Settings are in the `order_lifecycle` config section at `GET/PUT /api/admin/order-lifecycle`:
+
+- the windows above
+- `disputeWindowDays` (default 7) and `returnWindowDays` (default 7)
+- toggles `paymentGateEnabled`, `returnsEnabled` and `automationEnabled`
+
+To stop all automation immediately, set `automationEnabled: false`.
+
+Auto-cancel only touches orders created after `automationSince`. That value is
+stamped on the first run, so turning the job on never cancels an existing backlog.
+
+Refunds: every refund goes through `modules/refunds/executor.ts`.
+
+- **Online (PayHere) payments** are refunded through the gateway straight away. If the gateway fails, the refund is marked `failed` and the payment stays `confirmed`, so no money moved and nothing is lost.
+- **Cash and bank-transfer payments** create a `requested` refund in the admin refund queue. Approving it settles the ledger, payment and earning.
+- **Credit repayments** already made on a cancelled order raise a `finance` alert for a manual refund.
+
 ## Custom domains
 
 If you migrate to a custom domain, edit `apps/api/wrangler.toml`
