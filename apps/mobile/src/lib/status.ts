@@ -1,0 +1,86 @@
+import type { Tone } from '@/theme/tokens';
+
+/**
+ * Maps any status string used across orders, deliveries, payments, RFQs, KYC,
+ * campaigns, disputes… to a badge tone. Unknown statuses fall back to neutral.
+ */
+const TONE_BY_STATUS: Record<string, Tone> = {
+  // positive / finished
+  delivered: 'success',
+  completed: 'success',
+  complete: 'success',
+  paid: 'success',
+  captured: 'success',
+  settled: 'success',
+  approved: 'success',
+  verified: 'success',
+  active: 'success',
+  accepted: 'success',
+  awarded: 'success',
+  resolved: 'success',
+  published: 'success',
+  success: 'success',
+  succeeded: 'success',
+  healthy: 'success',
+  ok: 'success',
+  live: 'success',
+  won: 'success',
+  converted: 'success',
+  // in-flight
+  confirmed: 'volt',
+  processing: 'volt',
+  dispatched: 'volt',
+  shipped: 'volt',
+  in_transit: 'volt',
+  out_for_delivery: 'volt',
+  open: 'volt',
+  quoted: 'volt',
+  sent: 'volt',
+  scheduled: 'volt',
+  running: 'volt',
+  submitted: 'copper',
+  under_review: 'copper',
+  in_review: 'copper',
+  reviewing: 'copper',
+  negotiating: 'copper',
+  contacted: 'copper',
+  qualified: 'copper',
+  new: 'copper',
+  // waiting
+  pending: 'warning',
+  pending_payment: 'warning',
+  pending_review: 'warning',
+  awaiting_payment: 'warning',
+  unpaid: 'warning',
+  partially_paid: 'warning',
+  partial: 'warning',
+  draft: 'neutral',
+  paused: 'warning',
+  overdue: 'danger',
+  degraded: 'warning',
+  expiring: 'warning',
+  // negative
+  cancelled: 'danger',
+  canceled: 'danger',
+  rejected: 'danger',
+  failed: 'danger',
+  declined: 'danger',
+  disputed: 'danger',
+  refunded: 'neutral',
+  suspended: 'danger',
+  blocked: 'danger',
+  expired: 'neutral',
+  closed: 'neutral',
+  lost: 'danger',
+  flagged: 'danger',
+  down: 'danger',
+  critical: 'danger',
+  error: 'danger',
+  archived: 'neutral',
+  inactive: 'neutral',
+};
+
+export function toneForStatus(status: string | null | undefined): Tone {
+  if (!status) return 'neutral';
+  return TONE_BY_STATUS[status.toLowerCase()] ?? 'neutral';
+}
