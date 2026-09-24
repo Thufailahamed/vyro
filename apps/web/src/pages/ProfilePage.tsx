@@ -184,7 +184,9 @@ export function ProfilePage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => signOut()}
+            onClick={() => {
+              void signOut().catch((e) => console.error('signOut failed', e));
+            }}
             className="text-rose hover:bg-rose/10 hover:border-rose/30 flex items-center gap-1.5 font-bold uppercase tracking-wider text-xs px-4"
           >
             <LogOutIcon size={14} />
