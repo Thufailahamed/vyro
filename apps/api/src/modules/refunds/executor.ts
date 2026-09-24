@@ -95,7 +95,10 @@ export async function executeRefund(env: RefundEnv, input: ExecuteRefundInput): 
   const now = Date.now();
   const id = newId();
   const online = payment.method === 'online' && !!payment.gatewayRef;
-  const auto = (input.mode ?? 'auto') === 'auto' && online;
+  // Only current-generation gateway payments auto-refund through the API.
+  // Legacy PayHere rows (provider='payhere') keep the manual admin queue.
+  const gatewayEligible = online && payment.provider === 'payments_lk';
+  const auto = (input.mode ?? 'auto') === 'auto' && gatewayEligible;
   try {
     await db
       .insert(refunds)
@@ -108,7 +111,7 @@ export async function executeRefund(env: RefundEnv, input: ExecuteRefundInput): 
         reason: input.reason ?? null,
         status: auto ? 'processing' : 'requested',
         initiatorType: input.actorUserId ? 'user' : 'system',
-        refundMethod: online ? 'gateway' : payment.method,
+        refundMethod: gatewayEligible ? 'gateway' : payment.method,
         idempotencyKey: input.idempotencyKey,
         feeRefundCents: feeShare(payment, amount),
         source: input.source,
@@ -158,14 +161,19 @@ export async function processViaGateway(env: RefundEnv, refundId: string): Promi
       refundId: refund.id,
       amountCents: refund.amountCents,
       reason: refund.reason ?? '',
+      providerTransactionId: payment.providerTransactionId ?? undefined,
     });
     if (result.status === 'completed') {
       await finalizeRefund(env, refundId, { gatewayRefundId: result.gatewayRefundId ?? null });
       return 'completed';
     }
     if (result.status === 'failed') return failRefund(env, refundId, 'gateway refused refund');
-    // pending: the gateway webhook will finalize.
-    await db.update(refunds).set({ status: 'processing', updatedAt: Date.now() }).where(eq(refunds.id, refundId)).run();
+    // pending: the gateway webhook (refund.completed / refund.failed) finalizes.
+    await db
+      .update(refunds)
+      .set({ status: 'processing', gatewayRefundId: result.gatewayRefundId || undefined, updatedAt: Date.now() })
+      .where(eq(refunds.id, refundId))
+      .run();
     return 'processing';
   } catch (err) {
     return failRefund(env, refundId, String(err).slice(0, 300));
@@ -186,7 +194,7 @@ export async function settleApprovedRefund(env: RefundEnv, refundId: string, act
     .set({ approvedByUserId: actorUserId, approvedAt: Date.now(), updatedAt: Date.now() })
     .where(eq(refunds.id, refundId))
     .run();
-  if (payment?.method === 'online' && payment.gatewayRef) {
+  if (payment?.method === 'online' && payment.provider === 'payments_lk' && payment.gatewayRef) {
     await db.update(refunds).set({ status: 'processing', updatedAt: Date.now() }).where(eq(refunds.id, refundId)).run();
     return processViaGateway(env, refundId);
   }
