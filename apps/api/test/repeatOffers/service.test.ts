@@ -9,6 +9,31 @@ import {
 const NOW = 1_700_000_000_000;
 const env = { DB: {} as D1Database } as any;
 
+// Mock @vyro/db so analyticsForSupplier exercises the Drizzle chain end-to-end
+// without a real D1 binding. Mirrors Drizzle's QueryPromise semantics: the
+// returned builder is awaitable and resolves to a snapshot of `purchaseOrdersRows`.
+// Also exposes `.all()` so the production code (after the api-004 fix) can
+// terminate the chain explicitly.
+const purchaseOrdersRows: any[] = [];
+vi.mock('@vyro/db', () => ({
+  getDb: () => ({
+    select: () => {
+      const snapshot = () => purchaseOrdersRows.slice();
+      const builder: any = {
+        from: () => builder,
+        where: () => builder,
+        all: async () => snapshot(),
+        then: (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) =>
+          Promise.resolve(snapshot()).then(resolve, reject),
+        catch: (reject: (e: unknown) => unknown) =>
+          Promise.resolve(snapshot()).catch(reject),
+        finally: (cb: () => void) => Promise.resolve(snapshot()).finally(cb),
+      };
+      return builder;
+    },
+  }),
+}));
+
 describe('repeatOffers.computeEligibility', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -100,5 +125,48 @@ describe('repeatOffers.applyForCart', () => {
       { supplierId: 'supA', subtotalCents: 199_999, existingDiscountCents: 0 },
     ]);
     expect(result[0]!.discountCents).toBe(19999);
+  });
+});
+
+describe('repeatOffers.analyticsForSupplier', () => {
+  beforeEach(() => {
+    purchaseOrdersRows.length = 0;
+  });
+
+  it('returns triggeredCount = number of completed POs in trailing 30d (not undefined)', async () => {
+    purchaseOrdersRows.push(
+      { businessId: 'biz1', completedAt: NOW - 1_000, subtotalCents: 200_000_00 },
+      { businessId: 'biz2', completedAt: NOW - 2_000, subtotalCents: 50_000_00 },
+    );
+    const out = await repeatOffers.analyticsForSupplier(env.DB, 'supA', NOW);
+    expect(typeof out.triggeredCount).toBe('number');
+    expect(out.triggeredCount).toBe(2);
+  });
+
+  it('returns triggeredCount = 0 when no completed POs exist (not undefined)', async () => {
+    const out = await repeatOffers.analyticsForSupplier(env.DB, 'supA', NOW);
+    expect(out.triggeredCount).toBe(0);
+  });
+
+  it('aggregates totalSavingsCents at REPEAT_OFFER_PERCENT', async () => {
+    purchaseOrdersRows.push(
+      { businessId: 'biz1', completedAt: NOW - 1_000, subtotalCents: 100_000_00 },
+      { businessId: 'biz1', completedAt: NOW - 2_000, subtotalCents: 50_000_00 },
+    );
+    const out = await repeatOffers.analyticsForSupplier(env.DB, 'supA', NOW);
+    // 10% of (100k + 50k) = 15k
+    expect(out.totalSavingsCents).toBe(15_000_00);
+  });
+
+  it('groups byRetailer with trailingSpendCents per businessId', async () => {
+    purchaseOrdersRows.push(
+      { businessId: 'biz1', completedAt: NOW - 1_000, subtotalCents: 30_000_00 },
+      { businessId: 'biz1', completedAt: NOW - 2_000, subtotalCents: 20_000_00 },
+      { businessId: 'biz2', completedAt: NOW - 3_000, subtotalCents: 10_000_00 },
+    );
+    const out = await repeatOffers.analyticsForSupplier(env.DB, 'supA', NOW);
+    expect(out.byRetailer).toHaveLength(3);
+    const biz1Rows = out.byRetailer.filter((r) => r.businessId === 'biz1');
+    expect(biz1Rows).toHaveLength(2);
   });
 });
