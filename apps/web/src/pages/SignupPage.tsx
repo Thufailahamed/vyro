@@ -300,7 +300,7 @@ export function SignupPage() {
                     placeholder="+94 …"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    pattern="^[+0-9 ()\-]{7,20}$"
+                    pattern="^[+0-9 ().\-]{7,20}$"
                     className="pl-10"
                   />
                 </div>
