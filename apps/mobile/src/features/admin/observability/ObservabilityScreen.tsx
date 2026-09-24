@@ -125,7 +125,7 @@ export function ObservabilityScreen() {
                   <Section kicker="Errors" title="Recent errors" icon={Activity}>
                     {h.recentErrors.slice(0, 8).map((e, i) => (
                       <View
-                        key={i}
+                        key={(e as { id?: string }).id ?? `${e.action}-${e.createdAt}-${i}`}
                         style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingTop: i ? 10 : 0, borderTopWidth: i ? StyleSheet.hairlineWidth * 2 : 0, borderTopColor: colors.lineSoft }}
                       >
                         <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.rose }} />

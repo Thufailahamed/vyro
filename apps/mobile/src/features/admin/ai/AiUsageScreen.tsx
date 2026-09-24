@@ -86,7 +86,7 @@ export function AiUsageScreen() {
                 {d.byProvider?.length ? (
                   <Section kicker="Routing" title="Providers" icon={Sparkles}>
                     {d.byProvider.map((p, i) => (
-                      <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: i ? 10 : 0, borderTopWidth: i ? StyleSheet.hairlineWidth * 2 : 0, borderTopColor: colors.lineSoft }}>
+                      <View key={p.provider ?? `provider-${i}`} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: i ? 10 : 0, borderTopWidth: i ? StyleSheet.hairlineWidth * 2 : 0, borderTopColor: colors.lineSoft }}>
                         <Text variant="bodySm" weight="medium">
                           {p.provider ?? '—'}
                         </Text>
@@ -100,7 +100,7 @@ export function AiUsageScreen() {
                 {d.byError?.length ? (
                   <Section kicker="Failures" title="Top errors" icon={Activity}>
                     {d.byError.slice(0, 6).map((e, i) => (
-                      <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: i ? 10 : 0, borderTopWidth: i ? StyleSheet.hairlineWidth * 2 : 0, borderTopColor: colors.lineSoft }}>
+                      <View key={e.code ?? `error-${i}`} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: i ? 10 : 0, borderTopWidth: i ? StyleSheet.hairlineWidth * 2 : 0, borderTopColor: colors.lineSoft }}>
                         <Text variant="caption" color="ink3" numberOfLines={1} style={{ flex: 1 }}>
                           {e.code ?? 'unknown'}
                         </Text>

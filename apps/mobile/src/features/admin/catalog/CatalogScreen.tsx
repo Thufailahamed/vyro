@@ -126,7 +126,7 @@ export function CatalogScreen() {
                         size="sm"
                         variant={p.featured ? 'paper' : 'volt'}
                         icon={Star}
-                        loading={feature.isPending}
+                        loading={feature.isPending && feature.variables?.id === p.id}
                         onPress={() => feature.mutate({ id: p.id, featured: !p.featured })}
                       />
                     </View>

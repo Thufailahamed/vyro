@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist';
@@ -336,11 +336,13 @@ function LessonEditorSheet({ visible, lesson, onClose }: { visible: boolean; les
   const [err, setErr] = useState<string | null>(null);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
 
-  if (visible && (lesson?.id ?? 'new') !== loadedFor) {
+  useEffect(() => {
+    if (!visible) return;
+    if ((lesson?.id ?? 'new') === loadedFor) return;
     setLoadedFor(lesson?.id ?? 'new');
     setForm(lesson ? toForm(lesson) : EMPTY_FORM);
     setErr(null);
-  }
+  }, [visible, lesson?.id, loadedFor]);
 
   const save = useMutation({
     mutationFn: () => {
@@ -451,12 +453,14 @@ function QuizSheet({ visible, lesson, onClose }: { visible: boolean; lesson: Les
   const [err, setErr] = useState<string | null>(null);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
 
-  if (visible && lesson && lesson.id !== loadedFor) {
+  useEffect(() => {
+    if (!visible || !lesson) return;
+    if (lesson.id === loadedFor) return;
     setLoadedFor(lesson.id);
     setThreshold('1');
     setQuestions([EMPTY_QUESTION]);
     setErr(null);
-  }
+  }, [visible, lesson, loadedFor]);
 
   const save = useMutation({
     mutationFn: () =>

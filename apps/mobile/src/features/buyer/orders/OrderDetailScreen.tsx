@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as WebBrowser from 'expo-web-browser';
 import {
@@ -805,11 +805,12 @@ function MessagesCard({ orderId, userId }: { orderId: string; userId?: string })
   const qc = useQueryClient();
   const toast = useToast();
   const [body, setBody] = useState('');
+  const focused = useIsFocused();
 
   const q = useQuery({
     queryKey: ['po-messages', orderId],
     queryFn: () => api.get<{ messages: PoMessage[] }>(`/purchase-orders/${orderId}/messages`),
-    refetchInterval: 8000,
+    refetchInterval: focused ? 8000 : false,
   });
   const messages = q.data?.messages ?? [];
 
