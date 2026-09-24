@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import Animated, { Easing, useAnimatedProps, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { Package } from 'lucide-react-native';
 import { colors } from '@/theme/tokens';
@@ -105,102 +104,6 @@ export function FlowField({
         <Circle cx={90 + (h % 40)} cy={150} r={2} fill={c} fillOpacity={0.5} />
       </Svg>
     </View>
-  );
-}
-
-const AnimatedPath = Animated.createAnimatedComponent(Path);
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-/**
- * Animated sibling of {@link FlowField}: the same seeded supply curves, but the
- * dashes drift along the path (a marquee "flow") and the nodes gently pulse.
- * Runs entirely on the UI thread via Reanimated shared values.
- */
-export function AnimatedFlowField({
-  seed = 'vyro',
-  tone = 'paper',
-  style,
-  opacity = 1,
-}: {
-  seed?: string;
-  tone?: 'paper' | 'ink';
-  style?: StyleProp<ViewStyle>;
-  opacity?: number;
-}) {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  const o = (h % 60) - 30;
-  const a = tone === 'paper' ? colors.volt : colors.voltDeep;
-  const b = colors.copper;
-  const c = tone === 'paper' ? colors.paper : colors.ink;
-
-  const reduced = useReducedMotion();
-  const drift = useSharedValue(0);
-  const pulse = useSharedValue(0);
-  useEffect(() => {
-    if (reduced) {
-      drift.value = 0;
-      pulse.value = 0.4;
-      return;
-    }
-    drift.value = withRepeat(withTiming(1, { duration: 11000, easing: Easing.linear }), -1, false);
-    pulse.value = withRepeat(withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }), -1, true);
-  }, [drift, pulse, reduced]);
-
-  // Dash period is 20 (6 on + 14 off) → one full cycle = -20 offset.
-  const dashProps = useAnimatedProps(() => ({ strokeDashoffset: -drift.value * 20 }));
-  const dashPropsBack = useAnimatedProps(() => ({ strokeDashoffset: drift.value * 20 }));
-  const dotProps = useAnimatedProps(() => ({ opacity: 0.45 + pulse.value * 0.55 }));
-
-  return (
-    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity }, style]}>
-      <Svg width="100%" height="100%" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice">
-        <Path
-          d={`M-30 ${210 + o} C 70 ${210 + o}, 110 ${60 - o}, 200 ${70 + o} S 330 ${240 - o}, 440 ${130 + o}`}
-          stroke={a}
-          strokeOpacity={0.16}
-          strokeWidth={1.3}
-          fill="none"
-        />
-        <AnimatedPath
-          d={`M-30 ${210 + o} C 70 ${210 + o}, 110 ${60 - o}, 200 ${70 + o} S 330 ${240 - o}, 440 ${130 + o}`}
-          stroke={a}
-          strokeOpacity={0.7}
-          strokeWidth={1.3}
-          strokeDasharray="6 14"
-          strokeLinecap="round"
-          fill="none"
-          animatedProps={dashProps}
-        />
-        <Path
-          d={`M-40 ${110 - o} C 80 ${120 + o}, 150 ${270 - o}, 260 ${220 + o} S 380 ${60 + o}, 460 ${90 - o}`}
-          stroke={b}
-          strokeOpacity={0.14}
-          strokeWidth={1}
-          fill="none"
-        />
-        <AnimatedPath
-          d={`M-40 ${110 - o} C 80 ${120 + o}, 150 ${270 - o}, 260 ${220 + o} S 380 ${60 + o}, 460 ${90 - o}`}
-          stroke={b}
-          strokeOpacity={0.55}
-          strokeWidth={1}
-          strokeDasharray="4 16"
-          strokeLinecap="round"
-          fill="none"
-          animatedProps={dashPropsBack}
-        />
-        <Path
-          d={`M-20 ${270 - o} C 120 ${240}, 220 ${300 - o}, 420 ${200 + o}`}
-          stroke={c}
-          strokeOpacity={0.12}
-          strokeWidth={1}
-          fill="none"
-        />
-        <AnimatedCircle cx={200} cy={70 + o} r={3} fill={a} animatedProps={dotProps} />
-        <AnimatedCircle cx={260} cy={220 + o} r={2.6} fill={b} animatedProps={dotProps} />
-        <AnimatedCircle cx={90 + (h % 40)} cy={150} r={2} fill={c} fillOpacity={0.5} animatedProps={dotProps} />
-      </Svg>
-    </Animated.View>
   );
 }
 

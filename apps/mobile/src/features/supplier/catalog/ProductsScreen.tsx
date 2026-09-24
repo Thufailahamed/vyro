@@ -239,7 +239,6 @@ export function SupplierProductsScreen() {
             <View style={{ gap: 18 }}>
               <EmptyState
                 icon={Package}
-                seed="launch"
                 title="Launch your depot catalog"
                 message="Publish staple commodities, oils, packaging or bulk goods to accept purchase orders from verified buyers."
                 action={{ label: 'Add first product', onPress: () => go('/supplier/products/new') }}

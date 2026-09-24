@@ -116,7 +116,7 @@ export function SupplierSponsoredPlansScreen() {
       ) : (
         (plans.data ?? []).map((p, i) => (
           <Enter key={p.id} i={i}>
-            <Card kind={i === 0 ? 'ink' : 'flat'} flow={i === 0 ? `plan-${p.id}` : undefined} padding={18} style={{ gap: 14 }}>
+            <Card kind={i === 0 ? 'ink' : 'flat'} padding={18} style={{ gap: 14 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <IconTile icon={Layers} tone={i === 0 ? 'glass' : 'volt'} size={42} />
                 <View style={{ flex: 1, gap: 2 }}>

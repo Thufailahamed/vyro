@@ -332,7 +332,7 @@ export function QuickStartGrid({ title, hint, products, cta }: { title: string; 
 /** Ink tip card closing list screens. */
 export function InkTip({ kicker, text, icon: Icon }: { kicker: string; text: string; icon: LucideIcon }) {
   return (
-    <Card kind="ink" flow={kicker} padding={16}>
+    <Card kind="ink" padding={16}>
       <Row gap={12} align="flex-start">
         <IconTile icon={Icon} tone="glass" size={38} />
         <View style={{ flex: 1, gap: 4 }}>

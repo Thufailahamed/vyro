@@ -163,7 +163,7 @@ export function PaymentsScreen() {
       </ScrollView>
       {rows.length ? (
         <Gutter>
-          <Card kind="ink" flow="payments-strip" padding={14}>
+          <Card kind="ink" padding={14}>
             <Row justify="space-between">
               <View style={{ gap: 2 }}>
                 <Text variant="overline" color="paperMuted">

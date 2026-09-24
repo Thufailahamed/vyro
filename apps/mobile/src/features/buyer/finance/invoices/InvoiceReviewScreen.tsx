@@ -168,7 +168,7 @@ export function InvoiceReviewScreen() {
 
             <Button title="Add line" icon={Plus} variant="secondary" full onPress={() => setLines((p) => [...p, { id: `new-${p.length}`, lineNumber: p.length + 1, description: '', quantity: 1, unit: 'unit', unitPriceCents: 0, totalCents: 0, categorySlug: 'other', categorySource: 'manual' }])} />
 
-            <Card kind="ink" padding={18} flow="invoice-total" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Card kind="ink" padding={18} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text variant="bodySm" color="paperMuted">
                 Invoice total
               </Text>

@@ -1,12 +1,10 @@
 import { useEffect, type ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { Easing, Extrapolation, interpolate, interpolateColor, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, interpolateColor, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import type { LucideIcon } from 'lucide-react-native';
 import { colors, radii, shadow } from '@/theme/tokens';
 import { Touchable } from './Button';
-import { AnimatedFlowField } from './Brand';
-import { useScreenScrollY } from './Screen';
 
 export type SurfaceKind = 'flat' | 'elevated' | 'floating' | 'ink' | 'volt' | 'outline' | 'bone' | 'copper';
 
@@ -82,14 +80,12 @@ export interface CardProps {
   style?: StyleProp<ViewStyle>;
   padding?: number;
   onPress?: () => void;
-  /** Adds the seeded flow-line art. */
-  flow?: string;
   radius?: number;
 }
 
 /** The app's card: 20px continuous corners, soft depth, tactile press. */
-export function Card({ kind = 'flat', children, style, padding = 16, onPress, flow, radius = radii.xl }: CardProps) {
-  const clip = kind === 'ink' || kind === 'volt' || !!flow;
+export function Card({ kind = 'flat', children, style, padding = 16, onPress, radius = radii.xl }: CardProps) {
+  const clip = kind === 'ink' || kind === 'volt';
   const base: StyleProp<ViewStyle> = [
     { borderRadius: radius, borderCurve: 'continuous', padding, overflow: clip ? 'hidden' : 'visible' },
     KIND[kind],
@@ -99,7 +95,6 @@ export function Card({ kind = 'flat', children, style, padding = 16, onPress, fl
     <>
       <Sheen kind={kind} />
       {kind === 'volt' ? <GlowBorder radius={radius} /> : null}
-      {flow ? <AnimatedFlowField seed={flow} tone={kind === 'ink' ? 'paper' : 'ink'} opacity={kind === 'ink' ? 0.8 : 0.45} /> : null}
       {children}
     </>
   );
@@ -114,11 +109,10 @@ export function Card({ kind = 'flat', children, style, padding = 16, onPress, fl
 }
 
 /**
- * Ink hero: deep material panel with a soft diagonal gradient and animated
- * flow lines — the signature surface at the top of every dashboard.
+ * Ink hero: deep material panel with a soft diagonal gradient — the signature
+ * surface at the top of every dashboard.
  */
-export function InkHero({ children, seed = 'hero', style }: { children: ReactNode; seed?: string; style?: StyleProp<ViewStyle> }) {
-  const scrollY = useScreenScrollY();
+export function InkHero({ children, style }: { children: ReactNode; seed?: string; style?: StyleProp<ViewStyle> }) {
   const reduced = useReducedMotion();
   const mesh = useSharedValue(0);
   useEffect(() => {
@@ -129,10 +123,6 @@ export function InkHero({ children, seed = 'hero', style }: { children: ReactNod
     mesh.value = withRepeat(withTiming(1, { duration: 9000, easing: Easing.inOut(Easing.sin) }), -1, true);
   }, [mesh, reduced]);
   const meshStyle = useAnimatedStyle(() => ({ opacity: 0.35 + mesh.value * 0.45 }));
-  const parallax = useAnimatedStyle(() => ({
-    transform: [{ translateY: reduced ? 0 : (scrollY?.value ?? 0) * 0.22 }],
-    opacity: reduced ? 1 : interpolate(scrollY?.value ?? 0, [0, 160], [1, 0.15], Extrapolation.CLAMP),
-  }));
   return (
     <View
       style={[
@@ -165,9 +155,6 @@ export function InkHero({ children, seed = 'hero', style }: { children: ReactNod
           end={{ x: 0, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-      </Animated.View>
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, parallax]}>
-        <AnimatedFlowField seed={seed} opacity={0.6} />
       </Animated.View>
       {children}
     </View>

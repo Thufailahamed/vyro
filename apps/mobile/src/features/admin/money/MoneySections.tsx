@@ -321,7 +321,7 @@ export function LedgerSection() {
             </StatGrid>
           </Appear>
           <Appear i={1}>
-            <Card kind="ink" flow="ledger-net" style={{ gap: 6 }}>
+            <Card kind="ink" style={{ gap: 6 }}>
               <Text variant="overline" color="paperMuted">
                 Net settlement volume
               </Text>

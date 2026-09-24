@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, ShoppingCart, Store, Trash2, Truck } from 'lucide-react-native';
 import {
@@ -210,12 +210,12 @@ function SupplierGroup({
   const supplierDiscount = group.lines.reduce((a, b) => a + (b.discountCents || 0), 0);
 
   return (
-    <Card padding={14} radius={radii['2xl']} style={{ gap: 12 }}>
+    <Card padding={16} radius={radii['2xl']} style={{ gap: 14 }}>
       {/* Supplier PO header */}
-      <View style={{ gap: 10, paddingHorizontal: 2, paddingTop: 2 }}>
+      <View style={{ gap: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <IconTile icon={Store} tone="ink" size={44} />
-          <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flex: 1, gap: 3 }}>
             <Text variant="h2" numberOfLines={1}>
               {supplierName}
             </Text>
@@ -226,7 +226,6 @@ function SupplierGroup({
               </Text>
             </View>
           </View>
-          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 16, letterSpacing: -0.4, color: colors.ink }}>{formatLKR(sub)}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <MonoTag label={`Draft PO-${String(index + 1).padStart(2, '0')}`} tone="ink" />
@@ -266,6 +265,23 @@ function SupplierGroup({
           <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11.5, color: colors.mint }}>−{formatLKR(supplierDiscount)}</Text>
         </View>
       ) : null}
+
+      {/* PO subtotal */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.lineSoft,
+          paddingTop: 12,
+        }}
+      >
+        <Text variant="overline" color="ink5">
+          PO subtotal
+        </Text>
+        <Text style={{ fontFamily: fonts.monoMedium, fontSize: 17, letterSpacing: -0.4, color: colors.ink }}>{formatLKR(sub)}</Text>
+      </View>
     </Card>
   );
 }
@@ -290,7 +306,7 @@ function CartLine({
   const avail = availabilityLabel(it.offer.availabilityStatus);
 
   return (
-    <View style={{ padding: 10, gap: 12, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.pearl, opacity: updating ? 0.6 : 1 }}>
+    <View style={{ padding: 12, gap: 12, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.pearl, opacity: updating ? 0.6 : 1 }}>
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Touchable onPress={() => go(productHref(it.product.id))} accessibilityLabel={it.product.name} scaleTo={0.95} style={[{ borderRadius: radii.lg }, shadow.sm]}>
           <ProductImage src={it.product.imageUrl} seed={it.product.id} style={{ width: 72, height: 72, borderRadius: radii.lg, borderCurve: 'continuous' }} />
@@ -325,24 +341,26 @@ function CartLine({
         />
       ) : null}
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-        <Stepper value={it.quantity} min={0} onChange={(v) => (v < it.offer.minOrderQty ? onSet(it.offer.minOrderQty) : onSet(v))} size="sm" />
-        <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
-          {it.discountCents > 0 ? (
-            <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: colors.ink5, textDecorationLine: 'line-through' }}>{formatLKR(gross)}</Text>
-          ) : null}
-          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 16.5, letterSpacing: -0.4, color: colors.ink }} numberOfLines={1} adjustsFontSizeToFit>
-            {formatLKR(it.lineTotalCents)}
-          </Text>
-          {it.discountCents > 0 ? (
-            <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: colors.mint }}>save {formatLKR(it.discountCents)}</Text>
-          ) : null}
+      <View style={{ gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.lineSoft, paddingTop: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <Stepper value={it.quantity} min={0} onChange={(v) => (v < it.offer.minOrderQty ? onSet(it.offer.minOrderQty) : onSet(v))} size="sm" />
+          <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
+            {it.discountCents > 0 ? (
+              <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: colors.ink5, textDecorationLine: 'line-through' }}>{formatLKR(gross)}</Text>
+            ) : null}
+            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 17, letterSpacing: -0.4, color: colors.ink }} numberOfLines={1} adjustsFontSizeToFit>
+              {formatLKR(it.lineTotalCents)}
+            </Text>
+            {it.discountCents > 0 ? (
+              <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: colors.mint }}>save {formatLKR(it.discountCents)}</Text>
+            ) : null}
+          </View>
         </View>
-      </View>
-      <View style={{ flexDirection: 'row', gap: 6 }}>
-        <PresetChip label={`MOQ ${it.offer.minOrderQty}`} onPress={() => onSet(it.offer.minOrderQty)} />
-        <PresetChip label="+10" onPress={() => onStep(10)} />
-        <PresetChip label="+25" onPress={() => onStep(25)} />
+        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+          <PresetChip label={`MOQ ${it.offer.minOrderQty}`} onPress={() => onSet(it.offer.minOrderQty)} />
+          <PresetChip label="+10" onPress={() => onStep(10)} />
+          <PresetChip label="+25" onPress={() => onStep(25)} />
+        </View>
       </View>
     </View>
   );
@@ -356,9 +374,17 @@ function PresetChip({ label, onPress }: { label: string; onPress: () => void }) 
       scaleTo={0.94}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={[{ height: 30, paddingHorizontal: 12, borderRadius: radii.pill, backgroundColor: colors.paper, justifyContent: 'center' }, shadow.sm]}
+      style={{
+        height: 28,
+        paddingHorizontal: 12,
+        borderRadius: radii.pill,
+        backgroundColor: colors.bone,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: colors.line,
+        justifyContent: 'center',
+      }}
     >
-      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11.5, color: colors.ink2 }}>{label}</Text>
+      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11, color: colors.ink3 }}>{label}</Text>
     </Touchable>
   );
 }
@@ -382,21 +408,25 @@ function SummaryBar({
 }) {
   return (
     <View style={{ position: 'absolute', left: 12, right: 12, bottom: 96 }}>
-      <InkHero seed="cart-summary" style={[{ padding: 16, gap: 12 }, shadow.lg]}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-          <View style={{ flexDirection: 'row', gap: 14 }}>
-            <MiniStat label="POs" value={String(supplierCount)} />
-            <MiniStat label="Lines" value={String(lineCount)} />
-            <MiniStat label="Units" value={units.toLocaleString()} />
-            {discount > 0 ? <MiniStat label="Saved" value={`−${formatLKR(discount)}`} volt /> : null}
-          </View>
-          <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
+      <InkHero seed="cart-summary" style={[{ padding: 18, gap: 14 }, shadow.lg]}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 }}>
+          <View style={{ gap: 3 }}>
             <Text variant="overline" color="paperFaint">
-              Total
+              Total due
             </Text>
-            <Text variant="metricSm" color="volt" numberOfLines={1} adjustsFontSizeToFit>
+            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 24, letterSpacing: -0.8, color: colors.volt }} numberOfLines={1} adjustsFontSizeToFit>
               {formatLKR(total)}
             </Text>
+          </View>
+          <View style={{ alignItems: 'flex-end', gap: 3, flexShrink: 1 }}>
+            <Text variant="caption" color="paperMuted" numberOfLines={1}>
+              {supplierCount} PO{supplierCount === 1 ? '' : 's'} · {lineCount} line{lineCount === 1 ? '' : 's'} · {units.toLocaleString()} units
+            </Text>
+            {discount > 0 ? (
+              <Text variant="caption" color="voltGlow">
+                You save {formatLKR(discount)}
+              </Text>
+            ) : null}
           </View>
         </View>
         <Button
@@ -408,23 +438,10 @@ function SummaryBar({
           disabled={blocked}
           onPress={() => go('/buyer/checkout')}
         />
-        <Text style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.paperFaint, textAlign: 'center' }}>
+        <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: colors.paperFaint, textAlign: 'center' }}>
           Escrow-protected · direct mill-gate prices · {formatLKR(subtotal)} gross
         </Text>
       </InkHero>
-    </View>
-  );
-}
-
-function MiniStat({ label, value, volt }: { label: string; value: string; volt?: boolean }) {
-  return (
-    <View>
-      <Text variant="overline" color="paperFaint">
-        {label}
-      </Text>
-      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 14, color: volt ? colors.volt : colors.paper }} numberOfLines={1}>
-        {value}
-      </Text>
     </View>
   );
 }

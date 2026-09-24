@@ -313,7 +313,6 @@ function FirstOrderEmpty() {
     <View style={{ gap: 14 }}>
       <EmptyState
         icon={Package}
-        seed="orders-empty"
         title="No purchase orders yet"
         message="Add products from verified suppliers to your cart. Checkout issues binding POs with live tracking."
         action={{ label: 'Browse catalog', onPress: () => go('/buyer/catalog') }}

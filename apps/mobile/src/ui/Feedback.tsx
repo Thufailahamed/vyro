@@ -8,7 +8,6 @@ import { humanize } from '@/lib/format';
 import { toneForStatus } from '@/lib/status';
 import { Text } from './Text';
 import { Button } from './Button';
-import { AnimatedFlowField } from './Brand';
 
 export function Badge({
   label,
@@ -160,14 +159,12 @@ export function EmptyState({
   title,
   message,
   action,
-  seed = 'empty',
   compact,
 }: {
   icon?: LucideIcon;
   title: string;
   message?: string;
   action?: { label: string; onPress: () => void };
-  seed?: string;
   compact?: boolean;
 }) {
   return (
@@ -187,7 +184,6 @@ export function EmptyState({
         shadow.card,
       ]}
     >
-      <AnimatedFlowField seed={seed} tone="ink" opacity={0.3} />
       {Icon ? (
         <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: 'rgba(198,220,74,0.16)', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
           <View style={[{ width: 60, height: 60, borderRadius: 30, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }, shadow.ink]}>

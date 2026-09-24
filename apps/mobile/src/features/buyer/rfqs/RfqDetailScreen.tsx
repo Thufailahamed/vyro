@@ -156,7 +156,7 @@ export function RfqDetailScreen() {
       </Section>
 
       {ai.data?.recommendation ? (
-        <Card kind="ink" flow={`rfq-ai-${id}`} padding={16} style={{ gap: 10 }}>
+        <Card kind="ink" padding={16} style={{ gap: 10 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <IconTile icon={Sparkles} tone="volt" size={32} />
             <Kicker color="volt">AI recommendation</Kicker>

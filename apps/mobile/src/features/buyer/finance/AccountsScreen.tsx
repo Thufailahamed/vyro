@@ -718,7 +718,7 @@ function CreditTab({ businessId }: { businessId: string }) {
   }
   const used = f.facility.limitCents > 0 ? f.facility.usedCents / f.facility.limitCents : 0;
   return (
-    <Card kind="ink" flow={`credit-mini-${businessId}`} padding={18} onPress={() => go('/buyer/credit')} style={{ gap: 12 }}>
+    <Card kind="ink" padding={18} onPress={() => go('/buyer/credit')} style={{ gap: 12 }}>
       <Kicker color="volt">Available credit</Kicker>
       <Text variant="metric" color="volt" numberOfLines={1} adjustsFontSizeToFit>
         {formatLKR(f.availableCents)}

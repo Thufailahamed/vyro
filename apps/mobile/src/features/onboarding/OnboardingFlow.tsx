@@ -404,7 +404,7 @@ function SelectedTypeCard({ name, tag, icon, onChange }: { name?: string; tag?: 
 
 function VerificationCard({ C, form, sectorName }: { C: Copy; form: { name: string; description: string; address: string; city: string; district: string; contactPerson: string; phone: string }; sectorName?: string }) {
   return (
-    <Card kind="ink" padding={18} radius={radii['2xl']} flow={`verify-${form.district}`} style={{ gap: 14 }}>
+    <Card kind="ink" padding={18} radius={radii['2xl']} style={{ gap: 14 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
           <IconTile icon={C.icon} tone="glass" size={34} />

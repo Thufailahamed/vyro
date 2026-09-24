@@ -179,7 +179,7 @@ export function ListState({
 }) {
   if (loading) return <SkeletonList rows={4} height={96} />;
   if (error) return <ErrorState message={errorMessage(error)} onRetry={onRetry} />;
-  if (empty) return <EmptyState title={emptyTitle} message={emptyMessage} icon={emptyIcon} seed={emptyTitle} />;
+  if (empty) return <EmptyState title={emptyTitle} message={emptyMessage} icon={emptyIcon} />;
   return <>{children}</>;
 }
 
