@@ -35,6 +35,7 @@ import {
 import { api, errorMessage, qs } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { humanize, timeAgo } from '@/lib/format';
+import { mobileHref } from '@/lib/mobileHref';
 import { colors, radii, shadow } from '@/theme/tokens';
 import { go } from '../buyer/orders/kit';
 
@@ -255,7 +256,12 @@ export function NotificationsScreen() {
             onPress={() => {
               const unreadIds = g.items.filter((x) => !x.readAt).map((x) => x.id);
               if (unreadIds.length) mark.mutate(unreadIds);
-              if (n.link) go(n.link);
+              if (n.link) {
+                const dest = mobileHref(n.link);
+                if (dest) go(dest);
+                // unknown web path — skip navigation rather than crash on a
+                // 404 screen (mobile-007)
+              }
             }}
             hapticOnPress
             scaleTo={0.98}
