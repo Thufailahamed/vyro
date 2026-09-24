@@ -138,14 +138,27 @@ router.post('/', session(), async (c) => {
   // the prior offline-by-default branch that bypassed commission for method=online.
   // The applied value is snapshotted on the payment row so history never rewrites.
   let feeCents: number;
+  let categoryId: string | undefined;
   try {
-    const categoryId = await categoryForPo(c.env.DB, po.id).catch(() => undefined);
-    const resolved = await resolveCommissionBps(c.env.DB, { supplierId: po.supplierId, categoryId });
-    feeCents = parseInt(String(computePlatformFeeCents(amountCents, resolved.bps)), 10);
-  } catch {
-    const feeBps = await getPlatformFeeBps(c.env.DB);
-    feeCents = parseInt(String(computePlatformFeeCents(amountCents, feeBps)), 10);
+    categoryId = await categoryForPo(c.env.DB, po.id).catch(() => undefined);
+  } catch (catErr) {
+    // category lookup failure must not silently mask the rest of fee
+    // resolution; surface so we don't compute fees against the wrong base.
+    console.error('[payments] category lookup failed', { poId: po.id, err: catErr });
+    throw catErr;
   }
+  let resolvedBps: number;
+  try {
+    const resolved = await resolveCommissionBps(c.env.DB, { supplierId: po.supplierId, categoryId });
+    resolvedBps = resolved.bps;
+  } catch {
+    // Resolver failure → fall back to the global default. parse / compute
+    // errors below are NOT caught here, so they propagate instead of writing
+    // a wrong fee onto the payment row (api-023).
+    const feeBps = await getPlatformFeeBps(c.env.DB);
+    resolvedBps = feeBps;
+  }
+  feeCents = parseInt(String(computePlatformFeeCents(amountCents, resolvedBps)), 10);
   const netCents = amountCents - feeCents;
 
   const db = getDb(c.env.DB);
