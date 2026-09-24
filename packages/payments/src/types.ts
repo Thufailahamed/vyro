@@ -1,6 +1,7 @@
-// Gateway adapter interface. PayHere + Mock implement this.
+// Gateway adapter interface. Payments.lk + Mock implement this. 'payhere' is a
+// historical provider value retained for old DB rows only.
 
-export type GatewayProvider = 'payhere' | 'mock';
+export type GatewayProvider = 'payments_lk' | 'payhere' | 'mock';
 
 export interface StartCheckoutInput {
   paymentId: string;
@@ -15,6 +16,8 @@ export interface StartCheckoutInput {
   returnUrl: string;
   cancelUrl: string;
   notifyUrl: string;
+  /** Ask the gateway to offer card saving (payments.lk saveCard). */
+  saveCard?: boolean;
 }
 
 export interface StartCheckoutResult {
@@ -27,18 +30,34 @@ export type WebhookEventType =
   | 'payment.success'
   | 'payment.pending'
   | 'payment.failed'
+  | 'payment.expired'
   | 'payment.cancelled'
   | 'payment.chargeback'
-  | 'refund.completed';
+  | 'refund.completed'
+  | 'refund.failed'
+  | 'card.saved'
+  | 'unknown';
+
+export interface SavedCardRef {
+  id: string;
+  brand?: string | undefined;
+  last4?: string | undefined;
+  expMonth?: number | undefined;
+  expYear?: number | undefined;
+}
 
 export interface WebhookEvent {
   type: WebhookEventType;
+  /** Our reference (payment id) or the gateway checkout id — whatever binds the event. */
   gatewayRef: string;
-  paymentId?: string | undefined;
+  paymentId?: string | undefined; // provider payment id
   amountCents?: number | undefined;
   currency?: string | undefined;
-  statusCode?: number | undefined; // 2 success, 0 pending, -1 cancelled, -2 failed, -3 chargeback
-  raw: Record<string, string>;
+  /** Internal dedupe code (see the payments.lk plan's Global Constraints), not a vendor code. */
+  statusCode?: number | undefined;
+  refundId?: string | undefined; // provider refund id
+  card?: SavedCardRef | undefined;
+  raw: Record<string, unknown>;
 }
 
 export interface RefundInput {
@@ -46,6 +65,8 @@ export interface RefundInput {
   refundId: string;
   amountCents: number;
   reason?: string | undefined;
+  /** Provider payment id (from a prior success webhook) when known. */
+  providerTransactionId?: string | undefined;
 }
 
 export interface RefundResult {
@@ -54,10 +75,34 @@ export interface RefundResult {
   raw?: Record<string, unknown> | undefined;
 }
 
+export interface ChargeSavedCardInput {
+  cardId: string; // provider card id
+  amountCents: number;
+  description: string;
+  /** Our payment id, used as the provider reference. */
+  reference: string;
+  idempotencyKey: string;
+}
+
+export interface ChargeSavedCardResult {
+  status: 'succeeded' | 'failed';
+  paymentId?: string | undefined; // provider payment id
+  error?: string | undefined;
+}
+
+export interface CheckoutStatusResult {
+  status: 'pending' | 'succeeded' | 'failed' | 'expired';
+  paymentId?: string | undefined;
+}
+
 export interface GatewayAdapter {
   readonly provider: GatewayProvider;
   startCheckout(input: StartCheckoutInput): Promise<StartCheckoutResult>;
   parseWebhook(rawBody: string, signature: string | null): Promise<WebhookEvent>;
   refund(input: RefundInput): Promise<RefundResult>;
   verifySignature(rawBody: string, signature: string | null): boolean;
+  /** Off-session charge on a saved card. Optional: not all providers support it. */
+  chargeSavedCard?(input: ChargeSavedCardInput): Promise<ChargeSavedCardResult>;
+  /** Late-webhook fallback: read checkout state from the provider. */
+  getCheckoutStatus?(gatewayRef: string): Promise<CheckoutStatusResult>;
 }
