@@ -334,8 +334,12 @@ function WorkspaceShell() {
                 <button
                   title="Sign out"
                   onClick={async () => {
-                    await signOut();
-                    navigate('/');
+                    try {
+                      await signOut();
+                      navigate('/');
+                    } catch (e) {
+                      console.error('signOut failed', e);
+                    }
                   }}
                   className="size-8 rounded inline-flex items-center justify-center text-paper/40 hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0"
                 >
@@ -452,8 +456,12 @@ function WorkspaceShell() {
           aiUnread={aiUnread}
           cartCount={cartCount}
           onSignOut={async () => {
-            await signOut();
-            navigate('/');
+            try {
+              await signOut();
+              navigate('/');
+            } catch (e) {
+              console.error('signOut failed', e);
+            }
           }}
         />
 

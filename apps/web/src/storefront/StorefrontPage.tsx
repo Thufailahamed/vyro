@@ -1,5 +1,6 @@
 import { useEffect, useState, type JSX } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { api } from '@/lib/api';
 import { SupplierHero } from './SupplierHero';
 import { SupplierProductGrid, type StorefrontOffer } from './SupplierProductGrid';
 import { StorefrontMeta } from './useStorefrontMeta';
@@ -48,11 +49,10 @@ export function StorefrontPage(): JSX.Element {
   useEffect(() => {
     if (!slug) return;
     let cancelled = false;
-    fetch(`/api/suppliers/by-slug/${encodeURIComponent(slug)}`, { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Failed (${r.status})`))))
-      .then((j: unknown) => {
-        if (cancelled || !j || typeof j !== 'object') return;
-        if (!cancelled) setData(j as StorefrontData);
+    api
+      .get<StorefrontData>(`/api/suppliers/by-slug/${encodeURIComponent(slug)}`)
+      .then((j) => {
+        if (!cancelled) setData(j);
       })
       .catch((e: Error) => {
         if (!cancelled) setError(e.message);

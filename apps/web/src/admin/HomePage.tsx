@@ -65,6 +65,7 @@ export function AdminHomePage() {
     queryFn: () => api.get<AdminAnalytics>(`/analytics/admin?range=${range}`),
     retry: false,
     refetchInterval: 60_000,
+    staleTime: 30_000,
   });
 
   const commandCenterQuery = useCommandCenter();

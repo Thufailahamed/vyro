@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
+import { api } from '@/lib/api';
 import { greetingForHour, savingsHeadline, moveHeadline, healthHeadline, concentrationLabel, type HomePayload } from './home';
 
 /**
@@ -17,11 +18,11 @@ export function AiHomePage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch((import.meta.env.VITE_API_URL?.replace(/\/$/,'') || '') + '/api/ai/home', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+    api
+      .get<HomePayload>('/api/ai/home')
       .then((d) => {
         if (!cancelled) {
-          setData(d as HomePayload);
+          setData(d);
           setLoading(false);
         }
       })
