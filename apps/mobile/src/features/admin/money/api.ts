@@ -61,7 +61,7 @@ export type CreditFacilityRow = {
 
 export type PaymentStatus = 'pending' | 'confirmed' | 'failed' | 'cancelled' | 'chargeback' | 'refunded';
 export type PaymentMethod = 'cash' | 'bank_transfer' | 'online';
-export type PaymentProvider = 'payhere' | 'mock';
+export type PaymentProvider = 'payments_lk' | 'payhere' | 'mock';
 export type PaymentSort = 'createdAt-desc' | 'createdAt-asc' | 'amount-desc' | 'amount-asc';
 
 export type PaymentRow = {

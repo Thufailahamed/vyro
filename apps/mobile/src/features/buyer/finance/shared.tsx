@@ -16,8 +16,8 @@ export function go(path: string) {
 type MethodTone = 'volt' | 'copper' | 'mint' | 'amber' | 'ink';
 
 const METHOD_META: Record<string, { label: string; tone: MethodTone }> = {
-  online: { label: 'PayHere Online', tone: 'volt' },
-  payhere: { label: 'PayHere Online', tone: 'volt' },
+  online: { label: 'payments.lk', tone: 'volt' },
+  payhere: { label: 'PayHere (legacy)', tone: 'volt' },
   card: { label: 'Card', tone: 'volt' },
   bank_transfer: { label: 'Bank Transfer', tone: 'copper' },
   bank: { label: 'Bank Transfer', tone: 'copper' },

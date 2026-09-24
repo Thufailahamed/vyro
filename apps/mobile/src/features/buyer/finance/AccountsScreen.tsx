@@ -358,7 +358,7 @@ function OverviewTab({ businessId, onSeeAll }: { businessId: string; onSeeAll: (
           <View style={{ flex: 1, gap: 4 }}>
             <Kicker>Escrow-protected settlement</Kicker>
             <Text variant="bodySm" color="ink3">
-              Every PayHere / bank transfer payment is held in licensed escrow until GRN or order completion. Refunds settle within 1–2 business days.
+              Every payments.lk / bank transfer payment is held in licensed escrow until GRN or order completion. Refunds settle within 1–2 business days.
             </Text>
             <Row gap={6} style={{ marginTop: 4 }}>
               <Pulse color={colors.mint} size={5} />
@@ -411,7 +411,7 @@ const STATUS_OPTS = [
 ];
 const METHOD_OPTS = [
   { value: '', label: 'All methods' },
-  { value: 'online', label: 'PayHere' },
+  { value: 'online', label: 'payments.lk' },
   { value: 'cash', label: 'Cash on delivery' },
   { value: 'bank_transfer', label: 'Bank transfer' },
 ];

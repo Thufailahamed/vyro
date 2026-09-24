@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as WebBrowser from 'expo-web-browser';
@@ -368,7 +368,7 @@ export function OrderDetailScreen() {
             { label: 'Line items', value: String(items.length), mono: true },
             { label: 'Subtotal', value: formatLKR(order.subtotalCents), mono: true },
             { label: 'Direction', value: humanize(order.direction) },
-            { label: 'Payment', value: order.paymentMethod === 'wire' ? 'Bank wire' : 'PayHere' },
+            { label: 'Payment', value: order.paymentMethod === 'wire' ? 'Bank wire' : 'payments.lk' },
           ]}
         />
         {order.rfqId ? (
@@ -498,6 +498,16 @@ function PaymentCard({
   const toast = useToast();
   const [ref, setRef] = useState('');
   const [busy, setBusy] = useState(false);
+  const [useCardId, setUseCardId] = useState('');
+
+  const cardsQ = useQuery({
+    queryKey: ['saved-cards'],
+    queryFn: () =>
+      api.get<{ cards: Array<{ id: string; brand: string | null; last4: string | null; expiryMonth: number | null; expiryYear: number | null }> }>(
+        `/payments/saved-cards?businessId=${order.businessId}`,
+      ),
+  });
+  const savedCards = cardsQ.data?.cards ?? [];
 
   const confirmedTotal = payments.filter((p) => p.status === 'confirmed').reduce((s, p) => s + p.amountCents, 0);
   const outstanding = summary ? summary.dueCents : order.totalCents - confirmedTotal;
@@ -524,13 +534,21 @@ function PaymentCard({
         const r = await api.post<{ id: string }>(`/payments`, {
           purchaseOrderId: order.id,
           method: 'online',
-          notes: lastFailed ? `Retry after ${lastFailed.status}` : 'Pay online via PayHere',
+          notes: lastFailed ? `Retry after ${lastFailed.status}` : 'Pay online via payments.lk',
         });
         id = r.id;
       }
-      const r = await api.post<{ redirectUrl: string; isMock: boolean }>(`/payments/${id}/checkout`);
+      const r = await api.post<{ redirectUrl?: string; isMock: boolean; status?: string }>(
+        `/payments/${id}/checkout`,
+        useCardId ? { useSavedCardId: useCardId } : {},
+      );
+      if (r.status === 'succeeded') {
+        toast.success('Payment complete', 'Charged to your saved card.');
+        onChanged();
+        return;
+      }
       if (r.isMock) toast.info('Staging payment simulator', 'No real money will move.');
-      await WebBrowser.openBrowserAsync(r.redirectUrl);
+      await WebBrowser.openBrowserAsync(r.redirectUrl!);
       onChanged();
     });
   }
@@ -577,6 +595,28 @@ function PaymentCard({
 
       {canPay ? (
         <View style={{ gap: 10, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft, paddingTop: 12 }}>
+          {savedCards.length > 0 ? (
+            <View style={{ gap: 6 }}>
+              {savedCards.map((c) => (
+                <Pressable
+                  key={c.id}
+                  onPress={() => setUseCardId(useCardId === c.id ? '' : c.id)}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12,
+                    borderRadius: radii.lg, borderCurve: 'continuous',
+                    backgroundColor: useCardId === c.id ? colors.voltSoft : colors.pearl,
+                  }}
+                >
+                  <Text style={{ fontFamily: fonts.monoMedium, fontSize: 13 }}>
+                    {c.brand ?? 'Card'} ····{c.last4}
+                  </Text>
+                  <Text variant="caption" color="ink5" style={{ marginLeft: 'auto' }}>
+                    {useCardId === c.id ? 'Selected' : 'Use'}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
           <Input value={ref} onChangeText={setRef} placeholder="Bank reference / transaction ID" autoCapitalize="none" />
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Button
@@ -599,7 +639,7 @@ function PaymentCard({
             <Button title="Pay online" icon={CreditCard} style={{ flex: 1 }} loading={busy} onPress={() => payOnline()} />
           </View>
           <Text variant="caption" color="ink5">
-            Outstanding {formatLKR(outstanding)} · online checkout opens PayHere in a browser; status updates from server confirmation.
+            Outstanding {formatLKR(outstanding)} · online checkout opens payments.lk in a browser; status updates from server confirmation.
           </Text>
         </View>
       ) : null}

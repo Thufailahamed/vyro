@@ -215,7 +215,7 @@ export function CheckoutScreen() {
                 <View style={{ gap: 10 }}>
                   {[
                     ['PO issuance', 'Suppliers receive verified POs and lock warehouse stock.'],
-                    ['Flexible settlement', 'Pay online via PayHere (cards / FriMi / Genie) or bank wire.'],
+                    ['Flexible settlement', 'Pay online via payments.lk (Visa / Mastercard, 3-D Secure) or bank wire.'],
                     ['Escrow release', 'Funds release only after goods are received and inspected.'],
                   ].map(([t, d], i) => (
                     <View key={t} style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
@@ -256,7 +256,7 @@ export function CheckoutScreen() {
                   >
                     <CreditCard size={16} color={colors.copper} />
                     <Text variant="caption" color="ink4" style={{ flex: 1 }}>
-                      PayHere Online (Visa, MasterCard, Amex) · Corporate bank wire · 256-bit TLS
+                      payments.lk Online (Visa, MasterCard) · Corporate bank wire · 256-bit TLS
                     </Text>
                   </View>
                 </View>
@@ -300,7 +300,7 @@ export function CheckoutScreen() {
                     <>
                       <PayOption
                         label="Pay now"
-                        sub="PayHere online or bank transfer"
+                        sub="payments.lk online or bank transfer"
                         active={paymentMethod === 'paynow'}
                         onPress={() => setPaymentMethod('paynow')}
                       />

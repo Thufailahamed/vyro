@@ -311,8 +311,9 @@ function FilterSheet({
           <Row gap={8} wrap>
             {[
               { v: '', l: 'Any' },
-              { v: 'payhere', l: 'PayHere' },
-              { v: 'mock', l: 'Mock' },
+              { v: 'payments_lk', l: 'Payments.lk' },
+              { v: 'payhere', l: 'PayHere (legacy)' },
+              { v: 'mock', l: 'Simulator' },
             ].map((o) => (
               <Chip key={o.v || 'any'} label={o.l} selected={provider === o.v} onPress={() => setProvider(o.v)} />
             ))}

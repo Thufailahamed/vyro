@@ -203,7 +203,7 @@ export function RfqCreateScreen() {
         <Field label="Delivery location" hint="Receiving dock or warehouse">
           <Input icon={MapPin} value={deliveryLocation} onChangeText={setDeliveryLocation} placeholder="No. 42, Galle Road, Colombo 03" />
         </Field>
-        <Field label="Payment terms" hint="e.g. Net 14, PayHere on delivery">
+        <Field label="Payment terms" hint="e.g. Net 14, payments.lk on order">
           <Input icon={Scale} value={paymentTerms} onChangeText={setPaymentTerms} placeholder="Net 14" />
         </Field>
         <Field label="Quotation deadline" hint={`Closes ${formatDateTime(deadline)}`}>

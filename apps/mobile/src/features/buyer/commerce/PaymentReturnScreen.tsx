@@ -15,7 +15,7 @@ const POLL_INTERVAL_MS = 3000;
 const TIMEOUT_MS = 90_000;
 
 /**
- * PayHere return hop — the gateway redirects here before the server webhook
+ * payments.lk return hop — the gateway redirects here before the server webhook
  * necessarily lands, so we poll the payment record until it settles.
  */
 export function PaymentReturnScreen() {

@@ -79,7 +79,7 @@ export function DeliveryCard({ order, delivery, loading }: { order: OrderDetail[
               Settlement
             </Text>
             <Text variant="bodySm" weight="semibold">
-              VYRO escrow · {order.paymentMethod === 'wire' ? 'bank wire' : 'PayHere / bank transfer'}
+              VYRO escrow · {order.paymentMethod === 'wire' ? 'bank wire' : 'payments.lk / bank transfer'}
             </Text>
             <Text variant="caption" color="ink4">
               Funds release on goods receipt or order completion
