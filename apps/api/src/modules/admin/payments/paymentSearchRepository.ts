@@ -30,7 +30,7 @@ export type PaymentStatus =
   | 'chargeback'
   | 'refunded';
 export type PaymentMethod = 'cash' | 'bank_transfer' | 'online';
-export type PaymentProvider = 'payhere' | 'mock';
+export type PaymentProvider = 'payments_lk' | 'payhere' | 'mock';
 export type PaymentRow = {
   id: string;
   purchaseOrderId: string;

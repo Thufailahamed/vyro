@@ -49,17 +49,33 @@ export function PaymentPanel({ purchaseOrderId, poStatus, totalCents }: Props) {
     .reduce((s, p) => s + p.amountCents, 0);
   const outstanding = totalCents - confirmedTotal;
 
+  const { data: cardsData } = useQuery({
+    queryKey: ['saved-cards'],
+    queryFn: () =>
+      api.get<{ cards: Array<{ id: string; brand: string | null; last4: string | null; expiryMonth: number | null; expiryYear: number | null }> }>(
+        `/payments/saved-cards?businessId=${user?.memberships?.[0]?.businessId ?? ''}`,
+      ),
+    enabled: isBusinessMember,
+  });
+  const savedCards = cardsData?.cards ?? [];
+  const [useCardId, setUseCardId] = useState('');
+
   async function payOnline(paymentId: string) {
     setErr('');
     setBusy(true);
     try {
-      const r = await api.post<{ redirectUrl: string; isMock: boolean; provider: string }>(
+      const r = await api.post<{ redirectUrl?: string; isMock: boolean; provider: string; status?: string }>(
         `/payments/${paymentId}/checkout`,
+        useCardId ? { useSavedCardId: useCardId } : {},
       );
-      if (r.isMock) {
-        setErr('Online checkout is running against the staging payment simulator — no real money will move. Configure PayHere credentials for live payments.');
+      if (r.status === 'succeeded') {
+        await refetch();
+        return;
       }
-      window.location.href = r.redirectUrl;
+      if (r.isMock) {
+        setErr('Online checkout is running against the staging payment simulator — no real money will move. Configure payments.lk credentials for live payments.');
+      }
+      window.location.href = r.redirectUrl!;
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : 'Checkout failed');
     } finally {
@@ -129,9 +145,9 @@ export function PaymentPanel({ purchaseOrderId, poStatus, totalCents }: Props) {
 
       <div className="border border-ink/10 p-3">
         <div className="text-xs uppercase tracking-[0.14em] text-ink-4">Payment method</div>
-        <div className="mt-1 font-medium">PayHere</div>
+        <div className="mt-1 font-medium">payments.lk</div>
         <p className="mt-1 text-xs text-ink-4">
-          Accept online payment securely through PayHere. You will be redirected to PayHere to
+          Pay securely by card through payments.lk's 3-D Secure checkout. You will be redirected to
           complete payment — we never see or store your card details.
         </p>
       </div>
@@ -183,6 +199,21 @@ export function PaymentPanel({ purchaseOrderId, poStatus, totalCents }: Props) {
             value={ref}
             onChange={(e) => setRef(e.target.value)}
           />
+          {savedCards.length > 0 && (
+            <select
+              className="border border-ink/10 p-2 text-sm bg-paper"
+              value={useCardId}
+              onChange={(e) => setUseCardId(e.target.value)}
+              aria-label="Use a saved card"
+            >
+              <option value="">New card (hosted checkout)</option>
+              {savedCards.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.brand ?? 'Card'} ····{c.last4} (exp {c.expiryMonth}/{c.expiryYear})
+                </option>
+              ))}
+            </select>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <Button onClick={recordCashPayment} loading={busy} variant="secondary">
               Mark paid (bank)
@@ -195,7 +226,7 @@ export function PaymentPanel({ purchaseOrderId, poStatus, totalCents }: Props) {
                   const r = await api.post<{ id: string }>(`/payments`, {
                     purchaseOrderId,
                     method: 'online',
-                    notes: lastFailed ? `Retry after ${lastFailed.status}` : 'Pay online via PayHere',
+                    notes: lastFailed ? `Retry after ${lastFailed.status}` : 'Pay online via payments.lk',
                   });
                   await payOnline(r.id);
                 } catch (e) {
@@ -214,7 +245,7 @@ export function PaymentPanel({ purchaseOrderId, poStatus, totalCents }: Props) {
       {outstanding > 0 && poStatus !== 'cancelled' && (
         <p className="text-[11px] text-ink-4">
           Outstanding: <span className="vyro-metric">{formatLKR(outstanding)}</span>
-          {' · '}After PayHere you will return here — status updates only from server confirmation.
+          After payment you will return here — status updates only from server confirmation.
         </p>
       )}
     </Surface>

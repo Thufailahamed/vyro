@@ -19,13 +19,16 @@ export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod];
  * Canonical financial model (spec §4-5). Legacy DB values are kept for
  * backwards compatibility; canonical values are the public API contract.
  *
- * Method mapping:   PAYHERE <-> online,  COD <-> cash,  BANK_TRANSFER <-> bank_transfer
+ * Method mapping:   PAYMENTS_LK <-> online,  COD <-> cash,  BANK_TRANSFER <-> bank_transfer
+ * (PAYHERE is a deprecated legacy alias for PAYMENTS_LK, kept for old data.)
  * Status mapping:   PAID <-> confirmed,  PARTIALLY_REFUNDED/REFUNDED <-> refunded, etc.
  */
 export const CanonicalPaymentMethod = {
-  PAYHERE: 'PAYHERE',
+  PAYMENTS_LK: 'PAYMENTS_LK',
   COD: 'COD',
   BANK_TRANSFER: 'BANK_TRANSFER',
+  /** Deprecated: historical alias for PAYMENTS_LK (old-data display only). */
+  PAYHERE: 'PAYHERE',
 } as const;
 export type CanonicalPaymentMethod =
   (typeof CanonicalPaymentMethod)[keyof typeof CanonicalPaymentMethod];
@@ -46,20 +49,22 @@ export type CanonicalPaymentStatus =
   (typeof CanonicalPaymentStatus)[keyof typeof CanonicalPaymentStatus];
 
 const LEGACY_METHOD_TO_CANONICAL: Record<string, CanonicalPaymentMethod> = {
-  online: 'PAYHERE',
+  online: 'PAYMENTS_LK',
   cash: 'COD',
   bank_transfer: 'BANK_TRANSFER',
 };
 
 const CANONICAL_METHOD_TO_LEGACY: Record<CanonicalPaymentMethod, PaymentMethod> = {
-  PAYHERE: 'online',
+  PAYMENTS_LK: 'online',
   COD: 'cash',
   BANK_TRANSFER: 'bank_transfer',
+  PAYHERE: 'online',
 };
 
 export function toCanonicalMethod(method: string): CanonicalPaymentMethod {
+  if (method === 'PAYHERE') return CanonicalPaymentMethod.PAYMENTS_LK;
   const c = LEGACY_METHOD_TO_CANONICAL[method] ?? (method as CanonicalPaymentMethod);
-  if (c !== 'PAYHERE' && c !== 'COD' && c !== 'BANK_TRANSFER') {
+  if (c !== 'PAYMENTS_LK' && c !== 'COD' && c !== 'BANK_TRANSFER') {
     throw new Error(`Unknown payment method: ${method}`);
   }
   return c;

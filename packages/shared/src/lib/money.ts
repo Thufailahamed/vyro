@@ -202,3 +202,11 @@ export function refundableBalanceCents(paidCents: number, refundedCents: number)
   if (refundedCents > paidCents) throw new Error('refunded exceeds paid');
   return paidCents - refundedCents;
 }
+
+/** Human label for a stored gateway provider value (historical-safe). */
+export function providerLabel(provider: string | null | undefined): string {
+  if (provider === 'payhere') return 'PayHere (legacy)';
+  if (provider === 'mock') return 'Simulator';
+  if (provider === 'payments_lk') return 'Payments.lk';
+  return provider ?? '—';
+}

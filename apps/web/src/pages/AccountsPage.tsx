@@ -13,6 +13,7 @@ import {
   Badge,
 } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
+import { SavedCardsPanel } from '@/components/payments/SavedCardsPanel';
 import { useToast } from '@vyro/ui';
 import { Money, StatusPill, time, useBusinessId, useConfirm } from '@/accounts/shared';
 import {
@@ -141,6 +142,7 @@ export function AccountsPage() {
 
       <div>
         {tab === 'overview' && <Overview businessId={businessId} />}
+        {tab === 'overview' && <SavedCardsPanel />}
         {tab === 'payments' && <Payments businessId={businessId} />}
         {tab === 'invoices' && <Invoices businessId={businessId} />}
         {tab === 'refunds' && <Refunds businessId={businessId} />}

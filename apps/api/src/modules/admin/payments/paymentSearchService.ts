@@ -20,7 +20,7 @@ const ALL_STATUSES = [
   'refunded',
 ] as const;
 const ALL_METHODS = ['cash', 'bank_transfer', 'online'] as const;
-const ALL_PROVIDERS = ['payhere', 'mock'] as const;
+const ALL_PROVIDERS = ['payments_lk', 'payhere', 'mock'] as const;
 
 function parseCsv<T extends string>(raw: unknown, allowed: readonly T[]): T[] | undefined {
   if (typeof raw !== 'string' || !raw.length) return undefined;

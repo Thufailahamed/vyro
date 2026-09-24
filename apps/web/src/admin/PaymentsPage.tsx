@@ -49,8 +49,8 @@ export function PaymentsPage() {
     const status = params.get('status'); if (status) f.status = status.split(',') as PaymentStatus[];
     const method = params.get('method') as PaymentMethod | null;
     if (method) f.method = method;
-    const provider = params.get('provider') as 'payhere' | 'mock' | null;
-    if (provider === 'payhere' || provider === 'mock') f.provider = provider;
+    const provider = params.get('provider') as 'payments_lk' | 'payhere' | 'mock' | null;
+    if (provider === 'payments_lk' || provider === 'payhere' || provider === 'mock') f.provider = provider;
     const businessId = params.get('businessId'); if (businessId) f.businessId = businessId;
     const supplierId = params.get('supplierId'); if (supplierId) f.supplierId = supplierId;
     const minCents = params.get('minCents'); if (minCents) f.minCents = Number(minCents);
@@ -118,8 +118,9 @@ export function PaymentsPage() {
               className="border border-ink/20 rounded px-2 py-1 text-sm bg-paper"
             >
               <option value="">Any</option>
-              <option value="payhere">PayHere</option>
-              <option value="mock">Mock</option>
+              <option value="payments_lk">Payments.lk</option>
+              <option value="payhere">PayHere (legacy)</option>
+              <option value="mock">Simulator</option>
             </select>
           </label>
           <label className="flex flex-col text-xs">
