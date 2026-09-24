@@ -9,7 +9,12 @@ import {
   suppliers,
 } from '@vyro/db/schema';
 
-export type ReviewStatus = 'published' | 'hidden_by_flag' | 'hidden_by_dispute' | 'removed_by_admin';
+export type ReviewStatus =
+  | 'published'
+  | 'hidden_by_flag'
+  | 'hidden_by_dispute'
+  | 'removed_by_admin'
+  | 'removed_by_buyer';
 export type FlagReason = 'abuse' | 'spam' | 'off_topic' | 'pii' | 'other';
 export type FlaggerRole = 'buyer' | 'supplier' | 'admin' | 'system';
 
