@@ -602,7 +602,7 @@ export const rfqService = {
     } catch (err) {
       console.error('[rfq.convertToOrder] stock reservation skipped', { poId, err });
     }
-    await db.update(rfqs).set({ status: 'converted_to_order', convertedPoId: poId, updatedAt: now, version: rfq.version + 1 }).where(eq(rfqs.id, rfqId));
+    await db.update(rfqs).set({ status: 'converted_to_order', convertedPoId: poId, updatedAt: now, version: rfq.version + 1 }).where(eq(rfqs.id, rfqId)).run();
     await insertRfqEvent(d1, { rfqId, quoteId: q.id, actorUserId: userId, action: 'ORDER_CREATED_FROM_QUOTE', fromStatus: 'awarded', toStatus: 'converted_to_order', metadata: { poId, poNumber, quoteVersion: (rfq.awardedQuoteVersion ?? q.version) } });
     await recordAudit(d1, { actorUserId: userId, action: 'rfq.order_created', resourceType: 'purchase_order', resourceId: poId, metadata: { rfqId, quoteId: q.id } });
     try {
@@ -655,7 +655,7 @@ export const rfqService = {
     const now = Date.now();
     const due = await db.select().from(rfqs).where(and(sql`${rfqs.deadline} IS NOT NULL AND ${rfqs.deadline} < ${now}`, sql`${rfqs.status} IN ('open','quoting','quotes_received','under_review')`)).all();
     for (const r of due) {
-      await db.update(rfqs).set({ status: 'expired', expiredAt: now, updatedAt: now }).where(eq(rfqs.id, r.id));
+      await db.update(rfqs).set({ status: 'expired', expiredAt: now, updatedAt: now }).where(eq(rfqs.id, r.id)).run();
       await insertRfqEvent(d1, { rfqId: r.id, action: 'RFQ_EXPIRED', fromStatus: r.status, toStatus: 'expired' });
       await notifyBusinessOrg(d1, queue, r.businessId, { type: NotificationType.RFQ_EXPIRED, title: `RFQ ${r.rfqNumber} expired`, body: r.title, link: `/rfqs/${r.id}` });
       const quotes = await db.select().from(supplierQuotes).where(and(eq(supplierQuotes.rfqId, r.id), sql`${supplierQuotes.status} IN ('submitted','under_review','negotiating','draft')`)).all();
