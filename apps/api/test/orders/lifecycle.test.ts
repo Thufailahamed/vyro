@@ -340,12 +340,12 @@ describe('money on cancellation', () => {
   it('gateway failure → refund failed, payment stays confirmed', async () => {
     const { poId, total } = await mkPo();
     const payId = await pay(poId, total, 'online');
-    env.PAYHERE_MOCK_FORCE_FAILURE = '1';
+    env.PAYMENTS_LK_MOCK_FORCE_FAILURE = '1';
     try {
       const out = await move(poId, 'cancelled', 'business', 'ordered twice');
       expect(out.refunds[0].status).toBe('failed');
     } finally {
-      delete env.PAYHERE_MOCK_FORCE_FAILURE;
+      delete env.PAYMENTS_LK_MOCK_FORCE_FAILURE;
     }
     const p = await db.select().from(schema.payments).where(M.drizzle.eq(schema.payments.id, payId)).get();
     expect(p.status).toBe('confirmed');

@@ -492,6 +492,61 @@ router.post('/:id/checkout', session(), async (c) => {
   const env = c.env as Env;
   const { adapter, provider } = resolveGateway(env);
   const origin = env.WEB_ORIGIN;
+
+  // Off-session charge on a saved card (payments.lk cards/:id/charge).
+  // On success the shared webhook processor confirms the payment; on decline
+  // we fall through to the hosted checkout for a fresh attempt.
+  const checkoutBody = (await c.req.json().catch(() => ({}))) as { useSavedCardId?: string };
+  if (checkoutBody.useSavedCardId) {
+    const { savedCardsRepository } = await import('../savedCards/repository');
+    const card = await savedCardsRepository.getById(c.env.DB, checkoutBody.useSavedCardId);
+    if (!card || card.businessId !== po.businessId) {
+      throw httpError(404, 'NOT_FOUND', 'Saved card not found');
+    }
+    if (adapter.chargeSavedCard) {
+      const charge = await adapter.chargeSavedCard({
+        cardId: card.paymentsLkCardId,
+        amountCents: payment.amountCents,
+        description: `PO ${po.poNumber}`,
+        reference: payment.id,
+        idempotencyKey: `charge_${payment.id}`,
+      });
+      try {
+        await recordAttempt(c.env.DB, {
+          paymentId: payment.id,
+          provider,
+          amountCents: payment.amountCents,
+          currency: payment.currency,
+          status: 'processing',
+          providerReference: charge.paymentId ?? card.paymentsLkCardId,
+          initiatedByUserId: ctx.userId,
+          initiatedAt: Date.now(),
+        });
+      } catch (err) {
+        console.error('[payments.checkout] attempt record failed', err);
+      }
+      await recordAudit(c.env.DB, {
+        actorUserId: ctx.userId,
+        action: 'PAYMENT_SAVED_CARD_CHARGE',
+        resourceType: 'purchase_order',
+        resourceId: po.id,
+        metadata: { paymentId: payment.id, provider, outcome: charge.status },
+      });
+      if (charge.status === 'succeeded') {
+        const { applyGatewayPaymentEvent } = await import('../webhooks/paymentslk');
+        await applyGatewayPaymentEvent(env, {
+          type: 'payment.success',
+          gatewayRef: payment.id,
+          paymentId: charge.paymentId,
+          amountCents: payment.amountCents,
+          currency: payment.currency,
+          raw: { source: 'saved-card-charge', cardId: card.paymentsLkCardId },
+        });
+        return c.json({ status: 'succeeded', provider: adapter.provider, isMock: adapter.provider === 'mock' });
+      }
+    }
+  }
+
   const notifyUrl = env.PAYMENTS_LK_WEBHOOK_URL ?? `${origin}/api/webhooks/payments-lk`;
   const returnUrl =
     env.PAYMENTS_LK_RETURN_URL ?? `${origin}/orders/${po.id}/payment-success?paymentId=${payment.id}`;

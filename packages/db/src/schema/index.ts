@@ -17,6 +17,7 @@ export * from './purchaseOrderItems';
 export * from './orderEvents';
 export * from './deliveries';
 export * from './payments';
+export * from './savedCards';
 export * from './paymentEvents';
 export * from './paymentAttempts';
 export * from './paymentAllocations';
