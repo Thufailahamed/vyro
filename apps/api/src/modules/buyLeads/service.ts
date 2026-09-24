@@ -64,11 +64,15 @@ export const buyLeads = {
     const subs = await buyLeadsRepository.enabledSubscriptions(d1);
     let suppliersEmailed = 0;
     let rfqsSent = 0;
+    let matchErrors = 0;
+    let queueErrors = 0;
     for (const sub of subs) {
       let matches;
       try {
         matches = await buyLeadsMatcher.topMatchesForSupplier(d1, sub.supplierId, since, DIGEST_LIMIT);
-      } catch {
+      } catch (err) {
+        matchErrors++;
+        console.error('[buyLeads] matcher failed for supplier', sub.supplierId, err);
         continue;
       }
       if (matches.length === 0) continue;
@@ -77,9 +81,19 @@ export const buyLeads = {
         await env.NOTIFICATIONS_QUEUE.send(payload);
         suppliersEmailed++;
         rfqsSent += matches.length;
-      } catch {
+      } catch (err) {
+        queueErrors++;
+        console.error('[buyLeads] queue send failed for supplier', sub.supplierId, err);
         // Skip supplier; metric emits upstream.
       }
+    }
+    if (matchErrors > 0 || queueErrors > 0) {
+      console.error('[buyLeads] daily digest summary', {
+        suppliersEmailed,
+        rfqsSent,
+        matchErrors,
+        queueErrors,
+      });
     }
     return { suppliersEmailed, rfqsSent };
   },

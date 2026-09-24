@@ -178,14 +178,27 @@ export async function notifyUsers(
   }));
   try {
     await db.insert(notifications).values(rows).run();
-  } catch {
+  } catch (batchErr) {
+    console.error('[notifications] batch insert failed; falling back to per-row', {
+      err: String(batchErr),
+      rowCount: rows.length,
+    });
     // Fall back to per-row inserts so one bad recipient cannot drop the batch.
+    let okCount = 0, failCount = 0;
     for (const row of rows) {
       try {
         await db.insert(notifications).values(row).run();
-      } catch {
-        /* ignore */
+        okCount++;
+      } catch (rowErr) {
+        failCount++;
+        console.error('[notifications] per-row insert failed', {
+          userId: row.userId,
+          err: String(rowErr),
+        });
       }
+    }
+    if (failCount > 0) {
+      console.error('[notifications] dispatch partial failure', { okCount, failCount });
     }
   }
   if (queue) {
