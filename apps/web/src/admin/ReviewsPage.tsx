@@ -1,5 +1,6 @@
 import { useEffect, useState, type JSX } from 'react';
 import { usePageTitle } from '@/lib/usePageTitle';
+import { api } from '@/lib/api';
 import { AdminReviewQueue } from '@/reviews/AdminReviewQueue';
 import { AdminPage, AdminPageHeader, Callout, Card, Pill } from './ui';
 
@@ -8,13 +9,11 @@ export function AdminReviewsPage(): JSX.Element {
   const [burst, setBurst] = useState<Array<{ supplierId: string; flagCount: number }>>([]);
 
   useEffect(() => {
-    fetch('/api/admin/reviews/flag-burst?windowHours=24&minCount=3', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j: unknown) => {
-        if (!j || typeof j !== 'object') return;
-        const obj = j as { items?: Array<{ supplierId: string; flagCount: number }> };
-        setBurst(obj.items ?? []);
-      })
+    api
+      .get<{ items?: Array<{ supplierId: string; flagCount: number }> }>(
+        '/api/admin/reviews/flag-burst?windowHours=24&minCount=3',
+      )
+      .then((j) => setBurst(j.items ?? []))
       .catch(() => {});
   }, []);
   return (

@@ -1,4 +1,5 @@
 import { useEffect, useState, type JSX } from 'react';
+import { api } from '@/lib/api';
 
 interface FlagRow {
   id: string;
@@ -19,9 +20,7 @@ export function AdminReviewQueue(): JSX.Element {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/reviews/flags?limit=50', { credentials: 'include' });
-      if (!res.ok) throw new Error(`Failed (${res.status})`);
-      const j = (await res.json()) as { flags: FlagRow[] };
+      const j = await api.get<{ flags: FlagRow[] }>('/api/admin/reviews/flags?limit=50');
       setFlags(j.flags);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -35,22 +34,14 @@ export function AdminReviewQueue(): JSX.Element {
   }, []);
 
   async function resolve(flagId: string, action: 'keep' | 'remove') {
-    const res = await fetch(`/api/admin/reviews/flags/${flagId}/resolve`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ action }),
-    });
-    if (res.ok) void load();
+    await api.post(`/api/admin/reviews/flags/${flagId}/resolve`, { action }).catch(() => {});
+    void load();
   }
 
   async function deleteReview(reviewId: string) {
     if (!confirm('Delete this review?')) return;
-    const res = await fetch(`/api/admin/reviews/${reviewId}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-    if (res.ok) void load();
+    await api.del(`/api/admin/reviews/${reviewId}`).catch(() => {});
+    void load();
   }
 
   if (loading) return <p className="text-sm text-gray-500">Loading flags…</p>;

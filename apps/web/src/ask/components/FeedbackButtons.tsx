@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { api } from '@/lib/api';
 
 export type FeedbackReason =
   | 'wrong_product'
@@ -33,16 +34,11 @@ export function FeedbackButtons({ requestId, intentHint }: { requestId: string; 
     if (sent || sending || !requestId) return;
     setSending(true);
     try {
-      await fetch((import.meta.env.VITE_API_URL?.replace(/\/$/,'') || '') + '/api/ai/feedback', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          requestId,
-          helpful,
-          ...(reason ? { reason } : {}),
-          ...(intentHint ? { intentHint } : {}),
-        }),
+      await api.post('/api/ai/feedback', {
+        requestId,
+        helpful,
+        ...(reason ? { reason } : {}),
+        ...(intentHint ? { intentHint } : {}),
       });
     } catch {
       // network errors are silent — feedback never blocks the buyer

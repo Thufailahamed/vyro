@@ -38,6 +38,7 @@ function DataPrivacyTab() {
     setExporting(true);
     setMessage(null);
     try {
+      // Blob download — keep raw fetch (api wrapper only parses JSON).
       const res = await fetch('/api/settings/me/export', { credentials: 'include' });
       if (!res.ok) throw new Error(`Export failed (${res.status})`);
       const blob = await res.blob();
@@ -62,13 +63,7 @@ function DataPrivacyTab() {
     setDeleting(true);
     setMessage(null);
     try {
-      const res = await fetch('/api/settings/me/delete', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ confirm: 'DELETE' }),
-      });
-      if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+      await api.post('/api/settings/me/delete', { confirm: 'DELETE' });
       setMessage({ kind: 'ok', text: 'Account scheduled for deletion in 30 days.' });
       setConfirmText('');
     } catch (e) {

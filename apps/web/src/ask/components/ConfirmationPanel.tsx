@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ComponentEnvelope } from '@vyro/ai';
 import { formatLKR } from '@/lib/format';
+import { api } from '@/lib/api';
 import { Button } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
 import { CheckCircleIcon } from '@/components/icons';
@@ -36,17 +37,11 @@ export function ConfirmationPanel({ card }: ConfirmationCardProps) {
     setState('submitting');
     setError(null);
     try {
-      const res = await fetch((import.meta.env.VITE_API_URL?.replace(/\/$/, '') || '') + '/api/ai/confirm', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json', 'idempotency-key': card.data.idempotencyKey },
-        body: JSON.stringify({ items: card.data.items }),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-        throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
-      }
-      const result = (await res.json().catch(() => ({}))) as { poRef?: string };
+      const result = await api.post<{ poRef?: string }>(
+        '/api/ai/confirm',
+        { items: card.data.items },
+        { idempotencyKey: card.data.idempotencyKey },
+      );
       if (result.poRef) card.data.poRef = result.poRef;
       setState('confirmed');
     } catch (err) {
