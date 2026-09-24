@@ -94,51 +94,52 @@ export async function ensureAllocationAndEarning(
   });
   await recomputeEligibility(d1, earning.id);
 
-  // Ledger: SALE + COMMISSION are recorded ONCE per earning. Guarded by an
-  // existence check so retries/webhook redelivery never duplicate money.
+  // Ledger: SALE + COMMISSION are recorded ONCE per earning. Prior-check + write
+  // happen INSIDE the transaction so concurrent webhook retries can't both pass
+  // the "no prior leg" guard (api-009 audit). Future hardening: unique index
+  // on (refId, category) for true DB-level enforcement.
   if (createdByUserId !== undefined) {
     try {
-      const { ledgerEntries } = await import('@vyro/db/schema');
-      const prior = (await getDb(d1)
-        .select({ id: ledgerEntries.id })
-        .from(ledgerEntries)
-        .where(and(eq(ledgerEntries.refId, payment.id), eq(ledgerEntries.category, 'SALE' as never)))
-        .get()) as any;
-      if (!prior) {
-        const dbTx = getDb(d1);
-        await dbTx.transaction(async (tx) => {
+      const dbTx = getDb(d1);
+      await dbTx.transaction(async (tx) => {
+        const { ledgerEntries } = await import('@vyro/db/schema');
+        const prior = (await tx
+          .select({ id: ledgerEntries.id })
+          .from(ledgerEntries)
+          .where(and(eq(ledgerEntries.refId, payment.id), eq(ledgerEntries.category, 'SALE' as never)))
+          .get()) as any;
+        if (prior) return;
+        writeLedgerEntry(tx as any, {
+          accountType: 'supplier',
+          accountId: po.supplierId,
+          direction: 'credit',
+          amountCents: allocation.grossCents,
+          currency: payment.currency,
+          refType: 'payment',
+          refId: payment.id,
+          category: 'SALE',
+          entityType: 'purchase_order',
+          entityId: po.id,
+          description: `Sale for PO ${po.poNumber} (payment ${payment.id})`,
+          createdByUserId: createdByUserId ?? null,
+        });
+        if (allocation.commissionCents > 0) {
           writeLedgerEntry(tx as any, {
-            accountType: 'supplier',
-            accountId: po.supplierId,
+            accountType: 'platform',
+            accountId: 'platform',
             direction: 'credit',
-            amountCents: allocation.grossCents,
+            amountCents: allocation.commissionCents,
             currency: payment.currency,
-            refType: 'payment',
+            refType: 'fee',
             refId: payment.id,
-            category: 'SALE',
+            category: 'COMMISSION',
             entityType: 'purchase_order',
             entityId: po.id,
-            description: `Sale for PO ${po.poNumber} (payment ${payment.id})`,
+            description: `VYRO commission ${allocation.commissionBps}bps for PO ${po.poNumber}`,
             createdByUserId: createdByUserId ?? null,
           });
-          if (allocation.commissionCents > 0) {
-            writeLedgerEntry(tx as any, {
-              accountType: 'platform',
-              accountId: 'platform',
-              direction: 'credit',
-              amountCents: allocation.commissionCents,
-              currency: payment.currency,
-              refType: 'fee',
-              refId: payment.id,
-              category: 'COMMISSION',
-              entityType: 'purchase_order',
-              entityId: po.id,
-              description: `VYRO commission ${allocation.commissionBps}bps for PO ${po.poNumber}`,
-              createdByUserId: createdByUserId ?? null,
-            });
-          }
-        });
-      }
+        }
+      });
     } catch (err) {
       // Ledger writes are additive projections; a duplicate guard failure
       // must never break payment confirmation. Surface via audit upstream.
