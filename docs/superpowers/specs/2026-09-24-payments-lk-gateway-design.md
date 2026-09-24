@@ -49,8 +49,7 @@ New `src/paymentslk.ts` implementing `GatewayAdapter`:
   - `card.saved` → saved-card persistence (Section 3)
   - Unknown event types → 200 + ignored (forward compatible).
 - **`refund`**: `POST /v1/refunds` `{ paymentId, amountCents }`, `Idempotency-Key: refund_<refundId>`. Real API call — replaces the PayHere stub.
-- **`verifySignature`**: exposed for tests and route use.
-- `verifySignature` signature check is pure (no fetch) → unit-testable with vendor vectors.
+- **`verifySignature`**: exposed for route use and tests; the check is pure (no fetch) → unit-testable with vendor vectors.
 - API base overridable via `PAYMENTS_LK_API_URL` (default `https://api.payments.lk`). Sandbox is implied by `sk_test_` keys; no separate mode flag.
 
 **Config**: `resolveGateway(env)` chooses `payments_lk` when `PAYMENTS_LK_SECRET_KEY` is set, else mock; the existing mock-in-production guard (`ENVIRONMENT=production` + mock) stays. New env vars: `PAYMENTS_LK_SECRET_KEY`, `PAYMENTS_LK_WEBHOOK_SECRET`, `PAYMENTS_LK_API_URL`, `PAYMENTS_LK_RETURN_URL`, `PAYMENTS_LK_CANCEL_URL`. All PayHere env vars and `src/payhere.ts` are deleted. DB retains `provider='payhere'` historical values only.
