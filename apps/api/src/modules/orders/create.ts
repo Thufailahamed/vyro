@@ -4,6 +4,7 @@ import { businesses, orderEvents, purchaseOrderItems, purchaseOrders, supplierPr
 import { checkPurchasable, newId, NotificationType, ORDER_STATUS_COPY } from '@vyro/shared';
 import { httpError } from '../../lib/errors';
 import { insertOrderEvent, insertPo, insertPoItem } from '../purchaseOrders/repository';
+import { nextPoNumber } from '../purchaseOrders/service';
 import { inventoryService } from '../inventory/service';
 import { notifyOrderParties } from '../notifications/dispatcher';
 import type { LifecycleEnv } from './lifecycle';
@@ -55,7 +56,6 @@ export async function createPendingOrder(env: LifecycleEnv, input: CreatePending
     if (!verdict.ok) throw httpError(409, verdict.code, `${l.productName}: ${verdict.message}`);
   }
 
-  const { nextPoNumber } = await import('../purchaseOrders/service');
   const poId = newId();
   const poNumber = await nextPoNumber(d1, input.businessId);
   const now = Date.now();

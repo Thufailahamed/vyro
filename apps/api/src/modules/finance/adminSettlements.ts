@@ -154,14 +154,18 @@ for (const [action, to] of [['approve', 'approved'], ['process', 'processing'], 
     if (to === 'completed') {
       patch.completedAt = Date.now();
       // Settlement completion writes the supplier-payable ledger leg once.
+      // Prior-check + write happen inside the SAME transaction so two concurrent
+      // callers can't both pass the "no prior leg" check (api-008 audit). Note:
+      // a true serializable guarantee would require either a unique index on
+      // (refId, category) or BEGIN EXCLUSIVE; tracked for whole-branch review.
       const db = getDb(c.env.DB);
-      const prior = (await db
-        .select({ id: ledgerEntries.id })
-        .from(ledgerEntries)
-        .where(and(eq(ledgerEntries.refId, s.id), eq(ledgerEntries.category, 'SETTLEMENT' as never)))
-        .get()) as any;
-      if (!prior) {
-        await db.transaction(async (tx) => {
+      await db.transaction(async (tx) => {
+        const prior = (await tx
+          .select({ id: ledgerEntries.id })
+          .from(ledgerEntries)
+          .where(and(eq(ledgerEntries.refId, s.id), eq(ledgerEntries.category, 'SETTLEMENT' as never)))
+          .get()) as any;
+        if (!prior) {
           writeLedgerEntry(tx as any, {
             accountType: 'supplier',
             accountId: s.supplierId,
@@ -176,8 +180,8 @@ for (const [action, to] of [['approve', 'approved'], ['process', 'processing'], 
             description: `Settlement ${s.settlementNumber} completed`,
             createdByUserId: ctx.userId,
           });
-        }).catch((err) => console.error('[admin.settlement] ledger skipped', err));
-      }
+        }
+      }).catch((err) => console.error('[admin.settlement] ledger skipped', err));
     }
     if (to === 'failed') {
       const body = (await c.req.json().catch(() => ({}))) as { reason?: string };

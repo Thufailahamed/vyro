@@ -29,11 +29,13 @@ export async function uploadCustomsDoc(args: {
 }
 
 export async function getSignedDocUrl(env: Env, r2Path: string): Promise<string> {
-  // Workers R2 lacks a native signed-URL API. The bucket is bound to a custom
-  // subdomain (configured in wrangler.toml r2_public_bucket / public access)
-  // so we return the canonical public path. Admin-only download routes must
-  // gate access at the route layer (see wire-recon / customs-docs routes).
-  const r2 = env.CROSS_BORDER_DOCS as unknown as { toString(): string };
-  void r2;
-  return `https://cross-border-docs.vyro.lk/${r2Path}`;
+  // Workers R2 lacks a native signed-URL API. Prefer the R2_PUBLIC_BASE env
+  // var (set in wrangler.toml) so the subdomain isn't hardcoded (api-011 audit).
+  // Falls back to the historical subdomain for local dev and prior deploys.
+  const base =
+    (env as { R2_PUBLIC_BASE?: string }).R2_PUBLIC_BASE ??
+    (env as { CROSS_BORDER_DOCS_BASE?: string }).CROSS_BORDER_DOCS_BASE ??
+    'https://cross-border-docs.vyro.lk';
+  void env.CROSS_BORDER_DOCS as unknown as { toString(): string };
+  return `${base.replace(/\/$/, '')}/${r2Path.replace(/^\//, '')}`;
 }

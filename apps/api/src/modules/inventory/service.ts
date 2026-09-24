@@ -98,8 +98,14 @@ export async function recordMovement(
         createdAt: Date.now(),
       })
       .run();
-  } catch {
-    // Ledger writes are best-effort: never fail the stock mutation on audit.
+  } catch (err) {
+    // Ledger writes are best-effort: never fail the stock mutation on audit,
+    // but log so a stuck audit pipeline is observable (api-014).
+    console.error('[inventory] stock movement audit insert failed', {
+      supplierProductId: row.supplierProductId,
+      supplierId: row.supplierId,
+      err: String(err),
+    });
   }
 }
 

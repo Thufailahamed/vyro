@@ -135,57 +135,59 @@ export async function releaseDrawdown(
 ): Promise<{ releasedCents: number; overpaidCents: number } | null> {
   const db = getDb(d1);
   const now = args.now ?? Date.now();
-  const dd = (await db.select().from(creditDrawdowns).where(eq(creditDrawdowns.purchaseOrderId, args.poId)).get()) as
-    | (typeof creditDrawdowns.$inferSelect)
-    | undefined;
-  if (!dd) return null;
-  const effective = dd.amountCents - dd.releasedCents;
-  const reduceBy = Math.min(args.amountCents ?? effective, effective);
-  if (reduceBy <= 0) return { releasedCents: 0, overpaidCents: 0 };
-  const outstanding = Math.max(0, effective - dd.repaidCents);
-  const releasedCents = Math.min(reduceBy, outstanding);
-  const overpaidCents = reduceBy - releasedCents;
-  const nextReleased = dd.releasedCents + reduceBy;
-  const fullyGone = nextReleased >= dd.amountCents;
-  const settled = dd.repaidCents >= dd.amountCents - nextReleased;
-  await db
-    .update(creditDrawdowns)
-    .set({
-      releasedCents: nextReleased,
-      releasedAt: now,
-      status: fullyGone ? 'released' : settled ? 'repaid' : dd.status,
-      repaidAt: !fullyGone && settled && !dd.repaidAt ? now : dd.repaidAt,
-      updatedAt: now,
-    })
-    .where(eq(creditDrawdowns.id, dd.id))
-    .run();
-  if (releasedCents > 0) {
-    const facility = (await db.select().from(creditFacilities).where(eq(creditFacilities.businessId, dd.businessId)).get()) as
-      | { usedCents: number }
+  return db.transaction(async (tx) => {
+    const dd = (await tx.select().from(creditDrawdowns).where(eq(creditDrawdowns.purchaseOrderId, args.poId)).get()) as
+      | (typeof creditDrawdowns.$inferSelect)
       | undefined;
-    if (facility) {
-      await db
-        .update(creditFacilities)
-        .set({ usedCents: Math.max(0, facility.usedCents - releasedCents), updatedAt: now })
-        .where(eq(creditFacilities.businessId, dd.businessId))
-        .run();
+    if (!dd) return null;
+    const effective = dd.amountCents - dd.releasedCents;
+    const reduceBy = Math.min(args.amountCents ?? effective, effective);
+    if (reduceBy <= 0) return { releasedCents: 0, overpaidCents: 0 };
+    const outstanding = Math.max(0, effective - dd.repaidCents);
+    const releasedCents = Math.min(reduceBy, outstanding);
+    const overpaidCents = reduceBy - releasedCents;
+    const nextReleased = dd.releasedCents + reduceBy;
+    const fullyGone = nextReleased >= dd.amountCents;
+    const settled = dd.repaidCents >= dd.amountCents - nextReleased;
+    await tx
+      .update(creditDrawdowns)
+      .set({
+        releasedCents: nextReleased,
+        releasedAt: now,
+        status: fullyGone ? 'released' : settled ? 'repaid' : dd.status,
+        repaidAt: !fullyGone && settled && !dd.repaidAt ? now : dd.repaidAt,
+        updatedAt: now,
+      })
+      .where(eq(creditDrawdowns.id, dd.id))
+      .run();
+    if (releasedCents > 0) {
+      const facility = (await tx.select().from(creditFacilities).where(eq(creditFacilities.businessId, dd.businessId)).get()) as
+        | { usedCents: number }
+        | undefined;
+      if (facility) {
+        await tx
+          .update(creditFacilities)
+          .set({ usedCents: Math.max(0, facility.usedCents - releasedCents), updatedAt: now })
+          .where(eq(creditFacilities.businessId, dd.businessId))
+          .run();
+      }
+      await writeLedgerEntry(tx, {
+        accountType: 'business',
+        accountId: dd.businessId,
+        direction: 'credit',
+        amountCents: releasedCents,
+        currency: 'LKR',
+        refType: 'adjustment',
+        refId: args.poId,
+        category: 'CREDIT',
+        entityType: 'credit_drawdown',
+        entityId: dd.id,
+        description: `Credit released (${args.reason}) for PO ${args.poId}`.slice(0, 500),
+        createdByUserId: args.userId,
+      });
     }
-    await writeLedgerEntry(db, {
-      accountType: 'business',
-      accountId: dd.businessId,
-      direction: 'credit',
-      amountCents: releasedCents,
-      currency: 'LKR',
-      refType: 'adjustment',
-      refId: args.poId,
-      category: 'CREDIT',
-      entityType: 'credit_drawdown',
-      entityId: dd.id,
-      description: `Credit released (${args.reason}) for PO ${args.poId}`.slice(0, 500),
-      createdByUserId: args.userId,
-    });
-  }
-  return { releasedCents, overpaidCents };
+    return { releasedCents, overpaidCents };
+  });
 }
 
 export async function sweepOverdue(d1: D1Database, now: number): Promise<number> {

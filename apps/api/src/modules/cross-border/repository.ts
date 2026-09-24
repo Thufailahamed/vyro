@@ -1,12 +1,13 @@
 import { orderCustomsDocs, type OrderCustomsDoc } from '@vyro/db/schema';
 import { eq } from 'drizzle-orm';
+import { newId } from '@vyro/shared';
 import type { Db } from '@vyro/db';
 
 export async function insertCustomsDoc(
   db: Db,
   row: Omit<OrderCustomsDoc, 'id' | 'uploadedAt'>,
 ): Promise<OrderCustomsDoc> {
-  const id = crypto.randomUUID();
+  const id = newId();
   const [out] = await db
     .insert(orderCustomsDocs)
     .values({ ...row, id, uploadedAt: Date.now() })

@@ -100,15 +100,25 @@ export async function handleRefundStuckChecker(env: Env): Promise<{ stuck: numbe
     ))
     .all();
   for (const r of rows) {
-    await notifyAdmins(env, {
-      role: 'finance',
-      severity: 'warning',
-      category: 'admin_alert',
-      title: `Refund ${r.id.slice(0, 8)} stuck >24h`,
-      body: `Refund ${r.id} (payment ${r.paymentId}) has been ${r.status} since ${new Date(cutoff).toISOString().slice(0, 16)}.`,
-      link: '/admin/money',
-      sourceRef: `refund:${r.id}`,
-    });
+    try {
+      await notifyAdmins(env, {
+        role: 'finance',
+        severity: 'warning',
+        category: 'admin_alert',
+        title: `Refund ${r.id.slice(0, 8)} stuck >24h`,
+        body: `Refund ${r.id} (payment ${r.paymentId}) has been ${r.status} since ${new Date(cutoff).toISOString().slice(0, 16)}.`,
+        link: '/admin/money',
+        sourceRef: `refund:${r.id}`,
+      });
+    } catch (e) {
+      // Isolate per-row failure so one bad notify doesn't drop the rest
+      // of the stuck-refund report (api-016).
+      console.error('[cron] refund-stuck notify failed', {
+        refundId: r.id,
+        paymentId: r.paymentId,
+        err: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
   return { stuck: rows.length };
 }

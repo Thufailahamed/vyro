@@ -1,6 +1,9 @@
+import { and, eq } from 'drizzle-orm';
 import { httpError } from '../../lib/errors';
 import { newId, nowMs } from '@vyro/shared';
 import type { OnboardingBusinessInput } from '@vyro/validation/business';
+import { getDb } from '@vyro/db';
+import { businesses } from '@vyro/db/schema';
 import {
   findBusinessTypeBySlug,
   insertBusiness,
@@ -30,6 +33,23 @@ export async function onboardBusiness(
     createdAt: now,
     updatedAt: now,
   });
-  await insertOwnerMember(d1, newId(), id, userId, now);
+  try {
+    await insertOwnerMember(d1, newId(), id, userId, now);
+  } catch (e) {
+    // Compensating rollback: soft-delete the business row if the owner-member
+    // insert throws (api-006 audit). Cleanup errors are logged, never thrown.
+    console.error('[businesses] owner-member insert failed; rolling back business', id, e);
+    try {
+      const db = getDb(d1);
+      await db
+        .update(businesses)
+        .set({ deletedAt: now, updatedAt: now })
+        .where(eq(businesses.id, id))
+        .run();
+    } catch (cleanupErr) {
+      console.error('[businesses] business soft-delete failed', cleanupErr);
+    }
+    throw e;
+  }
   return { id };
 }

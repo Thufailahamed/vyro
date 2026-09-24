@@ -37,10 +37,28 @@ export const supplierService = {
       createdAt: now,
       updatedAt: now,
     });
-    await insertOwnerSupplierMember(d1, newId(), id, userId, now);
-    const existingKyc = await findKycByUser(d1, userId);
-    if (!existingKyc) {
-      await createKyc(d1, { id: newId(), userId, documentsJson: null, createdAt: now });
+    const ownerMemberId = newId();
+    await insertOwnerSupplierMember(d1, ownerMemberId, id, userId, now);
+    try {
+      const existingKyc = await findKycByUser(d1, userId);
+      if (!existingKyc) {
+        await createKyc(d1, { id: newId(), userId, documentsJson: null, createdAt: now });
+      }
+    } catch (e) {
+      // Compensating rollback: undo supplier + owner-member so no orphan rows
+      // (api-005 audit). Errors during cleanup are logged but not thrown — the
+      // original error is more informative than a swallowed cleanup failure.
+      console.error('[suppliers] kyc creation failed; rolling back supplier', id, e);
+      try {
+        const db = getDb(d1);
+        await db
+          .delete(supplierMembers)
+          .where(and(eq(supplierMembers.id, ownerMemberId), eq(supplierMembers.supplierId, id)))
+          .run();
+      } catch (cleanupErr) {
+        console.error('[suppliers] owner-member rollback failed', cleanupErr);
+      }
+      throw e;
     }
     return { id };
   },

@@ -162,7 +162,7 @@ router.patch('/:id', session(), async (c) => {
   const patch: Record<string, unknown> = { updatedAt: Date.now() };
   for (const [k, v] of Object.entries(parsed.data)) if (v !== undefined) patch[k] = v;
   if (patch.deadline && (patch.deadline as number) <= Date.now()) throw httpError(400, 'VALIDATION_ERROR', 'Deadline must be in the future');
-  await db.update(rfqs).set(patch).where(eq(rfqs.id, rfq.id));
+  await db.update(rfqs).set(patch).where(eq(rfqs.id, rfq.id)).run();
   await insertRfqEvent(c.env.DB, { rfqId: rfq.id, actorUserId: ctx.userId, action: 'RFQ_UPDATED', fromStatus: rfq.status, metadata: { fields: Object.keys(patch).filter((k) => k !== 'updatedAt') } });
   return c.json({ ok: true });
 });

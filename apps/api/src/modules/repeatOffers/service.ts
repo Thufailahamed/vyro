@@ -90,7 +90,8 @@ export const repeatOffers = {
         eq(purchaseOrders.supplierId, supplierId),
         eq(purchaseOrders.status, 'completed'),
         gte(purchaseOrders.completedAt, since),
-      ));
+      ))
+      .all();
 
     let totalSavings = 0;
     const byRetailer: Array<{

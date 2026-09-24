@@ -194,7 +194,7 @@ export async function deleteReviewByBuyer(
     .where(eq(purchaseOrders.id, review.orderId))
     .get()) as any;
   if (!order || !session.allowedBusinessIds.includes(order.businessId)) throw new ReviewError('not_buyer');
-  await repo.updateReviewStatus(d1, reviewId, 'removed_by_admin', nowMs());
+  await repo.updateReviewStatus(d1, reviewId, 'removed_by_buyer', nowMs());
   await recomputeAggregate(d1, review.supplierId);
 }
 

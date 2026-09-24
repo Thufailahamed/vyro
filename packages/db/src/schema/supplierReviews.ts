@@ -19,7 +19,7 @@ export const supplierReviews = sqliteTable(
     rating: integer('rating').notNull(),
     body: text('body').notNull(),
     status: text('status', {
-      enum: ['published', 'hidden_by_flag', 'hidden_by_dispute', 'removed_by_admin'],
+      enum: ['published', 'hidden_by_flag', 'hidden_by_dispute', 'removed_by_admin', 'removed_by_buyer'],
     })
       .notNull()
       .default('published'),

@@ -2,6 +2,7 @@ import { fxSnapshots } from '@vyro/db/schema';
 import { fetchRate } from '../../lib/fxProvider';
 import { httpError } from '../../lib/errors';
 import { logger } from '../../lib/logger';
+import { newId } from '@vyro/shared';
 import type { Db } from '@vyro/db';
 import type { Env } from '../../env';
 
@@ -29,7 +30,7 @@ export async function snapshotRate(
     logger.warn('fx.fetch.failed', { base, quote });
     throw httpError(503, 'FX_UNAVAILABLE', 'Cannot fetch FX rate');
   }
-  const id = crypto.randomUUID();
+  const id = newId();
   const [row] = await db
     .insert(fxSnapshots)
     .values({

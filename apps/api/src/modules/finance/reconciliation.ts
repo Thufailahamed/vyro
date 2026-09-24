@@ -119,6 +119,19 @@ export async function runReconciliation(d1: D1Database, opts: { limit?: number }
       .where(and(eq(refunds.paymentId, p.id), eq(refunds.status, 'completed')))
       .get()) as unknown as { s: number } | undefined;
     void (refundRow?.s ?? 0);
+    if (p.amount !== po.totalCents) {
+      await raiseException(d1, {
+        kind: 'amount_mismatch',
+        severity: 'critical',
+        entityType: 'payment',
+        entityId: p.id,
+        expectedCents: po.totalCents,
+        actualCents: p.amount,
+        differenceCents: p.amount - po.totalCents,
+        detail: `Payment ${p.id} amount ${p.amount}c disagrees with PO ${po.poNumber} total ${po.totalCents}c`,
+      });
+      bump('amount_mismatch');
+    }
   }
 
   // 5. Bank transfers stuck without proof, or verified amount ≠ expected.

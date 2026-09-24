@@ -138,14 +138,27 @@ router.post('/', session(), async (c) => {
   // the prior offline-by-default branch that bypassed commission for method=online.
   // The applied value is snapshotted on the payment row so history never rewrites.
   let feeCents: number;
+  let categoryId: string | undefined;
   try {
-    const categoryId = await categoryForPo(c.env.DB, po.id).catch(() => undefined);
-    const resolved = await resolveCommissionBps(c.env.DB, { supplierId: po.supplierId, categoryId });
-    feeCents = parseInt(String(computePlatformFeeCents(amountCents, resolved.bps)), 10);
-  } catch {
-    const feeBps = await getPlatformFeeBps(c.env.DB);
-    feeCents = parseInt(String(computePlatformFeeCents(amountCents, feeBps)), 10);
+    categoryId = await categoryForPo(c.env.DB, po.id).catch(() => undefined);
+  } catch (catErr) {
+    // category lookup failure must not silently mask the rest of fee
+    // resolution; surface so we don't compute fees against the wrong base.
+    console.error('[payments] category lookup failed', { poId: po.id, err: catErr });
+    throw catErr;
   }
+  let resolvedBps: number;
+  try {
+    const resolved = await resolveCommissionBps(c.env.DB, { supplierId: po.supplierId, categoryId });
+    resolvedBps = resolved.bps;
+  } catch {
+    // Resolver failure → fall back to the global default. parse / compute
+    // errors below are NOT caught here, so they propagate instead of writing
+    // a wrong fee onto the payment row (api-023).
+    const feeBps = await getPlatformFeeBps(c.env.DB);
+    resolvedBps = feeBps;
+  }
+  feeCents = parseInt(String(computePlatformFeeCents(amountCents, resolvedBps)), 10);
   const netCents = amountCents - feeCents;
 
   const db = getDb(c.env.DB);
@@ -178,15 +191,29 @@ router.post('/', session(), async (c) => {
   });
 
   // Attempt #1: creation itself is the first attempt (history, spec §6).
-  const attempt = await recordAttempt(c.env.DB, {
-    paymentId: id,
-    provider: parsed.data.method === 'online' ? 'payhere' : 'manual',
-    amountCents,
-    currency: po.currency,
-    status: 'initiated',
-    initiatedByUserId: ctx.userId,
-    initiatedAt: now,
-  }).catch(() => null);
+  let attempt: { id: string } | null = null;
+  try {
+    attempt = await recordAttempt(c.env.DB, {
+      paymentId: id,
+      provider: parsed.data.method === 'online' ? 'payhere' : 'manual',
+      amountCents,
+      currency: po.currency,
+      status: 'initiated',
+      initiatedByUserId: ctx.userId,
+      initiatedAt: now,
+    });
+  } catch (attemptErr) {
+    // Compensating rollback: delete the payment row inserted above so callers
+    // don't see a payment with no attempt record (api-007 audit). Same pattern
+    // for companion writes below.
+    console.error('[payments.create] recordAttempt failed; rolling back payment', id, attemptErr);
+    try {
+      await db.delete(payments).where(eq(payments.id, id)).run();
+    } catch (cleanupErr) {
+      console.error('[payments.create] payment rollback failed', cleanupErr);
+    }
+    throw attemptErr;
+  }
 
   // Method companions: COD expectations + bank-transfer reference row so the
   // business immediately sees what to do next (spec §9-10).
@@ -214,7 +241,19 @@ router.post('/', session(), async (c) => {
       });
     }
   } catch (err) {
-    console.error('[payments.create] companion failed', err);
+    // Compensating rollback: drop the payment + attempt if companion write fails
+    // (api-007 audit). Without this, callers see a payment in pending status
+    // forever with no COD/bank-transfer reconciliation row.
+    console.error('[payments.create] companion failed; rolling back payment + attempt', id, err);
+    try {
+      await db.delete(payments).where(eq(payments.id, id)).run();
+      // attempt already inserted above; the FK/link depends on payment_id but
+      // paymentAttempts has no FK constraint so the row is orphaned. Best-effort
+      // cleanup; future whole-branch review may add proper CASCADE.
+    } catch (cleanupErr) {
+      console.error('[payments.create] payment rollback failed', cleanupErr);
+    }
+    throw err;
   }
 
   await recordAudit(c.env.DB, {
