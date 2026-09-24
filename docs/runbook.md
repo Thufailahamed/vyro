@@ -156,7 +156,7 @@ stamped on the first run, so turning the job on never cancels an existing backlo
 
 Refunds: every refund goes through `modules/refunds/executor.ts`.
 
-- **Online (PayHere) payments** are refunded through the gateway straight away. If the gateway fails, the refund is marked `failed` and the payment stays `confirmed`, so no money moved and nothing is lost.
+- **Online (payments.lk) payments** are refunded through the gateway straight away. If the gateway fails, the refund is marked `failed` and the payment stays `confirmed`, so no money moved and nothing is lost. Refunds for legacy `provider='payhere'` rows stay on the manual admin queue.
 - **Cash and bank-transfer payments** create a `requested` refund in the admin refund queue. Approving it settles the ledger, payment and earning.
 - **Credit repayments** already made on a cancelled order raise a `finance` alert for a manual refund.
 
@@ -197,29 +197,37 @@ and every ledger entry linked by
 (`action=payment.view`, `target.type=payment`). Permission:
 `payment:read`. No new secrets required.
 
-## PayHere sandbox + notify URL + reconciliation
+## payments.lk sandbox + webhook URL + reconciliation
 
-Env: `PAYHERE_ENV=sandbox|production` (`PAYHERE_SANDBOX=1` legacy
-fallback), `PAYHERE_MERCHANT_ID`, `PAYHERE_MERCHANT_SECRET` (Worker
-secret, never in git/React), optional `PAYHERE_RETURN_URL`,
-`PAYHERE_CANCEL_URL`, `PAYHERE_NOTIFY_URL`. Production:
+Env: `PAYMENTS_LK_SECRET_KEY` (`sk_test_…` sandbox / `sk_live_…` live),
+`PAYMENTS_LK_WEBHOOK_SECRET` (both Worker secrets, never in git/React),
+optional `PAYMENTS_LK_API_URL` (default `https://api.payments.lk`),
+`PAYMENTS_LK_RETURN_URL`, `PAYMENTS_LK_CANCEL_URL`, and
+`PAYMENTS_LK_WEBHOOK_URL`. Production:
 
 ```bash
-npx wrangler secret put PAYHERE_MERCHANT_ID --config apps/api/wrangler.toml --env production
-npx wrangler secret put PAYHERE_MERCHANT_SECRET --config apps/api/wrangler.toml --env production
+npx wrangler secret put PAYMENTS_LK_SECRET_KEY --config apps/api/wrangler.toml --env production
+npx wrangler secret put PAYMENTS_LK_WEBHOOK_SECRET --config apps/api/wrangler.toml --env production
 ```
 
-Notify endpoints: `POST /api/webhooks/payhere` and alias
-`POST /api/payments/payhere/notify` (both public, CSRF-exempt,
-rate-limited 30/min, form-encoded, double-md5 `md5sig` verified).
-PayHere cannot reach `localhost`, so local notify testing needs a
-public URL:
+Webhook endpoint: `POST /api/webhooks/payments-lk` (alias
+`POST /api/webhooks/plk-notify`; public, CSRF-exempt, rate-limited
+30/min, JSON body, `Payments-Signature: t=<unix>,v1=<hex>`
+HMAC-SHA256 verified with a 300s tolerance). Register the endpoint in
+the payments.lk dashboard under Developers. payments.lk cannot reach
+`localhost`, so local webhook testing needs a public URL:
 
 ```bash
 ngrok http 8787
 # .dev.vars:
-PAYHERE_NOTIFY_URL=https://<ngrok-id>.ngrok-free.app/api/webhooks/payhere
+PAYMENTS_LK_WEBHOOK_URL=https://<ngrok-id>.ngrok-free.app/api/webhooks/payments-lk
 ```
+
+Missing secrets under `ENVIRONMENT=production` makes checkout fail
+with `GatewayConfigError` — the mock gateway is refused to prevent
+silent money loss. Local/staging can force the simulator with
+`PAYMENTS_LK_MOCK=1` (and `PAYMENTS_LK_MOCK_FORCE_FAILURE=1` to
+exercise failure paths).
 
 Reconciliation: `GET /api/admin/payments/reconcile`
 (`payment:read`) returns `{ confirmedOnline, pendingOnline, failed,
@@ -425,7 +433,7 @@ the key.
 curl -X POST https://vyro-api.thufillahamed627.workers.dev/api/admin/observability/incidents \
   -H 'content-type: application/json' \
   -H 'Cookie: <admin session>' \
-  -d '{"title":"PayHere notify endpoint degraded","severity":"major","affected":["payments"],"body":"Investigating elevated 5xx rates."}'
+  -d '{"title":"payments.lk webhook endpoint degraded","severity":"major","affected":["payments"],"body":"Investigating elevated 5xx rates."}'
 ```
 
 To resolve:
@@ -434,7 +442,7 @@ To resolve:
 curl -X POST .../api/admin/observability/incidents/<id>/resolve \
   -H 'Cookie: <admin session>' \
   -H 'content-type: application/json' \
-  -d '{"note":"PayHere acknowledged."}'
+  -d '{"note":"payments.lk acknowledged."}'
 ```
 
 ### UptimeRobot integration

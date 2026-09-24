@@ -1,7 +1,14 @@
-import { getDb } from '@vyro/db';
+import { getDb, type Db } from '@vyro/db';
 import { ledgerEntries, type NewLedgerEntry } from '@vyro/db/schema';
 import { newId } from '@vyro/shared';
 import { sql } from 'drizzle-orm';
+
+/**
+ * Anything that can run a drizzle INSERT: the plain Db handle or a
+ * transaction handle from db.transaction(...). Transaction handles are
+ * structurally Db-compatible for the operations used here.
+ */
+type LedgerTx = Db | Parameters<Parameters<Db['transaction']>[0]>[0];
 
 export type AccountType = 'supplier' | 'business' | 'platform';
 export type Direction = 'debit' | 'credit';
@@ -49,7 +56,7 @@ export interface LedgerWriteInput {
  * Accepts a Drizzle transaction handle from `db.transaction(...)`.
  */
 export function writeLedgerEntry(
-  tx: ReturnType<typeof getDb>,
+  tx: LedgerTx,
   input: LedgerWriteInput,
 ): Promise<unknown> {
   if (input.amountCents <= 0) {

@@ -185,8 +185,8 @@ export function sha256Hex(input: string): string {
 
 /** Sync HMAC-SHA256 (RFC 2104). lowercase hex. Works on Workers (no node:crypto). */
 export function hmacSha256Sync(secret: string, message: string): string {
-  let key = new TextEncoder().encode(secret);
-  if (key.length > 64) key = sha256Digest(key);
+  let key: Uint8Array = new TextEncoder().encode(secret);
+  if (key.length > 64) key = new Uint8Array(sha256Digest(key));
   const block = new Uint8Array(64);
   block.set(key);
   const inner = new Uint8Array(64);

@@ -16,7 +16,7 @@ packages/
   db/           # Drizzle schema + D1 migrations
   shared/       # Constants, types, branding helpers shared client/server
   validation/   # Zod schemas (request bodies, query strings)
-  payments/     # PayHere webhook + signature verification
+  payments/     # payments.lk webhook + signature verification
   ui/           # Shared component primitives
   ai/           # Internal AI helpers (search ranking, summaries)
 ```

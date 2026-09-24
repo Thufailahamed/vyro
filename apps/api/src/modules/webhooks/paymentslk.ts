@@ -476,7 +476,10 @@ async function closeOpenAttempt(
     const attempts = await listAttempts(env.DB, paymentId);
     const open = [...attempts].reverse().find((a: any) => ['initiated', 'processing'].includes(a.status));
     if (open) {
-      await completeAttempt(env.DB, open.id, outcome, { providerReference: providerPaymentId, failureReason });
+      await completeAttempt(env.DB, open.id, outcome, {
+        providerReference: providerPaymentId,
+        failureReason: failureReason ?? null,
+      });
       return;
     }
     const { payments } = await import('@vyro/db/schema');
@@ -491,7 +494,10 @@ async function closeOpenAttempt(
       providerReference: providerPaymentId,
       initiatedAt: Date.now(),
     });
-    await completeAttempt(env.DB, created.id, outcome, { providerReference: providerPaymentId, failureReason });
+    await completeAttempt(env.DB, created.id, outcome, {
+      providerReference: providerPaymentId,
+      failureReason: failureReason ?? null,
+    });
   } catch (err) {
     console.error('[paymentslk.webhook] attempt tracking failed', err);
   }
