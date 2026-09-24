@@ -182,8 +182,8 @@ async function transitionRefund(
     const { finalizeRefund } = await import('../refunds/executor');
     await finalizeRefund(c.env, refundId, { actorUserId: ctx.userId, providerReference: opts.providerReference ?? null });
   } else if (to === 'failed' || to === 'cancelled') {
-    const mapped = to === 'cancelled' ? 'failed' : 'failed';
-    await updateRefundStatus(c.env.DB, refundId, mapped as never, { processedAt: now, failureReason: opts.reason ?? to });
+    const mapped = to === 'cancelled' ? 'cancelled' : 'failed';
+    await updateRefundStatus(c.env.DB, refundId, mapped, { processedAt: now, failureReason: opts.reason ?? to });
   }
   await recordAudit(c.env.DB, {
     actorUserId: ctx.userId,
