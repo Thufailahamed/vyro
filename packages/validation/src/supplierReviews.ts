@@ -8,6 +8,7 @@ export const reviewStatusSchema = z.enum([
   'hidden_by_flag',
   'hidden_by_dispute',
   'removed_by_admin',
+  'removed_by_buyer',
 ]);
 export type ReviewStatus = z.infer<typeof reviewStatusSchema>;
 
