@@ -1,6 +1,6 @@
-import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
-import { getDb, type Db } from '@vyro/db';
-import { purchaseOrders, suppliers } from '@vyro/db/schema';
+import { eq } from 'drizzle-orm';
+import { getDb } from '@vyro/db';
+import { suppliers } from '@vyro/db/schema';
 import { trustRepository } from './repository';
 import { computeTrustSignal, sampleGateMeetsOnTimeBadge } from './compute';
 
@@ -27,39 +27,26 @@ function emptyView(): TrustSignalView {
   };
 }
 
-export async function recomputeOnTimeMetric(supplierId: string, db: Db) {
-  const rows = await db
-    .select({
-      delivered_at: purchaseOrders.deliveredAt,
-      on_time: sql<number>`CASE WHEN delivered_at <= delivery_promised_at THEN 1 ELSE 0 END`,
-    })
-    .from(purchaseOrders)
-    .where(and(eq(purchaseOrders.supplierId, supplierId), isNotNull(purchaseOrders.deliveredAt)))
-    .orderBy(desc(purchaseOrders.deliveredAt))
-    .limit(30)
-    .all();
-
-  const deliveredCount = rows.length;
-  const onTimeCount = rows.reduce((acc: number, r: { on_time: number | null }) => acc + (r.on_time ? 1 : 0), 0);
-  const ratio = deliveredCount ? onTimeCount / deliveredCount : null;
-  return { deliveredCount, onTimeCount, ratio };
-}
-
-async function loadSupplierFacts(d1: D1Database, supplierId: string, nowMs: number) {
+export async function loadSupplierFacts(d1: D1Database, supplierId: string, nowMs: number) {
   const db = getDb(d1);
   const sup = await db.select().from(suppliers).where(eq(suppliers.id, supplierId)).get();
   if (!sup) return null;
 
-  // Raw aggregates — aggregate + LIMIT combination is awkward with the
-  // drizzle D1 builder; the SQL is clearer and matches the cron budget.
+  // Aggregate inside a subquery so LIMIT 30 applies BEFORE count/sum.
+  // (In SQL, aggregates over an outer FROM apply to all matching rows,
+  // and ORDER BY/LIMIT are applied last — so the LIMIT was a silent no-op
+  // here and `total` counted all-time deliveries.)
   const deliveryRow = await d1
     .prepare(
       `SELECT count(*) AS total,
               sum(case when delivered_at <= delivery_promised_at then 1 else 0 end) AS on_time
-       FROM purchase_orders
-       WHERE supplier_id = ?1 AND status IN ('delivered', 'completed') AND delivery_promised_at IS NOT NULL
-       ORDER BY delivered_at DESC
-       LIMIT ?2`,
+       FROM (
+         SELECT delivered_at, delivery_promised_at
+         FROM purchase_orders
+         WHERE supplier_id = ?1 AND status IN ('delivered','completed') AND delivery_promised_at IS NOT NULL
+         ORDER BY delivered_at DESC
+         LIMIT ?2
+       )`,
     )
     .bind(supplierId, TRAILING_DELIVERY_WINDOW)
     .first<{ total: number; on_time: number | null }>()
