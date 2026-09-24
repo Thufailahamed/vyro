@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { RepeatOfferAnalyticsResponse } from '@vyro/validation';
 import { formatCompactLKR } from '@/lib/format';
+import { MetricNumber } from '@/components/brand/Surface';
+import { SparklesIcon } from '@/components/icons';
 
 export function RepeatOfferTile({ supplierId }: { supplierId: string }) {
   const q = useQuery({
@@ -15,10 +17,12 @@ export function RepeatOfferTile({ supplierId }: { supplierId: string }) {
   });
   if (!q.data) return null;
   return (
-    <div className="bg-paper p-5 space-y-1">
-      <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-        <SparklesIcon size={13} className="text-emerald-600" />
-        Repeat Offers (30d)
+    <div className="vyro-surface p-5 space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Repeat Offers (30d)</span>
+        <span className="flex size-8 items-center justify-center rounded-lg bg-mint/15 text-mint">
+          <SparklesIcon size={15} />
+        </span>
       </div>
       <MetricNumber size="md" className="text-ink">
         {q.data.triggeredCount}
@@ -29,6 +33,3 @@ export function RepeatOfferTile({ supplierId }: { supplierId: string }) {
     </div>
   );
 }
-
-import { MetricNumber } from '@/components/brand/Surface';
-import { SparklesIcon } from '@/components/icons';

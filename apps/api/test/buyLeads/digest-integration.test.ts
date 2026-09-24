@@ -149,6 +149,6 @@ describe('BuyLeads daily digest integration', () => {
     expect(payload.body).toContain('RFQ-002');
     expect(payload.body).not.toContain('RFQ-003');
     expect(payload.body).not.toContain('RFQ-004');
-    expect(payload.link).toBe('/supplier/buyleads');
+    expect(payload.link).toBe('/supplier/settings?tab=buyleads');
   });
 });

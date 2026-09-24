@@ -79,7 +79,7 @@ function LessonCard({ lesson }: { lesson: LessonSummary }) {
     <Link
       to={`/supplier/learning/${lesson.slug}`}
       className={cn(
-        'group relative flex flex-col rounded-xl border bg-paper p-5 shadow-soft-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft-md',
+        'group relative flex flex-col vyro-surface p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft-md',
         passed ? 'border-mint/30 hover:border-mint/50' : 'border-ink/10 hover:border-ink/25',
       )}
     >
@@ -140,14 +140,23 @@ function TrackSection({
           <h2 className="mt-0.5 font-display text-xl font-bold text-ink">{title}</h2>
           <p className="mt-0.5 text-xs text-ink-3">{subtitle}</p>
         </div>
-        <span className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-paper px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-ink-4 shadow-soft-sm">
+        <span
+          className={cn(
+            'inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider',
+            lessons.length > 0 && passed === lessons.length
+              ? 'bg-mint/15 text-mint'
+              : 'border border-ink/10 bg-paper text-ink-4 shadow-soft-sm',
+          )}
+        >
           {passed}/{lessons.length} passed
         </span>
       </header>
       {lessons.length === 0 ? (
         <div className="rounded-xl border border-dashed border-ink/20 bg-paper/60 p-8 text-center">
-          <GraduationCapIcon size={18} className="mx-auto text-ink-4" />
-          <p className="mt-2 text-sm text-ink-3">{emptyHint}</p>
+          <div className="mx-auto flex size-11 items-center justify-center rounded-xl bg-ink/[0.06] text-ink-4">
+            <GraduationCapIcon size={18} />
+          </div>
+          <p className="mt-3 text-sm text-ink-3">{emptyHint}</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -181,7 +190,7 @@ export function LearningIndex() {
         <div className="h-56 animate-pulse rounded-xl bg-ink/90" />
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-44 animate-pulse rounded-xl bg-paper" />
+            <div key={i} className="h-44 animate-pulse vyro-surface" />
           ))}
         </div>
       </div>
@@ -249,8 +258,8 @@ export function LearningIndex() {
 
   if (!hasAny) {
     return (
-      <div className="rounded-xl border border-ink/10 bg-paper p-10 text-center shadow-soft-sm">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-full border border-volt-deep/30 bg-volt-soft text-volt-deep">
+      <div className="vyro-surface p-10 text-center">
+        <div className="mx-auto flex size-14 items-center justify-center rounded-xl bg-volt/20 text-volt-deep shadow-xs ring-8 ring-volt/10">
           <GraduationCapIcon size={24} />
         </div>
         <h1 className="mt-4 font-display text-xl font-bold text-ink">No lessons available yet</h1>
@@ -290,8 +299,8 @@ export function LearningIndex() {
           </div>
         </div>
 
-        <div className="mt-7 grid gap-4 border-t border-paper/10 pt-5 sm:grid-cols-3">
-          <div>
+        <div className="mt-7 grid gap-3 border-t border-paper/10 pt-5 sm:grid-cols-3">
+          <div className="rounded-xl border border-paper/10 bg-paper/5 px-4 py-3.5">
             <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-paper/50">Onboarding gate</div>
             <div className="mt-1.5 flex items-center gap-2 text-sm font-semibold text-paper">
               {gateCleared ? (
@@ -307,7 +316,7 @@ export function LearningIndex() {
               )}
             </div>
           </div>
-          <div>
+          <div className="rounded-xl border border-paper/10 bg-paper/5 px-4 py-3.5">
             <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-paper/50">Publish access</div>
             <div className="mt-1.5 flex items-center gap-2 text-sm font-semibold text-paper">
               {gateCleared ? (
@@ -323,7 +332,7 @@ export function LearningIndex() {
               )}
             </div>
           </div>
-          <div>
+          <div className="rounded-xl border border-paper/10 bg-paper/5 px-4 py-3.5">
             <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-paper/50">Next up</div>
             {nextUp ? (
               <Link

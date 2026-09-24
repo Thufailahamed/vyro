@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import { PageHeader, Button, Input, Badge } from '@/components/ui';
+import { Button, Input, Badge } from '@/components/ui';
 import { Surface, MetricNumber } from '@/components/brand/Surface';
 import {
   PackageIcon,
@@ -20,6 +20,7 @@ import { formatLKR } from '@/lib/format';
 import { useToast } from '@vyro/ui';
 import { useSupplierId } from './useSupplierId';
 import { SupplierErrorState, SupplierLoadingState } from './SupplierPageState';
+import { SupplierHero, HeroStatusPill, heroActionClass } from './SupplierHero';
 
 type Offer = {
   id: string;
@@ -194,130 +195,112 @@ export function SupplierPricingPage() {
   return (
     <div className="space-y-6">
       {/* Executive Header */}
-      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <div className="text-[11px] font-mono uppercase tracking-[0.16em] text-copper font-semibold">
-            Commercial Policy · Rate Cards & Tiers
-          </div>
-          <h1 className="vyro-display text-2xl sm:text-3xl font-bold text-ink mt-1">
-            Mill-Gate Rates & Volume Tiers
-          </h1>
-          <p className="text-sm text-ink-3 mt-1">
-            Maintain wholesale rate cards, minimum order quantities, and bulk volume discounts for enterprise buyers.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <Badge
-            variant="neutral"
-            className="gap-1.5 font-mono text-xs bg-paper border border-ink/10 shadow-xs py-1.5 px-3"
-          >
-            {list.length > 0 ? (
-              <>
-                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-semibold text-ink">Tier Engine Active</span>
-              </>
-            ) : (
-              <>
-                <span className="size-2 rounded-full bg-amber" />
-                <span className="font-semibold text-ink">Rate Cards Pending</span>
-              </>
-            )}
-          </Badge>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={offers.isFetching}
-            className="text-xs gap-1.5"
-            title="Refresh pricing matrix"
-          >
-            <RefreshCwIcon size={14} className={offers.isFetching ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Refresh</span>
-          </Button>
-
-          <Link to="/search" target="_blank" rel="noreferrer">
-            <Button variant="secondary" size="sm" className="gap-1.5 text-xs font-semibold">
+      <SupplierHero
+        icon={PercentIcon}
+        kicker="Commercial Policy · Rate Cards & Tiers"
+        title="Mill-Gate Rates & Volume Tiers"
+        description="Maintain wholesale rate cards, minimum order quantities, and bulk volume discounts for enterprise buyers."
+        status={
+          list.length > 0 ? (
+            <HeroStatusPill label="Tier Engine Active" tone="mint" />
+          ) : (
+            <HeroStatusPill label="Rate Cards Pending" tone="amber" />
+          )
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={offers.isFetching}
+              className={heroActionClass}
+              title="Refresh pricing matrix"
+            >
+              <RefreshCwIcon size={13} className={offers.isFetching ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+            <Link to="/search" target="_blank" rel="noreferrer" className={heroActionClass}>
               <ExternalLinkIcon size={13} />
-              <span className="hidden sm:inline">Market Rates</span>
-            </Button>
-          </Link>
-
-          <Link to="/supplier/products/new">
-            <Button variant="primary" size="sm" className="gap-1.5 text-xs font-semibold shadow-soft-sm hover:brightness-105">
-              <PlusIcon size={14} />
-              + Add Product
-            </Button>
-          </Link>
-        </div>
-      </header>
+              Market Rates
+            </Link>
+            <Link
+              to="/supplier/products/new"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-volt px-3 text-xs font-bold text-ink transition-colors hover:bg-volt-glow"
+            >
+              <PlusIcon size={13} />
+              Add Product
+            </Link>
+          </>
+        }
+        footer={
+          <>
+            <span>Volume brackets apply automatically at checkout</span>
+            <span className="text-paper/40">{list.length} rate card{list.length === 1 ? '' : 's'} configured</span>
+          </>
+        }
+      />
 
       {/* Executive 4-Card Pricing & Tier KPI Matrix */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-ink/10 border border-ink/10 overflow-hidden rounded-lg shadow-soft-sm">
-        <div className="bg-paper p-5 space-y-1">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <PackageIcon size={13} className="text-copper" />
-              Listed SKUs
-            </span>
-            <span className="text-[10px] font-mono text-ink-3">
-              {list.length > 0 ? 'Catalog Active' : 'Depot Empty'}
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Listed SKUs</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-ink/[0.06] text-ink-3">
+              <PackageIcon size={15} />
             </span>
           </div>
           <MetricNumber size="md" className="text-ink">
             {list.length}
           </MetricNumber>
-          <div className="text-xs text-ink-4">Active commodity rate cards</div>
+          <div className="text-xs text-ink-4">
+            {list.length > 0 ? 'Catalog Active · rate cards' : 'Depot empty · no rate cards'}
+          </div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <PercentIcon size={13} className="text-copper" />
-              Volume Tiers
-            </span>
-            <span className="text-[10px] text-emerald-800 font-mono font-semibold">
-              {list.length > 0 ? `${Math.round((activeTiersCount / list.length) * 100)}% Discounted` : 'Flat Rates'}
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Volume Tiers</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-mint/15 text-mint">
+              <PercentIcon size={15} />
             </span>
           </div>
-          <MetricNumber size="md" className="text-emerald-800">
+          <MetricNumber size="md" className="text-mint">
             {activeTiersCount}
           </MetricNumber>
-          <div className="text-xs text-ink-4">With automated bulk discounts</div>
+          <div className="text-xs text-ink-4">
+            {list.length > 0 ? `${Math.round((activeTiersCount / list.length) * 100)}% discounted · bulk rates` : 'No tiered cards yet'}
+          </div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <TrendingUpIcon size={13} className="text-copper" />
-              Target Tier 3 Rebate
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Target Tier 3 Rebate</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-volt/15 text-volt-deep">
+              <TrendingUpIcon size={15} />
             </span>
-            <span className="text-[10px] text-ink-4 font-mono">100+ units</span>
           </div>
           <MetricNumber size="md" className="text-ink">
             8% – 12%
           </MetricNumber>
-          <div className="text-xs text-ink-4">Enterprise distributor bracket</div>
+          <div className="text-xs text-ink-4">100+ units · enterprise bracket</div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <BanknoteIcon size={13} className="text-copper" />
-              Settlement Currency
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Settlement Currency</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-copper/10 text-copper">
+              <BanknoteIcon size={15} />
             </span>
-            <span className="text-[10px] text-emerald-800 font-mono font-semibold">SLIPS/CEFT</span>
           </div>
           <MetricNumber size="md" className="text-ink font-mono">
             LKR
           </MetricNumber>
-          <div className="text-xs text-ink-4">Mill-gate wholesale currency</div>
+          <div className="text-xs text-ink-4">SLIPS/CEFT · mill-gate wholesale</div>
         </div>
       </div>
 
       {/* Wholesale Volume Tiering Strategy & Policy Radar */}
-      <Surface kind="ink" className="p-6 rounded-lg relative overflow-hidden grain shadow-soft-sm">
+      <Surface kind="ink" className="p-6 relative overflow-hidden grain">
         <div className="flex items-start gap-4">
           <div className="size-10 rounded-lg bg-volt/15 border border-volt/30 flex items-center justify-center text-volt shrink-0 mt-0.5">
             <PercentIcon size={20} />
@@ -336,7 +319,7 @@ export function SupplierPricingPage() {
 
             {/* 3-Tier Architecture Quick-Reference Chips */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-              <div className="bg-paper/10 border border-paper/15 p-3 rounded-md">
+              <div className="bg-paper/5 border border-paper/10 p-3.5 rounded-xl">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-volt font-bold">
                   Tier 1: Starter Restock
                 </div>
@@ -344,7 +327,7 @@ export function SupplierPricingPage() {
                 <div className="text-[11px] text-paper/60 mt-0.5">Appeals to weekly grocery & cafe buyers.</div>
               </div>
 
-              <div className="bg-paper/10 border border-paper/15 p-3 rounded-md">
+              <div className="bg-paper/5 border border-paper/10 p-3.5 rounded-xl">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-volt font-bold">
                   Tier 2: Commercial Bulk
                 </div>
@@ -352,7 +335,7 @@ export function SupplierPricingPage() {
                 <div className="text-[11px] text-paper/60 mt-0.5">Optimal for hotels, resorts & caterers.</div>
               </div>
 
-              <div className="bg-paper/10 border border-paper/15 p-3 rounded-md">
+              <div className="bg-paper/5 border border-paper/10 p-3.5 rounded-xl">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-volt font-bold">
                   Tier 3: Enterprise Pallet
                 </div>
@@ -367,7 +350,7 @@ export function SupplierPricingPage() {
       {/* When NO products are listed yet: Executive Onboarding & Rate Card Launchpad */}
       {list.length === 0 ? (
         <div className="space-y-6">
-          <Surface kind="elevated" className="p-6 sm:p-8 border border-ink/10 rounded-lg shadow-soft-sm space-y-6 bg-paper">
+          <Surface kind="elevated" className="p-6 sm:p-8 space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-line">
               <div className="flex items-start gap-4">
                 <div className="size-12 rounded-xl bg-copper/10 border border-copper/20 flex items-center justify-center text-copper shrink-0">
@@ -387,7 +370,7 @@ export function SupplierPricingPage() {
                 <Link to="/supplier/products/new" className="w-full sm:w-auto">
                   <Button variant="primary" size="md" className="w-full sm:w-auto gap-2 shadow-soft-sm font-semibold">
                     <PlusIcon size={16} />
-                    + Configure First Rate Card
+                    Configure First Rate Card
                   </Button>
                 </Link>
               </div>
@@ -399,9 +382,9 @@ export function SupplierPricingPage() {
                 How Rate Cards & Volume Tiers Work
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-md border border-ink/10 bg-mist/30 space-y-2">
+                <div className="p-4 rounded-xl bg-ink/[0.03] space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
+                    <div className="size-6 rounded-md bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
                       1
                     </div>
                     <span className="text-xs font-bold text-ink">Pick Central Commodity</span>
@@ -411,9 +394,9 @@ export function SupplierPricingPage() {
                   </p>
                 </div>
 
-                <div className="p-4 rounded-md border border-ink/10 bg-mist/30 space-y-2">
+                <div className="p-4 rounded-xl bg-ink/[0.03] space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
+                    <div className="size-6 rounded-md bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
                       2
                     </div>
                     <span className="text-xs font-bold text-ink">Set Base Rate & MOQ</span>
@@ -423,9 +406,9 @@ export function SupplierPricingPage() {
                   </p>
                 </div>
 
-                <div className="p-4 rounded-md border border-ink/10 bg-mist/30 space-y-2">
+                <div className="p-4 rounded-xl bg-ink/[0.03] space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
+                    <div className="size-6 rounded-md bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
                       3
                     </div>
                     <span className="text-xs font-bold text-ink">Define Volume Brackets</span>
@@ -454,17 +437,17 @@ export function SupplierPricingPage() {
                   {unlistedProducts.map((p) => (
                     <div
                       key={p.id}
-                      className="p-3.5 rounded-lg border border-ink/10 bg-paper hover:border-ink/30 transition-all flex flex-col justify-between gap-3 shadow-xs"
+                      className="p-3.5 rounded-xl border border-ink/10 bg-paper hover:border-ink/30 transition-all flex flex-col justify-between gap-3 shadow-xs"
                     >
                       <div className="flex items-start gap-3">
                         {p.imageUrl ? (
                           <img
                             src={p.imageUrl}
                             alt={p.name}
-                            className="size-11 rounded border border-ink/10 object-cover shrink-0 bg-bone"
+                            className="size-11 rounded-lg border border-ink/10 object-cover shrink-0 bg-bone"
                           />
                         ) : (
-                          <div className="size-11 rounded border border-ink/10 bg-mist/60 flex items-center justify-center text-ink-4 shrink-0">
+                          <div className="size-11 rounded-lg bg-ink/[0.06] flex items-center justify-center text-ink-4 shrink-0">
                             <PackageIcon size={18} />
                           </div>
                         )}
@@ -482,7 +465,7 @@ export function SupplierPricingPage() {
 
                       <Link
                         to={`/supplier/products/new?productId=${p.id}`}
-                        className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-3 text-xs font-semibold bg-bone hover:bg-ink hover:text-paper border border-ink/15 rounded transition-colors"
+                        className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-3 text-xs font-semibold bg-bone hover:bg-ink hover:text-paper border border-ink/15 rounded-lg transition-colors"
                       >
                         <PlusIcon size={13} />
                         Set Pricing for This SKU
@@ -508,7 +491,7 @@ export function SupplierPricingPage() {
                 className="pl-9 text-xs"
               />
             </div>
-            <div className="flex items-center gap-1.5 overflow-x-auto">
+            <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full overflow-x-auto scrollbar-none">
               {(
                 [
                   { id: 'all', label: `All (${list.length})` },
@@ -520,10 +503,10 @@ export function SupplierPricingPage() {
                   key={tab.id}
                   type="button"
                   onClick={() => setTierFilter(tab.id)}
-                  className={`px-3 py-1.5 text-xs font-mono tracking-wider transition-colors border rounded ${
+                  className={`h-8 px-3.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
                     tierFilter === tab.id
-                      ? 'bg-ink text-paper border-ink font-semibold'
-                      : 'bg-paper text-ink-3 border-ink/10 hover:bg-mist/60'
+                      ? 'bg-ink text-paper shadow-sm'
+                      : 'text-ink-3 hover:text-ink'
                   }`}
                 >
                   {tab.label}
@@ -533,31 +516,33 @@ export function SupplierPricingPage() {
           </div>
 
           {/* Rate Cards Container */}
-          <Surface kind="elevated" className="overflow-hidden border border-ink/10 rounded-lg shadow-soft-sm">
+          <Surface kind="elevated" className="overflow-hidden">
             {filteredList.length === 0 ? (
-              <div className="p-12 text-center text-ink-4 space-y-2">
-                <PercentIcon size={28} className="mx-auto text-ink-4 opacity-50 mb-2" />
+              <div className="p-12 text-center space-y-3">
+                <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-ink/[0.06] text-ink-4">
+                  <PercentIcon size={22} />
+                </div>
                 <p className="text-sm font-medium text-ink-3">No rate cards match your search or filter.</p>
-                <p className="text-xs">Try clearing the search query or adjusting your tier filter.</p>
-                <button
-                  type="button"
+                <p className="text-xs text-ink-4">Try clearing the search query or adjusting your tier filter.</p>
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => {
                     setSearchQuery('');
                     setTierFilter('all');
                   }}
-                  className="text-xs font-semibold text-copper hover:underline mt-2 inline-block"
                 >
                   Reset all filters
-                </button>
+                </Button>
               </div>
             ) : (
-              <div className="divide-y divide-line">
+              <div className="divide-y divide-ink/5">
                 {filteredList.map((o) => {
                   const product = nameMap.get(o.productId);
                   const isEditing = editing === o.id;
 
                   return (
-                    <div key={o.id} className="p-5 space-y-4 hover:bg-mist/10 transition-colors">
+                    <div key={o.id} className="p-5 space-y-4 hover:bg-bone/40 transition-colors">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                         <div className="space-y-1">
                           <div className="font-display text-base font-bold text-ink flex items-center gap-2">
@@ -568,7 +553,7 @@ export function SupplierPricingPage() {
                               </Badge>
                             )}
                             {product?.brand && (
-                              <span className="text-xs text-ink-3 font-medium bg-mist/60 px-2 py-0.5 rounded border border-ink/10">
+                              <span className="text-xs text-ink-3 font-medium bg-ink/[0.05] px-2 py-0.5 rounded-full">
                                 {product.brand}
                               </span>
                             )}
@@ -612,15 +597,15 @@ export function SupplierPricingPage() {
                             return (
                               <div
                                 key={t.label}
-                                className={`border px-4 py-3 space-y-1.5 rounded-lg transition-colors ${
+                                className={`border px-4 py-3 space-y-1.5 rounded-xl transition-colors ${
                                   t.pct > 0
-                                    ? 'border-emerald-800/20 bg-emerald-50/40'
+                                    ? 'border-mint/30 bg-mint/10'
                                     : 'border-ink/10 bg-paper'
                                 }`}
                               >
                                 <div className="flex items-center justify-between">
                                   <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-ink-3 flex items-center gap-1">
-                                    <LayersIcon size={11} className={t.pct > 0 ? 'text-emerald-700' : 'text-ink-4'} />
+                                    <LayersIcon size={11} className={t.pct > 0 ? 'text-mint' : 'text-ink-4'} />
                                     {t.label} (≥ {t.qty} {product?.unit ?? 'units'})
                                   </span>
                                   {t.pct > 0 ? (
@@ -636,7 +621,7 @@ export function SupplierPricingPage() {
                                     {formatLKR(discountedUnitCents)}
                                   </span>
                                   {savingsCents > 0 && (
-                                    <span className="text-[11px] text-emerald-800 font-mono font-semibold">
+                                    <span className="text-[11px] text-mint font-mono font-semibold">
                                       Save {formatLKR(savingsCents)}/unit
                                     </span>
                                   )}
@@ -646,7 +631,7 @@ export function SupplierPricingPage() {
                           })}
                         </div>
                       ) : (
-                        <div className="space-y-4 border border-ink/20 bg-mist/30 p-5 rounded-lg">
+                        <div className="space-y-4 border border-ink/15 bg-ink/[0.03] p-5 rounded-xl">
                           <div className="flex items-center justify-between border-b border-line pb-2">
                             <span className="text-xs font-bold uppercase tracking-wider text-ink font-display">
                               Editing Rate Card: {product?.name}
@@ -700,7 +685,7 @@ export function SupplierPricingPage() {
                                 const netPrice = Math.round(draftBaseCents * (1 - pct / 100));
 
                                 return (
-                                  <div key={label} className="border border-ink/15 bg-paper p-3.5 space-y-2 rounded-md shadow-xs">
+                                  <div key={label} className="border border-ink/15 bg-paper p-3.5 space-y-2 rounded-lg shadow-xs">
                                     <div className="text-[11px] font-mono uppercase tracking-wider font-bold text-ink">
                                       {label}
                                     </div>
@@ -735,7 +720,7 @@ export function SupplierPricingPage() {
                           </div>
 
                           {err && (
-                            <div className="p-3 bg-rose/10 border border-rose text-rose text-xs rounded">
+                            <div className="p-3 bg-rose/10 border border-rose/30 text-rose text-xs rounded-lg">
                               {err}
                             </div>
                           )}

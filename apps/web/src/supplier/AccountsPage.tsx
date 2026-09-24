@@ -115,7 +115,7 @@ export function SupplierAccountsPage() {
 
   const flowSegments = d
     ? [
-        { key: 'paid', label: 'Paid out', cents: d.paidOutCents, tone: 'bg-emerald-500' },
+        { key: 'paid', label: 'Paid out', cents: d.paidOutCents, tone: 'bg-mint' },
         { key: 'available', label: 'Available', cents: d.availableCents, tone: 'bg-volt' },
         { key: 'pending', label: 'Pending settlement', cents: d.pendingSettlementCents, tone: 'bg-amber' },
       ]
@@ -265,7 +265,7 @@ export function SupplierAccountsPage() {
           </div>
 
           {tab === 'earnings' && (
-            <Surface kind="elevated" className="p-5 sm:p-6 border border-ink/10 shadow-soft-sm rounded-lg">
+            <Surface kind="elevated" className="p-5 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-line pb-3 mb-6">
                 <div className="text-xs font-mono uppercase tracking-wider font-bold text-ink flex items-center gap-2">
                   <span className="size-2 rounded-full bg-volt" />
@@ -293,7 +293,7 @@ export function SupplierAccountsPage() {
                   title="You earn"
                   body="Net earnings become eligible, then settle."
                   value={formatLKR(d.netCents)}
-                  icon={<CheckCircle2Icon size={15} className="text-emerald-700" />}
+                  icon={<CheckCircle2Icon size={15} className="text-mint" />}
                 />
                 <FlowStep
                   phase="4"
@@ -322,7 +322,7 @@ export function SupplierAccountsPage() {
         </>
       )}
 
-      <div className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-ink/10 bg-paper p-1 shadow-soft-sm scrollbar-none">
+      <div className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-full bg-ink/[0.05] p-1 scrollbar-none">
         {TABS.map((t) => {
           const Icon = t.icon;
           const active = tab === t.id;
@@ -333,8 +333,8 @@ export function SupplierAccountsPage() {
               onClick={() => setTab(t.id)}
               aria-pressed={active}
               className={cn(
-                'flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-xs uppercase tracking-wider font-semibold transition-all',
-                active ? 'bg-ink text-paper shadow-xs' : 'text-ink-4 hover:text-ink hover:bg-mist/60',
+                'flex items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-medium transition-all cursor-pointer',
+                active ? 'bg-ink text-paper shadow-sm' : 'text-ink-3 hover:text-ink',
               )}
             >
               <Icon size={14} className={active ? 'text-volt' : 'text-ink-4'} />
@@ -367,7 +367,7 @@ function Kpi({
   hint: string;
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-ink/10 bg-paper p-5 shadow-soft-sm transition-all duration-200 hover:border-ink/20 hover:shadow-soft-md">
+    <div className="group relative overflow-hidden vyro-surface p-5 transition-all duration-200 hover:border-ink/20 hover:shadow-soft-md">
       <div
         className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-copper/70 via-copper/25 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100"
         aria-hidden
@@ -443,17 +443,17 @@ function FilterPills({
   options: Array<{ id: string; label: string }>;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full max-w-full overflow-x-auto scrollbar-none">
       {options.map((o) => (
         <button
           key={o.id}
           type="button"
           onClick={() => onChange(o.id)}
           className={cn(
-            'px-3.5 py-1.5 text-xs font-mono border transition-colors rounded capitalize',
+            'h-8 px-3.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer capitalize',
             o.id === value
-              ? 'bg-ink text-paper border-ink font-semibold shadow-xs'
-              : 'bg-paper border-line text-ink-2 hover:bg-mist/60',
+              ? 'bg-ink text-paper shadow-sm'
+              : 'text-ink-3 hover:text-ink',
           )}
         >
           {o.label}
@@ -475,9 +475,9 @@ function LedgerEmpty({
   action?: ReactNode;
 }) {
   return (
-    <Surface kind="elevated" className="flow-bg overflow-hidden border border-ink/10 p-8 sm:p-12 text-center rounded-lg shadow-soft-sm">
+    <Surface kind="elevated" className="flow-bg overflow-hidden p-8 sm:p-12 text-center">
       <div className="max-w-md mx-auto space-y-4">
-        <div className="size-14 rounded-full bg-volt-soft border border-volt-deep/30 text-volt-deep mx-auto flex items-center justify-center shadow-xs ring-8 ring-volt-soft/40">
+        <div className="size-14 rounded-xl bg-volt/20 text-volt-deep mx-auto flex items-center justify-center shadow-xs ring-8 ring-volt/10">
           {icon}
         </div>
         <div className="space-y-1.5">
@@ -498,22 +498,22 @@ function LedgerTable({
   children: ReactNode;
 }) {
   return (
-    <Surface kind="elevated" className="overflow-hidden border border-ink/10 rounded-lg shadow-soft-sm">
+    <Surface kind="elevated" className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-ink text-paper text-[11px] uppercase tracking-[0.14em]">
+          <thead className="bg-bone/60 text-ink-4 text-[10px] font-mono uppercase tracking-[0.14em] border-b border-ink/10">
             <tr>
               {columns.map((c) => (
                 <th
                   key={c.label}
-                  className={cn('px-4 py-3.5 font-medium first:pl-5 last:pr-5', c.align === 'right' ? 'text-right' : 'text-left')}
+                  className={cn('px-4 py-3.5 font-bold first:pl-5 last:pr-5', c.align === 'right' ? 'text-right' : 'text-left')}
                 >
                   {c.label}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-line">{children}</tbody>
+          <tbody className="divide-y divide-ink/5">{children}</tbody>
         </table>
       </div>
     </Surface>
@@ -544,7 +544,7 @@ function Earnings({ supplierId }: { supplierId: string }) {
       }>(`/finance/supplier/earnings?supplierId=${supplierId}${eligibility ? `&status=${eligibility}` : ''}`),
   });
 
-  if (q.isLoading) return <p className="p-6 text-center text-sm text-ink-4">Loading earnings…</p>;
+  if (q.isLoading) return <div className="vyro-surface h-56 animate-pulse" aria-label="Loading earnings" />;
   if (q.isError) {
     return <SupplierErrorState message={(q.error as ApiError).message} onRetry={() => void q.refetch()} />;
   }
@@ -607,7 +607,7 @@ function Earnings({ supplierId }: { supplierId: string }) {
           ]}
         >
           {earnings.map((e) => (
-            <tr key={e.id} className="hover:bg-mist/30 transition-colors">
+            <tr key={e.id} className="hover:bg-bone/40 transition-colors">
               <td className="px-5 py-4">
                 <div className="font-mono text-xs font-semibold text-ink">{e.purchaseOrderId.slice(0, 10)}…</div>
                 <div className="text-[11px] text-ink-4 mt-0.5">{time(e.createdAt)}</div>
@@ -647,7 +647,7 @@ function Settlements({ supplierId }: { supplierId: string }) {
       ),
   });
 
-  if (q.isLoading) return <p className="p-6 text-center text-sm text-ink-4">Loading settlements…</p>;
+  if (q.isLoading) return <div className="vyro-surface h-56 animate-pulse" aria-label="Loading settlements" />;
   if (q.isError) {
     return <SupplierErrorState message={(q.error as ApiError).message} onRetry={() => void q.refetch()} />;
   }
@@ -680,7 +680,7 @@ function Settlements({ supplierId }: { supplierId: string }) {
       ]}
     >
       {settlements.map((s) => (
-        <tr key={s.id} className="hover:bg-mist/30 transition-colors">
+        <tr key={s.id} className="hover:bg-bone/40 transition-colors">
           <td className="px-5 py-4 font-semibold text-sm text-ink">{s.settlementNumber}</td>
           <td className="px-4 py-4 text-xs text-ink-4 font-mono">{time(s.createdAt)}</td>
           <td className="px-4 py-4">
@@ -712,7 +712,7 @@ function Payouts({ supplierId }: { supplierId: string }) {
       }>(`/payouts?supplierId=${supplierId}`),
   });
 
-  if (q.isLoading) return <p className="p-6 text-center text-sm text-ink-4">Loading payouts…</p>;
+  if (q.isLoading) return <div className="vyro-surface h-56 animate-pulse" aria-label="Loading payouts" />;
   if (q.isError) {
     return <SupplierErrorState message={(q.error as ApiError).message} onRetry={() => void q.refetch()} />;
   }
@@ -746,7 +746,7 @@ function Payouts({ supplierId }: { supplierId: string }) {
       ]}
     >
       {payouts.map((p) => (
-        <tr key={p.id} className="hover:bg-mist/30 transition-colors">
+        <tr key={p.id} className="hover:bg-bone/40 transition-colors">
           <td className="px-5 py-4">
             <div className="font-semibold text-sm text-ink">{p.payoutNumber ?? p.id.slice(0, 8)}</div>
             <div className="text-[11px] text-ink-4 font-mono mt-0.5">{time(p.createdAt)}</div>
@@ -784,7 +784,7 @@ function Transactions({ supplierId }: { supplierId: string }) {
       }>(`/finance/supplier/transactions?supplierId=${supplierId}`),
   });
 
-  if (q.isLoading) return <p className="p-6 text-center text-sm text-ink-4">Loading transactions…</p>;
+  if (q.isLoading) return <div className="vyro-surface h-56 animate-pulse" aria-label="Loading transactions" />;
   if (q.isError) {
     return <SupplierErrorState message={(q.error as ApiError).message} onRetry={() => void q.refetch()} />;
   }
@@ -812,14 +812,14 @@ function Transactions({ supplierId }: { supplierId: string }) {
         const credit = t.direction === 'credit';
         const cents = credit ? t.amountCents : -t.amountCents;
         return (
-          <tr key={t.id} className="hover:bg-mist/30 transition-colors">
+          <tr key={t.id} className="hover:bg-bone/40 transition-colors">
             <td className="px-5 py-4">
               <div className="font-medium text-sm text-ink">{t.description}</div>
               <div className="text-[11px] text-ink-4 mt-0.5">{time(t.createdAt)}</div>
             </td>
             <td className="px-4 py-4 text-xs capitalize text-ink-3">{t.category ?? t.refType}</td>
             <td className="px-5 py-4 text-right">
-              <Money cents={cents} className={cn('text-sm', credit ? 'text-emerald-800' : 'text-ink')} />
+              <Money cents={cents} className={cn('text-sm', credit ? 'text-mint' : 'text-ink')} />
             </td>
           </tr>
         );
@@ -844,7 +844,7 @@ function BankDetails({ supplierId }: { supplierId: string }) {
     accountType: '',
   });
 
-  if (q.isLoading) return <p className="p-6 text-center text-sm text-ink-4">Loading bank details…</p>;
+  if (q.isLoading) return <div className="vyro-surface h-56 animate-pulse" aria-label="Loading bank details" />;
   if (q.isError) {
     return <SupplierErrorState message={(q.error as ApiError).message} onRetry={() => void q.refetch()} />;
   }
@@ -881,13 +881,13 @@ function BankDetails({ supplierId }: { supplierId: string }) {
                 key={a.id}
                 className={cn(
                   'relative overflow-hidden rounded-xl border bg-paper p-5 shadow-soft-sm',
-                  verified ? 'border-emerald-700/25' : 'border-ink/10',
+                  verified ? 'border-mint/40' : 'border-ink/10',
                 )}
               >
                 <span
                   className={cn(
                     'absolute inset-y-0 left-0 w-1',
-                    verified ? 'bg-emerald-600' : 'bg-amber',
+                    verified ? 'bg-mint' : 'bg-amber',
                   )}
                   aria-hidden
                 />
@@ -931,7 +931,7 @@ function BankDetails({ supplierId }: { supplierId: string }) {
       </div>
 
       <form
-        className="lg:col-span-7 space-y-4 rounded-lg border border-ink/10 bg-paper p-5 sm:p-6 shadow-soft-sm"
+        className="lg:col-span-7 space-y-4 vyro-surface p-5 sm:p-6"
         onSubmit={(e) => {
           e.preventDefault();
           ask({

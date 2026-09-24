@@ -2,12 +2,13 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { PageHeader, Badge, Button, Input } from '@/components/ui';
+import { Badge, Button, Input } from '@/components/ui';
 import { Surface, MetricNumber } from '@/components/brand/Surface';
 import { useSupplierId } from './useSupplierId';
 import { PaymentConfirmButton } from './PaymentConfirmButton';
 import { formatLKR, formatCompactLKR } from '@/lib/format';
 import { SupplierErrorState, SupplierLoadingState } from './SupplierPageState';
+import { SupplierHero, HeroStatusPill, heroActionClass } from './SupplierHero';
 import {
   CreditCardIcon,
   SearchIcon,
@@ -20,8 +21,6 @@ import {
   RefreshCwIcon,
   FileTextIcon,
   Building2Icon,
-  PackageIcon,
-  ArrowRightIcon,
 } from '@/components/icons';
 import { useToast } from '@vyro/ui';
 
@@ -163,122 +162,134 @@ export function SupplierPaymentsPage() {
   return (
     <div className="space-y-8 max-w-6xl pb-12">
       {/* Header */}
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-line pb-6">
-        <div>
-          <div className="text-[11px] font-mono uppercase tracking-[0.16em] text-copper font-semibold">
-            {supplierName} / Treasury & Settlement
-          </div>
-          <h1 className="vyro-display text-2xl sm:text-3xl font-bold text-ink mt-1">
-            Financial Ledger
-          </h1>
-          <p className="text-sm text-ink-3 mt-1">
-            Automated escrow settlements, digital SVAT invoices, and weekly bank sweep payouts.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0">
-          <Badge variant="neutral" className="gap-1.5 font-mono text-xs bg-paper border border-ink/10 shadow-xs py-1.5 px-3">
-            <ShieldCheckIcon size={13} className="text-emerald-700" />
-            <span className="font-semibold text-ink">SVAT Registered</span>
-          </Badge>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={payments.isFetching || balance.isFetching}
-            className="text-xs gap-1.5"
-            title="Refresh treasury balances"
-          >
-            <RefreshCwIcon size={14} className={payments.isFetching ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Refresh</span>
-          </Button>
-
-          <Link to="/supplier/settings">
-            <Button variant="secondary" size="sm" className="gap-1.5 text-xs font-semibold">
-              <BanknoteIcon size={14} />
+      <SupplierHero
+        icon={BanknoteIcon}
+        kicker={`${supplierName} / Treasury & Settlement`}
+        title="Financial Ledger"
+        description="Automated escrow settlements, digital SVAT invoices, and weekly bank sweep payouts."
+        status={
+          <HeroStatusPill
+            tone="mint"
+            label={
+              <>
+                <ShieldCheckIcon size={11} className="text-mint" />
+                SVAT Registered
+              </>
+            }
+          />
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={payments.isFetching || balance.isFetching}
+              className={heroActionClass}
+              title="Refresh treasury balances"
+            >
+              <RefreshCwIcon size={13} className={payments.isFetching ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+            <Link to="/supplier/settings" className={heroActionClass}>
+              <BanknoteIcon size={13} />
               Payout Settings
-            </Button>
-          </Link>
-        </div>
-      </header>
+            </Link>
+          </>
+        }
+        footer={
+          <>
+            <span>Payouts swept to your verified bank every Friday</span>
+            <span className="text-paper/40">
+              {formatCompactLKR(balanceCents)} available · {list.length} payments on record
+            </span>
+          </>
+        }
+      />
 
       {/* Harmonious Executive KPI Matrix */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-ink/10 border border-ink/10 overflow-hidden rounded-lg shadow-soft-sm">
-        <div className="bg-paper p-5 space-y-1">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="vyro-surface p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <BanknoteIcon size={13} className="text-copper" />
-              Available Balance
-            </span>
-            <span className="text-[10px] text-emerald-800 font-mono font-semibold">Ready for Sweep</span>
+            <div className="size-8 rounded-lg bg-mint/15 text-mint flex items-center justify-center">
+              <BanknoteIcon size={15} />
+            </div>
+            <span className="text-[10px] text-mint font-mono font-semibold">Ready for Sweep</span>
           </div>
-          <MetricNumber size="md" className="text-ink">
-            {formatLKR(balanceCents)}
-          </MetricNumber>
-          <div className="text-xs text-ink-4">Disbursed on Friday sweep</div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">Available Balance</div>
+            <MetricNumber size="md" className="text-ink">
+              {formatLKR(balanceCents)}
+            </MetricNumber>
+            <div className="text-xs text-ink-4 mt-0.5">Disbursed on Friday sweep</div>
+          </div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <ClockIcon size={13} className="text-copper" />
-              Pending Escrow
-            </span>
+            <div className="size-8 rounded-lg bg-amber/15 text-amber flex items-center justify-center">
+              <ClockIcon size={15} />
+            </div>
             <span className="text-[10px] text-amber font-mono font-semibold">In Transit</span>
           </div>
-          <MetricNumber size="md" className="text-amber">
-            {formatLKR(pendingCents)}
-          </MetricNumber>
-          <div className="text-xs text-ink-4">Locked pending delivery sign-off</div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">Pending Escrow</div>
+            <MetricNumber size="md" className="text-amber">
+              {formatLKR(pendingCents)}
+            </MetricNumber>
+            <div className="text-xs text-ink-4 mt-0.5">Locked pending delivery sign-off</div>
+          </div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <TrendingUpIcon size={13} className="text-copper" />
-              Confirmed Collections
-            </span>
+            <div className="size-8 rounded-lg bg-volt/20 text-volt-deep flex items-center justify-center">
+              <TrendingUpIcon size={15} />
+            </div>
             <span className="text-[10px] text-ink-4 font-mono">Current Cycle</span>
           </div>
-          <MetricNumber size="md" className="text-emerald-800">
-            {formatLKR(confirmedCents)}
-          </MetricNumber>
-          <div className="text-xs text-ink-4">Verified buyer payments</div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">Confirmed Collections</div>
+            <MetricNumber size="md" className="text-mint">
+              {formatLKR(confirmedCents)}
+            </MetricNumber>
+            <div className="text-xs text-ink-4 mt-0.5">Verified buyer payments</div>
+          </div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <Building2Icon size={13} className="text-copper" />
-              Settlement Bank
-            </span>
+            <div className="size-8 rounded-lg bg-copper/15 text-copper flex items-center justify-center">
+              <Building2Icon size={15} />
+            </div>
             {bank?.bankVerified ? (
-              <span className="text-[10px] text-emerald-800 font-mono font-semibold">Verified</span>
+              <span className="text-[10px] text-mint font-mono font-semibold">Verified</span>
             ) : (
               <span className="text-[10px] text-amber font-mono font-semibold">Action Req.</span>
             )}
           </div>
-          {bank?.bankName ? (
-            <div>
-              <div className="font-semibold text-ink text-sm truncate">{bank.bankName}</div>
-              <div className="text-xs font-mono text-ink-4">
-                •••• {bank.bankAccountNo ? bank.bankAccountNo.slice(-4) : '••••'}
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">Settlement Bank</div>
+            {bank?.bankName ? (
+              <div className="mt-1">
+                <div className="font-semibold text-ink text-sm truncate">{bank.bankName}</div>
+                <div className="text-xs font-mono text-ink-4">
+                  •••• {bank.bankAccountNo ? bank.bankAccountNo.slice(-4) : '••••'}
+                </div>
               </div>
-            </div>
-          ) : (
-            <div>
-              <div className="text-xs text-amber font-medium">Bank not configured</div>
-              <Link to="/supplier/settings" className="text-xs text-copper hover:underline font-semibold block mt-0.5">
-                Link Payout Account →
-              </Link>
-            </div>
-          )}
+            ) : (
+              <div className="mt-1">
+                <div className="text-xs text-amber font-medium">Bank not configured</div>
+                <Link to="/supplier/settings" className="text-xs text-copper hover:underline font-semibold block mt-0.5">
+                  Link Payout Account →
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Escrow & Settlement Workflow Radar */}
-      <Surface kind="elevated" className="p-6 border border-ink/10 shadow-soft-sm rounded-lg space-y-4">
+      <Surface kind="elevated" className="p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-line pb-3">
           <div className="text-xs font-mono uppercase tracking-wider font-bold text-ink flex items-center gap-2">
             <span className="size-2 rounded-full bg-volt" />
@@ -290,7 +301,7 @@ export function SupplierPaymentsPage() {
         </div>
 
         <div className="grid sm:grid-cols-3 gap-3">
-          <div className="p-4 bg-paper border border-line rounded space-y-1">
+          <div className="p-4 bg-ink/[0.03] border border-ink/10 rounded-xl space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono text-copper font-bold uppercase">Phase 1</span>
               <ShieldCheckIcon size={14} className="text-copper" />
@@ -301,10 +312,10 @@ export function SupplierPaymentsPage() {
             </p>
           </div>
 
-          <div className="p-4 bg-paper border border-line rounded space-y-1">
+          <div className="p-4 bg-ink/[0.03] border border-ink/10 rounded-xl space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono text-copper font-bold uppercase">Phase 2</span>
-              <CheckCircle2Icon size={14} className="text-emerald-700" />
+              <CheckCircle2Icon size={14} className="text-mint" />
             </div>
             <div className="text-xs font-semibold text-ink">Delivery Sign-off (eGRN)</div>
             <p className="text-[11px] text-ink-4 leading-relaxed">
@@ -312,10 +323,10 @@ export function SupplierPaymentsPage() {
             </p>
           </div>
 
-          <div className="p-4 bg-paper border border-line rounded space-y-1">
+          <div className="p-4 bg-ink/[0.03] border border-ink/10 rounded-xl space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono text-copper font-bold uppercase">Phase 3</span>
-              <BanknoteIcon size={14} className="text-emerald-700" />
+              <BanknoteIcon size={14} className="text-mint" />
             </div>
             <div className="text-xs font-semibold text-ink">Automated Bank Sweep</div>
             <p className="text-[11px] text-ink-4 leading-relaxed">
@@ -326,11 +337,11 @@ export function SupplierPaymentsPage() {
       </Surface>
 
       {/* Tabs */}
-      <div className="border-b border-line flex items-center gap-2 overflow-x-auto scrollbar-none">
+      <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full max-w-full overflow-x-auto scrollbar-none">
         {[
-          { id: 'payments', label: `Order Settlements (${list.length})`, icon: CreditCardIcon },
-          { id: 'payouts', label: `Bank Payout Batches (${payoutList.length})`, icon: BanknoteIcon },
-          { id: 'statement', label: 'Running Account Statement', icon: FileTextIcon },
+          { id: 'payments', label: `Order Settlements`, count: list.length, icon: CreditCardIcon },
+          { id: 'payouts', label: `Bank Payout Batches`, count: payoutList.length, icon: BanknoteIcon },
+          { id: 'statement', label: 'Running Account Statement', count: null, icon: FileTextIcon },
         ].map((t) => {
           const Icon = t.icon;
           const isActive = tab === t.id;
@@ -339,14 +350,21 @@ export function SupplierPaymentsPage() {
               key={t.id}
               type="button"
               onClick={() => setTab(t.id as Tab)}
-              className={`flex items-center gap-2 px-4 py-3 text-xs uppercase tracking-wider font-semibold border-b-2 -mb-px transition-colors whitespace-nowrap ${
+              className={`flex items-center gap-2 h-9 px-4 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
                 isActive
-                  ? 'border-ink text-ink font-bold'
-                  : 'border-transparent text-ink-4 hover:text-ink hover:border-ink/30'
+                  ? 'bg-ink text-paper shadow-sm'
+                  : 'text-ink-3 hover:text-ink'
               }`}
             >
-              <Icon size={14} className={isActive ? 'text-copper' : 'text-ink-4'} />
+              <Icon size={14} className={isActive ? 'text-volt' : 'text-ink-4'} />
               {t.label}
+              {t.count !== null && (
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                  isActive ? 'bg-volt/25 text-volt' : 'bg-ink/[0.06] text-ink-4'
+                }`}>
+                  {t.count}
+                </span>
+              )}
             </button>
           );
         })}
@@ -363,17 +381,17 @@ export function SupplierPaymentsPage() {
           ) : (
             <>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                <div className="flex flex-wrap gap-1.5 overflow-x-auto scrollbar-none">
+                <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full max-w-full overflow-x-auto scrollbar-none">
                   {['all', 'pending', 'confirmed', 'failed', 'refunded'].map((s) => (
                     <button
                       key={s}
                       type="button"
                       onClick={() => setStatus(s)}
                       className={
-                        'px-3.5 py-1.5 text-xs font-mono border transition-colors capitalize rounded ' +
+                        'h-8 px-3.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer capitalize ' +
                         (s === status
-                          ? 'bg-ink text-paper border-ink font-semibold shadow-xs'
-                          : 'bg-paper border-line text-ink-2 hover:bg-mist/60')
+                          ? 'bg-ink text-paper shadow-sm'
+                          : 'text-ink-3 hover:text-ink')
                       }
                     >
                       {s}
@@ -393,15 +411,15 @@ export function SupplierPaymentsPage() {
               </div>
 
               {list.length === 0 ? (
-                <Surface kind="elevated" className="overflow-hidden border border-ink/10 p-8 sm:p-12 text-center rounded-lg shadow-soft-sm">
+                <Surface kind="elevated" className="overflow-hidden p-8 sm:p-12 text-center">
                   <div className="max-w-xl mx-auto space-y-6 py-2">
-                    <div className="size-14 rounded-full bg-volt-soft border border-volt-deep/30 text-volt-deep mx-auto flex items-center justify-center shadow-xs">
+                    <div className="size-14 rounded-xl bg-volt/20 text-volt-deep mx-auto flex items-center justify-center shadow-xs">
                       <CreditCardIcon size={24} />
                     </div>
 
                     <div className="space-y-1.5">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100/60 text-emerald-900 font-mono text-[11px] font-semibold">
-                        <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-mint/15 border border-mint/30 text-ink font-mono text-[11px] font-semibold">
+                        <span className="size-1.5 rounded-full bg-mint animate-pulse" />
                         Escrow Treasury Desk Online
                       </div>
                       <h3 className="font-display text-lg font-bold text-ink">
@@ -414,7 +432,7 @@ export function SupplierPaymentsPage() {
 
                     {/* Bank Status Callout */}
                     {!bank?.bankAccountNo && (
-                      <div className="p-4 bg-amber-50/50 border border-amber/30 rounded-lg text-left flex items-start gap-3">
+                      <div className="p-4 bg-amber/10 border border-amber/30 rounded-xl text-left flex items-start gap-3">
                         <BanknoteIcon size={18} className="text-amber shrink-0 mt-0.5" />
                         <div className="space-y-1">
                           <div className="text-xs font-bold text-ink">Link Your Payout Bank Account</div>
@@ -443,7 +461,7 @@ export function SupplierPaymentsPage() {
                   </div>
                 </Surface>
               ) : filteredPayments.length === 0 ? (
-                <Surface kind="elevated" className="overflow-hidden border border-ink/10 p-12 text-center rounded-lg shadow-soft-sm space-y-2">
+                <Surface kind="elevated" className="overflow-hidden p-12 text-center space-y-2">
                   <SearchIcon size={32} className="mx-auto text-ink-4 opacity-50" />
                   <p className="text-sm font-semibold text-ink">No settlements match "{searchQuery}"</p>
                   <p className="text-xs text-ink-4">Try clearing the search query or adjusting filters.</p>
@@ -452,24 +470,24 @@ export function SupplierPaymentsPage() {
                   </Button>
                 </Surface>
               ) : (
-                <Surface kind="elevated" className="overflow-hidden border border-ink/10 rounded-lg shadow-soft-sm">
+                <Surface kind="elevated" className="overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-ink text-paper text-[11px] uppercase tracking-[0.14em]">
+                      <thead className="bg-bone/60 text-ink-4 text-[10px] font-mono uppercase tracking-[0.14em] border-b border-ink/10">
                         <tr>
-                          <th className="text-left px-5 py-3.5 font-medium">Payment ID</th>
-                          <th className="text-left px-4 py-3.5 font-medium">Channel</th>
-                          <th className="text-right px-4 py-3.5 font-medium">Gross Total</th>
-                          <th className="text-right px-4 py-3.5 font-medium">Platform Fee</th>
-                          <th className="text-right px-4 py-3.5 font-medium">Net Remittance</th>
-                          <th className="text-left px-4 py-3.5 font-medium">Escrow Status</th>
-                          <th className="text-right px-4 py-3.5 font-medium">Timestamp</th>
-                          <th className="text-right px-5 py-3.5 font-medium">Action</th>
+                          <th className="text-left px-5 py-3.5 font-bold">Payment ID</th>
+                          <th className="text-left px-4 py-3.5 font-bold">Channel</th>
+                          <th className="text-right px-4 py-3.5 font-bold">Gross Total</th>
+                          <th className="text-right px-4 py-3.5 font-bold">Platform Fee</th>
+                          <th className="text-right px-4 py-3.5 font-bold">Net Remittance</th>
+                          <th className="text-left px-4 py-3.5 font-bold">Escrow Status</th>
+                          <th className="text-right px-4 py-3.5 font-bold">Timestamp</th>
+                          <th className="text-right px-5 py-3.5 font-bold">Action</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-line">
+                      <tbody className="divide-y divide-ink/5">
                         {filteredPayments.map((p) => (
-                          <tr key={p.id} className="hover:bg-mist/30 transition-colors">
+                          <tr key={p.id} className="hover:bg-bone/40 transition-colors">
                             <td className="px-5 py-4 font-mono text-xs text-ink font-semibold">
                               {p.id.slice(0, 10)}…
                             </td>
@@ -520,9 +538,9 @@ export function SupplierPaymentsPage() {
 
       {/* Tab 2: Bank Payout Batches */}
       {tab === 'payouts' && (
-        <Surface kind="elevated" className="overflow-hidden border border-ink/10 rounded-lg shadow-soft-sm">
+        <Surface kind="elevated" className="overflow-hidden">
           {payouts.isLoading ? (
-            <p className="p-10 text-center text-sm text-ink-4">Loading payout batches…</p>
+            <div className="p-6"><div className="h-40 vyro-surface animate-pulse" /></div>
           ) : payouts.isError ? (
             <div className="p-6">
               <SupplierErrorState
@@ -532,7 +550,7 @@ export function SupplierPaymentsPage() {
             </div>
           ) : payoutList.length === 0 ? (
             <div className="p-12 text-center text-ink-4 space-y-4 max-w-lg mx-auto">
-              <div className="size-14 rounded-full bg-mist/50 border border-line flex items-center justify-center mx-auto text-ink-4">
+              <div className="size-14 rounded-xl bg-ink/[0.05] flex items-center justify-center mx-auto text-ink-4">
                 <BanknoteIcon size={24} />
               </div>
               <div className="space-y-1.5">
@@ -556,18 +574,18 @@ export function SupplierPaymentsPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-ink text-paper text-[11px] uppercase tracking-[0.14em]">
+                <thead className="bg-bone/60 text-ink-4 text-[10px] font-mono uppercase tracking-[0.14em] border-b border-ink/10">
                   <tr>
-                    <th className="text-left px-5 py-3.5 font-medium">Billing Period</th>
-                    <th className="text-left px-4 py-3.5 font-medium">Disbursement Method</th>
-                    <th className="text-right px-4 py-3.5 font-medium">Net Remittance</th>
-                    <th className="text-left px-4 py-3.5 font-medium">Payout Status</th>
-                    <th className="text-right px-5 py-3.5 font-medium">Settlement Date</th>
+                    <th className="text-left px-5 py-3.5 font-bold">Billing Period</th>
+                    <th className="text-left px-4 py-3.5 font-bold">Disbursement Method</th>
+                    <th className="text-right px-4 py-3.5 font-bold">Net Remittance</th>
+                    <th className="text-left px-4 py-3.5 font-bold">Payout Status</th>
+                    <th className="text-right px-5 py-3.5 font-bold">Settlement Date</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-line">
+                <tbody className="divide-y divide-ink/5">
                   {payoutList.map((p) => (
-                    <tr key={p.id} className="hover:bg-mist/30 transition-colors">
+                    <tr key={p.id} className="hover:bg-bone/40 transition-colors">
                       <td className="px-5 py-4 text-xs font-mono text-ink">
                         {new Date(p.periodStart).toLocaleDateString()} – {new Date(p.periodEnd).toLocaleDateString()}
                       </td>
@@ -604,7 +622,7 @@ export function SupplierPaymentsPage() {
 
       {/* Tab 3: Running Account Statement */}
       {tab === 'statement' && (
-        <Surface kind="elevated" className="overflow-hidden border border-ink/10 rounded-lg shadow-soft-sm">
+        <Surface kind="elevated" className="overflow-hidden">
           {statement.data && (
             <div className="px-6 py-4 border-b border-line flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-mist/30">
               <div>
@@ -643,7 +661,7 @@ export function SupplierPaymentsPage() {
                     toast.error(err instanceof Error ? err.message : 'Could not export statement.');
                   }
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium border border-ink/20 bg-paper text-ink hover:bg-ink hover:text-paper transition-colors rounded shadow-xs shrink-0"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium border border-ink/20 bg-paper text-ink hover:bg-ink hover:text-paper transition-colors rounded-lg shadow-xs shrink-0"
               >
                 <DownloadIcon size={13} />
                 Export Statement (CSV)
@@ -652,7 +670,7 @@ export function SupplierPaymentsPage() {
           )}
 
           {statement.isLoading ? (
-            <p className="p-10 text-center text-sm text-ink-4">Loading ledger statement…</p>
+            <div className="p-6"><div className="h-40 vyro-surface animate-pulse" /></div>
           ) : statement.isError ? (
             <div className="p-6">
               <SupplierErrorState
@@ -671,18 +689,18 @@ export function SupplierPaymentsPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-ink text-paper text-[11px] uppercase tracking-[0.14em]">
+                <thead className="bg-bone/60 text-ink-4 text-[10px] font-mono uppercase tracking-[0.14em] border-b border-ink/10">
                   <tr>
-                    <th className="text-left px-5 py-3.5 font-medium">Timestamp</th>
-                    <th className="text-left px-4 py-3.5 font-medium">Description</th>
-                    <th className="text-right px-4 py-3.5 font-medium">Debit (−)</th>
-                    <th className="text-right px-4 py-3.5 font-medium">Credit (+)</th>
-                    <th className="text-right px-5 py-3.5 font-medium">Running Balance</th>
+                    <th className="text-left px-5 py-3.5 font-bold">Timestamp</th>
+                    <th className="text-left px-4 py-3.5 font-bold">Description</th>
+                    <th className="text-right px-4 py-3.5 font-bold">Debit (−)</th>
+                    <th className="text-right px-4 py-3.5 font-bold">Credit (+)</th>
+                    <th className="text-right px-5 py-3.5 font-bold">Running Balance</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-line">
+                <tbody className="divide-y divide-ink/5">
                   {statement.data.entries.map((e) => (
-                    <tr key={e.id} className="hover:bg-mist/30 transition-colors">
+                    <tr key={e.id} className="hover:bg-bone/40 transition-colors">
                       <td className="px-5 py-4 text-ink-3 text-xs font-mono">
                         {new Date(e.createdAt).toLocaleString()}
                       </td>
@@ -693,7 +711,7 @@ export function SupplierPaymentsPage() {
                       <td className="px-4 py-4 text-right vyro-metric text-xs text-rose font-medium">
                         {e.direction === 'debit' ? `− ${formatLKR(e.amountCents)}` : ''}
                       </td>
-                      <td className="px-4 py-4 text-right vyro-metric text-xs text-emerald-800 font-medium">
+                      <td className="px-4 py-4 text-right vyro-metric text-xs text-mint font-medium">
                         {e.direction === 'credit' ? `+ ${formatLKR(e.amountCents)}` : ''}
                       </td>
                       <td className="px-5 py-4 text-right vyro-metric text-xs font-bold text-ink">

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import { PageHeader, Button, Input, Label, Select, Badge } from '@/components/ui';
+import { Button, Input, Label, Select, Badge } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@vyro/ui';
@@ -94,7 +94,7 @@ function Toggle({
   return (
     <label
       htmlFor={id}
-      className="flex items-center justify-between gap-4 border border-ink/10 bg-paper p-4 cursor-pointer hover:border-ink/25 transition-colors rounded-md shadow-xs"
+      className="flex items-center justify-between gap-4 border border-ink/10 bg-paper p-4 cursor-pointer hover:border-ink/25 transition-colors rounded-xl shadow-xs"
     >
       <div>
         <div className="text-sm font-semibold text-ink">{label}</div>
@@ -108,7 +108,7 @@ function Toggle({
         onClick={() => onChange(!checked)}
         className={
           'relative h-6 w-11 shrink-0 rounded-full transition-colors ' +
-          (checked ? 'bg-emerald-800' : 'bg-ink/20')
+          (checked ? 'bg-mint' : 'bg-ink/20')
         }
       >
         <span
@@ -122,7 +122,8 @@ function Toggle({
   );
 }
 
-type TabKey = 'general' | 'logistics' | 'payouts' | 'notifications' | 'team' | 'buyleads';
+const TabKeys = ['general', 'logistics', 'payouts', 'notifications', 'team', 'buyleads'] as const;
+type TabKey = (typeof TabKeys)[number];
 
 export function SupplierSettingsPage() {
   const { supplierId, role, supplierName } = useSupplierId();
@@ -131,7 +132,11 @@ export function SupplierSettingsPage() {
   const qc = useQueryClient();
   const toast = useToast();
 
-  const [tab, setTab] = useState<TabKey>('general');
+  const [tabParam] = useSearchParams();
+  const initialTab = tabParam.get('tab');
+  const [tab, setTab] = useState<TabKey>(
+    initialTab && (TabKeys as readonly string[]).includes(initialTab) ? (initialTab as TabKey) : 'general',
+  );
   const [copied, setCopied] = useState(false);
 
   const detail = useQuery({
@@ -257,7 +262,7 @@ export function SupplierSettingsPage() {
               </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-800/20 rounded-md text-xs font-medium">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-mint/15 text-mint rounded-full text-xs font-medium">
               <CheckCircle2Icon size={13} />
               All settings synced
             </div>
@@ -266,11 +271,11 @@ export function SupplierSettingsPage() {
       </header>
 
       {/* Facility Identity Hero Card */}
-      <Surface kind="ink" className="p-6 relative overflow-hidden grain rounded-lg shadow-soft-sm">
+      <Surface kind="ink" className="p-6 relative overflow-hidden grain">
         <div className="absolute inset-0 opacity-25 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,rgba(198,220,74,0.35),transparent_60%)]" />
         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-start sm:items-center gap-4">
-            <div className="size-14 rounded-md bg-volt/15 border border-volt/30 flex items-center justify-center font-display text-2xl font-bold text-volt shrink-0 shadow-inner">
+            <div className="size-14 rounded-xl bg-volt/15 border border-volt/30 flex items-center justify-center font-display text-2xl font-bold text-volt shrink-0 shadow-inner">
               {initialLetter}
             </div>
             <div className="space-y-1 min-w-0">
@@ -278,8 +283,8 @@ export function SupplierSettingsPage() {
                 <span className="font-display text-xl sm:text-2xl font-bold text-paper truncate">
                   {facilityName}
                 </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 font-mono text-[10px] uppercase tracking-wider font-semibold">
-                  <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-mint/15 text-mint border border-mint/30 font-mono text-[10px] uppercase tracking-wider font-semibold">
+                  <span className="size-1.5 rounded-full bg-mint animate-pulse" />
                   Active Depot
                 </span>
                 <Badge variant="neutral" className="bg-paper/10 text-paper/80 border-paper/15 font-mono text-[10px] uppercase">
@@ -293,7 +298,7 @@ export function SupplierSettingsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-3 md:pt-0 border-t md:border-t-0 border-paper/10">
-            <div className="bg-paper/5 border border-paper/10 rounded px-3 py-1.5 space-y-0.5">
+            <div className="bg-paper/5 border border-paper/10 rounded-lg px-3 py-1.5 space-y-0.5">
               <div className="text-[10px] uppercase font-mono tracking-wider text-paper/40">Facility ID</div>
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs text-paper/90 truncate max-w-[150px]">
@@ -314,7 +319,7 @@ export function SupplierSettingsPage() {
       </Surface>
 
       {/* Settings Navigation Tabs */}
-      <div className="border-b border-line flex items-center gap-2 overflow-x-auto scrollbar-none">
+      <div className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-full bg-ink/[0.05] p-1 scrollbar-none">
         {[
           { key: 'general', label: 'General & Legal', icon: Building2Icon },
           { key: 'logistics', label: 'Depot & Logistics', icon: WarehouseIcon },
@@ -330,13 +335,13 @@ export function SupplierSettingsPage() {
               key={t.key}
               type="button"
               onClick={() => setTab(t.key as TabKey)}
-              className={`flex items-center gap-2 px-4 py-3 text-xs uppercase tracking-wider font-semibold border-b-2 -mb-px transition-colors whitespace-nowrap ${
+              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-full transition-all whitespace-nowrap cursor-pointer ${
                 isActive
-                  ? 'border-ink text-ink font-bold'
-                  : 'border-transparent text-ink-4 hover:text-ink hover:border-ink/30'
+                  ? 'bg-ink text-paper shadow-sm'
+                  : 'text-ink-3 hover:text-ink'
               }`}
             >
-              <Icon size={14} className={isActive ? 'text-copper' : 'text-ink-4'} />
+              <Icon size={14} className={isActive ? 'text-volt' : 'text-ink-4'} />
               {t.label}
             </button>
           );
@@ -354,13 +359,13 @@ export function SupplierSettingsPage() {
             <p className="text-xs text-ink-3 leading-relaxed">
               Your registered business name, corporate registration number, and SVAT tax identity appear on wholesale buyer purchase orders and digital tax receipts.
             </p>
-            <div className="p-3 bg-mist/30 border border-line rounded-md text-xs text-ink-4 mt-3">
+            <div className="p-3.5 bg-ink/[0.03] rounded-xl text-xs text-ink-4 mt-3">
               <span className="font-semibold text-ink">SVAT Note:</span> Enter your 12-digit Inland Revenue registration code to enable zero-rated wholesale invoices for registered buyers.
             </div>
           </div>
 
           <div className="lg:col-span-2 space-y-6">
-            <Surface kind="elevated" className="p-6 sm:p-7 border border-ink/10 shadow-soft-sm space-y-5 rounded-lg">
+            <Surface kind="elevated" className="p-6 sm:p-7 space-y-5">
               <div className="space-y-1.5">
                 <Label htmlFor="s-company" className="text-xs font-semibold text-ink">
                   Trading / Company Name
@@ -451,13 +456,13 @@ export function SupplierSettingsPage() {
             <p className="text-xs text-ink-3 leading-relaxed">
               Physical depot address where commercial logistics carriers and verified buyer transport fleets collect freight consignments.
             </p>
-            <div className="p-3 bg-mist/30 border border-line rounded-md text-xs text-ink-4 mt-3">
+            <div className="p-3.5 bg-ink/[0.03] rounded-xl text-xs text-ink-4 mt-3">
               <span className="font-semibold text-ink">Turnaround:</span> Default turnaround days are used by buyer checkout to compute delivery date estimates.
             </div>
           </div>
 
           <div className="lg:col-span-2 space-y-6">
-            <Surface kind="elevated" className="p-6 sm:p-7 border border-ink/10 shadow-soft-sm space-y-5 rounded-lg">
+            <Surface kind="elevated" className="p-6 sm:p-7 space-y-5">
               <div className="space-y-1.5">
                 <Label htmlFor="s-addr" className="text-xs font-semibold text-ink flex items-center gap-1.5">
                   <MapPinIcon size={13} className="text-copper" />
@@ -542,13 +547,13 @@ export function SupplierSettingsPage() {
             <p className="text-xs text-ink-3 leading-relaxed">
               Wholesale buyer payments held in Vyro escrow are automatically swept into this commercial bank account on weekly settlement dates.
             </p>
-            <div className="p-3 bg-mist/30 border border-line rounded-md text-xs text-ink-4 mt-3">
+            <div className="p-3.5 bg-ink/[0.03] rounded-xl text-xs text-ink-4 mt-3">
               <span className="font-semibold text-ink">Bank Encryption:</span> Account credentials are encrypted with AES-256 at rest and verified against SLIPS / CEFT clearing networks.
             </div>
           </div>
 
           <div className="lg:col-span-2 space-y-6">
-            <Surface kind="elevated" className="p-6 sm:p-7 border border-ink/10 shadow-soft-sm space-y-5 rounded-lg">
+            <Surface kind="elevated" className="p-6 sm:p-7 space-y-5">
               <div className="flex items-center justify-between border-b border-line pb-4">
                 <div>
                   <div className="text-xs font-semibold text-ink">Bank Verification Status</div>
@@ -698,13 +703,13 @@ export function SupplierSettingsPage() {
           </div>
 
           <div className="lg:col-span-2 space-y-6">
-            <Surface kind="elevated" className="p-6 border border-ink/10 shadow-soft-sm rounded-lg space-y-4">
+            <Surface kind="elevated" className="p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-line pb-3">
                 <h3 className="font-display font-semibold text-base text-ink">Active Facility Members</h3>
                 <span className="text-xs text-ink-4">1 Member</span>
               </div>
 
-              <div className="flex items-center justify-between p-3.5 bg-mist/20 border border-line rounded-md">
+              <div className="flex items-center justify-between p-3.5 bg-ink/[0.03] rounded-xl">
                 <div className="flex items-center gap-3">
                   <div className="size-10 rounded-full bg-ink text-paper font-bold flex items-center justify-center text-sm">
                     {user?.name?.charAt(0) || 'U'}
@@ -728,7 +733,7 @@ export function SupplierSettingsPage() {
               </p>
             </Surface>
 
-            <Surface kind="elevated" className="p-6 border-l-4 border-l-rose border border-ink/10 shadow-soft-sm rounded-lg space-y-3">
+            <Surface kind="elevated" className="p-6 border-l-4 border-l-rose space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-display font-semibold text-base text-ink">Current Session</h3>
@@ -760,7 +765,7 @@ export function SupplierSettingsPage() {
             </p>
           </div>
           <div className="lg:col-span-2">
-            <Surface kind="elevated" className="p-6 border border-ink/10 shadow-soft-sm rounded-lg">
+            <Surface kind="elevated" className="p-6">
               <BuyLeadsSettingsSection supplierId={supplierId} />
             </Surface>
           </div>

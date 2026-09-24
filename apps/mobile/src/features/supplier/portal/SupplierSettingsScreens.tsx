@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, FileText, Landmark, ListChecks, ShieldCheck, Upload, Warehouse } from 'lucide-react-native';
+import { Building2, FileText, Landmark, ListChecks, ShieldCheck, Sparkles, Upload, Warehouse } from 'lucide-react-native';
 import { colors, radii } from '@/theme/tokens';
-import { api, errorMessage } from '@/lib/api';
+import { api, errorMessage, qs } from '@/lib/api';
 import { useSupplierId } from '@/lib/auth';
 import {
   Banner,
   Button,
+  Checkbox,
   EmptyState,
   ErrorState,
   Field,
@@ -124,7 +125,83 @@ export function SupplierSettingsScreen() {
           <Input value={s.bankAccountHolder ?? ''} onChangeText={(v) => set({ bankAccountHolder: v })} placeholder="Company (Pvt) Ltd" />
         </Field>
       </Section>
+      <BuyLeadsSection supplierId={supplierId} />
     </Screen>
+  );
+}
+
+/* -------------------------------- BuyLeads -------------------------------- */
+
+type BuyLeadsSubscription = { enabled: boolean; categoryIds: string[] };
+type Category = { id: string; slug: string; name: string; active: boolean };
+
+function BuyLeadsSection({ supplierId }: { supplierId: string | undefined }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const sub = useQuery({
+    queryKey: ['supplier', supplierId, 'buyleads-sub'],
+    queryFn: () => api.get<BuyLeadsSubscription>(`/supplier/buyleads/subs${qs({ supplierId })}`),
+    retry: false,
+  });
+  const cats = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.get<{ categories: Category[] }>('/categories'),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const [draft, setDraft] = useState<BuyLeadsSubscription | null>(null);
+  const value = draft ?? sub.data ?? { enabled: false, categoryIds: [] };
+
+  const save = useMutation({
+    mutationFn: (next: BuyLeadsSubscription) => api.put<BuyLeadsSubscription>(`/supplier/buyleads/subs${qs({ supplierId })}`, next),
+    onSuccess: (data) => {
+      qc.setQueryData(['supplier', supplierId, 'buyleads-sub'], data);
+      setDraft(null);
+      toast.success('BuyLeads preferences saved');
+    },
+    onError: (e) => toast.error('Could not save BuyLeads preferences', errorMessage(e)),
+  });
+
+  if (sub.isError) return null; // flag off — keep settings page clean
+
+  return (
+    <Section icon={Sparkles} kicker="Intelligence" title="BuyLeads" sub="Daily email digest of new RFQs matching your categories.">
+      <Checkbox
+        checked={value.enabled}
+        onChange={(enabled) => setDraft({ ...value, enabled })}
+        label="Daily digest email"
+        description="One email each morning with new matched RFQs."
+      />
+      <Field label="Subscribed categories">
+        {cats.isLoading ? (
+          <SkeletonList rows={1} />
+        ) : (
+          <View style={{ gap: 10 }}>
+            {(cats.data?.categories ?? [])
+              .filter((c) => c.active)
+              .map((c) => (
+                <Checkbox
+                  key={c.id}
+                  checked={value.categoryIds.includes(c.id)}
+                  onChange={() => {
+                    const set = new Set(value.categoryIds);
+                    if (set.has(c.id)) set.delete(c.id);
+                    else set.add(c.id);
+                    setDraft({ ...value, categoryIds: Array.from(set) });
+                  }}
+                  label={c.name}
+                />
+              ))}
+          </View>
+        )}
+      </Field>
+      <Button
+        title={save.isPending ? 'Saving…' : 'Save BuyLeads'}
+        size="sm"
+        disabled={save.isPending || !draft}
+        onPress={() => draft && save.mutate(draft)}
+      />
+    </Section>
   );
 }
 

@@ -2,24 +2,22 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { PageHeader, Badge, Button, Input } from '@/components/ui';
+import { Badge, Button, Input } from '@/components/ui';
 import { Surface, MetricNumber } from '@/components/brand/Surface';
 import {
   TruckIcon,
   SearchIcon,
-  MapPinIcon,
   CheckCircle2Icon,
   ClockIcon,
   UserIcon,
   RefreshCwIcon,
   WarehouseIcon,
-  ArrowRightIcon,
   PackageIcon,
-  ShieldCheckIcon,
 } from '@/components/icons';
 import { useSupplierId } from './useSupplierId';
 import { DeliveryTransitionButtons } from './DeliveryTransitionButtons';
 import { SupplierErrorState, SupplierLoadingState } from './SupplierPageState';
+import { SupplierHero, HeroStatusPill, heroActionClass } from './SupplierHero';
 import { useToast } from '@vyro/ui';
 
 type Delivery = {
@@ -146,114 +144,116 @@ export function SupplierDeliveriesPage() {
   return (
     <div className="space-y-8 max-w-6xl pb-12">
       {/* Header */}
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-line pb-6">
-        <div>
-          <div className="text-[11px] font-mono uppercase tracking-[0.16em] text-copper font-semibold">
-            {supplierName} / Fleet Logistics & Freight
-          </div>
-          <h1 className="vyro-display text-2xl sm:text-3xl font-bold text-ink mt-1">
-            Outbound Deliveries
-          </h1>
-          <p className="text-sm text-ink-3 mt-1">
-            Real-time fleet tracking, driver assignment, and electronic proof-of-delivery (eGRN) sync.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-800/20 text-xs font-mono">
-            <span className="size-2 rounded-full bg-emerald-600 animate-pulse" />
-            Live Fleet Sync
-          </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={deliveries.isFetching}
-            className="text-xs gap-1.5"
-            title="Refresh fleet statuses"
-          >
-            <RefreshCwIcon size={14} className={deliveries.isFetching ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Refresh</span>
-          </Button>
-
-          <Link to="/supplier/orders">
-            <Button variant="secondary" size="sm" className="gap-1.5 text-xs font-semibold">
-              <PackageIcon size={14} />
-              Orders Console →
-            </Button>
-          </Link>
-        </div>
-      </header>
+      <SupplierHero
+        icon={TruckIcon}
+        kicker={`${supplierName} / Fleet Logistics & Freight`}
+        title="Outbound Deliveries"
+        description="Real-time fleet tracking, driver assignment, and electronic proof-of-delivery (eGRN) sync."
+        status={<HeroStatusPill label="Live Fleet Sync" tone="mint" />}
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={deliveries.isFetching}
+              className={heroActionClass}
+              title="Refresh fleet statuses"
+            >
+              <RefreshCwIcon size={13} className={deliveries.isFetching ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+            <Link to="/supplier/orders" className={heroActionClass}>
+              <PackageIcon size={13} />
+              Orders Console
+            </Link>
+          </>
+        }
+        footer={
+          <>
+            <span>Fleet positions and eGRN sync every 30s</span>
+            <span className="text-paper/40">
+              {pendingCount} pending · {inTransitCount} in transit
+            </span>
+          </>
+        }
+      />
 
       {/* Harmonious Executive KPI Matrix */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-ink/10 border border-ink/10 overflow-hidden rounded-lg shadow-soft-sm">
-        <div className="bg-paper p-5 space-y-1">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="vyro-surface p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <UserIcon size={13} className="text-copper" />
-              Pending Dispatch
-            </span>
+            <div className="size-8 rounded-lg bg-copper/15 text-copper flex items-center justify-center">
+              <UserIcon size={15} />
+            </div>
             {pendingCount > 0 ? (
               <Badge variant="warning" className="text-[10px] font-mono">
                 {pendingCount} Awaiting Driver
               </Badge>
             ) : (
-              <span className="text-[10px] text-emerald-700 font-mono">Dock Clear</span>
+              <span className="text-[10px] text-mint font-mono font-semibold">Dock Clear</span>
             )}
           </div>
-          <MetricNumber size="md" className="text-ink">
-            {pendingCount}
-          </MetricNumber>
-          <div className="text-xs text-ink-4">Awaiting fleet assignment</div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">Pending Dispatch</div>
+            <MetricNumber size="md" className="text-ink">
+              {pendingCount}
+            </MetricNumber>
+            <div className="text-xs text-ink-4 mt-0.5">Awaiting fleet assignment</div>
+          </div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <TruckIcon size={13} className="text-copper" />
-              Active in Transit
-            </span>
+            <div className="size-8 rounded-lg bg-volt/20 text-volt-deep flex items-center justify-center">
+              <TruckIcon size={15} />
+            </div>
             <span className="text-[10px] text-ink-4 font-mono">On Route</span>
           </div>
-          <MetricNumber size="md" className="text-ink">
-            {inTransitCount}
-          </MetricNumber>
-          <div className="text-xs text-ink-4">Freight en route to buyers</div>
-        </div>
-
-        <div className="bg-paper p-5 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <CheckCircle2Icon size={13} className="text-emerald-700" />
-              Delivered & Signed
-            </span>
-            <span className="text-[10px] text-emerald-800 font-mono font-semibold">eGRN Cleared</span>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">Active in Transit</div>
+            <MetricNumber size="md" className="text-ink">
+              {inTransitCount}
+            </MetricNumber>
+            <div className="text-xs text-ink-4 mt-0.5">Freight en route to buyers</div>
           </div>
-          <MetricNumber size="md" className="text-emerald-800">
-            {deliveredCount}
-          </MetricNumber>
-          <div className="text-xs text-ink-4">Digital proof of receipt</div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <ClockIcon size={13} className="text-copper" />
-              Depot Turnaround
-            </span>
+            <div className="size-8 rounded-lg bg-mint/15 text-mint flex items-center justify-center">
+              <CheckCircle2Icon size={15} />
+            </div>
+            <span className="text-[10px] text-mint font-mono font-semibold">eGRN Cleared</span>
+          </div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">Delivered & Signed</div>
+            <MetricNumber size="md" className="text-mint">
+              {deliveredCount}
+            </MetricNumber>
+            <div className="text-xs text-ink-4 mt-0.5">Digital proof of receipt</div>
+          </div>
+        </div>
+
+        <div className="vyro-surface p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="size-8 rounded-lg bg-ink/[0.07] text-ink flex items-center justify-center">
+              <ClockIcon size={15} />
+            </div>
             <span className="text-[10px] text-ink-4 font-mono">Target SLA</span>
           </div>
-          <MetricNumber size="md" className="text-ink">
-            {settings?.defaultLeadTimeDays ?? 1}d
-          </MetricNumber>
-          <div className="text-xs text-ink-4">Same-day / 24h dispatch target</div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">Depot Turnaround</div>
+            <MetricNumber size="md" className="text-ink">
+              {settings?.defaultLeadTimeDays ?? 1}d
+            </MetricNumber>
+            <div className="text-xs text-ink-4 mt-0.5">Same-day / 24h dispatch target</div>
+          </div>
         </div>
       </div>
 
       {/* Active Orders Ready for Freight Banner (if any orders need dispatching) */}
       {readyForDispatchOrders.length > 0 && (
-        <Surface kind="elevated" className="p-4 sm:p-5 border-l-4 border-l-amber border border-ink/10 rounded-lg shadow-soft-sm bg-amber-50/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <Surface kind="elevated" className="p-4 sm:p-5 border-l-4 !border-l-amber bg-amber/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="text-xs font-bold text-ink uppercase tracking-wider flex items-center gap-2">
               <PackageIcon size={14} className="text-amber" />
@@ -273,8 +273,8 @@ export function SupplierDeliveriesPage() {
 
       {/* Status Filter Tabs & Search Bar */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-line pb-3">
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full max-w-full overflow-x-auto scrollbar-none">
             {STATUSES.map((s) => {
               const isActive = s.id === status;
               return (
@@ -282,10 +282,10 @@ export function SupplierDeliveriesPage() {
                   key={s.id}
                   type="button"
                   onClick={() => setStatus(s.id)}
-                  className={`px-3.5 py-1.5 text-xs font-mono tracking-wider transition-colors border rounded whitespace-nowrap ${
+                  className={`h-8 px-3.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
                     isActive
-                      ? 'bg-ink text-paper border-ink font-semibold shadow-xs'
-                      : 'bg-paper text-ink-3 border-ink/10 hover:bg-mist/60'
+                      ? 'bg-ink text-paper shadow-sm'
+                      : 'text-ink-3 hover:text-ink'
                   }`}
                 >
                   {s.label}
@@ -307,7 +307,7 @@ export function SupplierDeliveriesPage() {
 
         {/* Deliveries Table or Logistics Fleet Readiness Center */}
         {filteredList.length === 0 ? (
-          <Surface kind="elevated" className="overflow-hidden border border-ink/10 p-8 sm:p-12 text-center rounded-lg shadow-soft-sm">
+          <Surface kind="elevated" className="overflow-hidden p-8 sm:p-12 text-center">
             {searchQuery ? (
               <div className="space-y-2 py-4">
                 <SearchIcon size={32} className="mx-auto text-ink-4 opacity-50" />
@@ -319,13 +319,13 @@ export function SupplierDeliveriesPage() {
               </div>
             ) : (
               <div className="max-w-xl mx-auto space-y-6 py-2">
-                <div className="size-14 rounded-full bg-volt-soft border border-volt-deep/30 text-volt-deep mx-auto flex items-center justify-center shadow-xs">
+                <div className="size-14 rounded-xl bg-volt/20 text-volt-deep mx-auto flex items-center justify-center shadow-xs">
                   <TruckIcon size={24} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100/60 text-emerald-900 font-mono text-[11px] font-semibold">
-                    <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-mint/15 border border-mint/30 text-ink font-mono text-[11px] font-semibold">
+                    <span className="size-1.5 rounded-full bg-mint animate-pulse" />
                     Fleet Dispatch Hub Online
                   </div>
                   <h3 className="font-display text-lg font-bold text-ink">
@@ -337,7 +337,7 @@ export function SupplierDeliveriesPage() {
                 </div>
 
                 {/* Depot Dispatch Capability Card */}
-                <div className="p-4 bg-mist/20 border border-line rounded-lg text-left space-y-2">
+                <div className="p-4 bg-ink/[0.03] border border-ink/10 rounded-xl text-left space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-ink flex items-center gap-1.5">
                       <WarehouseIcon size={14} className="text-copper" />
@@ -365,22 +365,22 @@ export function SupplierDeliveriesPage() {
 
                 {/* 4-Step Freight Lifecycle Flow */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-left pt-1">
-                  <div className="p-3 bg-paper border border-line rounded space-y-1">
+                  <div className="p-3 bg-ink/[0.03] border border-ink/10 rounded-xl space-y-1">
                     <div className="text-[10px] font-mono text-copper font-bold uppercase">Stage 1</div>
                     <div className="text-xs font-semibold text-ink">Order Accepted</div>
                     <p className="text-[10px] text-ink-4">PO staged at depot dock.</p>
                   </div>
-                  <div className="p-3 bg-paper border border-line rounded space-y-1">
+                  <div className="p-3 bg-ink/[0.03] border border-ink/10 rounded-xl space-y-1">
                     <div className="text-[10px] font-mono text-copper font-bold uppercase">Stage 2</div>
                     <div className="text-xs font-semibold text-ink">Driver Assigned</div>
                     <p className="text-[10px] text-ink-4">Record driver name & phone.</p>
                   </div>
-                  <div className="p-3 bg-paper border border-line rounded space-y-1">
+                  <div className="p-3 bg-ink/[0.03] border border-ink/10 rounded-xl space-y-1">
                     <div className="text-[10px] font-mono text-copper font-bold uppercase">Stage 3</div>
                     <div className="text-xs font-semibold text-ink">Dispatched</div>
                     <p className="text-[10px] text-ink-4">Fleet vehicle departs hub.</p>
                   </div>
-                  <div className="p-3 bg-paper border border-line rounded space-y-1">
+                  <div className="p-3 bg-ink/[0.03] border border-ink/10 rounded-xl space-y-1">
                     <div className="text-[10px] font-mono text-copper font-bold uppercase">Stage 4</div>
                     <div className="text-xs font-semibold text-ink">eGRN Sign-off</div>
                     <p className="text-[10px] text-ink-4">Buyer verifies & signs.</p>
@@ -403,22 +403,22 @@ export function SupplierDeliveriesPage() {
             )}
           </Surface>
         ) : (
-          <Surface kind="elevated" className="overflow-hidden border border-ink/10 rounded-lg shadow-soft-sm">
+          <Surface kind="elevated" className="overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-ink text-paper text-[11px] uppercase tracking-[0.14em]">
+                <thead className="bg-bone/60 text-ink-4 text-[10px] font-mono uppercase tracking-[0.14em] border-b border-ink/10">
                   <tr>
-                    <th className="text-left px-5 py-3.5 font-medium">Consignment Ref</th>
-                    <th className="text-left px-4 py-3.5 font-medium">Purchase Order</th>
-                    <th className="text-left px-4 py-3.5 font-medium">Dispatch Status</th>
-                    <th className="text-left px-4 py-3.5 font-medium">Assigned Driver</th>
-                    <th className="text-right px-4 py-3.5 font-medium">ETA / Delivered</th>
-                    <th className="text-right px-5 py-3.5 font-medium">Fleet Action</th>
+                    <th className="text-left px-5 py-3.5 font-bold">Consignment Ref</th>
+                    <th className="text-left px-4 py-3.5 font-bold">Purchase Order</th>
+                    <th className="text-left px-4 py-3.5 font-bold">Dispatch Status</th>
+                    <th className="text-left px-4 py-3.5 font-bold">Assigned Driver</th>
+                    <th className="text-right px-4 py-3.5 font-bold">ETA / Delivered</th>
+                    <th className="text-right px-5 py-3.5 font-bold">Fleet Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-line">
+                <tbody className="divide-y divide-ink/5">
                   {filteredList.map((d) => (
-                    <tr key={d.id} className="hover:bg-mist/30 transition-colors">
+                    <tr key={d.id} className="hover:bg-bone/40 transition-colors">
                       <td className="px-5 py-4 font-mono text-xs font-semibold text-ink">
                         {d.id.slice(0, 10)}…
                       </td>
@@ -453,7 +453,7 @@ export function SupplierDeliveriesPage() {
                       </td>
                       <td className="px-4 py-4 text-right text-xs text-ink-3">
                         {d.deliveredAt ? (
-                          <div className="flex items-center justify-end gap-1 text-emerald-800 font-medium">
+                          <div className="flex items-center justify-end gap-1 text-mint font-medium">
                             <CheckCircle2Icon size={12} />
                             {new Date(d.deliveredAt).toLocaleDateString()}
                           </div>

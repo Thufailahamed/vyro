@@ -5,8 +5,9 @@ import { usePageTitle } from '@/lib/usePageTitle';
 import { api } from '@/lib/api';
 import { useSupplierId } from './useSupplierId';
 import { LearningCta } from './learning/LearningCta';
-import { EmptyState, PageHeader } from '@/components/ui';
+import { EmptyState } from '@/components/ui';
 import { MetricNumber, Surface } from '@/components/brand/Surface';
+import { SupplierHero, HeroStatusPill } from './SupplierHero';
 import { StatusPill } from '@/pages/RfqsPage';
 import { FileTextIcon, ClockIcon, MapPinIcon, ArrowRightIcon, PackageIcon } from '@/components/icons';
 
@@ -34,16 +35,26 @@ export function QuoteRequestsPage() {
   });
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-12">
-      <PageHeader
-        kicker={
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="vyro-kicker text-copper">Supplier</span>
-            <span className="text-ink-4">/</span>
-            <span className="text-[11px] font-mono text-ink-3">Sourcing Desk</span>
-          </span>
+      <SupplierHero
+        icon={FileTextIcon}
+        kicker="Supplier / Sourcing Desk"
+        title="Quote Requests"
+        description="Invited and open RFQs from commercial buyers — review requirements and submit mill-gate quotes."
+        status={
+          data && data.rfqs.length > 0 ? (
+            <HeroStatusPill label="Inbound RFQs" tone="mint" />
+          ) : (
+            <HeroStatusPill label="Sourcing Desk" tone="paper" />
+          )
         }
-        title="Quote requests"
-        sub="Invited and open RFQs from commercial buyers — review requirements and submit mill-gate quotes."
+        footer={
+          <>
+            <span>Quotes convert to purchase orders on buyer acceptance</span>
+            <span className="text-paper/40">
+              {rows.length} of {data?.rfqs.length ?? 0} requests shown
+            </span>
+          </>
+        }
       />
       <LearningCta variant="inline" />
       <div className="inline-flex flex-wrap items-center gap-1 p-1 bg-ink/[0.05] rounded-full max-w-full overflow-x-auto scrollbar-none">

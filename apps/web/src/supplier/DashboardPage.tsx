@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button, StatusBadge } from '@/components/ui';
-import { FlowLine, FlowCanvas } from '@/components/brand/FlowLine';
+import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, Surface } from '@/components/brand/Surface';
 import {
   PackageIcon,
@@ -28,6 +28,7 @@ import {
 import { formatCompactLKR, formatLKR } from '@/lib/format';
 import { useSupplierId } from './useSupplierId';
 import { SupplierLoadingState, SupplierErrorState } from './SupplierPageState';
+import { SupplierHero, HeroStatusPill, heroActionClass } from './SupplierHero';
 import { SupplierReviewsPanel } from '@/reviews/SupplierReviewsPanel';
 import { StorefrontSettingsSection } from './StorefrontSettingsSection';
 import { cn } from '@vyro/ui';
@@ -218,152 +219,109 @@ export function SupplierDashboardPage() {
       )}
 
       {/* Industrial Hero Header */}
-      <div className="bg-ink text-paper p-6 sm:p-8 relative overflow-hidden grain rounded-2xl border border-paper/15 shadow-xl">
-        <div className="absolute inset-0 opacity-25 pointer-events-none">
-          <FlowCanvas tone="paper" density="hero" />
-        </div>
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-          <div className="space-y-3 min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider border',
-                  isVerified
-                    ? 'bg-mint/20 text-mint border-mint/30'
-                    : 'bg-volt/20 text-volt border-volt/30',
-                )}
-              >
-                <span
-                  className={cn(
-                    'size-1.5 rounded-full animate-pulse',
-                    isVerified ? 'bg-mint' : 'bg-volt',
-                  )}
-                />
-                {isVerified ? 'Verified Wholesale Hub' : 'Audited Facility Registered'}
+      <SupplierHero
+        icon={StoreIcon}
+        kicker={`Facility ${supplierId.slice(0, 12)} · ${role}`}
+        title={supplierName || supplierDetails?.name || 'Wholesale Supplier Facility'}
+        description={
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            {supplierDetails?.district && (
+              <span className="inline-flex items-center gap-1.5">
+                <MapPinIcon size={13} className="text-volt" />
+                {supplierDetails.city ? `${supplierDetails.city}, ` : ''}
+                {supplierDetails.district} Terminal
               </span>
-              <span className="text-[11px] font-mono text-paper/60 hidden sm:inline">
-                Facility ID: <span className="text-paper/90">{supplierId.slice(0, 16)}</span>
+            )}
+            {supplierDetails?.businessTypeName && (
+              <span className="inline-flex items-center gap-1.5">
+                <LayersIcon size={13} />
+                {supplierDetails.businessTypeName}
               </span>
-              <span className="text-[11px] font-mono text-paper/60 border-l border-paper/15 pl-2.5 hidden sm:inline">
-                Role: <span className="capitalize text-volt font-semibold">{role}</span>
-              </span>
-            </div>
-
-            <h1 className="vyro-display text-4xl sm:text-5xl text-paper leading-[0.95] tracking-tight">
-              {supplierName || supplierDetails?.name || 'Wholesale Supplier Facility'}
-            </h1>
-
-            <div className="text-xs sm:text-sm text-paper/70 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-              {supplierDetails?.district && (
-                <span className="inline-flex items-center gap-1.5">
-                  <MapPinIcon size={13} className="text-volt" />
-                  {supplierDetails.city ? `${supplierDetails.city}, ` : ''}
-                  {supplierDetails.district} Terminal
-                </span>
-              )}
-              {supplierDetails?.businessTypeName && (
-                <span className="inline-flex items-center gap-1.5 text-paper/50">
-                  <LayersIcon size={13} />
-                  {supplierDetails.businessTypeName}
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1.5 text-paper/50">
-                <ClockIcon size={13} /> Live sync · 30s
-              </span>
-              <button
-                onClick={handleRefresh}
-                className="inline-flex items-center gap-1.5 text-paper/60 hover:text-volt transition-colors cursor-pointer"
-                title="Refresh operational feeds"
-              >
-                <RefreshCwIcon
-                  size={12}
-                  className={profileQuery.isFetching ? 'animate-spin text-volt' : ''}
-                />
-                <span>Sync</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <Link to="/supplier/leads">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="bg-paper/10 text-paper border-paper/20 hover:bg-paper/15 hover:border-volt/50 text-xs font-semibold"
-                data-testid="dashboard-leads-link"
-              >
-                <TargetIcon size={13} />
-                <span>Leads Inbox</span>
-              </Button>
+            )}
+            <span className="inline-flex items-center gap-1.5">
+              <ClockIcon size={13} /> Live sync · 30s
+            </span>
+          </span>
+        }
+        status={
+          <HeroStatusPill
+            tone={isVerified ? 'mint' : 'volt'}
+            label={isVerified ? 'Verified Wholesale Hub' : 'Audited Facility Registered'}
+          />
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className={heroActionClass}
+              title="Refresh operational feeds"
+            >
+              <RefreshCwIcon size={13} className={profileQuery.isFetching ? 'animate-spin text-volt' : ''} />
+              Sync
+            </button>
+            <Link to="/supplier/leads" className={heroActionClass} data-testid="dashboard-leads-link">
+              <TargetIcon size={13} />
+              Leads Inbox
             </Link>
-            <Link to="/supplier/orders">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="bg-paper/10 text-paper border-paper/20 hover:bg-paper/15 hover:border-volt/50 text-xs font-semibold"
-              >
-                <PackageIcon size={13} />
-                <span>Dispatch Console</span>
-                {pendingOrders.length > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 rounded-md bg-volt text-ink font-mono font-bold text-[10px]">
-                    {pendingOrders.length}
-                  </span>
-                )}
-              </Button>
+            <Link to="/supplier/orders" className={heroActionClass}>
+              <PackageIcon size={13} />
+              Dispatch Console
+              {pendingOrders.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-md bg-volt text-ink font-mono font-bold text-[10px]">
+                  {pendingOrders.length}
+                </span>
+              )}
             </Link>
             <Link
               to={`/suppliers/${supplierDetails?.slug || 'test'}`}
               target="_blank"
               rel="noopener noreferrer"
+              className={heroActionClass}
+              title="View public storefront"
             >
-              <Button
-                variant="secondary"
-                size="sm"
-                className="bg-paper/10 text-paper border-paper/20 hover:bg-paper/15 hover:border-volt/50 text-xs font-semibold"
-                title="View public storefront"
-              >
-                <StoreIcon size={13} className="text-volt" />
-                <span>See Storefront</span>
-                <ExternalLinkIcon size={11} className="opacity-75" />
-              </Button>
+              <StoreIcon size={13} className="text-volt" />
+              See Storefront
+              <ExternalLinkIcon size={11} className="opacity-75" />
             </Link>
-            <Link to="/supplier/products/new">
-              <Button className="bg-volt text-ink hover:bg-volt-glow font-bold uppercase tracking-wider text-xs py-2.5 px-5 shadow-[0_0_24px_-4px_rgba(198,220,74,0.55)]">
-                + Add Wholesale Product
-                <ArrowRightIcon size={14} />
-              </Button>
+            <Link
+              to="/supplier/products/new"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-volt px-3 text-xs font-bold text-ink uppercase tracking-wider transition-colors hover:bg-volt-glow"
+            >
+              Add Wholesale Product
+              <ArrowRightIcon size={13} />
             </Link>
+          </>
+        }
+        footer={
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full">
+            <HeroStat
+              label="Active Listings"
+              value={String(offerList.length)}
+              sub={lowStockCount > 0 ? `${lowStockCount} low / out` : `${activeOffers} in stock`}
+              tone="volt"
+            />
+            <HeroStat
+              label="Pipeline Value"
+              value={formatCompactLKR(pipelineValueCents)}
+              sub={`${orderList.length} POs this period`}
+              tone="paper"
+            />
+            <HeroStat
+              label="Pending Dispatch"
+              value={String(pendingOrders.length)}
+              sub={pendingOrders.length === 0 ? 'All clear' : 'Awaiting action'}
+              tone={pendingOrders.length > 0 ? 'amber' : 'mint'}
+            />
+            <HeroStat
+              label="Settled Revenue"
+              value={formatCompactLKR(revenueCents)}
+              sub={payList.length === 0 ? 'Awaiting payouts' : `${payList.length} payments`}
+              tone="mint"
+            />
           </div>
-        </div>
-
-        {/* Quick stat strip in hero */}
-        <div className="relative z-10 mt-6 pt-5 border-t border-paper/15 grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <HeroStat
-            label="Active Listings"
-            value={String(offerList.length)}
-            sub={lowStockCount > 0 ? `${lowStockCount} low / out` : `${activeOffers} in stock`}
-            tone="volt"
-          />
-          <HeroStat
-            label="Pipeline Value"
-            value={formatCompactLKR(pipelineValueCents)}
-            sub={`${orderList.length} POs this period`}
-            tone="paper"
-          />
-          <HeroStat
-            label="Pending Dispatch"
-            value={String(pendingOrders.length)}
-            sub={pendingOrders.length === 0 ? 'All clear' : 'Awaiting action'}
-            tone={pendingOrders.length > 0 ? 'amber' : 'mint'}
-          />
-          <HeroStat
-            label="Settled Revenue"
-            value={formatCompactLKR(revenueCents)}
-            sub={payList.length === 0 ? 'Awaiting payouts' : `${payList.length} payments`}
-            tone="mint"
-          />
-        </div>
-      </div>
+        }
+      />
 
       {/* Facility Activation Roadmap (when 0 listings) */}
       {offerList.length === 0 && (

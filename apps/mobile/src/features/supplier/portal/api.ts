@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, qs } from '@/lib/api';
 import type { LifecycleDetailFields, LifecycleItemFields, LifecycleOrderFields } from '@/lib/orderLifecycle';
 
@@ -118,16 +118,35 @@ export function useSupplierRfqDashboard(supplierId: string | undefined) {
   });
 }
 
+// Mirrors LeadRow/LeadNoteRow/LeadsListResult in packages/validation/src/rfqCrm.ts.
+// Mobile cannot import @vyro/validation (see permissions.ts note) — keep in sync.
+export type LeadTag = 'hot' | 'warm' | 'cold';
+export type LeadConversionStatus = 'new' | 'contacted' | 'quoted' | 'won' | 'lost';
+
 export type Lead = {
   id: string;
-  rfqId?: string | null;
-  businessName?: string | null;
-  title?: string | null;
-  status?: string | null;
-  tag?: string | null;
-  totalCents?: number | null;
-  createdAt?: number | null;
-  updatedAt?: number | null;
+  rfqId: string;
+  supplierId: string;
+  status: string;
+  invitedAt: number;
+  tag: LeadTag | null;
+  conversionStatus: LeadConversionStatus | null;
+  quotedAt: number | null;
+  orderId: string | null;
+  orderValueCents: number | null;
+  buyerBusinessId: string;
+  buyerName: string;
+  buyerKycLevel: 'none' | 'basic' | 'enhanced';
+  buyerVerifiedAt: number | null;
+  buyerVerified: boolean;
+};
+
+export type LeadNote = {
+  id: string;
+  rfqSupplierId: string;
+  body: string;
+  createdBy: string;
+  createdAt: number;
 };
 
 export type LessonSummary = {
@@ -220,10 +239,90 @@ export function useSupplierRfqs(supplierId: string | undefined) {
   });
 }
 
-export function useSupplierLeads(supplierId: string | undefined) {
+export function useSupplierLeads(supplierId: string | undefined, tag?: string | null, status?: string | null) {
+  return useInfiniteQuery({
+    queryKey: ['crm-leads', supplierId, tag ?? null, status ?? null],
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage: { leads: Lead[]; nextCursor: string | null }) => lastPage.nextCursor ?? undefined,
+    queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
+      api.get<{ leads: Lead[]; nextCursor: string | null }>(
+        `/supplier/crm/leads${qs({ supplierId, limit: 50, cursor: pageParam, tag: tag ?? undefined, status: status ?? undefined })}`,
+      ),
+    enabled: !!supplierId,
+  });
+}
+
+export function useSupplierLead(supplierId: string | undefined, leadId: string | undefined) {
   return useQuery({
-    queryKey: ['crm-leads', supplierId],
-    queryFn: () => api.get<{ leads: Lead[]; nextCursor: string | null }>(`/supplier/crm/leads${qs({ supplierId, limit: 50 })}`),
+    queryKey: ['crm-lead', supplierId, leadId],
+    queryFn: () => api.get<{ lead: Lead }>(`/supplier/crm/leads/${leadId}${qs({ supplierId })}`),
+    enabled: !!supplierId && !!leadId,
+  });
+}
+
+export function useSupplierLeadNotes(supplierId: string | undefined, leadId: string | undefined) {
+  return useQuery({
+    queryKey: ['crm-lead-notes', supplierId, leadId],
+    queryFn: () =>
+      api.get<{ notes: LeadNote[]; nextCursor: string | null }>(
+        `/supplier/crm/leads/${leadId}/notes${qs({ supplierId, limit: 30 })}`,
+      ),
+    enabled: !!supplierId && !!leadId,
+  });
+}
+
+export function useSetLeadTag(supplierId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { leadId: string; tag: string | null }) =>
+      api.patch<{ tag: string | null }>(`/supplier/crm/leads/${input.leadId}/tag${qs({ supplierId })}`, {
+        tag: input.tag,
+      }),
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: ['crm-leads', supplierId] });
+      void qc.invalidateQueries({ queryKey: ['crm-lead', supplierId, v.leadId] });
+      void qc.invalidateQueries({ queryKey: ['crm-summary', supplierId] });
+    },
+  });
+}
+
+export function useSetLeadStatus(supplierId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { leadId: string; status: string }) =>
+      api.patch<{ status: string }>(`/supplier/crm/leads/${input.leadId}/status${qs({ supplierId })}`, {
+        status: input.status,
+      }),
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: ['crm-leads', supplierId] });
+      void qc.invalidateQueries({ queryKey: ['crm-lead', supplierId, v.leadId] });
+      void qc.invalidateQueries({ queryKey: ['crm-summary', supplierId] });
+    },
+  });
+}
+
+export function useAddLeadNote(supplierId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { leadId: string; body: string }) =>
+      api.post<{ note: LeadNote }>(`/supplier/crm/leads/${input.leadId}/notes${qs({ supplierId })}`, {
+        body: input.body,
+      }),
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: ['crm-lead-notes', supplierId, v.leadId] });
+    },
+  });
+}
+
+export function useCrmSummary(supplierId: string | undefined) {
+  return useQuery({
+    queryKey: ['crm-summary', supplierId],
+    queryFn: () =>
+      api.get<{
+        byTag: { hot: number; warm: number; cold: number; untagged: number };
+        byStatus: { new: number; contacted: number; quoted: number; won: number; lost: number };
+        totals: { leads: number; conversionRate: number };
+      }>(`/supplier/crm/summary${qs({ supplierId })}`),
     enabled: !!supplierId,
   });
 }

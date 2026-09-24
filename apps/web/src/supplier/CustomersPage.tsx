@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { PageHeader, Input, Button, Badge } from '@/components/ui';
+import { Input, Button, Badge } from '@/components/ui';
 import { Surface, MetricNumber } from '@/components/brand/Surface';
 import {
   StoreIcon,
@@ -15,11 +15,11 @@ import {
   BanknoteIcon,
   RefreshCwIcon,
   PlusIcon,
-  CheckCircle2Icon,
 } from '@/components/icons';
 import { formatLKR } from '@/lib/format';
 import { useSupplierId } from './useSupplierId';
 import { SupplierErrorState, SupplierLoadingState } from './SupplierPageState';
+import { SupplierHero, HeroStatusPill, heroActionClass } from './SupplierHero';
 import { useToast } from '@vyro/ui';
 
 type Customer = {
@@ -86,132 +86,116 @@ export function SupplierCustomersPage() {
   return (
     <div className="space-y-6">
       {/* Executive Header */}
-      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <div className="text-[11px] font-mono uppercase tracking-[0.16em] text-copper font-semibold">
-            Enterprise Accounts · Buyer Network
-          </div>
-          <h1 className="vyro-display text-2xl sm:text-3xl font-bold text-ink mt-1">
-            Commercial Buyers & Accounts
-          </h1>
-          <p className="text-sm text-ink-3 mt-1">
-            {list.length === 0
-              ? 'Corporate retail, hospitality, and catering businesses procuring wholesale goods from your depot.'
-              : `${list.length} verified commercial business${list.length === 1 ? '' : 'es'} have placed purchase orders with your depot.`}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <Badge
-            variant="neutral"
-            className="gap-1.5 font-mono text-xs bg-paper border border-ink/10 shadow-xs py-1.5 px-3"
-          >
-            {list.length > 0 ? (
-              <>
-                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-semibold text-ink">Active Client Base</span>
-              </>
-            ) : (
-              <>
-                <span className="size-2 rounded-full bg-amber" />
-                <span className="font-semibold text-ink">Awaiting First Buyer</span>
-              </>
-            )}
-          </Badge>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={customers.isFetching}
-            className="text-xs gap-1.5"
-            title="Refresh accounts directory"
-          >
-            <RefreshCwIcon size={14} className={customers.isFetching ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Refresh</span>
-          </Button>
-
-          <Link to="/supplier/orders">
-            <Button variant="secondary" size="sm" className="gap-1.5 text-xs font-semibold">
-              <span>Orders Console</span>
+      <SupplierHero
+        icon={StoreIcon}
+        kicker="Enterprise Accounts · Buyer Network"
+        title="Commercial Buyers & Accounts"
+        description={
+          list.length === 0
+            ? 'Corporate retail, hospitality, and catering businesses procuring wholesale goods from your depot.'
+            : `${list.length} verified commercial business${list.length === 1 ? '' : 'es'} have placed purchase orders with your depot.`
+        }
+        status={
+          list.length > 0 ? (
+            <HeroStatusPill label="Active Client Base" tone="mint" />
+          ) : (
+            <HeroStatusPill label="Awaiting First Buyer" tone="amber" />
+          )
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={customers.isFetching}
+              className={heroActionClass}
+              title="Refresh accounts directory"
+            >
+              <RefreshCwIcon size={13} className={customers.isFetching ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+            <Link to="/supplier/orders" className={heroActionClass}>
+              Orders Console
               <ArrowRightIcon size={12} />
-            </Button>
-          </Link>
-
-          <Link to="/supplier/products/new">
-            <Button variant="primary" size="sm" className="gap-1.5 text-xs font-semibold shadow-soft-sm hover:brightness-105">
-              <PlusIcon size={14} />
-              + Add Product
-            </Button>
-          </Link>
-        </div>
-      </header>
+            </Link>
+            <Link
+              to="/supplier/products/new"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-volt px-3 text-xs font-bold text-ink transition-colors hover:bg-volt-glow"
+            >
+              <PlusIcon size={13} />
+              Add Product
+            </Link>
+          </>
+        }
+        footer={
+          <>
+            <span>Accounts appear after their first settled purchase order</span>
+            <span className="text-paper/40">
+              {repeatBuyersCount} repeat buyers · {repeatRatio}% repeat rate
+            </span>
+          </>
+        }
+      />
 
       {/* Harmonious 4-Card Client Intelligence Matrix */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-ink/10 border border-ink/10 overflow-hidden rounded-lg shadow-soft-sm">
-        <div className="bg-paper p-5 space-y-1">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <StoreIcon size={13} className="text-copper" />
-              Total Accounts
-            </span>
-            <span className="text-[10px] font-mono text-ink-3">
-              {list.length > 0 ? 'Verified Base' : 'New Depot'}
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Total Accounts</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-ink/[0.06] text-ink-3">
+              <StoreIcon size={15} />
             </span>
           </div>
           <MetricNumber size="md" className="text-ink">
             {list.length}
           </MetricNumber>
-          <div className="text-xs text-ink-4">Commercial wholesale buyers</div>
+          <div className="text-xs text-ink-4">
+            {list.length > 0 ? 'Verified base · wholesale buyers' : 'New depot · no buyers yet'}
+          </div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <TrendingUpIcon size={13} className="text-copper" />
-              Cumulative Bookings
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Cumulative Bookings</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-mint/15 text-mint">
+              <TrendingUpIcon size={15} />
             </span>
-            <span className="text-[10px] text-emerald-800 font-mono font-semibold">Lifetime GMV</span>
           </div>
-          <MetricNumber size="md" className="text-emerald-800">
+          <MetricNumber size="md" className="text-mint">
             {formatLKR(totalSpendCents)}
           </MetricNumber>
-          <div className="text-xs text-ink-4">Invoiced through escrow</div>
+          <div className="text-xs text-ink-4">Lifetime GMV · invoiced via escrow</div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <BanknoteIcon size={13} className="text-copper" />
-              Average Client Spend
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Avg Client Spend</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-copper/10 text-copper">
+              <BanknoteIcon size={15} />
             </span>
-            <span className="text-[10px] text-ink-4 font-mono">Per Account</span>
           </div>
           <MetricNumber size="md" className="text-ink">
             {formatLKR(avgSpendCents)}
           </MetricNumber>
-          <div className="text-xs text-ink-4">Average spend per buyer</div>
+          <div className="text-xs text-ink-4">Per account · average spend</div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <UsersIcon size={13} className="text-copper" />
-              Repeat Client Ratio
-            </span>
-            <span className="text-[10px] text-emerald-800 font-mono font-semibold">
-              {repeatBuyersCount} Recurring
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Repeat Client Ratio</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-volt/15 text-volt-deep">
+              <UsersIcon size={15} />
             </span>
           </div>
           <MetricNumber size="md" className="text-ink">
             {repeatRatio}%
           </MetricNumber>
-          <div className="text-xs text-ink-4">Buyers with 2+ completed orders</div>
+          <div className="text-xs text-ink-4">{repeatBuyersCount} recurring · 2+ orders</div>
         </div>
       </div>
 
       {/* Buyer Segments & Procurement Channels Surface */}
-      <Surface kind="ink" className="p-6 rounded-lg relative overflow-hidden grain shadow-soft-sm">
+      <Surface kind="ink" className="p-6 relative overflow-hidden grain">
         <div className="flex items-start gap-4">
           <div className="size-10 rounded-lg bg-volt/15 border border-volt/30 flex items-center justify-center text-volt shrink-0 mt-0.5">
             <Building2Icon size={20} />
@@ -229,7 +213,7 @@ export function SupplierCustomersPage() {
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-              <div className="bg-paper/10 border border-paper/15 p-3 rounded-md">
+              <div className="bg-paper/5 border border-paper/10 p-3.5 rounded-xl">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-volt font-bold">
                   HORECA & Hospitality
                 </div>
@@ -238,7 +222,7 @@ export function SupplierCustomersPage() {
                 </div>
               </div>
 
-              <div className="bg-paper/10 border border-paper/15 p-3 rounded-md">
+              <div className="bg-paper/5 border border-paper/10 p-3.5 rounded-xl">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-volt font-bold">
                   Supermarkets & Grocers
                 </div>
@@ -247,7 +231,7 @@ export function SupplierCustomersPage() {
                 </div>
               </div>
 
-              <div className="bg-paper/10 border border-paper/15 p-3 rounded-md">
+              <div className="bg-paper/5 border border-paper/10 p-3.5 rounded-xl">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-volt font-bold">
                   Institutions & Caterers
                 </div>
@@ -263,7 +247,7 @@ export function SupplierCustomersPage() {
       {/* When NO buyers have ordered yet: Onboarding Hub */}
       {list.length === 0 ? (
         <div className="space-y-6">
-          <Surface kind="elevated" className="p-6 sm:p-8 border border-ink/10 rounded-lg shadow-soft-sm space-y-6 bg-paper">
+          <Surface kind="elevated" className="p-6 sm:p-8 space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-line">
               <div className="flex items-start gap-4">
                 <div className="size-12 rounded-xl bg-copper/10 border border-copper/20 flex items-center justify-center text-copper shrink-0">
@@ -283,7 +267,7 @@ export function SupplierCustomersPage() {
                 <Link to="/supplier/products/new" className="w-full sm:w-auto">
                   <Button variant="primary" size="md" className="w-full sm:w-auto gap-2 shadow-soft-sm font-semibold">
                     <PlusIcon size={16} />
-                    + Publish Wholesale Products
+                    Publish Wholesale Products
                   </Button>
                 </Link>
               </div>
@@ -295,9 +279,9 @@ export function SupplierCustomersPage() {
                 How to Accelerate Commercial Buyer Adoption
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-md border border-ink/10 bg-mist/30 space-y-2">
+                <div className="p-4 rounded-xl bg-ink/[0.03] space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
+                    <div className="size-6 rounded-md bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
                       1
                     </div>
                     <span className="text-xs font-bold text-ink">Publish Standard Commodities</span>
@@ -307,9 +291,9 @@ export function SupplierCustomersPage() {
                   </p>
                 </div>
 
-                <div className="p-4 rounded-md border border-ink/10 bg-mist/30 space-y-2">
+                <div className="p-4 rounded-xl bg-ink/[0.03] space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
+                    <div className="size-6 rounded-md bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
                       2
                     </div>
                     <span className="text-xs font-bold text-ink">Offer Structured Volume Tiers</span>
@@ -319,9 +303,9 @@ export function SupplierCustomersPage() {
                   </p>
                 </div>
 
-                <div className="p-4 rounded-md border border-ink/10 bg-mist/30 space-y-2">
+                <div className="p-4 rounded-xl bg-ink/[0.03] space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
+                    <div className="size-6 rounded-md bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
                       3
                     </div>
                     <span className="text-xs font-bold text-ink">Commit to 48h Turnaround</span>
@@ -367,7 +351,7 @@ export function SupplierCustomersPage() {
                 className="pl-9 text-xs"
               />
             </div>
-            <div className="flex items-center gap-1.5 overflow-x-auto">
+            <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full overflow-x-auto scrollbar-none">
               {(
                 [
                   { id: 'spend', label: 'Highest Spend' },
@@ -379,10 +363,10 @@ export function SupplierCustomersPage() {
                   key={tab.id}
                   type="button"
                   onClick={() => setSortBy(tab.id)}
-                  className={`px-3 py-1.5 text-xs font-mono tracking-wider transition-colors border rounded ${
+                  className={`h-8 px-3.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
                     sortBy === tab.id
-                      ? 'bg-ink text-paper border-ink font-semibold'
-                      : 'bg-paper text-ink-3 border-ink/10 hover:bg-mist/60'
+                      ? 'bg-ink text-paper shadow-sm'
+                      : 'text-ink-3 hover:text-ink'
                   }`}
                 >
                   {tab.label}
@@ -392,38 +376,36 @@ export function SupplierCustomersPage() {
           </div>
 
           {/* Directory Surface Table */}
-          <Surface kind="elevated" className="overflow-hidden border border-ink/10 rounded-lg shadow-soft-sm">
+          <Surface kind="elevated" className="overflow-hidden">
             {sorted.length === 0 ? (
-              <div className="p-12 text-center text-ink-4 space-y-2">
-                <Building2Icon size={28} className="mx-auto text-ink-4 opacity-50 mb-2" />
+              <div className="p-12 text-center space-y-3">
+                <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-ink/[0.06] text-ink-4">
+                  <Building2Icon size={22} />
+                </div>
                 <p className="text-sm font-medium text-ink-3">No matching commercial buyers.</p>
-                <p className="text-xs">Try searching by a different trading name or keyword.</p>
-                <button
-                  type="button"
-                  onClick={() => setQ('')}
-                  className="text-xs font-semibold text-copper hover:underline mt-2 inline-block"
-                >
+                <p className="text-xs text-ink-4">Try searching by a different trading name or keyword.</p>
+                <Button variant="secondary" size="sm" onClick={() => setQ('')}>
                   Clear search
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-ink text-paper text-[11px] uppercase tracking-[0.14em]">
+                  <thead className="bg-bone/60 text-ink-4 border-b border-ink/10 text-[10px] font-mono uppercase tracking-[0.14em]">
                     <tr>
-                      <th className="text-left px-5 py-3.5 font-medium">Business Account</th>
-                      <th className="text-right px-4 py-3.5 font-medium">Total Orders</th>
-                      <th className="text-right px-4 py-3.5 font-medium">Lifetime GMV</th>
-                      <th className="text-right px-4 py-3.5 font-medium">Most Recent Order</th>
-                      <th className="text-right px-5 py-3.5 font-medium">Action</th>
+                      <th className="text-left px-5 py-3.5 font-bold">Business Account</th>
+                      <th className="text-right px-4 py-3.5 font-bold">Total Orders</th>
+                      <th className="text-right px-4 py-3.5 font-bold">Lifetime GMV</th>
+                      <th className="text-right px-4 py-3.5 font-bold">Most Recent Order</th>
+                      <th className="text-right px-5 py-3.5 font-bold">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-line">
+                  <tbody className="divide-y divide-ink/5">
                     {sorted.map((c) => (
-                      <tr key={c.businessId} className="hover:bg-mist/30 transition-colors">
+                      <tr key={c.businessId} className="hover:bg-bone/40 transition-colors">
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="size-10 rounded-lg bg-mist/60 border border-ink/10 flex items-center justify-center text-ink-3 shrink-0">
+                            <div className="size-10 rounded-lg bg-ink/[0.06] flex items-center justify-center text-ink-3 shrink-0">
                               <Building2Icon size={18} />
                             </div>
                             <div>
@@ -442,7 +424,7 @@ export function SupplierCustomersPage() {
                           </div>
                         </td>
                         <td className="px-4 py-4 text-right">
-                          <span className="font-mono text-xs bg-bone px-2 py-1 border border-ink/10 rounded font-semibold text-ink">
+                          <span className="font-mono text-xs bg-bone px-2.5 py-1 rounded-full font-semibold text-ink">
                             {c.totalOrders} {c.totalOrders === 1 ? 'order' : 'orders'}
                           </span>
                         </td>
@@ -462,7 +444,7 @@ export function SupplierCustomersPage() {
                         <td className="px-5 py-4 text-right">
                           <Link
                             to={`/supplier/orders?buyer=${c.businessId}`}
-                            className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium border border-ink/20 bg-paper text-ink hover:bg-ink hover:text-paper transition-colors rounded shadow-xs"
+                            className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium border border-ink/20 bg-paper text-ink hover:bg-ink hover:text-paper transition-colors rounded-full shadow-xs"
                           >
                             <span>View Orders</span>
                             <ArrowRightIcon size={12} />

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { PageHeader, Badge, Button, Input } from '@/components/ui';
+import { Badge, Button, Input } from '@/components/ui';
 import { Surface, MetricNumber } from '@/components/brand/Surface';
 import {
   PackageIcon,
@@ -20,6 +20,7 @@ import {
 import { useToast } from '@vyro/ui';
 import { useSupplierId } from './useSupplierId';
 import { SupplierErrorState, SupplierLoadingState } from './SupplierPageState';
+import { SupplierHero, HeroStatusPill, heroActionClass } from './SupplierHero';
 
 type Offer = {
   id: string;
@@ -174,126 +175,110 @@ export function SupplierInventoryPage() {
   return (
     <div className="space-y-6">
       {/* Executive Header */}
-      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <div className="text-[11px] font-mono uppercase tracking-[0.16em] text-copper font-semibold">
-            Depot Warehousing · Stock Control
-          </div>
-          <h1 className="vyro-display text-2xl sm:text-3xl font-bold text-ink mt-1">
-            Stock & Inventory Control
-          </h1>
-          <p className="text-sm text-ink-3 mt-1">
-            Maintain real-time availability states across SKUs to prevent backorders and ensure fast fulfillment.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <Badge
-            variant="neutral"
-            className="gap-1.5 font-mono text-xs bg-paper border border-ink/10 shadow-xs py-1.5 px-3"
-          >
-            {list.length > 0 ? (
-              <>
-                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-semibold text-ink">Depot Synchronized</span>
-              </>
-            ) : (
-              <>
-                <span className="size-2 rounded-full bg-amber" />
-                <span className="font-semibold text-ink">Zero Depot Inventory</span>
-              </>
-            )}
-          </Badge>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={offers.isFetching}
-            className="text-xs gap-1.5"
-            title="Refresh warehouse inventory"
-          >
-            <RefreshCwIcon size={14} className={offers.isFetching ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Refresh</span>
-          </Button>
-
-          <Link to="/search" target="_blank" rel="noreferrer">
-            <Button variant="secondary" size="sm" className="gap-1.5 text-xs font-semibold">
+      <SupplierHero
+        icon={WarehouseIcon}
+        kicker="Depot Warehousing · Stock Control"
+        title="Stock & Inventory Control"
+        description="Maintain real-time availability states across SKUs to prevent backorders and ensure fast fulfillment."
+        status={
+          list.length > 0 ? (
+            <HeroStatusPill label="Depot Synchronized" tone="mint" />
+          ) : (
+            <HeroStatusPill label="Zero Depot Inventory" tone="amber" />
+          )
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={offers.isFetching}
+              className={heroActionClass}
+              title="Refresh warehouse inventory"
+            >
+              <RefreshCwIcon size={13} className={offers.isFetching ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+            <Link to="/search" target="_blank" rel="noreferrer" className={heroActionClass}>
               <ExternalLinkIcon size={13} />
-              <span className="hidden sm:inline">Catalog View</span>
-            </Button>
-          </Link>
-
-          <Link to="/supplier/products/new">
-            <Button variant="primary" size="sm" className="gap-1.5 text-xs font-semibold shadow-soft-sm hover:brightness-105">
-              <PlusIcon size={14} />
-              + Add Product
-            </Button>
-          </Link>
-        </div>
-      </header>
+              Catalog View
+            </Link>
+            <Link
+              to="/supplier/products/new"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-volt px-3 text-xs font-bold text-ink transition-colors hover:bg-volt-glow"
+            >
+              <PlusIcon size={13} />
+              Add Product
+            </Link>
+          </>
+        }
+        footer={
+          <>
+            <span>Availability states publish to buyers instantly</span>
+            <span className="text-paper/40">
+              {counts.in_stock ?? 0} in stock · {counts.low ?? 0} low · {counts.out_of_stock ?? 0} out
+            </span>
+          </>
+        }
+      />
 
       {/* Executive 4-Card Warehouse Inventory KPI Matrix */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-ink/10 border border-ink/10 overflow-hidden rounded-lg shadow-soft-sm">
-        <div className="bg-paper p-5 space-y-1">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <CheckCircle2Icon size={13} className="text-emerald-700" />
-              In Stock (Fulfillable)
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">In Stock</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-mint/15 text-mint">
+              <CheckCircle2Icon size={15} />
             </span>
-            <span className="text-[10px] font-mono text-emerald-800 font-semibold">Ready for Orders</span>
           </div>
-          <MetricNumber size="md" className="text-emerald-800">
+          <MetricNumber size="md" className="text-mint">
             {counts.in_stock ?? 0}
           </MetricNumber>
-          <div className="text-xs text-ink-4">Open for instant buyer checkout</div>
+          <div className="text-xs text-ink-4">Fulfillable · open for instant checkout</div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <AlertTriangleIcon size={13} className="text-amber" />
-              Low Stock (Threshold)
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Low Stock</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-amber/15 text-amber">
+              <AlertTriangleIcon size={15} />
             </span>
-            <span className="text-[10px] font-mono text-amber font-semibold">Re-order Warning</span>
           </div>
           <MetricNumber size="md" className={counts.low ? 'text-amber' : 'text-ink-4'}>
             {counts.low ?? 0}
           </MetricNumber>
-          <div className="text-xs text-ink-4">Prompt depot replenishment</div>
+          <div className="text-xs text-ink-4">Threshold · prompt replenishment</div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <XCircleIcon size={13} className="text-rose" />
-              Depleted / Out
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Depleted / Out</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-rose/10 text-rose">
+              <XCircleIcon size={15} />
             </span>
-            <span className="text-[10px] font-mono text-rose font-semibold">Hidden from Cart</span>
           </div>
           <MetricNumber size="md" className={counts.out_of_stock ? 'text-rose' : 'text-ink-4'}>
             {counts.out_of_stock ?? 0}
           </MetricNumber>
-          <div className="text-xs text-ink-4">Prevent checkout stockouts</div>
+          <div className="text-xs text-ink-4">Hidden from cart · prevents stockouts</div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <TrendingUpIcon size={13} className="text-copper" />
-              Depot Fill Health
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Depot Fill Health</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-volt/15 text-volt-deep">
+              <TrendingUpIcon size={15} />
             </span>
-            <span className="text-[10px] font-mono text-ink-4">Availability</span>
           </div>
           <MetricNumber size="md" className="text-ink">
             {fillRatePct}%
           </MetricNumber>
-          <div className="text-xs text-ink-4">Across {list.length} managed line items</div>
+          <div className="text-xs text-ink-4">Availability · {list.length} line items</div>
         </div>
       </div>
 
       {/* Depot Inventory Protocol & SLAs Surface */}
-      <Surface kind="ink" className="p-6 rounded-lg relative overflow-hidden grain shadow-soft-sm">
+      <Surface kind="ink" className="p-6 relative overflow-hidden grain">
         <div className="flex items-start gap-4">
           <div className="size-10 rounded-lg bg-volt/15 border border-volt/30 flex items-center justify-center text-volt shrink-0 mt-0.5">
             <WarehouseIcon size={20} />
@@ -311,8 +296,8 @@ export function SupplierInventoryPage() {
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-              <div className="bg-paper/10 border border-paper/15 p-3 rounded-md">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1">
+              <div className="bg-paper/5 border border-paper/10 p-3.5 rounded-xl">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-mint font-bold flex items-center gap-1">
                   <CheckCircle2Icon size={12} />
                   In Stock (Fulfillable)
                 </div>
@@ -321,7 +306,7 @@ export function SupplierInventoryPage() {
                 </div>
               </div>
 
-              <div className="bg-paper/10 border border-paper/15 p-3 rounded-md">
+              <div className="bg-paper/5 border border-paper/10 p-3.5 rounded-xl">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-amber font-bold flex items-center gap-1">
                   <AlertTriangleIcon size={12} />
                   Low Stock (Threshold)
@@ -331,7 +316,7 @@ export function SupplierInventoryPage() {
                 </div>
               </div>
 
-              <div className="bg-paper/10 border border-paper/15 p-3 rounded-md">
+              <div className="bg-paper/5 border border-paper/10 p-3.5 rounded-xl">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-rose font-bold flex items-center gap-1">
                   <XCircleIcon size={12} />
                   Out of Stock
@@ -348,7 +333,7 @@ export function SupplierInventoryPage() {
       {/* When NO inventory exists: Onboarding Launchpad */}
       {list.length === 0 ? (
         <div className="space-y-6">
-          <Surface kind="elevated" className="p-6 sm:p-8 border border-ink/10 rounded-lg shadow-soft-sm space-y-6 bg-paper">
+          <Surface kind="elevated" className="p-6 sm:p-8 space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-line">
               <div className="flex items-start gap-4">
                 <div className="size-12 rounded-xl bg-copper/10 border border-copper/20 flex items-center justify-center text-copper shrink-0">
@@ -368,7 +353,7 @@ export function SupplierInventoryPage() {
                 <Link to="/supplier/products/new" className="w-full sm:w-auto">
                   <Button variant="primary" size="md" className="w-full sm:w-auto gap-2 shadow-soft-sm font-semibold">
                     <PlusIcon size={16} />
-                    + Add First Depot Commodity
+                    Add First Depot Commodity
                   </Button>
                 </Link>
               </div>
@@ -380,9 +365,9 @@ export function SupplierInventoryPage() {
                 How Depot Inventory Control Works
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-md border border-ink/10 bg-mist/30 space-y-2">
+                <div className="p-4 rounded-xl bg-ink/[0.03] space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
+                    <div className="size-6 rounded-md bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
                       1
                     </div>
                     <span className="text-xs font-bold text-ink">Select Standard SKU</span>
@@ -392,9 +377,9 @@ export function SupplierInventoryPage() {
                   </p>
                 </div>
 
-                <div className="p-4 rounded-md border border-ink/10 bg-mist/30 space-y-2">
+                <div className="p-4 rounded-xl bg-ink/[0.03] space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
+                    <div className="size-6 rounded-md bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
                       2
                     </div>
                     <span className="text-xs font-bold text-ink">Assign SKU & Lead Time</span>
@@ -404,9 +389,9 @@ export function SupplierInventoryPage() {
                   </p>
                 </div>
 
-                <div className="p-4 rounded-md border border-ink/10 bg-mist/30 space-y-2">
+                <div className="p-4 rounded-xl bg-ink/[0.03] space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
+                    <div className="size-6 rounded-md bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
                       3
                     </div>
                     <span className="text-xs font-bold text-ink">1-Click Live Toggles</span>
@@ -435,17 +420,17 @@ export function SupplierInventoryPage() {
                   {unlistedProducts.map((p) => (
                     <div
                       key={p.id}
-                      className="p-3.5 rounded-lg border border-ink/10 bg-paper hover:border-ink/30 transition-all flex flex-col justify-between gap-3 shadow-xs"
+                      className="p-3.5 rounded-xl border border-ink/10 bg-paper hover:border-ink/30 transition-all flex flex-col justify-between gap-3 shadow-xs"
                     >
                       <div className="flex items-start gap-3">
                         {p.imageUrl ? (
                           <img
                             src={p.imageUrl}
                             alt={p.name}
-                            className="size-11 rounded border border-ink/10 object-cover shrink-0 bg-bone"
+                            className="size-11 rounded-lg border border-ink/10 object-cover shrink-0 bg-bone"
                           />
                         ) : (
-                          <div className="size-11 rounded border border-ink/10 bg-mist/60 flex items-center justify-center text-ink-4 shrink-0">
+                          <div className="size-11 rounded-lg bg-ink/[0.06] flex items-center justify-center text-ink-4 shrink-0">
                             <PackageIcon size={18} />
                           </div>
                         )}
@@ -463,7 +448,7 @@ export function SupplierInventoryPage() {
 
                       <Link
                         to={`/supplier/products/new?productId=${p.id}`}
-                        className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-3 text-xs font-semibold bg-bone hover:bg-ink hover:text-paper border border-ink/15 rounded transition-colors"
+                        className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-3 text-xs font-semibold bg-bone hover:bg-ink hover:text-paper border border-ink/15 rounded-lg transition-colors"
                       >
                         <PlusIcon size={13} />
                         Add to Depot Inventory
@@ -489,7 +474,7 @@ export function SupplierInventoryPage() {
                 className="pl-9 text-xs"
               />
             </div>
-            <div className="flex items-center gap-1.5 overflow-x-auto">
+            <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full overflow-x-auto scrollbar-none">
               {(
                 [
                   { id: 'all', label: `All (${list.length})` },
@@ -502,10 +487,10 @@ export function SupplierInventoryPage() {
                   key={tab.id}
                   type="button"
                   onClick={() => setStatusFilter(tab.id as 'all' | Offer['availabilityStatus'])}
-                  className={`px-3 py-1.5 text-xs font-mono tracking-wider transition-colors border rounded ${
+                  className={`h-8 px-3.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
                     statusFilter === tab.id
-                      ? 'bg-ink text-paper border-ink font-semibold'
-                      : 'bg-paper text-ink-3 border-ink/10 hover:bg-mist/60'
+                      ? 'bg-ink text-paper shadow-sm'
+                      : 'text-ink-3 hover:text-ink'
                   }`}
                 >
                   {tab.label}
@@ -515,37 +500,39 @@ export function SupplierInventoryPage() {
           </div>
 
           {/* Inventory Table Surface */}
-          <Surface kind="elevated" className="overflow-hidden border border-ink/10 rounded-lg shadow-soft-sm">
+          <Surface kind="elevated" className="overflow-hidden">
             {filteredList.length === 0 ? (
-              <div className="p-12 text-center text-ink-4 space-y-2">
-                <WarehouseIcon size={28} className="mx-auto text-ink-4 opacity-50 mb-2" />
+              <div className="p-12 text-center space-y-3">
+                <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-ink/[0.06] text-ink-4">
+                  <WarehouseIcon size={22} />
+                </div>
                 <p className="text-sm font-medium text-ink-3">No inventory items match your search.</p>
-                <p className="text-xs">Try clearing the search query or adjusting your filters.</p>
-                <button
-                  type="button"
+                <p className="text-xs text-ink-4">Try clearing the search query or adjusting your filters.</p>
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => {
                     setSearchQuery('');
                     setStatusFilter('all');
                   }}
-                  className="text-xs font-semibold text-copper hover:underline mt-2 inline-block"
                 >
                   Reset all filters
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-ink text-paper text-[11px] uppercase tracking-[0.14em]">
+                  <thead className="bg-bone/60 text-ink-4 border-b border-ink/10 text-[10px] font-mono uppercase tracking-[0.14em]">
                     <tr>
-                      <th className="text-left px-5 py-3.5 font-medium">Depot Commodity</th>
-                      <th className="text-left px-4 py-3.5 font-medium">Depot SKU</th>
-                      <th className="text-left px-4 py-3.5 font-medium">Live Status</th>
-                      <th className="text-right px-4 py-3.5 font-medium">On-hand / Free</th>
-                      <th className="text-right px-4 py-3.5 font-medium">MOQ & Dispatch Lead</th>
-                      <th className="text-right px-5 py-3.5 font-medium">1-Click Availability State</th>
+                      <th className="text-left px-5 py-3.5 font-bold">Depot Commodity</th>
+                      <th className="text-left px-4 py-3.5 font-bold">Depot SKU</th>
+                      <th className="text-left px-4 py-3.5 font-bold">Live Status</th>
+                      <th className="text-right px-4 py-3.5 font-bold">On-hand / Free</th>
+                      <th className="text-right px-4 py-3.5 font-bold">MOQ & Dispatch Lead</th>
+                      <th className="text-right px-5 py-3.5 font-bold">1-Click Availability State</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-line">
+                  <tbody className="divide-y divide-ink/5">
                     {filteredList.map((o) => {
                       const product = nameMap.get(o.productId);
                       const free = o.availableQty ?? null;
@@ -553,17 +540,17 @@ export function SupplierInventoryPage() {
                       const reserved = o.reservedQty ?? 0;
                       const tracked = !!o.trackInventory;
                       return (
-                        <tr key={o.id} className="hover:bg-mist/30 transition-colors">
+                        <tr key={o.id} className="hover:bg-bone/40 transition-colors">
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
                               {product?.imageUrl ? (
                                 <img
                                   src={product.imageUrl}
                                   alt={product.name}
-                                  className="size-10 rounded border border-ink/10 object-cover shrink-0 bg-bone"
+                                  className="size-10 rounded-lg border border-ink/10 object-cover shrink-0 bg-bone"
                                 />
                               ) : (
-                                <div className="size-10 rounded border border-ink/10 bg-mist/60 flex items-center justify-center text-ink-4 shrink-0">
+                                <div className="size-10 rounded-lg bg-ink/[0.06] flex items-center justify-center text-ink-4 shrink-0">
                                   <PackageIcon size={16} />
                                 </div>
                               )}
@@ -585,7 +572,7 @@ export function SupplierInventoryPage() {
                           </td>
                           <td className="px-4 py-4 font-mono text-xs text-ink-3">
                             {o.supplierSku ? (
-                              <span className="bg-bone px-1.5 py-0.5 border border-ink/10 rounded font-mono">
+                              <span className="bg-bone px-1.5 py-0.5 border border-ink/10 rounded-md font-mono">
                                 {o.supplierSku}
                               </span>
                             ) : (
@@ -638,7 +625,7 @@ export function SupplierInventoryPage() {
                             </div>
                           </td>
                           <td className="px-5 py-4 text-right">
-                            <div className="inline-flex rounded-md border border-line overflow-hidden shadow-xs">
+                            <div className="inline-flex items-center gap-0.5 rounded-full bg-ink/[0.05] p-0.5">
                               {ORDER.map((s) => {
                                 const isCurrent = s === o.availabilityStatus;
                                 return (
@@ -648,14 +635,14 @@ export function SupplierInventoryPage() {
                                     disabled={isCurrent || setStatus.isPending}
                                     onClick={() => setStatus.mutate({ id: o.id, status: s })}
                                     className={
-                                      'px-3 py-1.5 text-xs font-mono transition-colors ' +
+                                      'px-3 py-1 text-xs font-medium rounded-full transition-colors ' +
                                       (isCurrent
                                         ? s === 'in_stock'
-                                          ? 'bg-emerald-800 text-paper font-semibold cursor-default'
+                                          ? 'bg-mint text-ink font-semibold cursor-default shadow-xs'
                                           : s === 'low'
-                                            ? 'bg-amber text-paper font-semibold cursor-default'
-                                            : 'bg-rose text-paper font-semibold cursor-default'
-                                        : 'bg-paper text-ink-3 hover:bg-mist/70')
+                                            ? 'bg-amber text-ink font-semibold cursor-default shadow-xs'
+                                            : 'bg-rose text-paper font-semibold cursor-default shadow-xs'
+                                        : 'text-ink-3 hover:text-ink')
                                     }
                                   >
                                     {LABEL[s]}
@@ -721,7 +708,7 @@ function StockEditorModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-ink/50 flex items-center justify-center p-4" role="dialog">
-      <div className="bg-paper border border-ink/10 rounded-lg shadow-soft w-full max-w-md p-5 space-y-4">
+      <div className="bg-paper border border-ink/10 rounded-xl shadow-soft w-full max-w-md p-5 space-y-4">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="font-display text-lg font-bold">Stock control</h2>
@@ -730,18 +717,20 @@ function StockEditorModal({
           <button onClick={onClose} className="text-ink-4 hover:text-ink text-sm">Close</button>
         </div>
         <div className="grid grid-cols-3 gap-2">
-          {(['set', 'adjust'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              className={`py-1.5 text-xs font-mono border rounded transition-colors ${
-                mode === m ? 'bg-ink text-paper border-ink' : 'bg-paper border-ink/10 text-ink-3 hover:bg-mist/60'
-              }`}
-            >
-              {m === 'set' ? 'Set absolute' : 'Adjust ±'}
-            </button>
-          ))}
+          <div className="col-span-2 inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full">
+            {(['set', 'adjust'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={`flex-1 h-7 rounded-full text-xs font-medium transition-colors ${
+                  mode === m ? 'bg-ink text-paper shadow-sm' : 'text-ink-3 hover:text-ink'
+                }`}
+              >
+                {m === 'set' ? 'Set absolute' : 'Adjust ±'}
+              </button>
+            ))}
+          </div>
           <label className="flex items-center gap-2 text-xs px-2 col-span-1">
             <input
               type="checkbox"
@@ -837,7 +826,7 @@ function MovementsDrawer({
         </header>
         <div className="flex-1 overflow-y-auto p-5">
           {loading ? (
-            <div className="h-20 bg-mist animate-pulse" />
+            <div className="h-20 vyro-surface animate-pulse" />
           ) : movements.length === 0 ? (
             <p className="text-sm text-ink-4">No movements yet.</p>
           ) : (
@@ -856,7 +845,7 @@ function MovementsDrawer({
                   <tr key={m.id}>
                     <td className="py-2 text-[11px] text-ink-4">{new Date(m.createdAt).toLocaleString('en-GB')}</td>
                     <td className="py-2 text-xs">{m.reason}</td>
-                    <td className={`py-2 text-right font-mono ${m.qtyDelta > 0 ? 'text-emerald-700' : m.qtyDelta < 0 ? 'text-rose' : 'text-ink-4'}`}>
+                    <td className={`py-2 text-right font-mono ${m.qtyDelta > 0 ? 'text-mint' : m.qtyDelta < 0 ? 'text-rose' : 'text-ink-4'}`}>
                       {m.qtyDelta > 0 ? '+' : ''}{m.qtyDelta}
                     </td>
                     <td className={`py-2 text-right font-mono ${m.reservedDelta > 0 ? 'text-amber' : m.reservedDelta < 0 ? 'text-ink-4' : 'text-ink-4'}`}>

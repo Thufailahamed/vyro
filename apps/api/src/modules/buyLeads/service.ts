@@ -33,7 +33,7 @@ function buildDigestPayload(
     recipientEmail,
     subject,
     body,
-    link: '/supplier/buyleads',
+    link: '/supplier/settings?tab=buyleads',
   };
 }
 

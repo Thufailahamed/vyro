@@ -69,6 +69,6 @@ describe('buyLeads.runDailyDigest', () => {
     expect(payload.kind).toBe('buyleads_digest');
     expect(payload.recipientEmail).toBe('a@a.lk');
     expect(payload.subject).toMatch(/1 new RFQ/);
-    expect(payload.link).toBe('/supplier/buyleads');
+    expect(payload.link).toBe('/supplier/settings?tab=buyleads');
   });
 });

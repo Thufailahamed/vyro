@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import { PageHeader, Button, Badge, Input } from '@/components/ui';
+import { Button, Badge, Input } from '@/components/ui';
 import { Surface, MetricNumber } from '@/components/brand/Surface';
 import {
   PackageIcon,
@@ -22,6 +22,7 @@ import { formatLKR } from '@/lib/format';
 import { useToast } from '@vyro/ui';
 import { useSupplierId } from './useSupplierId';
 import { SupplierErrorState, SupplierLoadingState } from './SupplierPageState';
+import { SupplierHero, HeroStatusPill, heroActionClass } from './SupplierHero';
 
 type Offer = {
   id: string;
@@ -144,129 +145,113 @@ export function SupplierProductsPage() {
   return (
     <div className="space-y-6">
       {/* Executive Catalog Header */}
-      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <div className="text-[11px] font-mono uppercase tracking-[0.16em] text-copper font-semibold">
-            Wholesale Supply Network · Depot Catalog
-          </div>
-          <h1 className="vyro-display text-2xl sm:text-3xl font-bold text-ink mt-1">
-            Product Listings & Mill-Gate Rates
-          </h1>
-          <p className="text-sm text-ink-3 mt-1">
-            {list.length === 0
-              ? 'Publish standard commodities or custom depot items to accept verified buyer purchase orders.'
-              : `${list.length} wholesale commodit${list.length === 1 ? 'y' : 'ies'} published to enterprise buyers.`}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <Badge
-            variant={list.length > 0 ? 'neutral' : 'neutral'}
-            className="gap-1.5 font-mono text-xs bg-paper border border-ink/10 shadow-xs py-1.5 px-3"
-          >
-            {list.length > 0 ? (
-              <>
-                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-semibold text-ink">Catalog Active</span>
-              </>
-            ) : (
-              <>
-                <span className="size-2 rounded-full bg-amber" />
-                <span className="font-semibold text-ink">Awaiting Listings</span>
-              </>
-            )}
-          </Badge>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={offers.isFetching}
-            className="text-xs gap-1.5"
-            title="Refresh product listings"
-          >
-            <RefreshCwIcon size={14} className={offers.isFetching ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Refresh</span>
-          </Button>
-
-          <Link to="/search" target="_blank" rel="noreferrer">
-            <Button variant="secondary" size="sm" className="gap-1.5 text-xs font-semibold">
+      <SupplierHero
+        icon={PackageIcon}
+        kicker="Wholesale Supply Network · Depot Catalog"
+        title="Product Listings & Mill-Gate Rates"
+        description={
+          list.length === 0
+            ? 'Publish standard commodities or custom depot items to accept verified buyer purchase orders.'
+            : `${list.length} wholesale commodit${list.length === 1 ? 'y' : 'ies'} published to enterprise buyers.`
+        }
+        status={
+          list.length > 0 ? (
+            <HeroStatusPill label="Catalog Active" tone="mint" />
+          ) : (
+            <HeroStatusPill label="Awaiting Listings" tone="amber" />
+          )
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={offers.isFetching}
+              className={heroActionClass}
+              title="Refresh product listings"
+            >
+              <RefreshCwIcon size={13} className={offers.isFetching ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+            <Link to="/search" target="_blank" rel="noreferrer" className={heroActionClass}>
               <ExternalLinkIcon size={13} />
-              <span className="hidden sm:inline">Marketplace</span>
-            </Button>
-          </Link>
-
-          <Link to="/supplier/products/new">
-            <Button variant="primary" size="sm" className="gap-1.5 text-xs font-semibold shadow-soft-sm hover:brightness-105">
-              <PlusIcon size={14} />
-              + Add Product
-            </Button>
-          </Link>
-        </div>
-      </header>
+              Marketplace
+            </Link>
+            <Link
+              to="/supplier/products/new"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-volt px-3 text-xs font-bold text-ink transition-colors hover:bg-volt-glow"
+            >
+              <PlusIcon size={13} />
+              Add Product
+            </Link>
+          </>
+        }
+        footer={
+          <>
+            <span>Listings sync to the buyer marketplace instantly</span>
+            <span className="text-paper/40">
+              {inStockCount} in stock · {lowStockCount} low · {outOfStockCount} out
+            </span>
+          </>
+        }
+      />
 
       {/* Harmonious Executive KPI Matrix */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-ink/10 border border-ink/10 overflow-hidden rounded-lg shadow-soft-sm">
-        <div className="bg-paper p-5 space-y-1">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <PackageIcon size={13} className="text-copper" />
-              Total Published
-            </span>
-            <span className="text-[10px] font-mono text-ink-3">
-              {list.length > 0 ? 'Catalog Active' : 'Depot Empty'}
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Total Published</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-ink/[0.06] text-ink-3">
+              <PackageIcon size={15} />
             </span>
           </div>
           <MetricNumber size="md" className="text-ink">
             {list.length}
           </MetricNumber>
-          <div className="text-xs text-ink-4">Active wholesale offers</div>
+          <div className="text-xs text-ink-4">
+            {list.length > 0 ? 'Catalog Active · wholesale offers' : 'Depot empty · no offers yet'}
+          </div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <CheckCircle2Icon size={13} className="text-emerald-700" />
-              In Stock & Ready
-            </span>
-            <span className="text-[10px] text-emerald-800 font-mono font-semibold">
-              {list.length > 0 ? `${Math.round((inStockCount / list.length) * 100)}% Available` : '0%'}
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">In Stock & Ready</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-mint/15 text-mint">
+              <CheckCircle2Icon size={15} />
             </span>
           </div>
-          <MetricNumber size="md" className="text-emerald-800">
+          <MetricNumber size="md" className="text-mint">
             {inStockCount}
           </MetricNumber>
-          <div className="text-xs text-ink-4">Ready for immediate PO booking</div>
+          <div className="text-xs text-ink-4">
+            {list.length > 0 ? `${Math.round((inStockCount / list.length) * 100)}% available · ready for PO booking` : 'Ready for immediate PO booking'}
+          </div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <AlertTriangleIcon size={13} className="text-amber" />
-              Low / Depleted
-            </span>
-            <span className="text-[10px] text-amber font-mono font-semibold">
-              {lowStockCount} Low · {outOfStockCount} Out
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Low / Depleted</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-amber/15 text-amber">
+              <AlertTriangleIcon size={15} />
             </span>
           </div>
           <MetricNumber size="md" className={lowStockCount + outOfStockCount > 0 ? 'text-amber' : 'text-ink-4'}>
             {lowStockCount + outOfStockCount}
           </MetricNumber>
-          <div className="text-xs text-ink-4">Requires depot replenishment</div>
+          <div className="text-xs text-ink-4">{lowStockCount} low · {outOfStockCount} out — needs replenishment</div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <TrendingUpIcon size={13} className="text-copper" />
-              Avg Mill-Gate Rate
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Avg Mill-Gate Rate</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-copper/10 text-copper">
+              <TrendingUpIcon size={15} />
             </span>
-            <span className="text-[10px] text-ink-4 font-mono">Unit Rate</span>
           </div>
           <MetricNumber size="md" className="text-ink">
             {formatLKR(avgPrice)}
           </MetricNumber>
-          <div className="text-xs text-ink-4">Across all published SKUs</div>
+          <div className="text-xs text-ink-4">Unit rate · across all published SKUs</div>
         </div>
       </div>
 
@@ -274,7 +259,7 @@ export function SupplierProductsPage() {
       {list.length === 0 ? (
         <div className="space-y-6">
           {/* Main Launchpad Hero Card */}
-          <Surface kind="elevated" className="p-6 sm:p-8 border border-ink/10 rounded-lg shadow-soft-sm space-y-6 bg-paper">
+          <Surface kind="elevated" className="p-6 sm:p-8 space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-line">
               <div className="flex items-start gap-4">
                 <div className="size-12 rounded-xl bg-copper/10 border border-copper/20 flex items-center justify-center text-copper shrink-0">
@@ -306,9 +291,9 @@ export function SupplierProductsPage() {
                 How Depot Publishing Works on VYRO
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-md border border-ink/10 bg-mist/30 space-y-2">
+                <div className="p-4 rounded-xl bg-ink/[0.03] space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
+                    <div className="size-6 rounded-md bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
                       1
                     </div>
                     <span className="text-xs font-bold text-ink">Select Standard SKU</span>
@@ -319,9 +304,9 @@ export function SupplierProductsPage() {
                   </p>
                 </div>
 
-                <div className="p-4 rounded-md border border-ink/10 bg-mist/30 space-y-2">
+                <div className="p-4 rounded-xl bg-ink/[0.03] space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
+                    <div className="size-6 rounded-md bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
                       2
                     </div>
                     <span className="text-xs font-bold text-ink">Set Mill-Gate Rates & MOQ</span>
@@ -332,9 +317,9 @@ export function SupplierProductsPage() {
                   </p>
                 </div>
 
-                <div className="p-4 rounded-md border border-ink/10 bg-mist/30 space-y-2">
+                <div className="p-4 rounded-xl bg-ink/[0.03] space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
+                    <div className="size-6 rounded-md bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
                       3
                     </div>
                     <span className="text-xs font-bold text-ink">Receive Escrow POs</span>
@@ -364,17 +349,17 @@ export function SupplierProductsPage() {
                   {unlistedProducts.map((p) => (
                     <div
                       key={p.id}
-                      className="p-3.5 rounded-lg border border-ink/10 bg-paper hover:border-ink/30 transition-all flex flex-col justify-between gap-3 shadow-xs"
+                      className="p-3.5 rounded-xl border border-ink/10 bg-paper hover:border-ink/30 transition-all flex flex-col justify-between gap-3 shadow-xs"
                     >
                       <div className="flex items-start gap-3">
                         {p.imageUrl ? (
                           <img
                             src={p.imageUrl}
                             alt={p.name}
-                            className="size-11 rounded border border-ink/10 object-cover shrink-0 bg-bone"
+                            className="size-11 rounded-lg border border-ink/10 object-cover shrink-0 bg-bone"
                           />
                         ) : (
-                          <div className="size-11 rounded border border-ink/10 bg-mist/60 flex items-center justify-center text-ink-4 shrink-0">
+                          <div className="size-11 rounded-lg bg-ink/[0.06] flex items-center justify-center text-ink-4 shrink-0">
                             <PackageIcon size={18} />
                           </div>
                         )}
@@ -392,7 +377,7 @@ export function SupplierProductsPage() {
 
                       <Link
                         to={`/supplier/products/new?productId=${p.id}`}
-                        className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-3 text-xs font-semibold bg-bone hover:bg-ink hover:text-paper border border-ink/15 rounded transition-colors"
+                        className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-3 text-xs font-semibold bg-bone hover:bg-ink hover:text-paper border border-ink/15 rounded-lg transition-colors"
                       >
                         <PlusIcon size={13} />
                         List This Commodity
@@ -418,7 +403,7 @@ export function SupplierProductsPage() {
                 className="pl-9 text-xs"
               />
             </div>
-            <div className="flex items-center gap-1.5 overflow-x-auto">
+            <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full overflow-x-auto scrollbar-none">
               {(
                 [
                   { id: 'all', label: `All (${list.length})` },
@@ -431,10 +416,10 @@ export function SupplierProductsPage() {
                   key={tab.id}
                   type="button"
                   onClick={() => setStatusFilter(tab.id as 'all' | Offer['availabilityStatus'])}
-                  className={`px-3 py-1.5 text-xs font-mono tracking-wider transition-colors border rounded ${
+                  className={`h-8 px-3.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
                     statusFilter === tab.id
-                      ? 'bg-ink text-paper border-ink font-semibold'
-                      : 'bg-paper text-ink-3 border-ink/10 hover:bg-mist/60'
+                      ? 'bg-ink text-paper shadow-sm'
+                      : 'text-ink-3 hover:text-ink'
                   }`}
                 >
                   {tab.label}
@@ -444,39 +429,41 @@ export function SupplierProductsPage() {
           </div>
 
           {/* Listings Table Surface */}
-          <Surface kind="elevated" className="overflow-hidden border border-ink/10 rounded-lg shadow-soft-sm">
+          <Surface kind="elevated" className="overflow-hidden">
             {filteredList.length === 0 ? (
-              <div className="p-12 text-center text-ink-4 space-y-2">
-                <PackageIcon size={28} className="mx-auto text-ink-4 opacity-50 mb-2" />
+              <div className="p-12 text-center space-y-3">
+                <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-ink/[0.06] text-ink-4">
+                  <PackageIcon size={22} />
+                </div>
                 <p className="text-sm font-medium text-ink-3">No products match your search or filter.</p>
-                <p className="text-xs">Try clearing the search query or adjusting your availability filter.</p>
-                <button
-                  type="button"
+                <p className="text-xs text-ink-4">Try clearing the search query or adjusting your availability filter.</p>
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => {
                     setSearchQuery('');
                     setStatusFilter('all');
                   }}
-                  className="text-xs font-semibold text-copper hover:underline mt-2 inline-block"
                 >
                   Reset all filters
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-ink text-paper">
-                    <tr className="text-[11px] uppercase tracking-[0.14em]">
-                      <th className="text-left px-5 py-3.5 font-medium">Commodity / Master SKU</th>
-                      <th className="text-left px-4 py-3.5 font-medium">Depot SKU</th>
-                      <th className="text-right px-4 py-3.5 font-medium">Mill-Gate Rate</th>
-                      <th className="text-right px-4 py-3.5 font-medium">MOQ</th>
-                      <th className="text-right px-4 py-3.5 font-medium">Lead Time</th>
-                      <th className="text-left px-4 py-3.5 font-medium">Coverage & Tiers</th>
-                      <th className="text-left px-4 py-3.5 font-medium">Availability</th>
-                      <th className="text-right px-5 py-3.5 font-medium">Actions</th>
+                  <thead className="bg-bone/60 text-ink-4 border-b border-ink/10">
+                    <tr className="text-[10px] font-mono uppercase tracking-[0.14em]">
+                      <th className="text-left px-5 py-3.5 font-bold">Commodity / Master SKU</th>
+                      <th className="text-left px-4 py-3.5 font-bold">Depot SKU</th>
+                      <th className="text-right px-4 py-3.5 font-bold">Mill-Gate Rate</th>
+                      <th className="text-right px-4 py-3.5 font-bold">MOQ</th>
+                      <th className="text-right px-4 py-3.5 font-bold">Lead Time</th>
+                      <th className="text-left px-4 py-3.5 font-bold">Coverage & Tiers</th>
+                      <th className="text-left px-4 py-3.5 font-bold">Availability</th>
+                      <th className="text-right px-5 py-3.5 font-bold">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-line">
+                  <tbody className="divide-y divide-ink/5">
                     {filteredList.map((o) => {
                       const p = nameMap.get(o.productId);
                       const hasTiers =
@@ -485,17 +472,17 @@ export function SupplierProductsPage() {
                         (o.tier3DiscountPct ?? 0) > 0;
 
                       return (
-                        <tr key={o.id} className="hover:bg-mist/30 transition-colors">
+                        <tr key={o.id} className="hover:bg-bone/40 transition-colors">
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
                               {p?.imageUrl ? (
                                 <img
                                   src={p.imageUrl}
                                   alt={p.name}
-                                  className="size-10 rounded border border-ink/10 object-cover shrink-0 bg-bone"
+                                  className="size-10 rounded-lg border border-ink/10 object-cover shrink-0 bg-bone"
                                 />
                               ) : (
-                                <div className="size-10 rounded border border-ink/10 bg-mist/60 flex items-center justify-center text-ink-4 shrink-0">
+                                <div className="size-10 rounded-lg bg-ink/[0.06] flex items-center justify-center text-ink-4 shrink-0">
                                   <PackageIcon size={16} />
                                 </div>
                               )}
@@ -552,7 +539,7 @@ export function SupplierProductsPage() {
                                   : 'Depot pickup only'}
                               </span>
                               {hasTiers ? (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-mono text-emerald-800">
+                                <span className="inline-flex items-center gap-1 text-[11px] font-mono text-mint">
                                   <LayersIcon size={11} className="shrink-0" />
                                   Volume Tiers Active
                                 </span>
@@ -570,7 +557,7 @@ export function SupplierProductsPage() {
                             <div className="inline-flex items-center gap-2 justify-end">
                               <Link
                                 to={`/supplier/products/${o.id}/edit`}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium border border-ink/20 bg-paper text-ink hover:bg-ink hover:text-paper transition-colors rounded shadow-xs"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium border border-ink/20 bg-paper text-ink hover:bg-ink hover:text-paper transition-colors rounded-full shadow-xs"
                               >
                                 <Edit3Icon size={12} />
                                 Edit
@@ -578,7 +565,7 @@ export function SupplierProductsPage() {
                               <button
                                 type="button"
                                 onClick={() => setPendingDelete(o)}
-                                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-rose hover:bg-rose/10 transition-colors rounded"
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-rose hover:bg-rose/10 transition-colors rounded-full"
                                 title="Delist listing"
                               >
                                 <Trash2Icon size={13} />
@@ -595,7 +582,7 @@ export function SupplierProductsPage() {
           </Surface>
 
           {/* Wholesale Conversion Tip Banner */}
-          <Surface kind="ink" className="p-5 rounded-lg relative overflow-hidden grain">
+          <Surface kind="ink" className="p-5 relative overflow-hidden grain">
             <div className="flex items-start gap-3">
               <TrendingUpIcon size={20} className="text-volt shrink-0 mt-0.5" />
               <div className="space-y-1">
@@ -622,11 +609,11 @@ export function SupplierProductsPage() {
           onClick={() => !del.isPending && setPendingDelete(null)}
         >
           <div
-            className="bg-paper border border-ink/20 rounded-md shadow-soft-xl max-w-md w-full p-6 space-y-4 animate-scale-in"
+            className="bg-paper border border-ink/20 rounded-xl shadow-soft-xl max-w-md w-full p-6 space-y-4 animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3">
-              <div className="size-10 rounded-full bg-rose/10 flex items-center justify-center text-rose shrink-0">
+              <div className="size-10 rounded-lg bg-rose/10 flex items-center justify-center text-rose shrink-0">
                 <AlertTriangleIcon size={20} />
               </div>
               <div>

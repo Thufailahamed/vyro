@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ChartBar, Flame, Repeat, ShoppingBag, ShoppingBasket, Target, TriangleAlert, TrendingUp, Trophy, Users } from 'lucide-react-native';
 import { useSupplierId } from '@/lib/auth';
 import { errorMessage } from '@/lib/api';
@@ -9,12 +9,14 @@ import {
   AreaChart,
   Avatar,
   BarChart,
+  Button,
   ChipRow,
   Donut,
   EmptyState,
   ErrorState,
   IconTile,
   InkHero,
+  Input,
   Kicker,
   RankBars,
   Screen,
@@ -25,9 +27,20 @@ import {
   StatGrid,
   StatusBadge,
   Text,
+  useToast,
 } from '@/ui';
 import { Enter, ItemCard, Section } from '@/features/supplier/ops/kit';
-import { useSupplierAnalytics, useSupplierCustomers, useSupplierLeads } from './api';
+import {
+  useAddLeadNote,
+  useCrmSummary,
+  useSetLeadStatus,
+  useSetLeadTag,
+  useSupplierAnalytics,
+  useSupplierCustomers,
+  useSupplierLead,
+  useSupplierLeadNotes,
+  useSupplierLeads,
+} from './api';
 
 /* -------------------------------- Customers ------------------------------- */
 
@@ -88,17 +101,32 @@ export function SupplierCustomersScreen() {
 
 type LeadFilter = 'all' | 'hot' | 'warm' | 'cold' | 'converted';
 
+const STATUS_STEPS = ['new', 'contacted', 'quoted', 'won', 'lost'] as const;
+
 export function SupplierLeadsScreen() {
   const supplierId = useSupplierId();
-  const q = useSupplierLeads(supplierId);
   const [filter, setFilter] = useState<LeadFilter>('all');
+  const q = useSupplierLeads(
+    supplierId,
+    filter === 'hot' || filter === 'warm' || filter === 'cold' ? filter : null,
+    filter === 'converted' ? 'won' : null,
+  );
+  const summary = useCrmSummary(supplierId);
 
-  const all = useMemo(() => q.data?.leads ?? [], [q.data]);
-  const shown = useMemo(() => {
-    if (filter === 'all') return all;
-    if (filter === 'converted') return all.filter((l) => (l.status ?? '').toLowerCase().includes('convert'));
-    return all.filter((l) => (l.tag ?? '').toLowerCase() === filter);
-  }, [all, filter]);
+  const leads = useMemo(() => (q.data ? q.data.pages.flatMap((p) => p.leads) : []), [q.data]);
+  const nextCursor = q.data ? q.data.pages.at(-1)?.nextCursor ?? null : null;
+
+  const counts = useMemo(() => {
+    const t = summary.data;
+    if (!t) return null;
+    return {
+      all: t.totals.leads,
+      hot: t.byTag.hot,
+      warm: t.byTag.warm,
+      cold: t.byTag.cold,
+      converted: t.byStatus.won,
+    } satisfies Record<LeadFilter, number>;
+  }, [summary.data]);
 
   if (q.isLoading)
     return (
@@ -114,39 +142,171 @@ export function SupplierLeadsScreen() {
     );
 
   return (
-    <Screen back onRefresh={() => q.refetch()} kicker="CRM" title="Leads" subtitle="Buyer RFQ pipeline and conversion stages.">
+    <Screen
+      back
+      onRefresh={() => q.refetch()}
+      kicker="CRM"
+      title="Leads"
+      subtitle="Buyer RFQ pipeline and conversion stages."
+    >
       <ChipRow<LeadFilter>
         value={filter}
         onChange={setFilter}
         options={[
-          { value: 'all', label: 'All', count: all.length },
-          { value: 'hot', label: 'Hot', count: all.filter((l) => l.tag === 'hot').length },
-          { value: 'warm', label: 'Warm', count: all.filter((l) => l.tag === 'warm').length },
-          { value: 'cold', label: 'Cold', count: all.filter((l) => l.tag === 'cold').length },
-          { value: 'converted', label: 'Converted', count: all.filter((l) => (l.status ?? '').toLowerCase().includes('convert')).length },
+          { value: 'all', label: 'All', count: counts?.all ?? leads.length },
+          { value: 'hot', label: 'Hot', count: counts?.hot ?? 0 },
+          { value: 'warm', label: 'Warm', count: counts?.warm ?? 0 },
+          { value: 'cold', label: 'Cold', count: counts?.cold ?? 0 },
+          { value: 'converted', label: 'Converted', count: counts?.converted ?? 0 },
         ]}
       />
-      {shown.length === 0 ? (
+      {leads.length === 0 ? (
         <EmptyState icon={Target} title="No leads" message="Invited RFQs and buyer inquiries land here." />
       ) : (
-        shown.map((l, i) => {
-          const tag = (l.tag ?? '').toLowerCase();
-          const converted = (l.status ?? '').toLowerCase().includes('convert');
+        leads.map((l, i) => {
+          const tag = l.tag;
+          const won = l.conversionStatus === 'won';
           return (
             <Enter key={l.id} i={i}>
               <ItemCard
-                icon={converted ? Trophy : tag === 'hot' ? Flame : Target}
-                iconTone={converted ? 'success' : tag === 'hot' ? 'danger' : tag === 'warm' ? 'warning' : 'paper'}
-                title={l.businessName ?? l.title ?? 'Buyer lead'}
-                subtitle={`${l.status ? humanize(l.status) : 'New'}${tag ? ` · ${humanize(tag)}` : ''}`}
-                meta={l.updatedAt ? `Updated ${formatDate(l.updatedAt)}` : undefined}
-                badge={<StatusBadge status={l.status ?? l.tag ?? 'open'} size="sm" />}
-                amount={l.totalCents ? formatLKR(l.totalCents) : undefined}
+                icon={won ? Trophy : tag === 'hot' ? Flame : Target}
+                iconTone={won ? 'success' : tag === 'hot' ? 'danger' : tag === 'warm' ? 'warning' : 'paper'}
+                title={l.buyerName}
+                subtitle={`${humanize(l.status)}${tag ? ` · ${humanize(tag)}` : ''}`}
+                meta={l.quotedAt ? `Quoted ${formatDate(l.quotedAt)}` : `Invited ${formatDate(l.invitedAt)}`}
+                badge={
+                  l.conversionStatus ? (
+                    <StatusBadge status={l.conversionStatus === 'won' ? 'won' : l.conversionStatus} size="sm" />
+                  ) : undefined
+                }
+                amount={l.orderValueCents ? formatLKR(l.orderValueCents) : undefined}
+                amountSub="Order value"
+                onPress={() => router.push(`/supplier/leads/${l.id}` as never)}
               />
             </Enter>
           );
         })
       )}
+      {nextCursor ? (
+        <Button
+          variant="ghost"
+          title={q.isFetchingNextPage ? 'Loading…' : 'Load older leads'}
+          onPress={() => void q.fetchNextPage()}
+        />
+      ) : null}
+    </Screen>
+  );
+}
+
+/* ------------------------------ Lead detail ------------------------------- */
+
+export function SupplierLeadDetailScreen() {
+  const supplierId = useSupplierId();
+  const { leadId } = useLocalSearchParams<{ leadId: string }>();
+  const toast = useToast();
+  const q = useSupplierLead(supplierId, leadId);
+  const notes = useSupplierLeadNotes(supplierId, leadId);
+  const setTag = useSetLeadTag(supplierId);
+  const setStatus = useSetLeadStatus(supplierId);
+  const addNote = useAddLeadNote(supplierId);
+  const [noteText, setNoteText] = useState('');
+
+  const onMutationError = (e: unknown) => toast.error('Could not update lead', errorMessage(e));
+
+  const lead = q.data?.lead;
+
+  if (q.isLoading)
+    return (
+      <Screen back kicker="CRM" title="Lead">
+        <SkeletonList rows={4} />
+      </Screen>
+    );
+  if (q.isError || !lead)
+    return (
+      <Screen back kicker="CRM" title="Lead" onRefresh={() => q.refetch()}>
+        <ErrorState message={errorMessage(q.error) ?? 'Lead not found.'} onRetry={() => q.refetch()} />
+      </Screen>
+    );
+
+  return (
+    <Screen
+      back
+      onRefresh={() => q.refetch()}
+      kicker="CRM"
+      title={lead.buyerName}
+      subtitle={`RFQ #${lead.rfqId}`}
+    >
+      <Enter>
+        <ItemCard
+          icon={lead.conversionStatus === 'won' ? Trophy : lead.tag === 'hot' ? Flame : Target}
+          iconTone={
+            lead.conversionStatus === 'won' ? 'success' : lead.tag === 'hot' ? 'danger' : lead.tag === 'warm' ? 'warning' : 'paper'
+          }
+          title={lead.buyerName}
+          subtitle={`${humanize(lead.status)} · ${lead.buyerVerified ? 'Verified buyer' : 'Unverified buyer'}`}
+          meta={
+            lead.quotedAt
+              ? `Quoted ${formatDate(lead.quotedAt)}`
+              : `Invited ${formatDate(lead.invitedAt)}`
+          }
+          amount={lead.orderValueCents ? formatLKR(lead.orderValueCents) : undefined}
+          amountSub="Order value"
+        />
+      </Enter>
+
+      <Section icon={Target} kicker="Temperature" title="Lead tag">
+        <ChipRow<'hot' | 'warm' | 'cold' | 'none'>
+          value={lead.tag ?? 'none'}
+          onChange={(next) => setTag.mutate({ leadId: lead.id, tag: next === 'none' ? null : next }, { onError: onMutationError })}
+          options={[
+            { value: 'none', label: 'None' },
+            { value: 'hot', label: 'Hot' },
+            { value: 'warm', label: 'Warm' },
+            { value: 'cold', label: 'Cold' },
+          ]}
+        />
+      </Section>
+
+      <Section icon={TrendingUp} kicker="Pipeline" title="Conversion status">
+        <ChipRow<(typeof STATUS_STEPS)[number]>
+          value={lead.conversionStatus ?? 'new'}
+          onChange={(next) => setStatus.mutate({ leadId: lead.id, status: next }, { onError: onMutationError })}
+          options={STATUS_STEPS.map((s) => ({ value: s, label: humanize(s) }))}
+        />
+      </Section>
+
+      <Section icon={Users} kicker="Sales notes" title="Notes">
+        {notes.isLoading ? (
+          <SkeletonList rows={2} />
+        ) : (notes.data?.notes ?? []).length === 0 ? (
+          <EmptyState compact title="No notes yet" message="Log follow-ups so the team stays in sync." />
+        ) : (
+          (notes.data?.notes ?? []).map((n) => (
+            <Enter key={n.id}>
+              <ItemCard title="Team note" subtitle={n.body} meta={formatDate(n.createdAt)} />
+            </Enter>
+          ))
+        )}
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 4, alignItems: 'center' }}>
+          <Input
+            value={noteText}
+            onChangeText={(t) => setNoteText(t.slice(0, 1000))}
+            placeholder="Add a note…"
+            containerStyle={{ flex: 1 }}
+          />
+          <Button
+            variant="primary"
+            title="Log"
+            disabled={!noteText.trim() || addNote.isPending}
+            onPress={() => {
+              addNote.mutate(
+                { leadId: lead.id, body: noteText.trim() },
+                { onSuccess: () => setNoteText(''), onError: onMutationError },
+              );
+            }}
+          />
+        </View>
+      </Section>
     </Screen>
   );
 }

@@ -7,7 +7,8 @@ import { VerifiedBuyerBadge } from './VerifiedBuyerBadge';
 import { useSupplierId } from '../useSupplierId';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { Button, EmptyState } from '@/components/ui';
-import { Surface } from '@/components/brand/Surface';
+import { MetricNumber, Surface } from '@/components/brand/Surface';
+import { SupplierHero, HeroStatusPill, heroActionClass } from '../SupplierHero';
 import { formatLKR } from '@/lib/format';
 import {
   TargetIcon,
@@ -17,8 +18,9 @@ import {
   XIcon,
   ClockIcon,
   FilterIcon,
-  AlertCircleIcon,
   CheckCircle2Icon,
+  TrendingUpIcon,
+  UsersIcon,
 } from '@/components/icons';
 import type { LeadsListQuery, LeadTag, LeadConversionStatus, LeadRow } from '@vyro/validation';
 
@@ -54,50 +56,39 @@ export function LeadsPage() {
   return (
     <div className="space-y-6 animate-fade-in max-w-7xl mx-auto">
       {/* Industrial Page Header */}
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-2 border-b border-ink/10">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-bold tracking-widest uppercase bg-ink text-volt rounded">
-              <span className="size-1.5 rounded-full bg-volt animate-pulse" />
-              B2B Wholesale CRM
-            </span>
-            <span className="text-[11px] font-mono text-ink-4 hidden sm:inline">
-              Pipeline Management
-            </span>
-          </div>
-          <h1 className="vyro-display text-3xl font-bold tracking-tight text-ink-1">
-            Leads & RFQ Pipeline
-          </h1>
-          <p className="text-xs sm:text-sm text-ink-3 max-w-2xl leading-relaxed">
-            Track buyer RFQs invited to your facility. Prioritize by temperature, manage conversion stages, log sales notes, and turn inquiries into wholesale orders.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={handleRefresh}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-paper px-3 py-2 text-xs font-semibold text-ink-2 shadow-xs hover:border-ink/30 hover:text-ink-1 transition-all cursor-pointer"
-            title="Sync latest lead updates"
-          >
-            <RefreshCwIcon
-              size={13}
-              className={isFetching ? 'animate-spin text-volt-deep' : 'text-ink-4'}
-            />
-            <span>Sync</span>
-          </button>
-          <Link to="/supplier/quotes">
-            <Button
-              variant="secondary"
-              size="sm"
-              className="text-xs font-semibold"
+      <SupplierHero
+        icon={TargetIcon}
+        kicker="B2B Wholesale CRM · Pipeline Management"
+        title="Leads & RFQ Pipeline"
+        description="Track buyer RFQs invited to your facility. Prioritize by temperature, manage conversion stages, log sales notes, and turn inquiries into wholesale orders."
+        status={<HeroStatusPill label="CRM Live" tone="volt" />}
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isFetching}
+              className={heroActionClass}
+              title="Sync latest lead updates"
             >
-              <FileTextIcon size={14} />
-              <span>Quote Requests</span>
-            </Button>
-          </Link>
-        </div>
-      </header>
+              <RefreshCwIcon size={13} className={isFetching ? 'animate-spin' : ''} />
+              Sync
+            </button>
+            <Link to="/supplier/quotes" className={heroActionClass}>
+              <FileTextIcon size={13} />
+              Quote Requests
+            </Link>
+          </>
+        }
+        footer={
+          <>
+            <span>Buyer inquiries score by engagement temperature</span>
+            <span className="text-paper/40">
+              {totals?.leads ?? 0} leads tracked · {byTag?.hot ?? 0} hot
+            </span>
+          </>
+        }
+      />
 
       {/* KPI Metric Summary Cards */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -105,7 +96,8 @@ export function LeadsPage() {
           label="Hot Leads"
           sublabel="High priority"
           value={byTag?.hot ?? 0}
-          indicator="bg-rose"
+          icon={<TargetIcon size={14} />}
+          tileClass="bg-rose/15 text-rose"
           accent="text-rose"
           active={filter.tag === 'hot'}
           onClick={() =>
@@ -120,8 +112,9 @@ export function LeadsPage() {
           label="Warm Leads"
           sublabel="Follow-up needed"
           value={byTag?.warm ?? 0}
-          indicator="bg-amber-500"
-          accent="text-amber-700"
+          icon={<ClockIcon size={14} />}
+          tileClass="bg-amber/15 text-amber"
+          accent="text-amber"
           active={filter.tag === 'warm'}
           onClick={() =>
             setFilter({
@@ -135,8 +128,9 @@ export function LeadsPage() {
           label="Cold Leads"
           sublabel="Low interest"
           value={byTag?.cold ?? 0}
-          indicator="bg-sky-500"
-          accent="text-sky-700"
+          icon={<UsersIcon size={14} />}
+          tileClass="bg-ink/[0.07] text-ink-3"
+          accent="text-ink-2"
           active={filter.tag === 'cold'}
           onClick={() =>
             setFilter({
@@ -150,7 +144,8 @@ export function LeadsPage() {
           label="Deals Won"
           sublabel="Converted to orders"
           value={byStatus?.won ?? 0}
-          indicator="bg-mint"
+          icon={<CheckCircle2Icon size={14} />}
+          tileClass="bg-mint/15 text-mint-deep"
           accent="text-mint-deep"
           active={filter.status === 'won'}
           onClick={() =>
@@ -169,7 +164,8 @@ export function LeadsPage() {
               ? `${Math.round(summary.data.totals.conversionRate * 100)}%`
               : '—'
           }
-          indicator="bg-volt-deep"
+          icon={<TrendingUpIcon size={14} />}
+          tileClass="bg-volt/20 text-volt-deep"
           accent="text-ink-1"
           active={false}
         />
@@ -185,14 +181,14 @@ export function LeadsPage() {
                 <FilterIcon size={12} />
                 Tag:
               </span>
-              <div className="flex items-center gap-1.5">
+              <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full">
                 <button
                   type="button"
                   onClick={() => setFilter({ ...filter, tag: undefined, cursor: undefined })}
                   className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
                     !filter.tag
                       ? 'bg-ink text-paper shadow-xs'
-                      : 'border border-ink/15 bg-paper text-ink-3 hover:border-ink/30 hover:text-ink-1'
+                      : 'text-ink-3 hover:text-ink-1'
                   }`}
                 >
                   All
@@ -200,7 +196,7 @@ export function LeadsPage() {
                 {(['hot', 'warm', 'cold'] as const).map((t) => {
                   const active = filter.tag === t;
                   const dotColor =
-                    t === 'hot' ? 'bg-rose' : t === 'warm' ? 'bg-amber-500' : 'bg-sky-500';
+                    t === 'hot' ? 'bg-rose' : t === 'warm' ? 'bg-amber' : 'bg-ink/30';
                   return (
                     <button
                       key={t}
@@ -215,7 +211,7 @@ export function LeadsPage() {
                       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize transition-all cursor-pointer ${
                         active
                           ? 'bg-ink text-paper shadow-xs'
-                          : 'border border-ink/15 bg-paper text-ink-3 hover:border-ink/30 hover:text-ink-1'
+                          : 'text-ink-3 hover:text-ink-1'
                       }`}
                     >
                       <span className={`size-1.5 rounded-full ${active ? 'bg-volt' : dotColor}`} />
@@ -231,14 +227,14 @@ export function LeadsPage() {
               <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-ink-4">
                 Status:
               </span>
-              <div className="flex items-center gap-1.5">
+              <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full">
                 <button
                   type="button"
                   onClick={() => setFilter({ ...filter, status: undefined, cursor: undefined })}
                   className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
                     !filter.status
                       ? 'bg-ink text-paper shadow-xs'
-                      : 'border border-ink/15 bg-paper text-ink-3 hover:border-ink/30 hover:text-ink-1'
+                      : 'text-ink-3 hover:text-ink-1'
                   }`}
                 >
                   All
@@ -259,7 +255,7 @@ export function LeadsPage() {
                       className={`rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize transition-all cursor-pointer ${
                         active
                           ? 'bg-ink text-paper shadow-xs'
-                          : 'border border-ink/15 bg-paper text-ink-3 hover:border-ink/30 hover:text-ink-1'
+                          : 'text-ink-3 hover:text-ink-1'
                       }`}
                     >
                       {s}
@@ -288,12 +284,12 @@ export function LeadsPage() {
       <section>
         {leads.isLoading ? (
           <div className="space-y-3 animate-pulse">
-            <div className="h-16 rounded-xl bg-mist/60 border border-ink/5" />
-            <div className="h-16 rounded-xl bg-mist/50 border border-ink/5" />
-            <div className="h-16 rounded-xl bg-mist/40 border border-ink/5" />
+            <div className="h-16 vyro-surface" />
+            <div className="h-16 vyro-surface" />
+            <div className="h-16 vyro-surface" />
           </div>
         ) : leads.isError ? (
-          <div className="rounded-xl border border-amber-300/80 bg-amber-500/10 p-6 shadow-xs">
+          <div className="rounded-xl border border-amber/40 bg-amber/10 p-6 shadow-xs">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3.5">
                 <div className="rounded-lg bg-ink p-2 text-volt shrink-0 mt-0.5">
@@ -304,7 +300,7 @@ export function LeadsPage() {
                     Lead Manager Platform Feature Notice
                   </h3>
                   <p className="text-xs text-ink-3 leading-relaxed max-w-xl">
-                    Could not fetch active leads. Confirm that the <code className="px-1.5 py-0.5 rounded bg-amber-500/20 font-mono text-[11px] text-ink font-semibold">LEAD_MANAGER_ENABLED</code> platform feature flag is enabled in your environment.
+                    Could not fetch active leads. Confirm that the <code className="px-1.5 py-0.5 rounded bg-amber/20 font-mono text-[11px] text-ink font-semibold">LEAD_MANAGER_ENABLED</code> platform feature flag is enabled in your environment.
                   </p>
                 </div>
               </div>
@@ -347,7 +343,7 @@ export function LeadsPage() {
             }
           />
         ) : (
-          <div className="rounded-xl border border-ink/10 bg-paper overflow-hidden shadow-xs">
+          <div className="vyro-surface overflow-hidden">
             {/* Table Header */}
             <div className="hidden sm:grid grid-cols-12 gap-4 px-5 py-3 border-b border-ink/10 bg-bone/40 text-[11px] font-mono font-bold uppercase tracking-wider text-ink-4">
               <div className="col-span-5">Buyer Request & Verification</div>
@@ -363,9 +359,9 @@ export function LeadsPage() {
                   l.tag === 'hot'
                     ? 'bg-rose/10 text-rose border-rose/30'
                     : l.tag === 'warm'
-                      ? 'bg-amber-500/10 text-amber-700 border-amber-500/30'
+                      ? 'bg-amber/15 text-amber border-amber/30'
                       : l.tag === 'cold'
-                        ? 'bg-sky-500/10 text-sky-700 border-sky-500/30'
+                        ? 'bg-ink/[0.06] text-ink-3 border-ink/15'
                         : null;
 
                 return (
@@ -376,26 +372,31 @@ export function LeadsPage() {
                       className="w-full text-left p-4 sm:px-5 sm:py-3.5 hover:bg-bone/50 transition-colors flex flex-col sm:grid sm:grid-cols-12 sm:items-center gap-3 sm:gap-4 group cursor-pointer"
                     >
                       {/* Column 1: RFQ and Buyer Badge */}
-                      <div className="sm:col-span-5 flex flex-col gap-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono font-bold text-sm text-ink-1 group-hover:text-ink-2 transition-colors">
-                            RFQ #{l.rfqId}
-                          </span>
-                          <VerifiedBuyerBadge
-                            verified={l.buyerVerified}
-                            level={l.buyerKycLevel}
-                            verifiedAt={l.buyerVerifiedAt}
-                          />
-                          {l.tag && tagColor && (
-                            <span
-                              className={`inline-flex items-center px-2 py-0.2 rounded-full border text-[10px] font-mono font-bold uppercase tracking-wider ${tagColor}`}
-                            >
-                              {l.tag}
-                            </span>
-                          )}
+                      <div className="sm:col-span-5 flex items-center gap-3 min-w-0">
+                        <div className="size-9 rounded-lg bg-ink/[0.05] text-ink-3 flex items-center justify-center shrink-0 group-hover:bg-volt/15 group-hover:text-volt-deep transition-colors">
+                          <FileTextIcon size={15} />
                         </div>
-                        <div className="text-[11px] text-ink-4 truncate">
-                          Supplier Lead ID: {l.id}
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono font-bold text-sm text-ink-1 group-hover:text-ink-2 transition-colors">
+                              RFQ #{l.rfqId}
+                            </span>
+                            <VerifiedBuyerBadge
+                              verified={l.buyerVerified}
+                              level={l.buyerKycLevel}
+                              verifiedAt={l.buyerVerifiedAt}
+                            />
+                            {l.tag && tagColor && (
+                              <span
+                                className={`inline-flex items-center px-2 py-0.2 rounded-full border text-[10px] font-mono font-bold uppercase tracking-wider ${tagColor}`}
+                              >
+                                {l.tag}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-ink-4 truncate">
+                            Supplier Lead ID: {l.id}
+                          </div>
                         </div>
                       </div>
 
@@ -442,15 +443,16 @@ export function LeadsPage() {
 
         {leads.data?.nextCursor && (
           <div className="mt-4 flex justify-center">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() =>
                 setFilter({ ...filter, cursor: leads.data!.nextCursor ?? undefined })
               }
-              className="inline-flex items-center gap-2 rounded-lg border border-ink/20 bg-paper px-4 py-2 text-xs font-semibold text-ink-1 shadow-xs hover:border-ink/40 transition-all cursor-pointer"
+              className="text-xs font-semibold"
             >
-              <span>Load older leads</span>
-            </button>
+              Load older leads
+            </Button>
           </div>
         )}
       </section>
@@ -469,7 +471,8 @@ function MetricCard({
   label,
   sublabel,
   value,
-  indicator,
+  icon,
+  tileClass,
   accent,
   active,
   onClick,
@@ -477,7 +480,8 @@ function MetricCard({
   label: string;
   sublabel: string;
   value: number | string;
-  indicator: string;
+  icon: React.ReactNode;
+  tileClass: string;
   accent: string;
   active: boolean;
   onClick?: () => void;
@@ -487,19 +491,21 @@ function MetricCard({
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
-      className={`rounded-xl border bg-paper p-4 transition-all shadow-xs select-none ${
-        onClick ? 'cursor-pointer hover:border-ink/30 hover:shadow-sm' : ''
-      } ${active ? 'border-ink ring-2 ring-ink/10' : 'border-ink/10'}`}
+      className={`vyro-surface p-4 transition-all select-none ${
+        onClick ? 'cursor-pointer hover:border-ink/30 hover:shadow-md' : ''
+      } ${active ? 'border-ink ring-2 ring-ink/10' : ''}`}
     >
       <div className="flex items-center justify-between gap-1">
         <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-ink-4">
           {label}
         </span>
-        <span className={`size-2 rounded-full ${indicator}`} />
+        <span className={`size-7 rounded-lg flex items-center justify-center ${tileClass}`}>
+          {icon}
+        </span>
       </div>
-      <div className={`mt-2 text-2xl sm:text-3xl font-bold tracking-tight ${accent}`}>
+      <MetricNumber size="lg" className={`mt-2 ${accent}`}>
         {value}
-      </div>
+      </MetricNumber>
       <div className="mt-1 text-[11px] text-ink-4 truncate">{sublabel}</div>
     </div>
   );

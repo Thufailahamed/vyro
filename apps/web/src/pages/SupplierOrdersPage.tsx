@@ -23,6 +23,7 @@ import { MetricNumber, Surface } from '@/components/brand/Surface';
 import { useToast } from '@vyro/ui';
 import { useSupplierId } from '@/supplier/useSupplierId';
 import { SupplierErrorState, SupplierLoadingState } from '@/supplier/SupplierPageState';
+import { SupplierHero, HeroStatusPill, heroActionClass } from '@/supplier/SupplierHero';
 import { lifecycleErrorMessage } from '@/lib/orderLifecycle';
 import { PaymentStateBadge, PodDialog, ReasonDialog } from '@/components/orders/LifecycleUi';
 
@@ -205,44 +206,38 @@ export function SupplierOrdersPage() {
   return (
     <div className="space-y-8 max-w-6xl pb-12">
       {/* Header */}
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-line pb-6">
-        <div>
-          <div className="text-[11px] font-mono uppercase tracking-[0.16em] text-copper font-semibold">
-            {supplierName} / Fulfillment Desk
-          </div>
-          <h1 className="vyro-display text-2xl sm:text-3xl font-bold text-ink mt-1">
-            Purchase Orders Console
-          </h1>
-          <p className="text-sm text-ink-3 mt-1">
-            Accept commercial POs, manage preparation queues, and dispatch delivery freight.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-mint/15 text-ink border border-mint/30 text-xs font-mono">
-            <span className="size-2 rounded-full bg-mint animate-pulse" />
-            Live Sync (30s)
-          </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={ordersQuery.isFetching}
-            className="text-xs gap-1.5"
-            title="Refresh order queue"
-          >
-            <RefreshCwIcon size={14} className={ordersQuery.isFetching ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Refresh</span>
-          </Button>
-
-          <Link to="/supplier/products/new">
-            <Button variant="primary" size="sm" className="bg-volt text-ink hover:bg-volt-glow font-bold gap-1 shadow-soft-sm">
-              + Publish Listing
-            </Button>
-          </Link>
-        </div>
-      </header>
+      <SupplierHero
+        icon={ShoppingCartIcon}
+        kicker={`${supplierName} / Fulfillment Desk`}
+        title="Purchase Orders Console"
+        description="Accept commercial POs, manage preparation queues, and dispatch delivery freight."
+        status={<HeroStatusPill label="Live Sync (30s)" tone="mint" />}
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={ordersQuery.isFetching}
+              className={heroActionClass}
+              title="Refresh order queue"
+            >
+              <RefreshCwIcon size={13} className={ordersQuery.isFetching ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+            <Link to="/supplier/products/new" className={heroActionClass}>
+              Publish Listing
+            </Link>
+          </>
+        }
+        footer={
+          <>
+            <span>Auto-polls every 30s for new purchase orders</span>
+            <span className="text-paper/40">
+              {pending.length} pending · {inFulfillment.length} in fulfillment · {inTransit.length} in transit
+            </span>
+          </>
+        }
+      />
 
       {/* Harmonious Executive KPI Matrix */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
