@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm';
-import { getDb } from '@vyro/db';
-import { suppliers } from '@vyro/db/schema';
+import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
+import { getDb, type Db } from '@vyro/db';
+import { purchaseOrders, suppliers } from '@vyro/db/schema';
 import { trustRepository } from './repository';
 import { computeTrustSignal, sampleGateMeetsOnTimeBadge } from './compute';
 
@@ -25,6 +25,24 @@ function emptyView(): TrustSignalView {
     disputeFree: false,
     lastComputedAt: null,
   };
+}
+
+export async function recomputeOnTimeMetric(supplierId: string, db: Db) {
+  const rows = await db
+    .select({
+      delivered_at: purchaseOrders.deliveredAt,
+      on_time: sql<number>`CASE WHEN delivered_at <= delivery_promised_at THEN 1 ELSE 0 END`,
+    })
+    .from(purchaseOrders)
+    .where(and(eq(purchaseOrders.supplierId, supplierId), isNotNull(purchaseOrders.deliveredAt)))
+    .orderBy(desc(purchaseOrders.deliveredAt))
+    .limit(30)
+    .all();
+
+  const deliveredCount = rows.length;
+  const onTimeCount = rows.reduce((acc: number, r: { on_time: number | null }) => acc + (r.on_time ? 1 : 0), 0);
+  const ratio = deliveredCount ? onTimeCount / deliveredCount : null;
+  return { deliveredCount, onTimeCount, ratio };
 }
 
 async function loadSupplierFacts(d1: D1Database, supplierId: string, nowMs: number) {
