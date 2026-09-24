@@ -14,7 +14,7 @@ import {
 } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
 import { useToast } from '@vyro/ui';
-import { Money, Stat, StatusPill, time, useBusinessId, useConfirm } from '@/accounts/shared';
+import { Money, StatusPill, time, useBusinessId, useConfirm } from '@/accounts/shared';
 import {
   BanknoteIcon,
   CreditCardIcon,
@@ -91,7 +91,7 @@ export function AccountsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="vyro-kicker text-copper">Business</span>
             <span className="size-1.5 rounded-full bg-copper animate-pulse" />
-            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-copper border border-copper/30 bg-copper/10 px-2 py-0.5">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-copper border border-copper/30 bg-copper/10 px-2.5 py-1 rounded-full">
               Vyro Escrow Protected
             </span>
           </div>
@@ -117,7 +117,7 @@ export function AccountsPage() {
       />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-ink/10">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full max-w-full overflow-x-auto scrollbar-none">
           {TABS.map((t) => {
             const active = tab === t.id;
             return (
@@ -125,10 +125,10 @@ export function AccountsPage() {
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={cn(
-                  'h-8 px-3 text-xs font-mono tracking-wide transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5',
+                  'h-8 px-3.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5',
                   active
-                    ? 'bg-ink text-volt font-bold shadow-sm'
-                    : 'bg-paper text-ink-3 border border-ink/15 hover:border-ink hover:text-ink',
+                    ? 'bg-ink text-paper shadow-sm'
+                    : 'text-ink-3 hover:text-ink',
                 )}
               >
                 {t.icon}
@@ -178,12 +178,12 @@ function Overview({ businessId }: { businessId: string }) {
       <div className="space-y-4 animate-pulse">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-24 bg-mist" />
+            <div key={i} className="h-24 vyro-surface" />
           ))}
         </div>
         <div className="grid md:grid-cols-2 gap-4">
-          <div className="h-48 bg-mist" />
-          <div className="h-48 bg-mist" />
+          <div className="h-48 vyro-surface" />
+          <div className="h-48 vyro-surface" />
         </div>
       </div>
     );
@@ -303,9 +303,9 @@ function Overview({ businessId }: { businessId: string }) {
                             </span>
                           </div>
                         </div>
-                        <div className="h-1.5 bg-bone overflow-hidden">
+                        <div className="h-1.5 rounded-full bg-ink/[0.07] overflow-hidden">
                           <div
-                            className={cn('h-full transition-all duration-300', barColor)}
+                            className={cn('h-full rounded-full transition-all duration-300', barColor)}
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -376,7 +376,7 @@ function Overview({ businessId }: { businessId: string }) {
       </div>
 
       {/* Footer trust strip */}
-      <div className="p-4 bg-paper border border-ink/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div className="p-4 vyro-surface flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-start sm:items-center gap-3">
           <div className="size-9 rounded-lg bg-mint/15 text-mint flex items-center justify-center shrink-0">
             <ShieldCheckIcon size={18} />
@@ -475,10 +475,10 @@ function Payments({ businessId }: { businessId: string }) {
         </div>
       </Surface>
 
-      {q.isLoading && <div className="text-sm text-ink-4">Loading payments…</div>}
+      {q.isLoading && <div className="h-40 vyro-surface animate-pulse" />}
       {q.isError && <ErrorBanner message={(q.error as ApiError).message} />}
 
-      <div className="overflow-x-auto rounded-2xl border border-ink/10 bg-paper shadow-sm">
+      <div className="overflow-x-auto vyro-surface">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-ink/10 text-left text-[10px] font-mono uppercase tracking-[0.14em] text-ink-3 bg-bone/40 font-bold">
@@ -531,7 +531,7 @@ function Payments({ businessId }: { businessId: string }) {
                 <td className="px-6 py-4 text-right">
                   <Link
                     to={`/accounts/payments/${p.id}`}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-ink hover:text-copper transition-colors px-2.5 py-1 bg-bone border border-ink/10 hover:border-ink"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-ink hover:text-copper transition-colors px-3 py-1.5 rounded-full bg-bone border border-ink/10 hover:border-ink"
                   >
                     <span>View</span>
                     <ArrowRightIcon size={12} />
@@ -570,7 +570,7 @@ function Invoices({ businessId }: { businessId: string }) {
         }>;
       }>(`/finance/business/invoices?businessId=${businessId}`),
   });
-  if (q.isLoading) return <div className="text-sm text-ink-4">Loading invoices…</div>;
+  if (q.isLoading) return <div className="h-40 vyro-surface animate-pulse" />;
   if (q.isError) return <ErrorBanner message={(q.error as ApiError).message} />;
   const invoices = q.data?.invoices ?? [];
 
@@ -604,7 +604,7 @@ function Invoices({ businessId }: { businessId: string }) {
         />
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-ink/10 bg-paper shadow-sm">
+      <div className="overflow-x-auto vyro-surface">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-ink/10 text-left text-[10px] font-mono uppercase tracking-[0.14em] text-ink-3 bg-bone/40 font-bold">
@@ -626,7 +626,7 @@ function Invoices({ businessId }: { businessId: string }) {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider bg-bone border border-ink/10 text-ink-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono uppercase tracking-wider bg-bone border border-ink/10 text-ink-2">
                     {invoiceTypeLabel(inv.type)}
                   </span>
                 </td>
@@ -646,7 +646,7 @@ function Invoices({ businessId }: { businessId: string }) {
                 <td className="px-6 py-4 text-right">
                   <Link
                     to={`/invoices/${inv.id}`}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-ink hover:text-copper transition-colors px-2.5 py-1 bg-bone border border-ink/10 hover:border-ink"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-ink hover:text-copper transition-colors px-3 py-1.5 rounded-full bg-bone border border-ink/10 hover:border-ink"
                   >
                     <span>Open</span>
                     <ArrowRightIcon size={12} />
@@ -686,7 +686,7 @@ function Refunds({ businessId }: { businessId: string }) {
         }>;
       }>(`/finance/business/refunds?businessId=${businessId}`),
   });
-  if (q.isLoading) return <div className="text-sm text-ink-4">Loading refunds…</div>;
+  if (q.isLoading) return <div className="h-40 vyro-surface animate-pulse" />;
   if (q.isError) return <ErrorBanner message={(q.error as ApiError).message} />;
   const refunds = q.data?.refunds ?? [];
   const totalRefunded = refunds.reduce((s, r) => s + r.amountCents, 0);
@@ -731,15 +731,20 @@ function Refunds({ businessId }: { businessId: string }) {
               key={r.id}
               className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink/10 bg-paper px-4 py-3 hover:border-ink/30 transition-colors"
             >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-mono text-xs font-bold text-ink-1">
-                    {r.refundNumber ?? r.id.slice(0, 12)}
-                  </span>
-                  <StatusPill status={r.status} />
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="size-8 rounded-lg bg-copper/15 text-copper-deep flex items-center justify-center shrink-0">
+                  <RefreshCwIcon size={15} />
                 </div>
-                <div className="text-xs text-ink-4 mt-1">
-                  {r.reason ?? 'No reason given'} · {time(r.createdAt)}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs font-bold text-ink-1">
+                      {r.refundNumber ?? r.id.slice(0, 12)}
+                    </span>
+                    <StatusPill status={r.status} />
+                  </div>
+                  <div className="text-xs text-ink-4 mt-1">
+                    {r.reason ?? 'No reason given'} · {time(r.createdAt)}
+                  </div>
                 </div>
               </div>
               <span className="font-mono font-semibold text-ink-1 text-sm">
@@ -770,7 +775,7 @@ function Transactions({ businessId }: { businessId: string }) {
         }>;
       }>(`/finance/business/transactions?businessId=${businessId}`),
   });
-  if (q.isLoading) return <div className="text-sm text-ink-4">Loading transactions…</div>;
+  if (q.isLoading) return <div className="h-40 vyro-surface animate-pulse" />;
   if (q.isError) return <ErrorBanner message={(q.error as ApiError).message} />;
   const transactions = q.data?.transactions ?? [];
   const totalCredit = transactions
@@ -866,14 +871,53 @@ function CreditPanel({ businessId }: { businessId: string }) {
         `/credit/facility?businessId=${businessId}`,
       ),
   });
-  if (q.isLoading) return <div className="text-sm text-ink-4">Loading credit…</div>;
+  if (q.isLoading) return <div className="h-40 vyro-surface animate-pulse" />;
   if (q.isError) return <ErrorBanner message={(q.error as ApiError).message} />;
   const f = q.data;
-  if (!f?.facility) return <EmptyState title="Credit not available" description={f?.reason ?? 'Complete 3 paid orders to unlock VYRO Credit.'} />;
+  if (!f?.facility) return <EmptyState icon={<CreditCardIcon size={22} />} title="Credit not available" description={f?.reason ?? 'Complete 3 paid orders to unlock VYRO Credit.'} />;
+  const usedPct = f.facility.limitCents > 0 ? Math.min(100, (f.facility.usedCents / f.facility.limitCents) * 100) : 0;
   return (
-    <div className="space-y-3">
-      <Stat label="Available credit" cents={f.availableCents} />
-      <Link to="/credit" className="text-xs underline">Open VYRO Credit →</Link>
+    <div className="vyro-surface p-6 space-y-5">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="size-10 rounded-xl bg-ink text-volt flex items-center justify-center shrink-0">
+            <CreditCardIcon size={18} />
+          </div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
+              Available credit
+            </div>
+            <div className="font-mono text-2xl font-bold text-ink mt-0.5">
+              <Money cents={f.availableCents} />
+            </div>
+            <div className="text-[11px] text-ink-4 mt-0.5">
+              Limit <span className="font-mono text-ink-2"><Money cents={f.facility.limitCents} /></span>
+              {' · '}Used <span className="font-mono text-ink-2"><Money cents={f.facility.usedCents} /></span>
+              {' · '}<span className="capitalize">{f.facility.status}</span>
+            </div>
+          </div>
+        </div>
+        <Link to="/credit" className="shrink-0">
+          <Button variant="secondary" size="sm">Open VYRO Credit</Button>
+        </Link>
+      </div>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-ink-4">
+          <span>Facility utilisation</span>
+          <span>{usedPct.toFixed(0)}%</span>
+        </div>
+        <div className="h-2 rounded-full bg-ink/[0.07] overflow-hidden">
+          <div
+            className={cn('h-full rounded-full transition-all duration-300', usedPct >= 80 ? 'bg-rose' : usedPct >= 50 ? 'bg-amber' : 'bg-volt')}
+            style={{ width: `${usedPct}%` }}
+          />
+        </div>
+        {f.overdueCount > 0 && (
+          <p className="text-xs text-rose font-medium pt-1">
+            {f.overdueCount} overdue repayment{f.overdueCount === 1 ? '' : 's'} — settle to keep the facility active.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -984,12 +1028,12 @@ function KpiTile({
   }[accent];
   const display = value !== undefined ? value : <Money cents={cents ?? 0} />;
   return (
-    <div className="p-4 bg-paper border border-ink/10 hover:border-ink/20 transition-colors shadow-sm space-y-1.5">
+    <div className="p-4 vyro-surface hover:border-ink/20 transition-colors space-y-1.5">
       <div className="flex items-center justify-between">
         <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">
           {label}
         </div>
-        <div className={cn('size-7 flex items-center justify-center', accentBg)}>{icon}</div>
+        <div className={cn('size-7 rounded-lg flex items-center justify-center', accentBg)}>{icon}</div>
       </div>
       <div className={cn('font-mono text-xl sm:text-2xl font-bold', accentText)}>{display}</div>
       <div className="text-[10px] text-ink-4">{sub}</div>

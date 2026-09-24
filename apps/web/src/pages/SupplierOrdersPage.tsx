@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import { Button, PageHeader, StatusDots, Input, Badge } from '@/components/ui';
+import { Button, StatusDots, Input, Badge } from '@/components/ui';
 import type { OrderStatus } from '@/components/ui';
 import { formatCompactLKR, formatLKR } from '@/lib/format';
 import {
@@ -18,9 +18,7 @@ import {
   TruckIcon,
   ShoppingCartIcon,
   TrendingUpIcon,
-  StoreIcon,
 } from '@/components/icons';
-import { FlowLine } from '@/components/brand/FlowLine';
 import { MetricNumber, Surface } from '@/components/brand/Surface';
 import { useToast } from '@vyro/ui';
 import { useSupplierId } from '@/supplier/useSupplierId';
@@ -221,8 +219,8 @@ export function SupplierOrdersPage() {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-800/20 text-xs font-mono">
-            <span className="size-2 rounded-full bg-emerald-600 animate-pulse" />
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-mint/15 text-ink border border-mint/30 text-xs font-mono">
+            <span className="size-2 rounded-full bg-mint animate-pulse" />
             Live Sync (30s)
           </div>
 
@@ -247,74 +245,82 @@ export function SupplierOrdersPage() {
       </header>
 
       {/* Harmonious Executive KPI Matrix */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-ink/10 border border-ink/10 overflow-hidden rounded-lg shadow-soft-sm">
-        <div className="bg-paper p-5 space-y-1">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="vyro-surface p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <ShoppingCartIcon size={13} className="text-copper" />
-              Incoming POs
-            </span>
+            <div className="size-8 rounded-lg bg-copper/15 text-copper flex items-center justify-center">
+              <ShoppingCartIcon size={15} />
+            </div>
             {pending.length > 0 ? (
               <Badge variant="warning" className="text-[10px] font-mono">
                 {pending.length} Action Req.
               </Badge>
             ) : (
-              <span className="text-[10px] text-emerald-700 font-mono">Queue Clear</span>
+              <span className="text-[10px] text-mint font-mono font-semibold">Queue Clear</span>
             )}
           </div>
-          <MetricNumber size="md" className="text-ink">
-            {pending.length}
-          </MetricNumber>
-          <div className="text-xs text-ink-4">Awaiting acceptance</div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">Incoming POs</div>
+            <MetricNumber size="md" className="text-ink">
+              {pending.length}
+            </MetricNumber>
+            <div className="text-xs text-ink-4 mt-0.5">Awaiting acceptance</div>
+          </div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <ClockIcon size={13} className="text-copper" />
-              In Fulfillment
-            </span>
+            <div className="size-8 rounded-lg bg-ink/[0.07] text-ink flex items-center justify-center">
+              <ClockIcon size={15} />
+            </div>
             <span className="text-[10px] text-ink-4 font-mono">Preparing</span>
           </div>
-          <MetricNumber size="md" className="text-ink">
-            {inFulfillment.length}
-          </MetricNumber>
-          <div className="text-xs text-ink-4">Pack & stage at depot</div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">In Fulfillment</div>
+            <MetricNumber size="md" className="text-ink">
+              {inFulfillment.length}
+            </MetricNumber>
+            <div className="text-xs text-ink-4 mt-0.5">Pack & stage at depot</div>
+          </div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <TruckIcon size={13} className="text-copper" />
-              Out for Delivery
-            </span>
+            <div className="size-8 rounded-lg bg-volt/20 text-volt-deep flex items-center justify-center">
+              <TruckIcon size={15} />
+            </div>
             <span className="text-[10px] text-ink-4 font-mono">In Transit</span>
           </div>
-          <MetricNumber size="md" className="text-ink">
-            {inTransit.length}
-          </MetricNumber>
-          <div className="text-xs text-ink-4">En route with driver</div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">Out for Delivery</div>
+            <MetricNumber size="md" className="text-ink">
+              {inTransit.length}
+            </MetricNumber>
+            <div className="text-xs text-ink-4 mt-0.5">En route with driver</div>
+          </div>
         </div>
 
-        <div className="bg-paper p-5 space-y-1">
+        <div className="vyro-surface p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 flex items-center gap-1.5">
-              <TrendingUpIcon size={13} className="text-copper" />
-              Order Book Revenue
-            </span>
+            <div className="size-8 rounded-lg bg-mint/15 text-mint flex items-center justify-center">
+              <TrendingUpIcon size={15} />
+            </div>
             <span className="text-[10px] text-ink-4 font-mono">Total Net</span>
           </div>
-          <MetricNumber size="md" className="text-ink">
-            {formatCompactLKR(revenue)}
-          </MetricNumber>
-          <div className="text-xs font-mono text-ink-4 truncate">
-            {formatLKR(revenue)}
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">Order Book Revenue</div>
+            <MetricNumber size="md" className="text-ink">
+              {formatCompactLKR(revenue)}
+            </MetricNumber>
+            <div className="text-xs font-mono text-ink-4 truncate mt-0.5">
+              {formatLKR(revenue)}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Fulfillment Pipeline Radar Card */}
-      <Surface kind="elevated" className="p-6 border border-ink/10 shadow-soft-sm rounded-lg space-y-4">
+      <Surface kind="elevated" className="p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-line pb-3">
           <div className="text-xs font-mono uppercase tracking-wider font-bold text-ink flex items-center gap-2">
             <span className="size-2 rounded-full bg-volt" />
@@ -326,9 +332,9 @@ export function SupplierOrdersPage() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className={`p-3.5 rounded border transition-colors ${
+          <div className={`p-3.5 rounded-xl border transition-colors ${
             pending.length > 0
-              ? 'border-amber/40 bg-amber-50/50'
+              ? 'border-amber/40 bg-amber/10'
               : 'border-line bg-paper'
           }`}>
             <div className="flex items-center justify-between">
@@ -341,16 +347,16 @@ export function SupplierOrdersPage() {
             <div className="text-[11px] text-ink-4 mt-0.5">Awaiting depot review</div>
           </div>
 
-          <div className={`p-3.5 rounded border transition-colors ${
+          <div className={`p-3.5 rounded-xl border transition-colors ${
             orders.filter((o) => o.status === 'accepted').length > 0
-              ? 'border-emerald-800/30 bg-emerald-50/40'
+              ? 'border-mint/40 bg-mint/10'
               : 'border-line bg-paper'
           }`}>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-semibold">
                 2. Accepted
               </span>
-              <span className={`size-2 rounded-full ${orders.filter((o) => o.status === 'accepted').length > 0 ? 'bg-emerald-600' : 'bg-ink/20'}`} />
+              <span className={`size-2 rounded-full ${orders.filter((o) => o.status === 'accepted').length > 0 ? 'bg-mint' : 'bg-ink/20'}`} />
             </div>
             <div className="mt-2 text-xl font-bold font-mono text-ink">
               {orders.filter((o) => o.status === 'accepted').length}
@@ -358,9 +364,9 @@ export function SupplierOrdersPage() {
             <div className="text-[11px] text-ink-4 mt-0.5">Confirmed & queued</div>
           </div>
 
-          <div className={`p-3.5 rounded border transition-colors ${
+          <div className={`p-3.5 rounded-xl border transition-colors ${
             orders.filter((o) => ['preparing', 'ready_for_pickup'].includes(o.status)).length > 0
-              ? 'border-volt-deep/30 bg-volt-soft/40'
+              ? 'border-volt-deep/30 bg-volt/15'
               : 'border-line bg-paper'
           }`}>
             <div className="flex items-center justify-between">
@@ -375,9 +381,9 @@ export function SupplierOrdersPage() {
             <div className="text-[11px] text-ink-4 mt-0.5">Packaging & loading</div>
           </div>
 
-          <div className={`p-3.5 rounded border transition-colors ${
+          <div className={`p-3.5 rounded-xl border transition-colors ${
             inTransit.length > 0
-              ? 'border-copper/40 bg-copper-soft/30'
+              ? 'border-copper/40 bg-copper/10'
               : 'border-line bg-paper'
           }`}>
             <div className="flex items-center justify-between">
@@ -394,8 +400,8 @@ export function SupplierOrdersPage() {
 
       {/* Tabs & Search Controls */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-line pb-3">
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full max-w-full overflow-x-auto scrollbar-none">
             {[
               { id: 'all', label: 'All Orders', count: orders.length },
               { id: 'incoming', label: 'Incoming', count: pending.length },
@@ -406,13 +412,18 @@ export function SupplierOrdersPage() {
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id as typeof tab)}
-                className={`px-3.5 py-1.5 text-xs font-mono tracking-wider transition-colors border rounded ${
+                className={`h-8 px-3.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
                   tab === t.id
-                    ? 'bg-ink text-paper border-ink font-semibold shadow-xs'
-                    : 'bg-paper text-ink-3 border-ink/10 hover:bg-mist/60'
+                    ? 'bg-ink text-paper shadow-sm'
+                    : 'text-ink-3 hover:text-ink'
                 }`}
               >
-                {t.label} ({t.count})
+                {t.label}
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                  tab === t.id ? 'bg-volt/25 text-volt' : 'bg-ink/[0.06] text-ink-4'
+                }`}>
+                  {t.count}
+                </span>
               </button>
             ))}
           </div>
@@ -430,7 +441,7 @@ export function SupplierOrdersPage() {
 
         {/* PO Table or Order Readiness Center Empty State */}
         {filteredOrders.length === 0 ? (
-          <Surface kind="elevated" className="overflow-hidden border border-ink/10 p-8 sm:p-12 text-center rounded-lg shadow-soft-sm">
+          <Surface kind="elevated" className="overflow-hidden p-8 sm:p-12 text-center">
             {searchQuery ? (
               <div className="space-y-2 py-4">
                 <SearchIcon size={32} className="mx-auto text-ink-4 opacity-50" />
@@ -443,7 +454,7 @@ export function SupplierOrdersPage() {
             ) : offers.length === 0 ? (
               /* Scenario A: No products listed yet */
               <div className="max-w-lg mx-auto space-y-4 py-4">
-                <div className="size-14 rounded-full bg-amber-50 border border-amber/30 text-amber mx-auto flex items-center justify-center shadow-xs">
+                <div className="size-14 rounded-xl bg-amber/15 text-amber mx-auto flex items-center justify-center shadow-xs">
                   <PackageIcon size={24} />
                 </div>
                 <div className="space-y-1.5">
@@ -465,12 +476,12 @@ export function SupplierOrdersPage() {
             ) : (
               /* Scenario B: Products listed, depot active, waiting for incoming orders */
               <div className="max-w-xl mx-auto space-y-6 py-2">
-                <div className="size-14 rounded-full bg-emerald-50 border border-emerald-800/20 text-emerald-800 mx-auto flex items-center justify-center shadow-xs">
+                <div className="size-14 rounded-xl bg-mint/15 text-mint mx-auto flex items-center justify-center shadow-xs">
                   <CheckCircleIcon size={24} />
                 </div>
                 <div className="space-y-1.5">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100/60 text-emerald-900 font-mono text-[11px] font-semibold">
-                    <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-mint/15 border border-mint/30 text-ink font-mono text-[11px] font-semibold">
+                    <span className="size-1.5 rounded-full bg-mint animate-pulse" />
                     Depot Active & Listening
                   </div>
                   <h3 className="font-display text-lg font-bold text-ink">
@@ -483,17 +494,17 @@ export function SupplierOrdersPage() {
 
                 {/* 3-Step Lifecycle Infographic */}
                 <div className="grid sm:grid-cols-3 gap-3 text-left pt-2">
-                  <div className="p-3.5 bg-mist/20 border border-line rounded space-y-1">
+                  <div className="p-3.5 bg-ink/[0.03] border border-ink/10 rounded-xl space-y-1">
                     <div className="text-[10px] font-mono text-copper font-bold uppercase">Step 1</div>
                     <div className="text-xs font-semibold text-ink">Buyer Places PO</div>
                     <p className="text-[11px] text-ink-4">Consignment quantities & dock address verified.</p>
                   </div>
-                  <div className="p-3.5 bg-mist/20 border border-line rounded space-y-1">
+                  <div className="p-3.5 bg-ink/[0.03] border border-ink/10 rounded-xl space-y-1">
                     <div className="text-[10px] font-mono text-copper font-bold uppercase">Step 2</div>
                     <div className="text-xs font-semibold text-ink">Accept & Stage</div>
                     <p className="text-[11px] text-ink-4">1-click order acceptance & warehouse prep.</p>
                   </div>
-                  <div className="p-3.5 bg-mist/20 border border-line rounded space-y-1">
+                  <div className="p-3.5 bg-ink/[0.03] border border-ink/10 rounded-xl space-y-1">
                     <div className="text-[10px] font-mono text-copper font-bold uppercase">Step 3</div>
                     <div className="text-xs font-semibold text-ink">Dispatch & Payout</div>
                     <p className="text-[11px] text-ink-4">Assign carrier driver & release funds to bank.</p>
@@ -525,10 +536,10 @@ export function SupplierOrdersPage() {
                 <Surface
                   key={o.id}
                   kind="elevated"
-                  className={`p-5 flex flex-col md:flex-row md:items-center gap-4 transition-all rounded-lg border border-ink/10 ${
+                  className={`p-5 flex flex-col md:flex-row md:items-center gap-4 transition-all ${
                     isPendingStatus
-                      ? 'shadow-[inset_4px_0_0_0_#C4843A] bg-amber-50/25 border-amber/30'
-                      : 'hover:shadow-soft-sm'
+                      ? 'shadow-[inset_4px_0_0_0_#C4843A] bg-amber/5 border-amber/30'
+                      : 'hover:shadow-md'
                   }`}
                 >
                   <div className="flex-1 space-y-2 min-w-0">
@@ -657,7 +668,7 @@ export function SupplierOrdersPage() {
           onClick={() => setActiveDrawerPoId(null)}
         >
           <div
-            className="bg-paper border border-ink/20 rounded-lg shadow-soft-xl max-w-2xl w-full p-6 sm:p-8 space-y-5 animate-scale-in max-h-[90vh] overflow-y-auto"
+            className="bg-paper border border-ink/20 rounded-2xl shadow-soft-xl max-w-2xl w-full p-6 sm:p-8 space-y-5 animate-scale-in max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {drawerQuery.isLoading ? (
@@ -687,7 +698,7 @@ export function SupplierOrdersPage() {
 
                 <div className="space-y-3">
                   <div className="text-xs font-semibold uppercase tracking-wider text-ink">Ordered Line Items</div>
-                  <div className="border border-line rounded-md overflow-hidden divide-y divide-line">
+                  <div className="border border-line rounded-xl overflow-hidden divide-y divide-line">
                     {drawerQuery.data.items.map((item) => {
                       const name = item.productNameSnapshot ?? item.productName ?? 'Line item';
                       const unitCents = item.unitPriceCentsSnapshot ?? item.unitPriceCents ?? 0;
@@ -706,7 +717,7 @@ export function SupplierOrdersPage() {
                     })}
                   </div>
 
-                  <div className="flex justify-between items-center p-4 bg-bone rounded-md border border-line">
+                  <div className="flex justify-between items-center p-4 bg-bone rounded-xl border border-line">
                     <span className="text-xs font-bold text-ink">Order Net Total</span>
                     <span className="font-mono text-lg font-bold text-ink">
                       {formatLKR(drawerQuery.data.order.totalCents)}

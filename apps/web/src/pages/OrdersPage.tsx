@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { api, ApiError } from '@/lib/api';
-import { Button, EmptyState, PageHeader, StatusDots } from '@/components/ui';
+import { Button, Card, EmptyState, ErrorBanner, PageHeader, StatusDots } from '@/components/ui';
 import type { OrderStatus } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
@@ -14,11 +14,10 @@ import {
   ShoppingCartIcon,
   StoreIcon,
   TruckIcon,
-  FileTextIcon,
   ShieldCheckIcon,
   ArrowRightIcon,
-  ClockIcon,
   CheckCircleIcon,
+  BanknoteIcon,
   SparklesIcon,
 } from '@/components/icons';
 import { MetricNumber } from '@/components/brand/Surface';
@@ -146,7 +145,7 @@ export function OrdersPage() {
   if (!user) {
     return (
       <div className="py-16 text-center space-y-4 max-w-lg mx-auto">
-        <div className="size-12 bg-ink text-volt mx-auto flex items-center justify-center">
+        <div className="size-12 rounded-xl bg-ink text-volt mx-auto flex items-center justify-center">
           <PackageIcon size={24} />
         </div>
         <h2 className="vyro-display text-3xl text-ink">Sign in to view orders</h2>
@@ -163,7 +162,7 @@ export function OrdersPage() {
   if (!businessId) {
     return (
       <div className="py-16 text-center space-y-4 max-w-lg mx-auto">
-        <div className="size-12 bg-ink text-copper mx-auto flex items-center justify-center">
+        <div className="size-12 rounded-xl bg-ink text-copper mx-auto flex items-center justify-center">
           <StoreIcon size={24} />
         </div>
         <h2 className="vyro-display text-3xl text-ink">No registered business entity</h2>
@@ -186,8 +185,8 @@ export function OrdersPage() {
             <span className="vyro-kicker text-copper">Procurement Operations</span>
             <span className="text-ink-4">/</span>
             <span className="text-[11px] font-mono text-ink-3">{businessName}</span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider">
-              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider">
+              <span className="size-1.5 rounded-full bg-mint animate-pulse" />
               Digital GRN Active
             </span>
           </div>
@@ -212,8 +211,8 @@ export function OrdersPage() {
               </Link>
             )}
             <Link to="/orders/conversational">
-              <Button variant="secondary" size="sm" className="text-xs uppercase tracking-wider font-semibold bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100">
-                <span>💬 WhatsApp Bot</span>
+              <Button variant="secondary" size="sm" className="text-xs uppercase tracking-wider font-semibold">
+                <span>WhatsApp Bot</span>
               </Button>
             </Link>
             <Link to="/ask">
@@ -229,58 +228,78 @@ export function OrdersPage() {
       {/* Metric Tiles (Shown when orders exist) */}
       {allOrders.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-              Total Purchase Orders
+          <Card className="p-4 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
+                Total Purchase Orders
+              </span>
+              <span className="size-8 rounded-lg bg-ink/[0.05] text-ink-3 flex items-center justify-center shrink-0">
+                <PackageIcon size={15} />
+              </span>
             </div>
-            <div className="vyro-metric text-3xl font-bold text-ink">{stats.total}</div>
+            <MetricNumber size="md" className="text-ink">{stats.total}</MetricNumber>
             <div className="text-[10px] text-ink-4">Issued across Sri Lanka</div>
-          </div>
+          </Card>
 
-          <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-              In Flight / Staged
+          <Card className="p-4 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
+                In Flight / Staged
+              </span>
+              <span className="size-8 rounded-lg bg-volt/20 text-ink flex items-center justify-center shrink-0">
+                <TruckIcon size={15} />
+              </span>
             </div>
-            <div className="vyro-metric text-3xl font-bold text-volt-deep flex items-center gap-2">
+            <MetricNumber size="md" className="text-volt-deep flex items-center gap-2">
               <span>{stats.inFlight}</span>
               {stats.inFlight > 0 && (
                 <span className="size-2 rounded-full bg-volt animate-ping" />
               )}
-            </div>
+            </MetricNumber>
             <div className="text-[10px] text-ink-4">Active route delivery</div>
-          </div>
+          </Card>
 
-          <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-              Delivered & Completed
+          <Card className="p-4 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
+                Delivered & Completed
+              </span>
+              <span className="size-8 rounded-lg bg-mint/15 text-mint flex items-center justify-center shrink-0">
+                <CheckCircleIcon size={15} />
+              </span>
             </div>
-            <div className="vyro-metric text-3xl font-bold text-mint">{stats.completed}</div>
+            <MetricNumber size="md" className="text-mint">{stats.completed}</MetricNumber>
             <div className="text-[10px] text-ink-4">Dockside GRN confirmed</div>
-          </div>
+          </Card>
 
-          <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-              Commercial Volume
+          <Card className="p-4 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
+                Commercial Volume
+              </span>
+              <span className="size-8 rounded-lg bg-copper/15 text-copper flex items-center justify-center shrink-0">
+                <BanknoteIcon size={15} />
+              </span>
             </div>
-            <div className="vyro-metric text-2xl sm:text-3xl font-bold text-ink">
+            <MetricNumber size="md" className="text-ink">
               {formatLKR(stats.totalSpendCents)}
-            </div>
+            </MetricNumber>
             <div className="text-[10px] text-ink-4">SVAT invoice total</div>
-          </div>
+          </Card>
         </div>
       )}
 
       {/* Active Cart Notification Banner (If user has cart items waiting) */}
       {cartItemsCount > 0 && (
-        <div className="p-5 bg-ink text-paper border border-volt/30 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="p-5 rounded-2xl bg-ink text-paper border border-volt/30 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-start sm:items-center gap-3.5">
-            <div className="size-10 bg-volt text-ink flex items-center justify-center shrink-0 font-bold">
+            <div className="size-10 rounded-xl bg-volt text-ink flex items-center justify-center shrink-0 font-bold">
               <ShoppingCartIcon size={20} />
             </div>
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
                 <span className="vyro-kicker text-volt">Pending Cart Ready</span>
-                <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="size-1.5 rounded-full bg-mint animate-pulse" />
               </div>
               <h4 className="font-display text-base font-semibold text-paper">
                 You have {cartItemsCount} item{cartItemsCount === 1 ? '' : 's'} waiting in your active cart
@@ -299,16 +318,11 @@ export function OrdersPage() {
       )}
 
       {/* Reorder Error Banner */}
-      {reorderError && (
-        <div role="alert" className="border border-rose-300 bg-rose-50 text-rose-900 p-4 text-sm flex items-start gap-2">
-          <span className="font-bold shrink-0">Error:</span>
-          <span>{reorderError}</span>
-        </div>
-      )}
+      <ErrorBanner message={reorderError} />
 
       {/* Filter Tabs & Search Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-ink/10">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full max-w-full overflow-x-auto scrollbar-none">
           {STATUS_FILTERS.map((tab) => {
             let count = 0;
             if (tab.id === 'all') count = allOrders.length;
@@ -320,14 +334,14 @@ export function OrdersPage() {
                 key={tab.id}
                 type="button"
                 onClick={() => setFilter(tab.id)}
-                className={`h-8 px-3 text-xs font-mono tracking-wide transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                className={`h-8 px-3.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
                   active
-                    ? 'bg-ink text-volt font-bold shadow-sm'
-                    : 'bg-paper text-ink-3 border border-ink/15 hover:border-ink hover:text-ink'
+                    ? 'bg-ink text-paper shadow-sm'
+                    : 'text-ink-3 hover:text-ink'
                 }`}
               >
                 <span>{tab.label}</span>
-                <span className={`px-1.5 py-0.2 text-[10px] rounded ${active ? 'bg-volt/20 text-volt' : 'bg-mist text-ink-4'}`}>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${active ? 'bg-volt/25 text-volt' : 'bg-ink/[0.06] text-ink-4'}`}>
                   {count}
                 </span>
               </button>
@@ -337,13 +351,13 @@ export function OrdersPage() {
 
         {allOrders.length > 0 && (
           <div className="relative min-w-[240px]">
-            <SearchIcon size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
+            <SearchIcon size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-4" />
             <input
               type="text"
               placeholder="Search PO #, supplier, city…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-8 pl-8 pr-3 bg-paper border border-ink/15 text-xs text-ink placeholder:text-ink-4 outline-none focus:border-ink"
+              className="w-full h-9 pl-9 pr-3.5 bg-paper rounded-full text-xs text-ink placeholder:text-ink-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] transition-shadow duration-200 outline-none focus:shadow-[inset_0_0_0_1px_#0C0E0B,0_0_0_3px_rgba(198,220,74,0.35)]"
             />
           </div>
         )}
@@ -353,7 +367,7 @@ export function OrdersPage() {
       {isLoading && (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 bg-paper border border-ink/10 animate-pulse" />
+            <div key={i} className="h-20 vyro-surface animate-pulse" />
           ))}
         </div>
       )}
@@ -361,8 +375,8 @@ export function OrdersPage() {
       {/* Empty State Redesign (When 0 orders) */}
       {!isLoading && allOrders.length === 0 && (
         <div className="space-y-8">
-          <div className="bg-paper border border-ink/15 p-8 sm:p-12 text-center space-y-6 shadow-sm">
-            <div className="size-14 bg-ink text-volt mx-auto flex items-center justify-center shadow-md">
+          <div className="vyro-surface p-8 sm:p-12 text-center space-y-6">
+            <div className="size-14 rounded-xl bg-ink text-volt mx-auto flex items-center justify-center shadow-md">
               <PackageIcon size={28} />
             </div>
 
@@ -396,8 +410,8 @@ export function OrdersPage() {
           <div className="space-y-3">
             <div className="vyro-kicker text-copper">Procurement Automation</div>
             <div className="grid sm:grid-cols-3 gap-4">
-              <div className="p-5 bg-paper border border-ink/10 space-y-2">
-                <div className="size-7 bg-bone text-ink font-mono text-xs font-bold flex items-center justify-center">
+              <Card className="space-y-2">
+                <div className="size-7 rounded-md bg-ink text-volt font-mono text-xs font-bold flex items-center justify-center">
                   01
                 </div>
                 <h4 className="font-display font-semibold text-ink text-sm">
@@ -406,10 +420,10 @@ export function OrdersPage() {
                 <p className="text-xs text-ink-3 leading-relaxed">
                   Combine goods from different regional millers into one cart. The engine splits them into separate, legal POs.
                 </p>
-              </div>
+              </Card>
 
-              <div className="p-5 bg-paper border border-ink/10 space-y-2">
-                <div className="size-7 bg-bone text-ink font-mono text-xs font-bold flex items-center justify-center">
+              <Card className="space-y-2">
+                <div className="size-7 rounded-md bg-ink text-volt font-mono text-xs font-bold flex items-center justify-center">
                   02
                 </div>
                 <h4 className="font-display font-semibold text-ink text-sm">
@@ -418,10 +432,10 @@ export function OrdersPage() {
                 <p className="text-xs text-ink-3 leading-relaxed">
                   Suppliers acknowledge dispatch with assigned delivery truck plate numbers and real-time transit milestones.
                 </p>
-              </div>
+              </Card>
 
-              <div className="p-5 bg-paper border border-ink/10 space-y-2">
-                <div className="size-7 bg-bone text-ink font-mono text-xs font-bold flex items-center justify-center">
+              <Card className="space-y-2">
+                <div className="size-7 rounded-md bg-ink text-volt font-mono text-xs font-bold flex items-center justify-center">
                   03
                 </div>
                 <h4 className="font-display font-semibold text-ink text-sm">
@@ -430,7 +444,7 @@ export function OrdersPage() {
                 <p className="text-xs text-ink-3 leading-relaxed">
                   Electronic sign-off upon pallet receiving locks audit trails and triggers digital SVAT tax invoicing.
                 </p>
-              </div>
+              </Card>
             </div>
           </div>
         </div>
@@ -457,10 +471,10 @@ export function OrdersPage() {
       )}
 
       {!isLoading && filteredOrders.length > 0 && (
-        <div className="bg-paper border border-ink/15 overflow-x-auto shadow-sm">
+        <div className="vyro-surface overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-ink/15 bg-bone/70 text-[10px] font-mono uppercase tracking-wider text-ink-3">
+              <tr className="border-b border-ink/10 bg-bone/60 text-[10px] font-mono uppercase tracking-wider text-ink-3">
                 <th className="py-3 px-4">PO Number</th>
                 <th className="py-3 px-4">Supplier Facility</th>
                 <th className="py-3 px-4">Status & Milestone</th>
@@ -530,7 +544,7 @@ export function OrdersPage() {
                       <div className="flex items-center justify-end gap-2">
                         <Link
                           to={`/orders/${o.id}`}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-ink hover:text-copper transition-colors px-2.5 py-1 bg-bone border border-ink/10 hover:border-ink"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-ink hover:text-copper transition-colors px-3 py-1.5 rounded-full bg-bone border border-ink/10 hover:border-ink"
                         >
                           <span>Details</span>
                           <ArrowRightIcon size={12} />

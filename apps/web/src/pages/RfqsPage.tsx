@@ -204,7 +204,7 @@ export function RfqsPage() {
               </>
             )}
             {dash.data && (
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider">
                 <span className="size-1.5 rounded-full bg-volt-deep animate-pulse" />
                 Negotiation Engine Active
               </span>
@@ -293,7 +293,7 @@ export function RfqsPage() {
 
       {/* Filter Tabs + Search */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-ink/10">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full max-w-full overflow-x-auto scrollbar-none">
           {GROUPS.map((g) => {
             const n = rows.filter((r) => g.match(r.status)).length;
             const active = group === g.key;
@@ -301,17 +301,17 @@ export function RfqsPage() {
               <button
                 key={g.key}
                 onClick={() => setGroup(g.key)}
-                className={`h-8 px-3 text-xs font-mono tracking-wide transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                className={`h-8 px-3.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
                   active
-                    ? 'bg-ink text-volt font-bold shadow-sm'
-                    : 'bg-paper text-ink-3 border border-ink/15 hover:border-ink hover:text-ink'
+                    ? 'bg-ink text-paper shadow-sm'
+                    : 'text-ink-3 hover:text-ink'
                 }`}
               >
                 {g.icon}
                 <span>{g.label}</span>
                 <span
-                  className={`px-1.5 py-0.2 text-[10px] rounded ${
-                    active ? 'bg-volt/20 text-volt' : 'bg-mist text-ink-4'
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                    active ? 'bg-volt/25 text-volt' : 'bg-ink/[0.06] text-ink-4'
                   }`}
                 >
                   {n}
@@ -323,13 +323,13 @@ export function RfqsPage() {
 
         {rows.length > 0 && (
           <div className="relative min-w-[240px]">
-            <SearchIcon size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
+            <SearchIcon size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-4" />
             <input
               type="text"
               placeholder="Search RFQ title or number…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-8 pl-8 pr-3 bg-paper border border-ink/15 text-xs text-ink placeholder:text-ink-4 outline-none focus:border-ink"
+              className="w-full h-9 pl-9 pr-3.5 bg-paper rounded-full text-xs text-ink placeholder:text-ink-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] transition-shadow duration-200 outline-none focus:shadow-[inset_0_0_0_1px_#0C0E0B,0_0_0_3px_rgba(198,220,74,0.35)]"
             />
           </div>
         )}
@@ -339,7 +339,7 @@ export function RfqsPage() {
       {dash.isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 bg-paper border border-ink/10 animate-pulse" />
+            <div key={i} className="h-24 vyro-surface animate-pulse" />
           ))}
         </div>
       ) : rows.length === 0 ? (
@@ -389,7 +389,7 @@ export function RfqsPage() {
 
       {/* Helpful footer */}
       {rows.length > 0 && (
-        <div className="mt-8 p-5 bg-paper border border-ink/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="mt-8 p-5 vyro-surface flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-start gap-3">
             <div className="size-9 rounded-lg bg-copper/10 text-copper flex items-center justify-center shrink-0">
               <ShieldCheckIcon size={18} />
@@ -437,14 +437,22 @@ function MetricTile({
     ink: 'text-ink',
     copper: 'text-copper-deep',
   }[accent];
+  const tileClass = {
+    mint: 'bg-mint/15 text-mint',
+    amber: 'bg-amber/15 text-amber',
+    rose: 'bg-rose/15 text-rose',
+    volt: 'bg-volt/20 text-volt-deep',
+    ink: 'bg-ink/[0.05] text-ink-3',
+    copper: 'bg-copper/15 text-copper-deep',
+  }[accent];
 
   return (
-    <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-2 hover:border-ink/30 transition-colors">
+    <div className="p-4 vyro-surface space-y-2 hover:border-ink/30 transition-colors">
       <div className="flex items-center justify-between">
         <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
           {label}
         </div>
-        <div className="size-6 bg-bone text-ink-2 flex items-center justify-center">{icon}</div>
+        <div className={`size-8 rounded-lg flex items-center justify-center ${tileClass}`}>{icon}</div>
       </div>
       <div className={`vyro-metric text-3xl font-bold ${accentClass}`}>{value}</div>
       <div className="text-[10px] text-ink-4">{sub}</div>
@@ -462,8 +470,8 @@ function MiniMetric({
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-2.5 p-2.5 bg-paper border border-ink/10">
-      <div className="size-7 bg-bone text-ink-2 flex items-center justify-center shrink-0">
+    <div className="flex items-center gap-2.5 p-3 vyro-surface">
+      <div className="size-7 rounded-lg bg-ink/[0.05] text-ink-3 flex items-center justify-center shrink-0">
         {icon}
       </div>
       <div className="min-w-0">
@@ -490,79 +498,75 @@ function RfqCard({ rfq, onCopy }: { rfq: RfqRow; onCopy: (id: string) => void })
   return (
     <Link
       to={`/rfqs/${rfq.id}`}
-      className="block group bg-paper border border-ink/15 hover:border-ink transition-all shadow-sm"
+      className="block group vyro-surface hover:border-ink/30 transition-all"
     >
-      <div className="flex flex-col sm:flex-row">
-        {/* Left accent rail */}
-        <div className="w-full sm:w-1.5 h-1.5 sm:h-auto bg-gradient-to-r sm:bg-gradient-to-b from-volt/40 to-copper/30 group-hover:from-volt group-hover:to-copper transition-colors" />
-
-        <div className="flex-1 p-5 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono text-[11px] uppercase tracking-wider text-copper font-bold">
-                  {rfq.rfqNumber}
+      <div className="p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-mono text-[11px] uppercase tracking-wider text-copper font-bold">
+                {rfq.rfqNumber}
+              </span>
+              <StatusPill status={rfq.status} />
+              {rfq.isOpen && (
+                <span className="inline-flex items-center gap-1 rounded-full text-[10px] font-mono uppercase tracking-wider bg-volt/15 text-ink-1 border border-volt/30 px-2 py-0.5">
+                  <UsersIcon size={9} /> Open
                 </span>
-                <StatusPill status={rfq.status} />
-                {rfq.isOpen && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider bg-volt/15 text-ink-1 border border-volt/30 px-1.5 py-0.5">
-                    <UsersIcon size={9} /> Open
-                  </span>
-                )}
-                {rfq.expiringSoon && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider bg-amber/15 text-amber border border-amber/30 px-1.5 py-0.5 font-bold">
-                    <AlertTriangleIcon size={9} /> Expiring soon
-                  </span>
-                )}
-              </div>
-
-              <h3 className="mt-1.5 font-display text-lg sm:text-xl font-bold text-ink-1 leading-snug group-hover:text-copper transition-colors">
-                {rfq.title}
-              </h3>
-
-              {rfq.description && (
-                <p className="mt-1 text-xs text-ink-3 line-clamp-1 max-w-2xl">
-                  {rfq.description}
-                </p>
               )}
-
-              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-ink-3">
-                <span className="flex items-center gap-1.5">
-                  <ScaleIcon size={12} className="text-copper" />
-                  <strong className="text-ink-1 font-mono">{rfq.quoteCount ?? 0}</strong>{' '}
-                  quote{(rfq.quoteCount ?? 0) === 1 ? '' : 's'}
+              {rfq.expiringSoon && (
+                <span className="inline-flex items-center gap-1 rounded-full text-[10px] font-mono uppercase tracking-wider bg-amber/15 text-amber border border-amber/30 px-2 py-0.5 font-bold">
+                  <AlertTriangleIcon size={9} /> Expiring soon
                 </span>
-                {rfq.itemCount != null && (
-                  <span className="flex items-center gap-1.5">
-                    <PackageIcon size={12} className="text-copper" />
-                    <strong className="text-ink-1 font-mono">{rfq.itemCount}</strong> line
-                    {rfq.itemCount === 1 ? '' : 's'}
-                  </span>
-                )}
-                {rfq.lowestLandedCents != null && (
-                  <span className="flex items-center gap-1.5">
-                    <BanknoteIcon size={12} className="text-mint" />
-                    from{' '}
-                    <strong className="text-ink-1 font-mono">
-                      {formatLKR(rfq.lowestLandedCents)}
-                    </strong>
-                  </span>
-                )}
-                <span className="flex items-center gap-1.5">
-                  <CalendarIcon size={12} className="text-copper" />
-                  <span className={`inline-flex items-center gap-1.5 font-mono text-[11px] ${dt.tone === 'rose' ? 'text-rose font-semibold' : ''}`}>
-                    <span className={`size-1.5 rotate-45 ${dtDot}`} />
-                    {dt.label === 'No deadline' ? (
-                      'No deadline'
-                    ) : (
-                      <>
-                        {dt.label === 'Expired' ? 'Expired' : `Due ${fmtRelative(rfq.deadline)}`}
-                      </>
-                    )}
-                  </span>
-                </span>
-              </div>
+              )}
             </div>
+
+            <h3 className="mt-1.5 font-display text-lg sm:text-xl font-bold text-ink-1 leading-snug group-hover:text-copper transition-colors">
+              {rfq.title}
+            </h3>
+
+            {rfq.description && (
+              <p className="mt-1 text-xs text-ink-3 line-clamp-1 max-w-2xl">
+                {rfq.description}
+              </p>
+            )}
+
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-ink-3">
+              <span className="flex items-center gap-1.5">
+                <ScaleIcon size={12} className="text-copper" />
+                <strong className="text-ink-1 font-mono">{rfq.quoteCount ?? 0}</strong>{' '}
+                quote{(rfq.quoteCount ?? 0) === 1 ? '' : 's'}
+              </span>
+              {rfq.itemCount != null && (
+                <span className="flex items-center gap-1.5">
+                  <PackageIcon size={12} className="text-copper" />
+                  <strong className="text-ink-1 font-mono">{rfq.itemCount}</strong> line
+                  {rfq.itemCount === 1 ? '' : 's'}
+                </span>
+              )}
+              {rfq.lowestLandedCents != null && (
+                <span className="flex items-center gap-1.5">
+                  <BanknoteIcon size={12} className="text-mint" />
+                  from{' '}
+                  <strong className="text-ink-1 font-mono">
+                    {formatLKR(rfq.lowestLandedCents)}
+                  </strong>
+                </span>
+              )}
+              <span className="flex items-center gap-1.5">
+                <CalendarIcon size={12} className="text-copper" />
+                <span className={`inline-flex items-center gap-1.5 font-mono text-[11px] ${dt.tone === 'rose' ? 'text-rose font-semibold' : ''}`}>
+                  <span className={`size-1.5 rotate-45 ${dtDot}`} />
+                  {dt.label === 'No deadline' ? (
+                    'No deadline'
+                  ) : (
+                    <>
+                      {dt.label === 'Expired' ? 'Expired' : `Due ${fmtRelative(rfq.deadline)}`}
+                    </>
+                  )}
+                </span>
+              </span>
+            </div>
+          </div>
 
             {/* Right action cluster */}
             <div className="flex items-center gap-2 self-start">
@@ -576,14 +580,13 @@ function RfqCard({ rfq, onCopy }: { rfq: RfqRow; onCopy: (id: string) => void })
                   </div>
                 </div>
               )}
-              <div className="inline-flex items-center gap-1 text-xs font-semibold text-ink-1 group-hover:text-copper transition-colors px-3 py-1.5 bg-bone border border-ink/10 group-hover:border-ink">
+              <div className="inline-flex items-center gap-1 text-xs font-semibold text-ink-1 group-hover:text-copper transition-colors px-3 py-1.5 rounded-full bg-bone border border-ink/10 group-hover:border-ink">
                 <span>Open</span>
                 <ArrowRightIcon size={12} />
               </div>
             </div>
           </div>
         </div>
-      </div>
     </Link>
   );
 }

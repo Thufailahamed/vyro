@@ -167,7 +167,7 @@ export function NotificationsPage() {
   if (!user) {
     return (
       <div className="py-16 text-center space-y-4 max-w-lg mx-auto">
-        <div className="size-12 bg-ink text-volt mx-auto flex items-center justify-center">
+        <div className="size-12 rounded-xl bg-ink text-volt mx-auto flex items-center justify-center">
           <BellIcon size={24} />
         </div>
         <h2 className="vyro-display text-3xl text-ink">Sign in to view signals</h2>
@@ -190,8 +190,8 @@ export function NotificationsPage() {
             <span className="vyro-kicker text-copper">Activity Stream</span>
             <span className="text-ink-4">/</span>
             <span className="text-[11px] font-mono text-ink-3">Live Dispatch & Audit Signals</span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider">
-              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider">
+              <span className="size-1.5 rounded-full bg-mint animate-pulse" />
               Push Gateway Connected
             </span>
           </div>
@@ -216,9 +216,9 @@ export function NotificationsPage() {
 
       {/* Active Cart Notification Banner (if buyer has cart items waiting) */}
       {cartCount > 0 && (
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="p-4 vyro-surface flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="size-8 bg-ink text-volt flex items-center justify-center shrink-0">
+            <div className="size-9 rounded-lg bg-ink text-volt flex items-center justify-center shrink-0">
               <ShoppingCartIcon size={16} />
             </div>
             <div>
@@ -240,7 +240,7 @@ export function NotificationsPage() {
 
       {/* Filter Tabs & Search Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-ink/10">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full max-w-full overflow-x-auto scrollbar-none">
           {[
             { id: 'all', label: 'All Signals' },
             { id: 'unread', label: 'Unread', badge: unread },
@@ -255,15 +255,15 @@ export function NotificationsPage() {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id as CategoryTab)}
-                className={`h-8 px-3 text-xs font-mono tracking-wide transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                className={`h-8 px-3.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
                   active
-                    ? 'bg-ink text-volt font-bold shadow-sm'
-                    : 'bg-paper text-ink-3 border border-ink/15 hover:border-ink hover:text-ink'
+                    ? 'bg-ink text-paper shadow-sm'
+                    : 'text-ink-3 hover:text-ink'
                 }`}
               >
                 <span>{tab.label}</span>
                 {tab.badge !== undefined && tab.badge > 0 && (
-                  <span className={`px-1.5 py-0.2 text-[10px] rounded font-bold ${active ? 'bg-volt text-ink' : 'bg-volt/20 text-ink'}`}>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${active ? 'bg-volt/25 text-volt' : 'bg-ink/[0.06] text-ink-4'}`}>
                     {tab.badge}
                   </span>
                 )}
@@ -274,13 +274,13 @@ export function NotificationsPage() {
 
         {notes.length > 0 && (
           <div className="relative min-w-[220px]">
-            <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
+            <SearchIcon size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-4" />
             <input
               type="text"
               placeholder="Filter notifications…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-8 pl-8 pr-3 bg-paper border border-ink/15 text-xs text-ink placeholder:text-ink-4 outline-none focus:border-ink"
+              className="w-full h-9 pl-9 pr-3.5 bg-paper rounded-full text-xs text-ink placeholder:text-ink-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] transition-shadow duration-200 outline-none focus:shadow-[inset_0_0_0_1px_#0C0E0B,0_0_0_3px_rgba(198,220,74,0.35)]"
             />
           </div>
         )}
@@ -290,7 +290,7 @@ export function NotificationsPage() {
       {isLoading && (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 bg-paper border border-ink/10 animate-pulse" />
+            <div key={i} className="h-24 vyro-surface animate-pulse" />
           ))}
         </div>
       )}
@@ -298,8 +298,8 @@ export function NotificationsPage() {
       {/* Empty State / Signal Guidance Hub (When 0 notifications) */}
       {!isLoading && notes.length === 0 && (
         <div className="space-y-8">
-          <div className="bg-paper border border-ink/15 p-8 sm:p-12 text-center space-y-6 shadow-sm">
-            <div className="size-14 bg-ink text-volt mx-auto flex items-center justify-center shadow-md">
+          <div className="vyro-surface p-8 sm:p-12 text-center space-y-6">
+            <div className="size-14 rounded-xl bg-ink text-volt mx-auto flex items-center justify-center shadow-md">
               <BellIcon size={28} />
             </div>
 
@@ -333,9 +333,9 @@ export function NotificationsPage() {
           <div className="space-y-3">
             <div className="vyro-kicker text-copper">Automated Signal Lifecycle</div>
             <div className="grid sm:grid-cols-3 gap-4">
-              <div className="p-5 bg-paper border border-ink/10 space-y-2">
-                <div className="size-8 bg-bone text-ink flex items-center justify-center">
-                  <TruckIcon size={18} className="text-copper" />
+              <div className="vyro-surface p-5 space-y-2">
+                <div className="size-8 rounded-lg bg-copper/15 text-copper flex items-center justify-center">
+                  <TruckIcon size={18} />
                 </div>
                 <h4 className="font-display font-semibold text-ink text-sm">
                   Driver Plate & Freight Dispatch
@@ -345,9 +345,9 @@ export function NotificationsPage() {
                 </p>
               </div>
 
-              <div className="p-5 bg-paper border border-ink/10 space-y-2">
-                <div className="size-8 bg-bone text-ink flex items-center justify-center">
-                  <PackageIcon size={18} className="text-volt-deep" />
+              <div className="vyro-surface p-5 space-y-2">
+                <div className="size-8 rounded-lg bg-volt/20 text-volt-deep flex items-center justify-center">
+                  <PackageIcon size={18} />
                 </div>
                 <h4 className="font-display font-semibold text-ink text-sm">
                   Dockside Goods Receipt (GRN)
@@ -357,9 +357,9 @@ export function NotificationsPage() {
                 </p>
               </div>
 
-              <div className="p-5 bg-paper border border-ink/10 space-y-2">
-                <div className="size-8 bg-bone text-ink flex items-center justify-center">
-                  <FileTextIcon size={18} className="text-mint" />
+              <div className="vyro-surface p-5 space-y-2">
+                <div className="size-8 rounded-lg bg-mint/15 text-mint flex items-center justify-center">
+                  <FileTextIcon size={18} />
                 </div>
                 <h4 className="font-display font-semibold text-ink text-sm">
                   SVAT Digital Tax Invoices
@@ -372,7 +372,7 @@ export function NotificationsPage() {
           </div>
 
           {/* Active Delivery Channels Card */}
-          <div className="p-4 bg-bone/60 border border-ink/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          <div className="p-4 vyro-surface flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-3">
               <ShieldCheckIcon size={16} className="text-volt-deep shrink-0" />
               <div className="text-ink-3">
@@ -412,14 +412,14 @@ export function NotificationsPage() {
             return (
               <div
                 key={n.id}
-                className={`bg-paper border transition-all duration-150 p-4 sm:p-5 flex items-start justify-between gap-4 shadow-sm ${
+                className={`vyro-surface transition-all duration-150 p-4 sm:p-5 flex items-start justify-between gap-4 ${
                   isUnread
-                    ? 'border-ink/30 bg-paper/95 border-l-4 border-l-volt'
-                    : 'border-ink/10 opacity-75 hover:opacity-100'
+                    ? 'border-l-4 !border-l-volt'
+                    : 'opacity-75 hover:opacity-100'
                 }`}
               >
                 <div className="flex items-start gap-3.5 min-w-0 flex-1">
-                  <div className="size-9 bg-bone border border-ink/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <div className="size-9 rounded-lg bg-bone border border-ink/10 flex items-center justify-center shrink-0 mt-0.5">
                     {getNotificationIcon(n.type)}
                   </div>
 
@@ -431,7 +431,7 @@ export function NotificationsPage() {
                       <h4 className="font-display font-semibold text-base text-ink leading-snug">
                         {n.title}
                       </h4>
-                      <span className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 bg-mist text-ink-3 font-bold border border-line">
+                      <span className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-mist text-ink-3 font-bold">
                         {n.type}
                       </span>
                     </div>

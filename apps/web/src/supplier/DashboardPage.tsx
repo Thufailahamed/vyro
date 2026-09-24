@@ -218,7 +218,7 @@ export function SupplierDashboardPage() {
       )}
 
       {/* Industrial Hero Header */}
-      <div className="bg-ink text-paper p-6 sm:p-8 relative overflow-hidden grain border border-paper/15 shadow-xl">
+      <div className="bg-ink text-paper p-6 sm:p-8 relative overflow-hidden grain rounded-2xl border border-paper/15 shadow-xl">
         <div className="absolute inset-0 opacity-25 pointer-events-none">
           <FlowCanvas tone="paper" density="hero" />
         </div>
@@ -227,7 +227,7 @@ export function SupplierDashboardPage() {
             <div className="flex flex-wrap items-center gap-2">
               <span
                 className={cn(
-                  'inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider border',
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider border',
                   isVerified
                     ? 'bg-mint/20 text-mint border-mint/30'
                     : 'bg-volt/20 text-volt border-volt/30',
@@ -305,7 +305,7 @@ export function SupplierDashboardPage() {
                 <PackageIcon size={13} />
                 <span>Dispatch Console</span>
                 {pendingOrders.length > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 bg-volt text-ink font-mono font-bold text-[10px]">
+                  <span className="ml-1 px-1.5 py-0.5 rounded-md bg-volt text-ink font-mono font-bold text-[10px]">
                     {pendingOrders.length}
                   </span>
                 )}
@@ -370,7 +370,7 @@ export function SupplierDashboardPage() {
         <Surface kind="elevated" className="p-6 sm:p-8 space-y-6 border-l-4 border-l-volt">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="size-10 bg-volt/25 text-ink flex items-center justify-center font-bold shrink-0">
+              <div className="size-10 rounded-lg bg-volt/25 text-ink flex items-center justify-center font-bold shrink-0">
                 <SparklesIcon size={20} />
               </div>
               <div>
@@ -558,13 +558,13 @@ export function SupplierDashboardPage() {
                   Latest wholesale buyer POs routed to your facility
                 </p>
               </div>
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider bg-ink text-volt border border-ink shrink-0">
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-ink text-volt shrink-0">
                 {orderList.length} Total
               </span>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center border border-ink/15 bg-paper p-0.5 text-xs">
+              <div className="flex items-center rounded-full bg-ink/[0.05] p-1 text-xs">
                 {(
                   [
                     { id: 'all', label: `All (${orderList.length})` },
@@ -579,8 +579,8 @@ export function SupplierDashboardPage() {
                       key={t.id}
                       onClick={() => setOrderFilter(t.id)}
                       className={cn(
-                        'px-2.5 py-1 text-[11px] font-medium transition-colors',
-                        active ? 'bg-ink text-paper font-semibold' : 'text-ink-3 hover:text-ink',
+                        'px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors',
+                        active ? 'bg-ink text-paper font-semibold shadow-sm' : 'text-ink-3 hover:text-ink',
                       )}
                     >
                       {t.label}
@@ -600,7 +600,7 @@ export function SupplierDashboardPage() {
 
           {filteredOrders.length === 0 ? (
             <div className="p-12 text-center space-y-4">
-              <div className="size-14 mx-auto bg-mist flex items-center justify-center text-ink-4 border border-ink/10">
+              <div className="size-14 mx-auto rounded-xl bg-mist flex items-center justify-center text-ink-4">
                 <PackageIcon size={26} />
               </div>
               <div className="space-y-1">
@@ -677,7 +677,7 @@ export function SupplierDashboardPage() {
                       <td className="px-6 py-4 text-right">
                         <Link
                           to="/supplier/orders"
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-ink hover:text-copper transition-colors px-2.5 py-1 bg-bone border border-ink/10 hover:border-ink"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-ink hover:text-copper transition-colors px-2.5 py-1 rounded-full bg-bone border border-ink/10 hover:border-ink"
                         >
                           <span>Manage</span>
                           <ArrowRightIcon size={12} />
@@ -740,9 +740,9 @@ export function SupplierDashboardPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-bone overflow-hidden">
+                        <div className="flex-1 h-1.5 rounded-full bg-ink/[0.07] overflow-hidden">
                           <div
-                            className="h-full bg-gradient-to-r from-copper to-volt"
+                            className="h-full rounded-full bg-gradient-to-r from-copper to-volt"
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -987,7 +987,7 @@ function KycCallout({ status }: { status?: string }) {
   return (
     <div
       className={cn(
-        'flex flex-col sm:flex-row sm:items-center gap-3 p-4 border-l-4',
+        'flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl border-l-4',
         isRejected
           ? 'bg-rose/10 border-l-rose border border-rose/30'
           : isNeeds
@@ -997,7 +997,7 @@ function KycCallout({ status }: { status?: string }) {
     >
       <div
         className={cn(
-          'size-10 flex items-center justify-center shrink-0',
+          'size-10 rounded-lg flex items-center justify-center shrink-0',
           isRejected ? 'bg-rose text-paper' : isNeeds ? 'bg-copper text-paper' : 'bg-amber text-ink',
         )}
       >
@@ -1113,13 +1113,13 @@ function KpiTile({
   return (
     <Link
       to={to}
-      className="p-5 bg-paper border border-ink/10 hover:border-ink transition-all group block shadow-sm hover:shadow-md"
+      className="p-5 vyro-surface hover:border-ink/30 transition-all group block hover:shadow-md"
     >
       <div className="flex items-center justify-between">
         <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">
           {label}
         </div>
-        <div className={cn('size-7 flex items-center justify-center', accentBg)}>{icon}</div>
+        <div className={cn('size-7 rounded-lg flex items-center justify-center', accentBg)}>{icon}</div>
       </div>
       <MetricNumber size="lg" className={cn('mt-2', accentText)}>
         {display}
@@ -1156,7 +1156,7 @@ function PipelineStat({
     paper: 'text-paper',
   }[tone];
   return (
-    <div className="p-3 bg-paper/[0.04] border border-paper/10">
+    <div className="p-3 rounded-lg bg-paper/[0.04] border border-paper/10">
       <div className="text-[9px] font-mono text-paper/50 uppercase tracking-wider font-bold">
         {label}
       </div>
@@ -1180,8 +1180,8 @@ function ActivationStep({
   to: string;
 }) {
   return (
-    <div className="p-4 bg-paper border border-ink/10 space-y-2 relative hover:border-ink/30 transition-colors">
-      <span className="text-[10px] font-mono text-volt-deep uppercase tracking-wider font-bold">
+    <div className="p-4 rounded-xl bg-paper border border-ink/10 space-y-2 relative hover:border-ink/30 transition-colors">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-volt/15 text-[10px] font-mono text-volt-deep uppercase tracking-wider font-bold">
         Step {n}
       </span>
       <h3 className="font-display text-sm font-semibold text-ink">{title}</h3>
@@ -1226,11 +1226,11 @@ function ActionCard({
   return (
     <Link
       to={to}
-      className="p-5 bg-paper border border-ink/10 hover:border-ink transition-all block space-y-2 shadow-sm group"
+      className="p-5 vyro-surface hover:border-ink/30 transition-all block space-y-2 group"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className={cn('size-8 flex items-center justify-center', accentBg)}>
+          <div className={cn('size-8 rounded-lg flex items-center justify-center', accentBg)}>
             <Icon size={15} />
           </div>
           <div className={cn('font-display font-semibold text-sm text-ink', accentText, 'transition-colors')}>

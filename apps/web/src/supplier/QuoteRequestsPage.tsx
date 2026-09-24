@@ -5,9 +5,10 @@ import { usePageTitle } from '@/lib/usePageTitle';
 import { api } from '@/lib/api';
 import { useSupplierId } from './useSupplierId';
 import { LearningCta } from './learning/LearningCta';
-import { Button, EmptyState } from '@/components/ui';
-import { Surface } from '@/components/brand/Surface';
+import { EmptyState, PageHeader } from '@/components/ui';
+import { MetricNumber, Surface } from '@/components/brand/Surface';
 import { StatusPill } from '@/pages/RfqsPage';
+import { FileTextIcon, ClockIcon, MapPinIcon, ArrowRightIcon, PackageIcon } from '@/components/icons';
 
 export function QuoteRequestsPage() {
   usePageTitle('Quote requests');
@@ -32,24 +33,108 @@ export function QuoteRequestsPage() {
     return true;
   });
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="text-xs uppercase tracking-[0.2em] text-ink-4">Supplier</div>
-      <h1 className="mt-1 text-3xl font-bold">Quote requests</h1>
+    <div className="mx-auto max-w-6xl space-y-6 pb-12">
+      <PageHeader
+        kicker={
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="vyro-kicker text-copper">Supplier</span>
+            <span className="text-ink-4">/</span>
+            <span className="text-[11px] font-mono text-ink-3">Sourcing Desk</span>
+          </span>
+        }
+        title="Quote requests"
+        sub="Invited and open RFQs from commercial buyers — review requirements and submit mill-gate quotes."
+      />
       <LearningCta variant="inline" />
-      <div className="mt-4 flex flex-wrap gap-2">
-        {(['all', 'new', 'viewed', 'in_progress', 'submitted', 'expiring', 'expired', 'awarded', 'not_selected'] as const).map((f) => (
-          <button key={f} onClick={() => setFilter(f)} className={`rounded-full border px-3 py-1 text-sm ${filter === f ? 'bg-ink text-white border-ink' : 'border-line'}`}>{f.replace(/_/g, ' ')}</button>
-        ))}
+      <div className="inline-flex flex-wrap items-center gap-1 p-1 bg-ink/[0.05] rounded-full max-w-full overflow-x-auto scrollbar-none">
+        {(['all', 'new', 'viewed', 'in_progress', 'submitted', 'expiring', 'expired', 'awarded', 'not_selected'] as const).map((f) => {
+          const active = filter === f;
+          return (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFilter(f)}
+              className={`h-8 px-3.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                active ? 'bg-ink text-paper shadow-sm' : 'text-ink-3 hover:text-ink'
+              }`}
+            >
+              {f.replace(/_/g, ' ')}
+            </button>
+          );
+        })}
       </div>
-      <div className="mt-6">
-        {isLoading ? 'Loading…' : rows.length === 0 ? <EmptyState title="No quote requests" description="Invited and open RFQs will appear here." /> : (
-          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
+      <div>
+        {isLoading ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="vyro-surface p-5 animate-pulse space-y-3">
+                <div className="flex justify-between">
+                  <div className="h-3 w-24 rounded bg-ink/[0.07]" />
+                  <div className="h-5 w-16 rounded-full bg-ink/[0.07]" />
+                </div>
+                <div className="h-5 w-3/4 rounded bg-ink/[0.07]" />
+                <div className="h-3 w-1/2 rounded bg-ink/[0.07]" />
+              </div>
+            ))}
+          </div>
+        ) : rows.length === 0 ? (
+          <EmptyState
+            icon={<FileTextIcon size={20} />}
+            title="No quote requests"
+            description={filter === 'all' ? 'Invited and open RFQs will appear here.' : `No requests under "${filter.replace(/_/g, ' ')}".`}
+            action={filter !== 'all' ? (
+              <button type="button" onClick={() => setFilter('all')} className="text-xs font-semibold text-copper hover:underline">
+                View all requests
+              </button>
+            ) : undefined}
+          />
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
             {rows.map((r) => (
               <Link key={r.rfq.id} to={`/supplier/quotes/${r.rfq.id}`}>
-                <Surface className="p-5 hover:border-ink transition-colors">
-                  <div className="flex justify-between"><span className="font-mono text-xs text-ink-4">{r.rfq.rfqNumber}</span><StatusPill status={r.myStatus ?? r.rfq.status} /></div>
-                  <div className="mt-1 text-lg font-semibold">{r.rfq.title}</div>
-                  <div className="text-sm text-ink-3">{r.itemCount} items · {r.rfq.deadline ? `due ${new Date(r.rfq.deadline).toLocaleDateString()}` : 'no deadline'}{r.expiringSoon ? ' · expiring soon' : ''}</div>
+                <Surface className="p-5 h-full hover:border-ink/30 hover:shadow-md transition-all group space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="size-9 rounded-lg bg-volt/15 text-volt-deep flex items-center justify-center shrink-0">
+                        <PackageIcon size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-mono text-[11px] text-ink-4">{r.rfq.rfqNumber}</div>
+                        <div className="text-base font-semibold text-ink leading-snug truncate">{r.rfq.title}</div>
+                      </div>
+                    </div>
+                    <StatusPill status={r.myStatus ?? r.rfq.status} />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-3">
+                    <span className="inline-flex items-center gap-1 font-mono">
+                      <FileTextIcon size={11} className="text-ink-4" />
+                      {r.itemCount} item{r.itemCount === 1 ? '' : 's'}
+                    </span>
+                    <span className="inline-flex items-center gap-1 font-mono">
+                      <ClockIcon size={11} className="text-ink-4" />
+                      {r.rfq.deadline ? `due ${new Date(r.rfq.deadline).toLocaleDateString()}` : 'no deadline'}
+                    </span>
+                    {r.rfq.deliveryLocation && (
+                      <span className="inline-flex items-center gap-1 font-mono">
+                        <MapPinIcon size={11} className="text-ink-4" />
+                        {r.rfq.deliveryLocation}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    {r.expiringSoon ? (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber/15 text-amber text-[10px] font-mono font-bold uppercase tracking-wider">
+                        <span className="size-1.5 rounded-full bg-amber animate-pulse" />
+                        Expiring soon
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-copper group-hover:gap-1.5 transition-all">
+                      Review & quote
+                      <ArrowRightIcon size={12} />
+                    </span>
+                  </div>
                 </Surface>
               </Link>
             ))}
@@ -77,7 +162,7 @@ export function SupplierRfqStats() {
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
       {[['RFQs received', data.rfqsReceived], ['Quotes submitted', data.quotesSubmitted], ['Won', data.won], ['Win rate', `${Math.round(data.winRate * 100)}%`], ['Response rate', `${Math.round(data.responseRate * 100)}%`]].map(([k, v]) => (
-        <Surface key={k} className="p-4"><div className="text-xs uppercase tracking-widest text-ink-4">{k}</div><div className="mt-1 text-2xl font-bold">{v}</div></Surface>
+        <Surface key={k} className="p-4"><div className="text-xs uppercase tracking-widest text-ink-4">{k}</div><div className="mt-1 text-2xl font-bold"><MetricNumber size="md">{v}</MetricNumber></div></Surface>
       ))}
     </div>
   );

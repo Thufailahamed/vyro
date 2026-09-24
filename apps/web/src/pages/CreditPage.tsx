@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@vyro/ui';
@@ -88,11 +89,11 @@ export function CreditPage() {
   if (facility.isLoading) {
     return (
       <div className="space-y-6 max-w-6xl animate-pulse" aria-busy="true" aria-label="Loading credit">
-        <div className="h-10 w-56 bg-mist rounded-lg" />
-        <div className="h-4 w-80 bg-mist/80 rounded" />
+        <div className="h-10 w-56 vyro-surface" />
+        <div className="h-4 w-80 rounded bg-ink/10" />
         <div className="grid lg:grid-cols-12 gap-5">
-          <div className="lg:col-span-8 h-64 bg-mist/60 rounded-2xl" />
-          <div className="lg:col-span-4 h-64 bg-mist/50 rounded-2xl" />
+          <div className="lg:col-span-8 h-64 vyro-surface" />
+          <div className="lg:col-span-4 h-64 vyro-surface" />
         </div>
       </div>
     );
@@ -275,12 +276,24 @@ function ActiveFacility({
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <MetricCard label="Credit limit" value={formatLKR(facility.limitCents)} />
-        <MetricCard label="Drawn" value={formatLKR(facility.usedCents)} />
+        <MetricCard
+          label="Credit limit"
+          value={formatLKR(facility.limitCents)}
+          icon={<BanknoteIcon size={15} />}
+          iconTile="bg-ink/[0.05] text-ink-3"
+        />
+        <MetricCard
+          label="Drawn"
+          value={formatLKR(facility.usedCents)}
+          icon={<ClockIcon size={15} />}
+          iconTile="bg-amber/15 text-amber"
+        />
         <MetricCard
           label="Available"
           value={formatLKR(availableCents)}
           hint={paused ? 'Paused' : eligible ? termsLabel(facility.defaultTerms) : 'Not eligible'}
+          icon={<ShieldCheckIcon size={15} />}
+          iconTile="bg-volt/20 text-volt"
           accent
         />
       </div>
@@ -288,11 +301,13 @@ function ActiveFacility({
       <Surface className="p-5 rounded-2xl space-y-3">
         <div className="flex items-center justify-between gap-3">
           <span className="text-[10px] font-mono uppercase tracking-wider text-ink-4">Limit used</span>
-          <span className="text-xs font-mono font-semibold text-ink">{usedPct}%</span>
+          <span className="text-xs font-mono font-semibold text-ink">
+            {formatLKR(facility.usedCents)} of {formatLKR(facility.limitCents)} · {usedPct}%
+          </span>
         </div>
-        <div className="h-2 rounded-full bg-bone overflow-hidden">
+        <div className="h-2 rounded-full bg-ink/[0.07] overflow-hidden">
           <div
-            className={cn('h-full transition-[width] duration-300', overdueCount > 0 ? 'bg-rose' : 'bg-ink')}
+            className={cn('h-full rounded-full transition-[width] duration-300', overdueCount > 0 ? 'bg-rose' : usedPct >= 80 ? 'bg-amber' : 'bg-volt')}
             style={{ width: `${usedPct}%` }}
           />
         </div>
@@ -327,13 +342,15 @@ function ActiveFacility({
         </div>
 
         {drawdownsLoading && (
-          <div className="h-24 bg-mist/50 rounded-xl animate-pulse" aria-label="Loading drawdowns" />
+          <div className="h-24 vyro-surface animate-pulse" aria-label="Loading drawdowns" />
         )}
 
         {!drawdownsLoading && drawdowns.length === 0 && (
-          <Surface className="p-6 rounded-2xl text-sm text-ink-3">
-            No credit draws yet. At checkout, choose Pay on terms to draw against this facility.
-          </Surface>
+          <EmptyState
+            icon={<BanknoteIcon size={20} />}
+            title="No credit draws yet"
+            description="At checkout, choose Pay on terms to draw against this facility."
+          />
         )}
 
         {!drawdownsLoading && drawdowns.length > 0 && (
@@ -343,18 +360,23 @@ function ActiveFacility({
               return (
                 <li key={d.id}>
                   <Surface className="p-4 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-semibold text-ink">{termsLabel(d.terms)}</span>
-                        <StatusPill status={d.status} />
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="size-9 rounded-lg bg-copper/15 text-copper-deep flex items-center justify-center shrink-0">
+                        <BanknoteIcon size={16} />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-semibold text-ink">{termsLabel(d.terms)}</span>
+                          <StatusPill status={d.status} />
+                        </div>
+                        <p className="text-xs text-ink-3 mt-1">
+                          Due {formatDue(d.dueAt)} · Remaining {formatLKR(left)} of {formatLKR(d.amountCents)}
+                        </p>
                       </div>
-                      <p className="text-xs text-ink-3 mt-1">
-                        Due {formatDue(d.dueAt)} · Remaining {formatLKR(left)} of {formatLKR(d.amountCents)}
-                      </p>
                     </div>
                     <Link
                       to={`/orders/${d.purchaseOrderId}`}
-                      className="text-xs font-semibold text-ink inline-flex items-center gap-1 hover:underline shrink-0"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-ink hover:text-copper transition-colors px-3 py-1.5 rounded-full bg-bone border border-ink/10 hover:border-ink shrink-0"
                     >
                       View PO <ArrowRightIcon size={12} />
                     </Link>
@@ -373,19 +395,30 @@ function MetricCard({
   label,
   value,
   hint,
+  icon,
+  iconTile = 'bg-ink/[0.05] text-ink-3',
   accent,
 }: {
   label: string;
   value: string;
   hint?: string;
+  icon?: ReactNode;
+  iconTile?: string;
   accent?: boolean;
 }) {
   return (
     <Surface className={cn('p-5 rounded-2xl', accent && 'bg-ink text-paper')}>
-      <div className={cn('text-[10px] font-mono uppercase tracking-wider', accent ? 'text-paper/50' : 'text-ink-4')}>
-        {label}
+      <div className="flex items-center justify-between gap-2">
+        <div className={cn('text-[10px] font-mono uppercase tracking-wider', accent ? 'text-paper/50' : 'text-ink-4')}>
+          {label}
+        </div>
+        {icon && (
+          <span className={cn('size-8 rounded-lg flex items-center justify-center shrink-0', iconTile)}>
+            {icon}
+          </span>
+        )}
       </div>
-      <div className={cn('font-mono text-2xl font-bold tabular-nums mt-1', accent ? 'text-volt' : 'text-ink')}>
+      <div className={cn('font-mono text-2xl font-bold tabular-nums mt-2', accent ? 'text-volt' : 'text-ink')}>
         {value}
       </div>
       {hint && (

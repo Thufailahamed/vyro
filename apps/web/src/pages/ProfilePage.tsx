@@ -77,7 +77,7 @@ function DataPrivacyTab() {
     <div className="space-y-6 animate-fade-in">
       <Surface kind="elevated" className="p-6 sm:p-8 space-y-4">
         <div className="flex items-center gap-2.5 pb-4 border-b border-ink/10">
-          <div className="size-9 bg-ink text-volt flex items-center justify-center">
+          <div className="size-9 rounded-lg bg-ink text-volt flex items-center justify-center">
             <ShieldCheckIcon size={18} />
           </div>
           <div>
@@ -92,7 +92,7 @@ function DataPrivacyTab() {
 
       <Surface kind="elevated" className="p-6 sm:p-8 space-y-4 border-rose/30">
         <div className="flex items-center gap-2.5 pb-4 border-b border-ink/10">
-          <div className="size-9 bg-rose text-paper flex items-center justify-center">
+          <div className="size-9 rounded-lg bg-rose text-paper flex items-center justify-center">
             <Trash2Icon size={18} />
           </div>
           <div>
@@ -119,7 +119,7 @@ function DataPrivacyTab() {
       </Surface>
 
       {message && (
-        <div className={`px-4 py-2 text-sm border ${message.kind === 'ok' ? 'border-mint/40 bg-mint/10 text-mint' : 'border-rose/40 bg-rose/10 text-rose'}`}>
+        <div className={`px-4 py-2.5 rounded-xl text-sm border ${message.kind === 'ok' ? 'border-mint/40 bg-mint/10 text-mint' : 'border-rose/40 bg-rose/10 text-rose'}`}>
           {message.text}
         </div>
       )}
@@ -245,7 +245,7 @@ export function ProfilePage() {
                   <PhoneIcon size={13} className="text-copper shrink-0" />
                   <span className="font-mono">{displayPhone}</span>
                 </span>
-                <span className="flex items-center gap-1.5 font-mono text-[11px] text-ink-4 bg-mist px-2 py-0.5 border border-line">
+                <span className="flex items-center gap-1.5 font-mono text-[11px] text-ink-4 bg-mist px-2 py-0.5 rounded-full">
                   ID: USR-{user.userId.slice(0, 8).toUpperCase()}
                 </span>
               </div>
@@ -254,25 +254,25 @@ export function ProfilePage() {
 
           {/* Quick Metric Badges */}
           <div className="lg:col-span-5 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-3 pt-4 lg:pt-0 lg:border-l lg:border-ink/10 lg:pl-6">
-            <div className="p-3 bg-mist/60 border border-ink/10">
+            <div className="p-3 rounded-xl bg-ink/[0.04]">
               <span className="text-[10px] font-mono text-ink-4 uppercase tracking-wider block">Buyer Entities</span>
               <span className="vyro-metric text-xl font-bold text-ink block mt-0.5">
                 {user.memberships.length} Active
               </span>
             </div>
-            <div className="p-3 bg-mist/60 border border-ink/10">
+            <div className="p-3 rounded-xl bg-ink/[0.04]">
               <span className="text-[10px] font-mono text-ink-4 uppercase tracking-wider block">Supplier Hubs</span>
               <span className="vyro-metric text-xl font-bold text-ink block mt-0.5">
                 {user.supplierMemberships.length} Connected
               </span>
             </div>
-            <div className="p-3 bg-mist/60 border border-ink/10">
+            <div className="p-3 rounded-xl bg-ink/[0.04]">
               <span className="text-[10px] font-mono text-ink-4 uppercase tracking-wider block">Two-Factor Auth</span>
               <span className={`vyro-metric text-xs font-bold block mt-1 ${is2Fa ? 'text-mint' : 'text-amber'}`}>
                 {is2Fa ? '● Enforced (TOTP)' : '○ Standard Auth'}
               </span>
             </div>
-            <div className="p-3 bg-mist/60 border border-ink/10">
+            <div className="p-3 rounded-xl bg-ink/[0.04]">
               <span className="text-[10px] font-mono text-ink-4 uppercase tracking-wider block">Network Scope</span>
               <span className="vyro-metric text-xs font-bold text-ink block mt-1">
                 25 LK Districts
@@ -283,68 +283,66 @@ export function ProfilePage() {
       </Surface>
 
       {/* 3. SEGMENTED TAB NAVIGATION */}
-      <div className="border-b border-ink/15">
-        <nav className="flex flex-wrap gap-2 -mb-px">
-          {[
-            {
-              id: 'organizations',
-              label: 'Organizations & Depots',
-              badge: orgCount > 0 ? String(orgCount) : null,
-              icon: Building2Icon,
-            },
-            {
-              id: 'profile',
-              label: 'Profile Credentials',
-              badge: null,
-              icon: UserIcon,
-            },
-            {
-              id: 'notifications',
-              label: 'Notification Signals',
-              badge: null,
-              icon: BellIcon,
-            },
-            {
-              id: 'security',
-              label: 'Security & Access',
-              badge: is2Fa ? '2FA' : null,
-              icon: ShieldCheckIcon,
-            },
-            {
-              id: 'data',
-              label: 'Data & Privacy',
-              badge: null,
-              icon: ShieldCheckIcon,
-            },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setTab(tab.id as TabType)}
-                className={`flex items-center gap-2 py-3 px-4 font-semibold text-xs tracking-wider uppercase border-b-2 transition-all duration-180 cursor-pointer ${
-                  isActive
-                    ? 'border-ink text-ink bg-paper shadow-sm'
-                    : 'border-transparent text-ink-3 hover:text-ink hover:border-ink/20'
-                }`}
-              >
-                <Icon size={14} className={isActive ? 'text-copper' : 'text-ink-4'} />
-                <span>{tab.label}</span>
-                {tab.badge && (
-                  <span
-                    className={`px-1.5 py-0.2 text-[9px] font-mono font-bold ${
-                      isActive ? 'bg-ink text-volt' : 'bg-mist text-ink-3'
-                    }`}
-                  >
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+      <div className="inline-flex flex-wrap items-center gap-1 p-1 bg-ink/[0.05] rounded-full max-w-full overflow-x-auto scrollbar-none">
+        {[
+          {
+            id: 'organizations',
+            label: 'Organizations & Depots',
+            badge: orgCount > 0 ? String(orgCount) : null,
+            icon: Building2Icon,
+          },
+          {
+            id: 'profile',
+            label: 'Profile Credentials',
+            badge: null,
+            icon: UserIcon,
+          },
+          {
+            id: 'notifications',
+            label: 'Notification Signals',
+            badge: null,
+            icon: BellIcon,
+          },
+          {
+            id: 'security',
+            label: 'Security & Access',
+            badge: is2Fa ? '2FA' : null,
+            icon: ShieldCheckIcon,
+          },
+          {
+            id: 'data',
+            label: 'Data & Privacy',
+            badge: null,
+            icon: ShieldCheckIcon,
+          },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setTab(tab.id as TabType)}
+              className={`flex items-center gap-2 h-9 px-4 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                isActive
+                  ? 'bg-ink text-paper shadow-sm'
+                  : 'text-ink-3 hover:text-ink'
+              }`}
+            >
+              <Icon size={14} className={isActive ? 'text-volt' : 'text-ink-4'} />
+              <span>{tab.label}</span>
+              {tab.badge && (
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                    isActive ? 'bg-volt/25 text-volt' : 'bg-ink/[0.06] text-ink-4'
+                  }`}
+                >
+                  {tab.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* 4. TAB CONTENTS */}
@@ -357,7 +355,7 @@ export function ProfilePage() {
               <div className="space-y-5">
                 <div className="flex items-center justify-between pb-4 border-b border-ink/10">
                   <div className="flex items-center gap-2.5">
-                    <div className="size-9 bg-ink text-volt flex items-center justify-center">
+                    <div className="size-9 rounded-lg bg-ink text-volt flex items-center justify-center">
                       <Building2Icon size={18} />
                     </div>
                     <div>
@@ -373,7 +371,7 @@ export function ProfilePage() {
                 </div>
 
                 {user.memberships.length === 0 ? (
-                  <div className="p-6 bg-paper/70 border border-ink/10 space-y-4">
+                  <div className="p-6 rounded-xl bg-ink/[0.03] border border-ink/10 space-y-4">
                     <div className="space-y-1.5">
                       <div className="vyro-kicker text-copper">Unlinked Buyer Profile</div>
                       <h4 className="font-display text-base text-ink font-semibold">
@@ -412,7 +410,7 @@ export function ProfilePage() {
                     {user.memberships.map((m) => (
                       <div
                         key={m.businessId}
-                        className="p-4 bg-paper border border-ink/15 flex items-center justify-between gap-4 group hover:border-ink transition-colors"
+                        className="p-4 rounded-xl bg-paper border border-ink/10 flex items-center justify-between gap-4 group hover:border-ink/30 hover:shadow-sm transition-all"
                       >
                         <div className="space-y-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -449,7 +447,7 @@ export function ProfilePage() {
               <div className="space-y-5">
                 <div className="flex items-center justify-between pb-4 border-b border-ink/10">
                   <div className="flex items-center gap-2.5">
-                    <div className="size-9 bg-ink text-copper flex items-center justify-center">
+                    <div className="size-9 rounded-lg bg-ink text-copper flex items-center justify-center">
                       <StoreIcon size={18} />
                     </div>
                     <div>
@@ -465,7 +463,7 @@ export function ProfilePage() {
                 </div>
 
                 {user.supplierMemberships.length === 0 ? (
-                  <div className="p-6 bg-paper/70 border border-ink/10 space-y-4">
+                  <div className="p-6 rounded-xl bg-ink/[0.03] border border-ink/10 space-y-4">
                     <div className="space-y-1.5">
                       <div className="vyro-kicker text-copper">Unconnected Facility</div>
                       <h4 className="font-display text-base text-ink font-semibold">
@@ -504,7 +502,7 @@ export function ProfilePage() {
                     {user.supplierMemberships.map((m) => (
                       <div
                         key={m.supplierId}
-                        className="p-4 bg-paper border border-ink/15 flex items-center justify-between gap-4 group hover:border-ink transition-colors"
+                        className="p-4 rounded-xl bg-paper border border-ink/10 flex items-center justify-between gap-4 group hover:border-ink/30 hover:shadow-sm transition-all"
                       >
                         <div className="space-y-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -538,7 +536,7 @@ export function ProfilePage() {
           </div>
 
           {/* Bottom Compliance & Network Footprint Card */}
-          <div className="p-6 bg-paper border border-ink/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="p-6 vyro-surface flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <span className="text-[10px] font-mono uppercase tracking-wider text-copper font-bold block">
                 Platform Verification & Compliance
@@ -548,8 +546,8 @@ export function ProfilePage() {
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0 text-xs font-mono text-ink-3">
-              <span className="px-2.5 py-1 bg-mist border border-line">SSL Encrypted</span>
-              <span className="px-2.5 py-1 bg-mist border border-line">Audit Logged</span>
+              <span className="px-2.5 py-1 rounded-full bg-mist">SSL Encrypted</span>
+              <span className="px-2.5 py-1 rounded-full bg-mist">Audit Logged</span>
             </div>
           </div>
         </div>

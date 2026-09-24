@@ -5,6 +5,7 @@ import { RETURN_REASON_CODES, RETURN_REASON_LABEL, type ReturnReasonCode } from 
 import { api } from '@/lib/api';
 import { Button, EmptyState, ErrorBanner, Input, Label, PageHeader, Select, Textarea } from '@/components/ui';
 import { RefreshCwIcon, CheckCircleIcon, XIcon, PackageIcon, ClockIcon, BanknoteIcon } from '@/components/icons';
+import { MetricNumber } from '@/components/brand/Surface';
 import { formatLKR } from '@/lib/format';
 import {
   formatLifecycleDate,
@@ -589,6 +590,7 @@ export function ReturnsListView({
   path,
   orderLink,
   enabled = true,
+  emptyAction,
 }: {
   kicker: ReactNode;
   title: string;
@@ -598,6 +600,7 @@ export function ReturnsListView({
   path: string;
   orderLink: (r: OrderReturn) => string;
   enabled?: boolean;
+  emptyAction?: ReactNode;
 }) {
   const [filter, setFilter] = useState<'open' | 'all'>('open');
   const sep = path.includes('?') ? '&' : '?';
@@ -642,7 +645,7 @@ export function ReturnsListView({
                   onClick={() => setFilter(f)}
                   className={`rounded-full px-3.5 py-1.5 text-xs transition-colors ${
                     filter === f
-                      ? 'bg-paper font-semibold text-ink shadow-sm'
+                      ? 'bg-ink font-semibold text-paper shadow-sm'
                       : 'font-medium text-ink-3 hover:text-ink'
                   }`}
                 >
@@ -672,6 +675,7 @@ export function ReturnsListView({
             value={String(stats.total)}
             sub="Matching current filter"
             icon={<PackageIcon size={15} />}
+            tile="bg-ink/[0.05] text-ink-3"
             loading={q.isLoading}
           />
           <StatTile
@@ -679,7 +683,8 @@ export function ReturnsListView({
             value={String(stats.awaiting)}
             sub="Needs a decision"
             icon={<ClockIcon size={15} />}
-            tone="text-amber"
+            tile="bg-amber/15 text-amber"
+            valueTone={stats.awaiting > 0 ? 'text-amber' : 'text-ink'}
             loading={q.isLoading}
           />
           <StatTile
@@ -687,7 +692,7 @@ export function ReturnsListView({
             value={formatLKR(stats.refundCents)}
             sub="Issued to buyers"
             icon={<BanknoteIcon size={15} />}
-            tone="text-mint"
+            tile="bg-mint/15 text-mint"
             loading={q.isLoading}
           />
         </div>
@@ -702,11 +707,43 @@ export function ReturnsListView({
           </Button>
         </div>
       ) : returns.length === 0 ? (
-        <EmptyState
-          icon={<RefreshCwIcon size={20} />}
-          title={filter === 'open' ? 'No open returns' : 'No returns yet'}
-          description="Returns raised against delivered orders appear here."
-        />
+        <div className="space-y-5">
+          <EmptyState
+            icon={<RefreshCwIcon size={20} />}
+            title={filter === 'open' ? 'No open returns' : 'No returns yet'}
+            description="Returns raised against delivered orders appear here."
+            action={emptyAction}
+          />
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div className="vyro-surface p-5 space-y-2">
+              <span className="size-8 rounded-lg bg-ink/[0.05] text-ink-3 flex items-center justify-center">
+                <PackageIcon size={15} />
+              </span>
+              <h4 className="font-display font-semibold text-ink text-sm">Raise a request</h4>
+              <p className="text-xs text-ink-3 leading-relaxed">
+                Open a delivered order and pick the items to send back, with photos as evidence.
+              </p>
+            </div>
+            <div className="vyro-surface p-5 space-y-2">
+              <span className="size-8 rounded-lg bg-amber/15 text-amber flex items-center justify-center">
+                <ClockIcon size={15} />
+              </span>
+              <h4 className="font-display font-semibold text-ink text-sm">Supplier review</h4>
+              <p className="text-xs text-ink-3 leading-relaxed">
+                The supplier approves or rejects each line, then arranges collection of the goods.
+              </p>
+            </div>
+            <div className="vyro-surface p-5 space-y-2">
+              <span className="size-8 rounded-lg bg-mint/15 text-mint flex items-center justify-center">
+                <BanknoteIcon size={15} />
+              </span>
+              <h4 className="font-display font-semibold text-ink text-sm">Receive &amp; refund</h4>
+              <p className="text-xs text-ink-3 leading-relaxed">
+                Receipt is confirmed at the depot and a SVAT refund is issued automatically.
+              </p>
+            </div>
+          </div>
+        </div>
       ) : (
         <ReturnsTable returns={returns} orderLink={orderLink} />
       )}
@@ -719,26 +756,28 @@ function StatTile({
   value,
   sub,
   icon,
-  tone = 'text-ink-3',
+  tile = 'bg-ink/[0.05] text-ink-3',
+  valueTone = 'text-ink',
   loading,
 }: {
   label: string;
   value: string;
   sub: string;
   icon: ReactNode;
-  tone?: string;
+  tile?: string;
+  valueTone?: string;
   loading?: boolean;
 }) {
   return (
     <div className="vyro-surface p-4">
       <div className="flex items-center justify-between gap-3">
         <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-4">{label}</span>
-        <span className={`flex size-8 items-center justify-center rounded-lg bg-bone ${tone}`}>{icon}</span>
+        <span className={`flex size-8 items-center justify-center rounded-lg ${tile}`}>{icon}</span>
       </div>
       {loading ? (
         <div className="mt-2 h-7 w-16 animate-pulse rounded bg-ink/10" />
       ) : (
-        <div className="mt-2 font-mono text-2xl font-semibold tracking-tight text-ink">{value}</div>
+        <MetricNumber size="sm" className={`mt-2 ${valueTone}`}>{value}</MetricNumber>
       )}
       <div className="mt-0.5 text-[11px] text-ink-4">{sub}</div>
     </div>

@@ -5,7 +5,7 @@ import { useToast } from '@vyro/ui';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { useAuth } from '@/lib/auth';
 import { api, ApiError } from '@/lib/api';
-import { TimeSeries, Button, MetricStack, StatusDots, PageHeader } from '@/components/ui';
+import { TimeSeries, Button, MetricStack, StatusDots, PageHeader, EmptyState } from '@/components/ui';
 import type { OrderStatus } from '@/components/ui';
 import {
   PackageIcon,
@@ -547,8 +547,9 @@ export function DashboardPage() {
                       </span>
                         <span className="text-xs text-ink-4">/ {hit.product.unit}</span>
                     </div>
-                    <span className="text-[10px] text-ink-4 block truncate mt-1">
-                      📍 {best?.supplier?.district ? `${best.supplier.district} Depot` : 'Island-wide Depot'}
+                    <span className="text-[10px] text-ink-4 flex items-center gap-1 truncate mt-1">
+                      <MapPinIcon size={11} className="shrink-0 text-copper" />
+                      {best?.supplier?.district ? `${best.supplier.district} Depot` : 'Island-wide Depot'}
                     </span>
                   </div>
                 </Link>
@@ -667,8 +668,9 @@ export function DashboardPage() {
                     Explore Wholesale Catalog
                   </Button>
                 </Link>
-                <span className="text-[11px] text-paper/60">
-                  ⚡ {hits.length > 0
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-paper/60">
+                  <SparklesIcon size={12} className="text-volt" />
+                  {hits.length > 0
                     ? `${hits.length} commodit${hits.length === 1 ? 'y' : 'ies'} ready for immediate dispatch`
                     : 'No live commodities in stock — try the catalog'}
                 </span>
@@ -827,19 +829,32 @@ export function DashboardPage() {
                 <TruckIcon size={16} className="text-copper" />
                 <h3 className="font-display text-lg text-ink font-semibold">Depot Network</h3>
               </div>
-              <span className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-700 font-bold uppercase">
-                <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" /> All Normal
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-mono text-mint font-bold uppercase">
+                <span className="size-1.5 rounded-full bg-mint animate-pulse" /> All Normal
               </span>
             </div>
 
-            <div className="mt-4 space-y-2.5">
+            <div className="mt-4 space-y-2">
               {depotNetwork.map((depot) => (
-                <div key={depot.id} className="flex items-center justify-between p-2.5 bg-paper/80 border border-ink/10 text-xs rounded-lg">
-                  <div className="truncate pr-2">
+                <div
+                  key={depot.id}
+                  className="flex items-center gap-3 p-2.5 bg-paper/80 border border-ink/10 text-xs rounded-lg transition-colors hover:border-ink/25"
+                >
+                  <span className="size-8 shrink-0 rounded-md bg-ink/[0.05] text-ink-3 flex items-center justify-center">
+                    <MapPinIcon size={14} />
+                  </span>
+                  <div className="truncate pr-2 flex-1 min-w-0">
                     <span className="font-semibold text-ink block truncate">{depot.name}</span>
                     <span className="text-[10px] text-ink-4">{depot.city} · {depot.time}</span>
                   </div>
-                  <span className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase bg-mist text-ink border border-line shrink-0 rounded-md">
+                  <span
+                    className={
+                      depot.status === 'Active Dispatch'
+                        ? 'inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-mono font-bold uppercase bg-mint/15 text-mint border border-mint/30 shrink-0 rounded-md'
+                        : 'inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-mono font-bold uppercase bg-mist text-ink-3 border border-line shrink-0 rounded-md'
+                    }
+                  >
+                    {depot.status === 'Active Dispatch' && <span className="size-1 rounded-full bg-mint" />}
                     {depot.status}
                   </span>
                 </div>
@@ -870,14 +885,14 @@ export function DashboardPage() {
           </div>
           {/* Dynamic Category Tabs */}
           <div className="-mx-4 sm:mx-0 overflow-x-auto pb-1 scrollbar-hide">
-            <div className="flex items-center gap-1.5 px-4 sm:px-0 min-w-max">
+            <div className="inline-flex items-center gap-1 p-1 mx-4 sm:mx-0 bg-ink/[0.05] rounded-full min-w-max">
               <button
                 type="button"
                 onClick={() => setSpotlightCategory('all')}
-                className={`shrink-0 px-3 py-1.5 text-xs font-mono font-semibold transition-all duration-150 border rounded-lg ${
+                className={`shrink-0 px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all duration-150 ${
                   spotlightCategory === 'all'
-                    ? 'bg-ink text-paper border-ink shadow-sm'
-                    : 'bg-paper text-ink border-ink/15 hover:border-ink hover:bg-mist'
+                    ? 'bg-paper text-ink shadow-sm'
+                    : 'text-ink-4 hover:text-ink'
                 }`}
               >
                 All Items ({hits.length})
@@ -887,10 +902,10 @@ export function DashboardPage() {
                   key={cat.id}
                   type="button"
                   onClick={() => setSpotlightCategory(cat.id)}
-                  className={`shrink-0 px-3 py-1.5 text-xs font-mono font-semibold transition-all duration-150 border rounded-lg ${
+                  className={`shrink-0 px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all duration-150 ${
                     spotlightCategory === cat.id
-                      ? 'bg-ink text-paper border-ink shadow-sm'
-                      : 'bg-paper text-ink border-ink/15 hover:border-ink hover:bg-mist'
+                      ? 'bg-paper text-ink shadow-sm'
+                      : 'text-ink-4 hover:text-ink'
                   }`}
                 >
                   {cat.name}
@@ -901,18 +916,31 @@ export function DashboardPage() {
         </div>
 
         {isProductsLoading ? (
-          <div className="py-12 text-center text-ink-4 text-xs font-mono">
-            Loading wholesale catalog spot rates...
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="bg-paper border border-ink/10 rounded-xl overflow-hidden animate-pulse">
+                <div className="h-44 bg-mist" />
+                <div className="p-4 space-y-2.5">
+                  <div className="h-4 w-3/4 bg-mist rounded" />
+                  <div className="h-3 w-1/2 bg-mist rounded" />
+                  <div className="h-6 w-1/3 bg-mist rounded" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredHits.length === 0 ? (
-          <div className="py-10 text-center space-y-2">
-            <p className="text-xs text-ink-3">No active commodity listings found in this category.</p>
-            <Link to="/search">
-              <Button variant="secondary" size="sm" className="text-xs">
-                Browse Full Catalog
-              </Button>
-            </Link>
-          </div>
+          <EmptyState
+            icon={<PackageIcon size={24} />}
+            title="No listings in this category"
+            description="No active commodity listings match this filter right now."
+            action={
+              <Link to="/search">
+                <Button variant="secondary" size="sm" className="text-xs">
+                  Browse Full Catalog
+                </Button>
+              </Link>
+            }
+          />
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredHits.map((hit) => {
@@ -962,7 +990,7 @@ export function DashboardPage() {
                         </span>
                         <span className="text-xs text-ink-4">/ {hit.product.unit}</span>
                       </div>
-                      <span className="text-xs font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 border border-emerald-200 rounded-md">
+                      <span className="text-xs font-mono text-mint bg-mint/10 px-1.5 py-0.5 border border-mint/30 rounded-md">
                         {best ? `${best.leadTimeDays * 24}h dispatch` : 'Immediate'}
                       </span>
                     </div>
@@ -1038,13 +1066,21 @@ export function DashboardPage() {
         </div>
 
         {isSuppliersLoading ? (
-          <div className="py-8 text-center text-ink-4 text-xs font-mono">
-            Loading verified primary distributors...
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="bg-paper border border-ink/10 rounded-xl p-4 space-y-3 animate-pulse">
+                <div className="h-36 bg-mist rounded-lg" />
+                <div className="h-4 w-2/3 bg-mist rounded" />
+                <div className="h-3 w-1/3 bg-mist rounded" />
+              </div>
+            ))}
           </div>
         ) : suppliers.length === 0 ? (
-          <div className="p-6 text-center text-xs text-ink-4 border border-ink/10 rounded-xl">
-            No supplier facilities registered yet.
-          </div>
+          <EmptyState
+            icon={<StoreIcon size={24} />}
+            title="No supplier facilities"
+            description="No verified supplier facilities are registered on the network yet."
+          />
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {suppliers.map((sup) => {
@@ -1131,44 +1167,55 @@ export function DashboardPage() {
 
       {/* Quick Actions & Operational Tool Bar */}
       <div className="grid sm:grid-cols-3 gap-3 sm:gap-4">
-        <div className="p-4 sm:p-5 bg-paper border border-ink/10 space-y-2 rounded-xl">
-          <div className="flex items-center gap-2 text-ink font-display font-semibold text-sm">
-            <PackageIcon size={16} className="text-copper" />
-            <span>Fast Replenishment</span>
-          </div>
-          <p className="text-xs text-ink-3">
-            Quickly reorder weekly commodity baskets like Keeri Samba, Sugar, and Packaging with 1 click.
-          </p>
-          <Link to="/search" className="text-xs text-copper font-semibold inline-block pt-1 hover:underline">
-            Open Order Templates →
+        {[
+          {
+            to: '/search',
+            icon: <PackageIcon size={18} />,
+            tint: 'bg-copper/15 text-copper',
+            title: 'Fast Replenishment',
+            body: 'Quickly reorder weekly commodity baskets like Keeri Samba, Sugar, and Packaging with 1 click.',
+            cta: 'Open order templates',
+          },
+          {
+            to: '/orders',
+            icon: <ShieldCheckIcon size={18} />,
+            tint: 'bg-volt/30 text-volt-deep',
+            title: 'SVAT Digital E-Invoicing',
+            body: 'Generate and export IRD-compliant SVAT purchase order tax invoices for your accounting team.',
+            cta: 'Manage tax invoices',
+          },
+          {
+            to: '/profile',
+            icon: <Building2Icon size={18} />,
+            tint: 'bg-ink/[0.07] text-ink',
+            title: 'Receiving Docks & Team',
+            body: 'Update your commercial delivery address, dock receiving hours, and team member permissions.',
+            cta: 'Entity settings',
+          },
+        ].map((a) => (
+          <Link
+            key={a.title}
+            to={a.to}
+            className="group p-4 sm:p-5 bg-paper border border-ink/10 space-y-3 rounded-xl transition-all hover:border-ink/30 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <span className={`size-9 rounded-lg flex items-center justify-center ${a.tint}`}>
+                {a.icon}
+              </span>
+              <ArrowRightIcon
+                size={15}
+                className="text-ink-4 transition-transform group-hover:translate-x-0.5 group-hover:text-copper"
+              />
+            </div>
+            <div>
+              <h3 className="font-display font-semibold text-sm text-ink">{a.title}</h3>
+              <p className="text-xs text-ink-3 mt-1 leading-relaxed">{a.body}</p>
+            </div>
+            <span className="text-xs text-copper font-semibold inline-block group-hover:underline">
+              {a.cta} →
+            </span>
           </Link>
-        </div>
-
-        <div className="p-4 sm:p-5 bg-paper border border-ink/10 space-y-2 rounded-xl">
-          <div className="flex items-center gap-2 text-ink font-display font-semibold text-sm">
-            <ShieldCheckIcon size={16} className="text-volt-deep" />
-            <span>SVAT Digital E-Invoicing</span>
-          </div>
-          <p className="text-xs text-ink-3">
-            Generate and export IRD-compliant SVAT purchase order tax invoices directly for your accounting team.
-          </p>
-          <Link to="/orders" className="text-xs text-copper font-semibold inline-block pt-1 hover:underline">
-            Manage Tax Invoices →
-          </Link>
-        </div>
-
-        <div className="p-4 sm:p-5 bg-paper border border-ink/10 space-y-2 rounded-xl">
-          <div className="flex items-center gap-2 text-ink font-display font-semibold text-sm">
-            <Building2Icon size={16} className="text-ink" />
-            <span>Receiving Docks & Team</span>
-          </div>
-          <p className="text-xs text-ink-3">
-            Update your commercial delivery address, dock receiving hours, and team member permissions.
-          </p>
-          <Link to="/profile" className="text-xs text-copper font-semibold inline-block pt-1 hover:underline">
-            Entity Settings →
-          </Link>
-        </div>
+        ))}
       </div>
     </div>
   );

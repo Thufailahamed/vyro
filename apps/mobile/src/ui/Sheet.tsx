@@ -56,6 +56,10 @@ export function Sheet({
                 borderCurve: 'continuous',
                 maxHeight: height * maxHeight,
                 paddingBottom: Math.max(insets.bottom, 16),
+                // Android 15+ enforces edge-to-edge: the modal window still draws under
+                // the nav bar but its content is inset above it, leaving a gap below
+                // the sheet. Pull the sheet back down so it reaches the screen edge.
+                marginBottom: Platform.OS === 'android' && Platform.Version >= 35 ? -insets.bottom : 0,
               },
               shadow.lg,
             ]}

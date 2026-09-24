@@ -162,7 +162,7 @@ export function CartPage() {
     );
   }
 
-  if (isLoading) return <div className="h-64 bg-mist animate-pulse" />;
+  if (isLoading) return <div className="h-64 vyro-surface animate-pulse" />;
 
   async function remove(id: string) {
     setDeletingId(id);
@@ -320,11 +320,11 @@ export function CartPage() {
                   <div className="px-5 py-4 bg-bone border-b border-line flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 bg-ink text-volt">
+                        <span className="font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-md bg-ink text-volt">
                           Draft {poNumber}
                         </span>
                         {supplier.verificationStatus === 'verified' && (
-                          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold text-mint border border-mint/30 bg-mint/5 px-1.5 py-0.5">
+                          <span className="inline-flex items-center gap-1 rounded-full text-[10px] uppercase tracking-wider font-semibold text-mint border border-mint/30 bg-mint/5 px-2 py-0.5">
                             <ShieldCheckIcon size={11} /> Verified Mill
                           </span>
                         )}
@@ -368,7 +368,7 @@ export function CartPage() {
                                 src={it.product.imageUrl}
                                 alt={it.product.name}
                                 seed={it.product.id}
-                                className="w-16 h-16 border border-line group-hover:scale-105 transition-transform"
+                                className="w-16 h-16 rounded-lg border border-line group-hover:scale-105 transition-transform"
                               />
                             </Link>
 
@@ -394,12 +394,12 @@ export function CartPage() {
 
                               {/* Volume Discount Badges */}
                               {it.bestTier && (
-                                <div className="inline-flex items-center gap-1 px-2 py-0.5 border text-[10px] font-semibold uppercase tracking-wider text-volt bg-ink mt-1">
+                                <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider text-volt bg-ink mt-1">
                                   <SparklesIcon size={10} /> −{it.bestTier.discountPct}% Volume Discount Active
                                 </div>
                               )}
                               {it.nextTier && (
-                                <div className="inline-flex items-center gap-1 text-[11px] text-ink-3 bg-bone border border-line px-2 py-0.5 mt-1">
+                                <div className="inline-flex items-center gap-1 rounded-full text-[11px] text-ink-3 bg-bone border border-line px-2.5 py-0.5 mt-1">
                                   <span>Add {it.nextTier.minQty - it.quantity} more units for </span>
                                   <span className="font-semibold text-copper">−{it.nextTier.discountPct}% off</span>
                                 </div>
@@ -407,7 +407,7 @@ export function CartPage() {
 
                               {/* Warning: Below MOQ Alert */}
                               {isBelowMoq && (
-                                <div className="flex items-center gap-2 text-xs text-rose bg-rose/5 border border-rose/30 px-2.5 py-1 mt-1.5">
+                                <div className="flex items-center gap-2 rounded-lg text-xs text-rose bg-rose/5 border border-rose/30 px-3 py-1.5 mt-1.5">
                                   <AlertCircleIcon size={13} />
                                   <span>Below supplier minimum order quantity ({it.offer.minOrderQty} units).</span>
                                   <button
@@ -422,7 +422,7 @@ export function CartPage() {
 
                               {/* Per-line cheaper-alt hint */}
                               {lineHintsByItem.get(it.id) && (
-                                <div className="flex items-center gap-2 text-xs text-mint bg-mint/5 border border-mint/30 px-2.5 py-1 mt-1.5">
+                                <div className="flex items-center gap-2 rounded-lg text-xs text-mint bg-mint/5 border border-mint/30 px-3 py-1.5 mt-1.5">
                                   <SparklesIcon size={13} />
                                   <span>
                                     Cheaper at {lineHintsByItem.get(it.id)!.cheaperSupplierName} — save{' '}
@@ -442,7 +442,7 @@ export function CartPage() {
                               {it.issues?.map((issue, idx) => (
                                 <div
                                   key={idx}
-                                  className="flex items-center gap-2 text-xs text-rose bg-rose/5 border border-rose/30 px-2.5 py-1 mt-1.5"
+                                  className="flex items-center gap-2 rounded-lg text-xs text-rose bg-rose/5 border border-rose/30 px-3 py-1.5 mt-1.5"
                                 >
                                   <AlertCircleIcon size={13} />
                                   <span>{issue.message}</span>
@@ -464,7 +464,7 @@ export function CartPage() {
                           <div className="flex items-center justify-between sm:justify-end gap-5 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-line">
                             {/* Industrial Stepper */}
                             <div className="flex flex-col items-center gap-1">
-                              <div className="flex items-center border border-line bg-paper shadow-inner">
+                              <div className="flex items-center rounded-full border border-line bg-paper shadow-inner overflow-hidden">
                                 <button
                                   type="button"
                                   onClick={() => handleStep(it.id, it.quantity, -1, it.offer.minOrderQty)}
@@ -509,21 +509,21 @@ export function CartPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleSetExact(it.id, it.offer.minOrderQty)}
-                                  className="text-[10px] text-ink-4 hover:text-ink font-mono px-1 border border-line bg-bone"
+                                  className="text-[10px] text-ink-4 hover:text-ink font-mono px-2 py-0.5 rounded-full border border-line bg-bone"
                                 >
                                   MOQ
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleStep(it.id, it.quantity, 10, it.offer.minOrderQty)}
-                                  className="text-[10px] text-ink-4 hover:text-ink font-mono px-1 border border-line bg-bone"
+                                  className="text-[10px] text-ink-4 hover:text-ink font-mono px-2 py-0.5 rounded-full border border-line bg-bone"
                                 >
                                   +10
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleStep(it.id, it.quantity, 25, it.offer.minOrderQty)}
-                                  className="text-[10px] text-ink-4 hover:text-ink font-mono px-1 border border-line bg-bone"
+                                  className="text-[10px] text-ink-4 hover:text-ink font-mono px-2 py-0.5 rounded-full border border-line bg-bone"
                                 >
                                   +25
                                 </button>
@@ -597,7 +597,7 @@ export function CartPage() {
               </div>
 
               {/* Multi-Supplier Splitting Notice */}
-              <div className="p-3 bg-bone border border-line text-xs space-y-1">
+              <div className="p-3 rounded-xl bg-bone border border-line text-xs space-y-1">
                 <div className="flex items-center gap-1.5 font-semibold text-ink">
                   <FileTextIcon size={13} className="text-copper" />
                   <span>Automated PO Splitting</span>
@@ -661,7 +661,7 @@ export function CartPage() {
 
               {/* Error / Warning if below MOQ */}
               {belowMoq.length > 0 && (
-                <div className="p-3 bg-rose/5 border border-rose/30 text-xs text-rose space-y-1">
+                <div className="p-3 rounded-xl bg-rose/5 border border-rose/30 text-xs text-rose space-y-1">
                   <div className="font-semibold flex items-center gap-1">
                     <AlertCircleIcon size={13} /> Minimum Order Constraint
                   </div>
