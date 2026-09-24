@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Award, CheckCircle2, Crown, LayoutGrid, Megaphone, Pin, Tag, XCircle } from 'lucide-react-native';
+import { Award, BarChart3, CheckCircle2, Crown, LayoutGrid, Megaphone, Pin, Tag, XCircle } from 'lucide-react-native';
 import {
   Button,
   Card,
@@ -21,12 +21,13 @@ import { colors, fonts } from '@/theme/tokens';
 import { MonoTag, Section, go } from '../../buyer/orders/kit';
 import { RecordCard } from '@/features/admin/ops/kit';
 
-type Tab = 'approvals' | 'campaigns' | 'plans' | 'slots';
+type Tab = 'approvals' | 'campaigns' | 'plans' | 'slots' | 'analytics';
 const TABS: { value: Tab; label: string }[] = [
   { value: 'approvals', label: 'Approvals' },
   { value: 'campaigns', label: 'Campaigns' },
   { value: 'plans', label: 'Plans' },
   { value: 'slots', label: 'Slots' },
+  { value: 'analytics', label: 'Analytics' },
 ];
 
 type Campaign = {
@@ -53,6 +54,7 @@ export function AdminSponsoredScreen() {
         {tab === 'campaigns' ? <CampaignsTab /> : null}
         {tab === 'plans' ? <PlansTab /> : null}
         {tab === 'slots' ? <SlotsTab /> : null}
+        {tab === 'analytics' ? <AnalyticsTab /> : null}
       </View>
     </Screen>
   );
@@ -178,6 +180,59 @@ function PlansTab() {
           </View>
         </Card>
       ))}
+    </View>
+  );
+}
+
+type AnalyticsRow = { campaignId: string; impressions: number; clicks: number };
+
+function AnalyticsTab() {
+  const q = useQuery({
+    queryKey: ['admin-sponsored-analytics'],
+    queryFn: () => api.get<{ analytics: AnalyticsRow[] }>('/admin/sponsored/analytics'),
+  });
+  const rows = q.data?.analytics ?? [];
+  const totals = rows.reduce((acc, r) => ({ impressions: acc.impressions + r.impressions, clicks: acc.clicks + r.clicks }), { impressions: 0, clicks: 0 });
+  if (q.isLoading) return <SkeletonList rows={4} height={64} />;
+  if (q.isError) return <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} />;
+  if (!rows.length) return <EmptyState icon={BarChart3} title="No events yet" message="Impressions and clicks appear once campaigns start serving." />;
+  const ctr = totals.impressions > 0 ? ((totals.clicks / totals.impressions) * 100).toFixed(2) : '0.00';
+  return (
+    <View style={{ gap: 12 }}>
+      <Section kicker="Totals" title="All campaigns" icon={BarChart3}>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Stat label="Impressions" value={String(totals.impressions)} />
+          <Stat label="Clicks" value={String(totals.clicks)} />
+          <Stat label="CTR" value={`${ctr}%`} />
+        </View>
+      </Section>
+      <View style={{ gap: 10 }}>
+        {rows.map((r) => {
+          const rCtr = r.impressions > 0 ? ((r.clicks / r.impressions) * 100).toFixed(2) : '0.00';
+          return (
+            <RecordCard
+              key={r.campaignId}
+              icon={BarChart3}
+              tone="ink"
+              title={`Campaign ${r.campaignId.slice(0, 8)}`}
+              titleMono
+              subtitle={`${r.impressions} impressions · ${r.clicks} clicks`}
+              amount={`${rCtr}%`}
+            />
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ flex: 1, gap: 2 }}>
+      <Text variant="overline" color="ink5">
+        {label}
+      </Text>
+      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 17, color: colors.ink }}>{value}</Text>
     </View>
   );
 }

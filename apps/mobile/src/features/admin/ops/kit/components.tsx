@@ -4,11 +4,60 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Bell, Check, CheckCircle2, Search, X, XCircle, type LucideIcon } from 'lucide-react-native';
-import { Badge, Button, Card, ConfirmSheet, Field, IconButton, IconTile, Input, Kicker, Sheet, Text, Touchable, type ButtonVariant } from '@/ui';
+import { Badge, Button, Card, ConfirmSheet, ConfettiBurst, Field, IconButton, IconTile, Input, Kicker, ListRow, Sheet, SuccessCheck, Text, Touchable, type ButtonVariant } from '@/ui';
 import { colors, radii, shadow } from '@/theme/tokens';
 import { TAB_BAR_SPACE } from '@/ui';
 import { usePermission } from '@/features/admin/common/permissions';
 import { useAdminUnreadCount, type BulkResult } from './hooks';
+
+/* ------------------------------- Gestures --------------------------------- */
+
+export { SwipeableRow } from '@/ui';
+export type { SwipeAction } from '@/ui';
+
+export interface ActionMenuItem {
+  label: string;
+  icon?: LucideIcon;
+  destructive?: boolean;
+  onPress: () => void;
+}
+
+/** Long-press context menu — a bottom sheet of row actions. */
+export function ActionMenu({
+  visible,
+  onClose,
+  title,
+  subtitle,
+  actions,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  title?: string;
+  subtitle?: string;
+  actions: ActionMenuItem[];
+}) {
+  return (
+    <Sheet visible={visible} onClose={onClose} title={title} subtitle={subtitle}>
+      <View style={{ gap: 2 }}>
+        {actions.map((a) => (
+          <ListRow
+            key={a.label}
+            title={a.label}
+            icon={a.icon}
+            iconTone={a.destructive ? 'danger' : 'ink'}
+            destructive={a.destructive}
+            chevron={false}
+            last
+            onPress={() => {
+              onClose();
+              a.onPress();
+            }}
+          />
+        ))}
+      </View>
+    </Sheet>
+  );
+}
 
 /** FadeInDown stagger wrapper for list items / sections. */
 export function Reveal({ index = 0, children, style }: { index?: number; children: ReactNode; style?: StyleProp<ViewStyle> }) {
@@ -334,6 +383,12 @@ export function BulkResultSheet({ result, onClose, onRetryFailed }: { result: Bu
     >
       {result ? (
         <View style={{ gap: 14 }}>
+          {!result.failed.length ? (
+            <View style={{ alignItems: 'center', paddingVertical: 4 }}>
+              <ConfettiBurst />
+              <SuccessCheck />
+            </View>
+          ) : null}
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Card kind="flat" padding={14} style={{ flex: 1, gap: 4, backgroundColor: colors.mintSoft }}>
               <Text variant="overline" color="ink4">Succeeded</Text>

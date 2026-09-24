@@ -54,7 +54,10 @@ export async function aggregatePayableForSupplier(
       netCents: paymentsTable.netCents,
       feeCents: paymentsTable.feeCents,
       confirmedAt: paymentsTable.confirmedAt,
-      refundedNetCents: sql<number>`(SELECT COALESCE(SUM(rf.amount_cents - rf.fee_refund_cents), 0) FROM refunds rf WHERE rf.payment_id = ${paymentsTable.id} AND rf.status = 'completed')`,
+      // NB: embedded drizzle columns render unqualified ("id"), which inside a
+      // subquery binds to the inner table's own id — never matches. The outer
+      // references must be spelled out with the real table names.
+      refundedNetCents: sql<number>`(SELECT COALESCE(SUM(rf.amount_cents - rf.fee_refund_cents), 0) FROM refunds rf WHERE rf.payment_id = "payments"."id" AND rf.status = 'completed')`,
     })
     .from(paymentsTable)
     .innerJoin(purchaseOrders, eq(purchaseOrders.id, paymentsTable.purchaseOrderId))
@@ -67,9 +70,9 @@ export async function aggregatePayableForSupplier(
         // Same settlement rule as supplier_earnings: only fulfilled orders,
         // never money under chargeback, pending refund or an open return.
         eq(purchaseOrders.status, 'completed'),
-        sql`NOT EXISTS (SELECT 1 FROM chargebacks cb WHERE cb.payment_id = ${paymentsTable.id} AND cb.status = 'open')`,
-        sql`NOT EXISTS (SELECT 1 FROM refunds rf WHERE rf.payment_id = ${paymentsTable.id} AND rf.status IN ('requested','approved','processing'))`,
-        sql`NOT EXISTS (SELECT 1 FROM order_returns orr WHERE orr.purchase_order_id = ${purchaseOrders.id} AND orr.status IN ('requested','approved','received'))`,
+        sql`NOT EXISTS (SELECT 1 FROM chargebacks cb WHERE cb.payment_id = "payments"."id" AND cb.status = 'open')`,
+        sql`NOT EXISTS (SELECT 1 FROM refunds rf WHERE rf.payment_id = "payments"."id" AND rf.status IN ('requested','approved','processing'))`,
+        sql`NOT EXISTS (SELECT 1 FROM order_returns orr WHERE orr.purchase_order_id = "purchase_orders"."id" AND orr.status IN ('requested','approved','received'))`,
       ),
     )
     .all()) as any) as Array<{ paymentId: string; netCents: number; feeCents: number; confirmedAt: number }>;

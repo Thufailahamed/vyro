@@ -4,7 +4,7 @@ import { Tabs } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { ZoomIn, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LucideIcon } from 'lucide-react-native';
 import { colors, fonts, shadow } from '@/theme/tokens';
@@ -22,6 +22,22 @@ export interface PortalTab {
 const BAR_H = 68;
 const SIDE = 16;
 const LENS_PAD = 6;
+
+/** Tab glyph that pops with a spring when it becomes active. */
+function TabIcon({ focused, icon: Icon }: { focused: boolean; icon: LucideIcon }) {
+  const s = useSharedValue(focused ? 1 : 0);
+  useEffect(() => {
+    s.value = withSpring(focused ? 1 : 0, { damping: 12, stiffness: 320, mass: 0.6 });
+  }, [focused, s]);
+  const anim = useAnimatedStyle(() => ({
+    transform: [{ scale: 0.82 + s.value * 0.18 }, { translateY: -1.5 * s.value }],
+  }));
+  return (
+    <Animated.View style={anim}>
+      <Icon size={21} color={focused ? colors.ink : colors.paperMuted} strokeWidth={focused ? 2.1 : 1.7} />
+    </Animated.View>
+  );
+}
 
 /**
  * Floating ink capsule with a volt "lens" that glides to the active tab.
@@ -107,9 +123,11 @@ function FloatingTabBar({ state, navigation, tabs }: BottomTabBarProps & { tabs:
                 style={{ width: itemW, alignItems: 'center', justifyContent: 'center', gap: 3 }}
               >
                 <View>
-                  <Icon size={21} color={focused ? colors.ink : colors.paperMuted} strokeWidth={focused ? 2.1 : 1.7} />
+                  <TabIcon focused={focused} icon={Icon} />
                   {tab.badge ? (
-                    <View
+                    <Animated.View
+                      key={tab.badge}
+                      entering={ZoomIn.duration(220)}
                       style={{
                         position: 'absolute',
                         top: -5,
@@ -126,7 +144,7 @@ function FloatingTabBar({ state, navigation, tabs }: BottomTabBarProps & { tabs:
                       }}
                     >
                       <Text style={{ fontFamily: fonts.monoMedium, fontSize: 9, lineHeight: 11, color: colors.paper }}>{tab.badge > 99 ? '99+' : tab.badge}</Text>
-                    </View>
+                    </Animated.View>
                   ) : null}
                 </View>
                 <Text

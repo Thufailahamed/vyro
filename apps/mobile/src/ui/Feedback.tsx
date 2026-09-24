@@ -1,13 +1,14 @@
 import { useEffect, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming, Easing } from 'react-native-reanimated';
+import Animated, { interpolateColor, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withSpring, withTiming, Easing } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { AlertTriangle, CheckCircle2, Info, XCircle, type LucideIcon } from 'lucide-react-native';
 import { colors, radii, shadow, tones, type Tone } from '@/theme/tokens';
 import { humanize } from '@/lib/format';
 import { toneForStatus } from '@/lib/status';
 import { Text } from './Text';
 import { Button } from './Button';
-import { FlowField } from './Brand';
+import { AnimatedFlowField } from './Brand';
 
 export function Badge({
   label,
@@ -25,39 +26,65 @@ export function Badge({
   style?: StyleProp<ViewStyle>;
 }) {
   const t = tones[tone];
+  const toneIdx = useSharedValue(Math.max(0, TONE_ORDER.indexOf(tone)));
+  const pop = useSharedValue(1);
+
+  useEffect(() => {
+    toneIdx.value = withTiming(Math.max(0, TONE_ORDER.indexOf(tone)), { duration: 320 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tween on tone change only
+  }, [tone]);
+  useEffect(() => {
+    pop.value = withSequence(withTiming(1.12, { duration: 110 }), withSpring(1, { damping: 14, stiffness: 380 }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pop on label change only
+  }, [label]);
+
+  const bg = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(toneIdx.value, TONE_ORDER.map((_, i) => i), TONE_BG) as string,
+    borderColor: interpolateColor(toneIdx.value, TONE_ORDER.map((_, i) => i), TONE_BORDER) as string,
+  }));
+  const fg = useAnimatedStyle(() => ({
+    color: interpolateColor(toneIdx.value, TONE_ORDER.map((_, i) => i), TONE_FG) as string,
+  }));
+  const dotAnim = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(toneIdx.value, TONE_ORDER.map((_, i) => i), TONE_DOT) as string,
+  }));
+  const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
+
   return (
-    <View
+    <Animated.View
       style={[
         {
           flexDirection: 'row',
           alignItems: 'center',
           alignSelf: 'flex-start',
           gap: 5,
-          backgroundColor: t.bg,
           borderRadius: radii.pill,
           paddingHorizontal: size === 'sm' ? 7 : 9,
           paddingVertical: size === 'sm' ? 2 : 3.5,
           borderWidth: 1,
-          borderColor: t.border,
         },
+        bg,
+        popStyle,
         style,
       ]}
     >
-      {dot ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: t.dot }} /> : null}
+      {dot ? <Animated.View style={[{ width: 6, height: 6, borderRadius: 3 }, dotAnim]} /> : null}
       {Icon ? <Icon size={size === 'sm' ? 11 : 12} color={t.fg} strokeWidth={2} /> : null}
-      <Text
-        style={{
-          fontFamily: 'IBMPlexSans_600SemiBold',
-          fontSize: size === 'sm' ? 10.5 : 11.5,
-          lineHeight: size === 'sm' ? 14 : 16,
-          letterSpacing: 0.2,
-          color: t.fg,
-        }}
+      <AnimatedText
+        style={[
+          {
+            fontFamily: 'IBMPlexSans_600SemiBold',
+            fontSize: size === 'sm' ? 10.5 : 11.5,
+            lineHeight: size === 'sm' ? 14 : 16,
+            letterSpacing: 0.2,
+          },
+          fg,
+        ]}
         numberOfLines={1}
       >
         {label}
-      </Text>
-    </View>
+      </AnimatedText>
+    </Animated.View>
   );
 }
 
@@ -65,6 +92,15 @@ export function Badge({
 export function StatusBadge({ status, size, label }: { status?: string | null; size?: 'sm' | 'md'; label?: string }) {
   return <Badge label={label ?? humanize(status)} tone={toneForStatus(status)} dot size={size} />;
 }
+
+/* ---- animated badge internals: tone tweens + pop on label change -------- */
+
+const TONE_ORDER: Tone[] = ['neutral', 'ink', 'volt', 'copper', 'success', 'warning', 'danger', 'info'];
+const TONE_BG = TONE_ORDER.map((t) => tones[t].bg);
+const TONE_FG = TONE_ORDER.map((t) => tones[t].fg);
+const TONE_DOT = TONE_ORDER.map((t) => tones[t].dot);
+const TONE_BORDER = TONE_ORDER.map((t) => tones[t].border);
+const AnimatedText = Animated.createAnimatedComponent(Text);
 
 const BANNER_ICON: Record<'info' | 'success' | 'warning' | 'danger', LucideIcon> = {
   info: Info,
@@ -151,7 +187,7 @@ export function EmptyState({
         shadow.card,
       ]}
     >
-      <FlowField seed={seed} tone="ink" opacity={0.3} />
+      <AnimatedFlowField seed={seed} tone="ink" opacity={0.3} />
       {Icon ? (
         <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: 'rgba(198,220,74,0.16)', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
           <View style={[{ width: 60, height: 60, borderRadius: 30, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }, shadow.ink]}>
@@ -189,14 +225,33 @@ export function ErrorState({ message, onRetry }: { message?: string; onRetry?: (
   );
 }
 
-/** Shimmering placeholder block. */
+/** Shimmering placeholder block — soft pulse plus a travelling highlight sweep. */
 export function Skeleton({ width = '100%', height = 16, radius = radii.md, style }: { width?: ViewStyle['width']; height?: number; radius?: number; style?: StyleProp<ViewStyle> }) {
-  const o = useSharedValue(0.5);
+  const reduced = useReducedMotion();
+  const o = useSharedValue(0.45);
+  const sweep = useSharedValue(-1);
   useEffect(() => {
-    o.value = withRepeat(withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }), -1, true);
-  }, [o]);
+    if (reduced) {
+      o.value = 0.7;
+      return;
+    }
+    o.value = withRepeat(withTiming(0.9, { duration: 1000, easing: Easing.inOut(Easing.quad) }), -1, true);
+    sweep.value = withRepeat(withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.quad) }), -1, false);
+  }, [o, sweep, reduced]);
   const anim = useAnimatedStyle(() => ({ opacity: o.value }));
-  return <Animated.View style={[{ width, height, borderRadius: radius, backgroundColor: colors.mist }, anim, style]} />;
+  const shine = useAnimatedStyle(() => ({ transform: [{ translateX: sweep.value * 260 }] }));
+  return (
+    <Animated.View style={[{ width, height, borderRadius: radius, backgroundColor: colors.mist, overflow: 'hidden' }, anim, style]}>
+      <Animated.View style={[{ position: 'absolute', top: 0, bottom: 0, width: 90, left: -40 }, shine]}>
+        <LinearGradient
+          colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
+    </Animated.View>
+  );
 }
 
 /** A stack of skeleton cards used as the default list loading state. */
@@ -264,10 +319,12 @@ export function ProgressBar({
 }
 
 export function Pulse({ color = colors.volt, size = 8 }: { color?: string; size?: number }) {
+  const reduced = useReducedMotion();
   const s = useSharedValue(1);
   useEffect(() => {
+    if (reduced) return;
     s.value = withRepeat(withTiming(1.8, { duration: 1200 }), -1, false);
-  }, [s]);
+  }, [s, reduced]);
   const ring = useAnimatedStyle(() => ({ transform: [{ scale: s.value }], opacity: 2 - s.value }));
   return (
     <View style={{ width: size * 2, height: size * 2, alignItems: 'center', justifyContent: 'center' }}>

@@ -6,6 +6,7 @@ import { haptic } from '@/lib/haptics';
 import { Text } from './Text';
 import { Touchable } from './Button';
 import { Sheet } from './Sheet';
+import { Shake } from './Motion';
 
 export function Field({
   label,
@@ -39,7 +40,7 @@ export function Field({
           {right}
         </View>
       ) : null}
-      {children}
+      <Shake signal={error}>{children}</Shake>
       {error ? (
         <Text variant="caption" color="rose">
           {error}

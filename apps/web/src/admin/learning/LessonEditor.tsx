@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button, Input, Select, Textarea } from '@/components/ui';
 import { AdminPage, AdminPageHeader, Panel } from '../ui';
 import {

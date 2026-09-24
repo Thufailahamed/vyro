@@ -5,6 +5,8 @@ import {
   Building2,
   CheckCircle2,
   CircleDollarSign,
+  Download,
+  FileSpreadsheet,
   Landmark,
   RefreshCw,
   Scale,
@@ -29,6 +31,9 @@ import { api, errorMessage } from '@/lib/api';
 import { formatLKR, timeAgo } from '@/lib/format';
 import { colors, fonts } from '@/theme/tokens';
 import { Section } from '../../buyer/orders/kit';
+import { go } from '@/features/admin/platform/kit';
+import { usePermission } from '@/features/admin/common/permissions';
+import { ExportButton } from '@/features/admin/money/accounts/shared';
 
 type Tab = 'payments' | 'refunds' | 'bank' | 'settlements' | 'payouts' | 'recon';
 const TABS: { value: Tab; label: string }[] = [
@@ -43,6 +48,7 @@ const TABS: { value: Tab; label: string }[] = [
 /** /admin/accounts — condensed financial operations console (web AdminAccountsPage). */
 export function AdminAccountsScreen() {
   const [tab, setTab] = useState<Tab>('payments');
+  const canReport = usePermission('financial_report:read');
   return (
     <Screen
       back
@@ -59,6 +65,26 @@ export function AdminAccountsScreen() {
         {tab === 'settlements' ? <SettlementsTab /> : null}
         {tab === 'payouts' ? <PayoutsTab /> : null}
         {tab === 'recon' ? <ReconTab /> : null}
+        {canReport ? (
+          <Section kicker="Reports" title="CSV exports" icon={FileSpreadsheet}>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <ExportButton
+                title="Payments"
+                icon={Download}
+                path="/admin/finance/exports/payments.csv"
+                fileName="payments.csv"
+                full
+              />
+              <ExportButton
+                title="Ledger"
+                icon={Download}
+                path="/admin/finance/exports/ledger.csv"
+                fileName="ledger.csv"
+                full
+              />
+            </View>
+          </Section>
+        ) : null}
       </View>
     </Screen>
   );
@@ -70,15 +96,17 @@ function Row({
   amount,
   status,
   right,
+  onPress,
 }: {
   title: string;
   sub?: string;
   amount?: number | null;
   status?: string;
   right?: React.ReactNode;
+  onPress?: () => void;
 }) {
   return (
-    <Card kind="flat" padding={16} style={{ gap: 12 }}>
+    <Card kind="flat" padding={16} onPress={onPress} style={{ gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <IconTile icon={CircleDollarSign} tone="paper" size={40} />
         <View style={{ flex: 1, gap: 3 }}>
@@ -172,6 +200,7 @@ function PaymentsTab() {
           sub={`${p.method} · ${timeAgo(p.createdAt)}`}
           amount={p.amountCents}
           status={p.status}
+          onPress={() => go(`/admin/accounts/payments/${p.id}`)}
         />
       ))}
     </QueryBlock>

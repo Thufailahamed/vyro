@@ -1,17 +1,21 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
+  Activity,
   AlertCircle,
+  Check,
   ChevronRight,
   FileText,
   Package,
+  Settings2,
+  ShoppingBag,
   Sparkles,
   Truck,
   type LucideIcon,
 } from 'lucide-react-native';
 import {
-  Button,
+  Badge,
   Card,
   ChipRow,
   EmptyState,
@@ -23,15 +27,18 @@ import {
   PillAction,
   ScreenHeader,
   SkeletonList,
+  SwipeableRow,
   Text,
   Touchable,
+  IconButton,
 } from '@/ui';
 import { api, errorMessage, qs } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { timeAgo } from '@/lib/format';
+import { humanize, timeAgo } from '@/lib/format';
 import { colors, radii, shadow } from '@/theme/tokens';
 import { go } from '../buyer/orders/kit';
 
+type Severity = 'info' | 'warning' | 'critical';
 interface Note {
   id: string;
   title: string;
@@ -40,10 +47,14 @@ interface Note {
   readAt: number | null;
   createdAt: number;
   type: string;
-  source?: string | null;
+  source?: 'system' | 'ai' | 'admin' | null;
+  sourceRef?: string | null;
+  severity?: Severity;
 }
 
-type Tab = 'all' | 'unread' | 'order' | 'delivery' | 'payment' | 'ai';
+type Page = { notifications: Note[]; unreadCount: number; nextCursor: number | null };
+
+type Tab = 'all' | 'unread' | 'order' | 'delivery' | 'payment' | 'ai' | 'system';
 const TABS: { value: Tab; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'unread', label: 'Unread' },
@@ -51,28 +62,25 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'delivery', label: 'Delivery' },
   { value: 'payment', label: 'Payments' },
   { value: 'ai', label: 'AI' },
+  { value: 'system', label: 'System' },
 ];
 
 function iconFor(n: Note): {
   Icon: LucideIcon;
-  tone: 'ink' | 'volt' | 'copper' | 'paper' | 'danger' | 'success';
+  tone: 'ink' | 'volt' | 'copper' | 'paper' | 'danger' | 'success' | 'warning';
 } {
+  if (n.severity === 'critical') return { Icon: AlertCircle, tone: 'danger' };
+  if (n.severity === 'warning') return { Icon: Activity, tone: 'warning' };
   const t = n.type.toLowerCase();
-  if (
-    t.includes('delivery') ||
-    t.includes('dispatch') ||
-    t.includes('truck') ||
-    t.includes('freight')
-  )
+  if (t.includes('observability') || t.includes('sweep') || n.source === 'system')
+    return { Icon: Activity, tone: 'warning' };
+  if (t.includes('order') || t.includes('po') || t.includes('purchase'))
+    return { Icon: ShoppingBag, tone: 'ink' };
+  if (t.includes('delivery') || t.includes('dispatch') || t.includes('truck') || t.includes('freight'))
     return { Icon: Truck, tone: 'copper' };
-  if (t.includes('invoice') || t.includes('payment') || t.includes('paid') || t.includes('credit'))
+  if (t.includes('invoice') || t.includes('payment') || t.includes('paid') || t.includes('credit') || t.includes('refund'))
     return { Icon: FileText, tone: 'success' };
-  if (
-    t.includes('dispute') ||
-    t.includes('alert') ||
-    t.includes('security') ||
-    t.includes('suspend')
-  )
+  if (t.includes('dispute') || t.includes('alert') || t.includes('security') || t.includes('suspend'))
     return { Icon: AlertCircle, tone: 'danger' };
   if (n.source === 'ai') return { Icon: Sparkles, tone: 'volt' };
   return { Icon: Package, tone: n.readAt ? 'paper' : 'ink' };
@@ -81,19 +89,32 @@ function iconFor(n: Note): {
 function matches(tab: Tab, n: Note) {
   const t = n.type.toLowerCase();
   switch (tab) {
-    case 'unread':
-      return !n.readAt;
     case 'order':
-      return t.includes('order');
+      return t.includes('order') || t.includes('purchase');
     case 'delivery':
       return t.includes('delivery') || t.includes('dispatch') || t.includes('truck');
     case 'payment':
-      return t.includes('payment') || t.includes('invoice') || t.includes('credit');
-    case 'ai':
-      return n.source === 'ai' || t.includes('ai');
+      return t.includes('payment') || t.includes('invoice') || t.includes('credit') || t.includes('refund');
     default:
       return true;
   }
+}
+
+/** Slug-style titles ("sweep.stale", "order.auto_cancelled") read better humanized. */
+function displayTitle(n: Note): string {
+  return /^[a-z0-9._-]+$/.test(n.title) ? humanize(n.title.replaceAll('.', ' ')) : n.title;
+}
+
+/** Collapse consecutive identical alerts (type+title+link) into one row. */
+function group(list: Note[]): { key: string; items: Note[] }[] {
+  const out: { key: string; items: Note[] }[] = [];
+  for (const n of list) {
+    const key = `${n.type}|${n.title}|${n.link ?? ''}`;
+    const last = out[out.length - 1];
+    if (last && last.key === key) last.items.push(n);
+    else out.push({ key, items: [n] });
+  }
+  return out;
 }
 
 /** Shared notification inbox — port of the web NotificationsPage. */
@@ -101,21 +122,28 @@ export function NotificationsScreen() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>('all');
-  const [cursor, setCursor] = useState<number | null>(null);
 
-  const q = useQuery({
-    queryKey: ['notifications', tab === 'unread' ? 'unread' : 'all', cursor],
-    queryFn: () =>
-      api.get<{ notifications: Note[]; unreadCount: number; nextCursor: number | null }>(
+  const serverTab = tab === 'unread' || tab === 'ai' || tab === 'system' ? tab : 'all';
+  const q = useInfiniteQuery<Page>({
+    queryKey: ['notifications', serverTab],
+    queryFn: ({ pageParam }) =>
+      api.get<Page>(
         '/notifications/me' +
-          qs({ limit: 50, unread: tab === 'unread' ? 1 : undefined, before: cursor ?? undefined }),
+          qs({
+            limit: 50,
+            unread: serverTab === 'unread' ? 1 : undefined,
+            source: serverTab === 'ai' ? 'ai' : serverTab === 'system' ? 'system' : undefined,
+            before: pageParam as number | undefined,
+          }),
       ),
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled: !!user,
     refetchInterval: 30_000,
   });
 
   const mark = useMutation({
-    mutationFn: (id: string) => api.post(`/notifications/${id}/read`),
+    mutationFn: (ids: string[]) => Promise.all(ids.map((id) => api.post(`/notifications/${id}/read`))),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   });
   const markAll = useMutation({
@@ -123,17 +151,19 @@ export function NotificationsScreen() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
-  const list = useMemo(
-    () => (q.data?.notifications ?? []).filter((n) => matches(tab, n)),
-    [q.data, tab],
-  );
-  const unread = q.data?.unreadCount ?? 0;
+  const flat = useMemo(() => (q.data?.pages ?? []).flatMap((p) => p.notifications), [q.data]);
+  const groups = useMemo(() => group(flat.filter((n) => matches(tab, n))), [flat, tab]);
+  const unread = q.data?.pages[0]?.unreadCount ?? 0;
 
   return (
     <ListScreen
-      data={list}
-      keyExtractor={(n) => n.id}
+      data={groups}
+      keyExtractor={(g) => g.items[0]!.id}
       onRefresh={() => q.refetch()}
+      onEndReached={() => {
+        if (q.hasNextPage && !q.isFetchingNextPage) void q.fetchNextPage();
+      }}
+      onEndReachedThreshold={0.4}
       header={
         <ListHeader>
           <ScreenHeader
@@ -141,6 +171,7 @@ export function NotificationsScreen() {
             kicker="Inbox"
             title="Notifications"
             subtitle={unread ? `${unread} unread` : 'All caught up'}
+            right={<IconButton icon={Settings2} variant="surface" accessibilityLabel="Notification settings" onPress={() => go('/settings')} />}
           />
           <Gutter style={{ gap: 14 }}>
             {unread ? (
@@ -177,10 +208,7 @@ export function NotificationsScreen() {
                 t.value === 'unread' && unread ? { ...t, count: unread } : t,
               )}
               value={tab}
-              onChange={(t) => {
-                setTab(t);
-                setCursor(null);
-              }}
+              onChange={setTab}
             />
           </Gutter>
         </ListHeader>
@@ -202,18 +230,36 @@ export function NotificationsScreen() {
           />
         )
       }
-      renderItem={({ item: n }) => {
+      renderItem={({ item: g }) => {
+        const n = g.items[0]!;
         const { Icon, tone } = iconFor(n);
-        const isUnread = !n.readAt;
+        const count = g.items.length;
+        const isUnread = g.items.some((x) => !x.readAt);
         return (
+          <SwipeableRow
+            enabled={isUnread}
+            left={
+              isUnread
+                ? [
+                    {
+                      label: count > 1 ? `Read ×${count}` : 'Read',
+                      icon: Check,
+                      tone: 'mint',
+                      run: () => mark.mutate(g.items.filter((x) => !x.readAt).map((x) => x.id)),
+                    },
+                  ]
+                : undefined
+            }
+          >
           <Touchable
             onPress={() => {
-              if (!n.readAt) mark.mutate(n.id);
+              const unreadIds = g.items.filter((x) => !x.readAt).map((x) => x.id);
+              if (unreadIds.length) mark.mutate(unreadIds);
               if (n.link) go(n.link);
             }}
             hapticOnPress
             scaleTo={0.98}
-            accessibilityLabel={n.title}
+            accessibilityLabel={displayTitle(n)}
           >
             <Card
               padding={14}
@@ -234,8 +280,9 @@ export function NotificationsScreen() {
                     numberOfLines={1}
                     style={{ flex: 1 }}
                   >
-                    {n.title}
+                    {displayTitle(n)}
                   </Text>
+                  {count > 1 ? <Badge label={`×${count}`} tone="ink" size="sm" /> : null}
                   <Text variant="caption" color="ink5">
                     {timeAgo(n.createdAt)}
                   </Text>
@@ -300,17 +347,15 @@ export function NotificationsScreen() {
               ) : null}
             </Card>
           </Touchable>
+          </SwipeableRow>
         );
       }}
       ListFooterComponent={
-        q.data?.nextCursor ? (
+        q.isFetchingNextPage ? (
+          <SkeletonList rows={2} height={72} />
+        ) : q.hasNextPage && flat.length > 0 && groups.length === 0 ? (
           <View style={{ alignItems: 'center', paddingTop: 6 }}>
-            <Button
-              title="Load earlier"
-              variant="secondary"
-              size="sm"
-              onPress={() => setCursor(q.data!.nextCursor)}
-            />
+            <PillAction label="Load more to see this type" onPress={() => void q.fetchNextPage()} />
           </View>
         ) : null
       }

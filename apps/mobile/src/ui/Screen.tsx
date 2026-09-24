@@ -9,7 +9,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import Animated, { Extrapolation, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, type FlatListPropsWithLayout, type SharedValue } from 'react-native-reanimated';
+import Animated, { Easing, Extrapolation, FadeInDown, FadeOut, interpolate, LinearTransition, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withRepeat, withTiming, type FlatListPropsWithLayout, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
@@ -18,6 +18,7 @@ import { ChevronLeft } from 'lucide-react-native';
 import { colors, GUTTER } from '@/theme/tokens';
 import { Text, Kicker } from './Text';
 import { IconButton } from './Button';
+import { BrandMark } from './Brand';
 
 /** Height reserved at the bottom of tab screens so content clears the floating tab bar. */
 export const TAB_BAR_SPACE = 108;
@@ -32,10 +33,17 @@ type ChromeInfo = { title: string; back: boolean; dark: boolean } | null;
 interface ChromeApi {
   setInfo: (i: ChromeInfo) => void;
   setBack: (fn: () => void) => void;
+  /** Shared scroll offset — lets children (e.g. InkHero art) parallax. */
+  scrollY: SharedValue<number>;
 }
 
 /** Lets a ScreenHeader (wherever it sits in the scroll content) feed the compact nav bar. */
 const ChromeCtx = createContext<ChromeApi | null>(null);
+
+/** Shared scroll offset of the enclosing Screen/ListScreen, or null outside one. */
+export function useScreenScrollY(): SharedValue<number> | null {
+  return useContext(ChromeCtx)?.scrollY ?? null;
+}
 
 function useChrome() {
   const [info, setInfo] = useState<ChromeInfo>(null);
@@ -51,7 +59,9 @@ function useChrome() {
       setBack: (fn) => {
         backRef.current = fn;
       },
+      scrollY,
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scrollY is a stable shared value
     [],
   );
   return { api, backRef, info, scrollY, onScroll };
@@ -181,6 +191,42 @@ export interface ScreenProps extends ScreenHeaderProps {
   gap?: number;
 }
 
+/** Floating refresh glyph — a spinning brand mark shown while `refreshing`. */
+function RefreshGlyph({ show, dark }: { show: boolean; dark?: boolean }) {
+  const rot = useSharedValue(0);
+  useEffect(() => {
+    if (show) rot.value = withRepeat(withTiming(360, { duration: 900, easing: Easing.linear }), -1, false);
+    else rot.value = 0;
+  }, [show, rot]);
+  const spin = useAnimatedStyle(() => ({ transform: [{ rotate: `${rot.value}deg` }] }));
+  if (!show) return null;
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(200)}
+      exiting={FadeOut.duration(160)}
+      pointerEvents="none"
+      style={{ position: 'absolute', top: NAV_H + 10, alignSelf: 'center', zIndex: 30 }}
+    >
+      <View
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 17,
+          backgroundColor: dark ? 'rgba(250,247,240,0.1)' : colors.paper,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 1,
+          borderColor: dark ? colors.paperLine : 'rgba(12,14,11,0.07)',
+        }}
+      >
+        <Animated.View style={spin}>
+          <BrandMark size={18} tone="ink" />
+        </Animated.View>
+      </View>
+    </Animated.View>
+  );
+}
+
 function useRefresh(onRefresh?: () => Promise<unknown> | void) {
   const [refreshing, setRefreshing] = useState(false);
   const refresh = onRefresh
@@ -251,6 +297,7 @@ export function Screen({
         <View style={{ flex: 1 }}>
           {body}
           {scroll ? <CompactBar info={chrome.info} scrollY={chrome.scrollY} backRef={chrome.backRef} /> : null}
+          <RefreshGlyph show={refreshing} dark={dark} />
         </View>
         {footer ? (
           <View
@@ -311,12 +358,14 @@ export function ListScreen<T>({
           keyboardShouldPersistTaps="handled"
           onScroll={chrome.onScroll}
           scrollEventThrottle={16}
+          itemLayoutAnimation={LinearTransition.duration(220)}
           ListHeaderComponent={header}
           contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: (tabBar ? TAB_BAR_SPACE : 28) + insets.bottom, gap: 12 }}
           refreshControl={refresh ? <RefreshControl refreshing={refreshing} tintColor={dark ? colors.volt : colors.ink} onRefresh={refresh} /> : undefined}
           {...(list as FlatListPropsWithLayout<T>)}
         />
         <CompactBar info={chrome.info} scrollY={chrome.scrollY} backRef={chrome.backRef} />
+        <RefreshGlyph show={refreshing} dark={dark} />
       </View>
     </ChromeCtx.Provider>
   );

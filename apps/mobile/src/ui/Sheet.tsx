@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import Animated, { Easing, FadeIn, FadeOut, SlideInDown, SlideOutDown, SlideInUp, SlideOutUp } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown, SlideInUp, SlideOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { CheckCircle2, Info, X, XCircle, type LucideIcon } from 'lucide-react-native';
 import { colors, radii, shadow } from '@/theme/tokens';
 import { haptic } from '@/lib/haptics';
@@ -41,10 +42,11 @@ export function Sheet({
       {visible ? (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'flex-end' }}>
           <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(180)} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(8,9,7,0.55)' }]}>
+            {Platform.OS === 'ios' ? <BlurView intensity={14} tint="dark" style={StyleSheet.absoluteFill} /> : null}
             <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Close" />
           </Animated.View>
           <Animated.View
-            entering={SlideInDown.duration(340).easing(Easing.bezier(0.16, 1, 0.3, 1))}
+            entering={SlideInDown.springify().damping(26).stiffness(280).mass(0.9)}
             exiting={SlideOutDown.duration(220)}
             style={[
               {
@@ -121,7 +123,18 @@ export function ConfirmSheet({
       subtitle={message}
       footer={
         <>
-          <Button title={confirmLabel} variant={variant} onPress={onConfirm} loading={loading} full size="lg" />
+          <Button
+            title={confirmLabel}
+            variant={variant}
+            onPress={() => {
+              if (variant === 'danger') haptic.medium();
+              else haptic.tap();
+              onConfirm();
+            }}
+            loading={loading}
+            full
+            size="lg"
+          />
           <Button title="Cancel" variant="ghost" onPress={onClose} full />
         </>
       }
@@ -187,7 +200,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {item ? (
         <Animated.View
           key={item.id}
-          entering={SlideInUp.duration(360).easing(Easing.bezier(0.16, 1, 0.3, 1))}
+          entering={SlideInUp.springify().damping(20).stiffness(300).mass(0.8)}
           exiting={SlideOutUp.duration(240)}
           pointerEvents="box-none"
           style={{ position: 'absolute', left: 14, right: 14, top: insets.top + 8, zIndex: 1000 }}

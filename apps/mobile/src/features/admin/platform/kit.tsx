@@ -10,7 +10,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { colors, fonts, radii } from '@/theme/tokens';
 import { formatLKR, formatCompactLKR } from '@/lib/format';
 import { usePermission } from '@/features/admin/common/permissions';
-import { Button, Card, ConfirmSheet, EmptyState, Field, Input, Kicker, Skeleton, Text, type ButtonVariant } from '@/ui';
+import { Button, Card, ConfirmSheet, CountUp, EmptyState, Field, Input, Kicker, Skeleton, Text, type ButtonVariant } from '@/ui';
 
 /** Navigate to any route (typed routes can't see routes other agents are still creating). */
 export function go(href: string) {
@@ -76,16 +76,40 @@ export function MoneyText({
   );
 }
 
-/** KPI cell inside an ink hero (label / mono value / hint). */
-export function HeroMetric({ label, value, hint, accent, style }: { label: string; value: string; hint?: string; accent?: boolean; style?: StyleProp<ViewStyle> }) {
+/** KPI cell inside an ink hero (label / mono value / hint). Numeric values count up. */
+export function HeroMetric({
+  label,
+  value,
+  hint,
+  accent,
+  format,
+  style,
+}: {
+  label: string;
+  value: string | number;
+  hint?: string;
+  accent?: boolean;
+  /** Number → display string when `value` is numeric (e.g. formatPercent). */
+  format?: (n: number) => string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const color = accent ? 'volt' : 'paper';
   return (
     <View style={[{ flexBasis: '46%', flexGrow: 1, gap: 4 }, style]}>
       <Text variant="overline" color="paperMuted" numberOfLines={1}>
         {label}
       </Text>
-      <Text variant="metricSm" color={accent ? 'volt' : 'paper'} numberOfLines={1} adjustsFontSizeToFit>
-        {value}
-      </Text>
+      {typeof value === 'number' ? (
+        <CountUp
+          value={value}
+          format={format}
+          style={{ fontFamily: fonts.monoMedium, fontSize: 22, lineHeight: 26, letterSpacing: -0.8, color: accent ? colors.volt : colors.paper }}
+        />
+      ) : (
+        <Text variant="metricSm" color={color} numberOfLines={1} adjustsFontSizeToFit>
+          {value}
+        </Text>
+      )}
       {hint ? (
         <Text variant="caption" color="paperFaint" numberOfLines={1}>
           {hint}

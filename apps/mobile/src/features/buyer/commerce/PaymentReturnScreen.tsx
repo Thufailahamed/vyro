@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import { AlertTriangle, CheckCircle2, Clock, XCircle } from 'lucide-react-native';
-import { Button, Card, Loader, Screen, ScreenHeader, Text } from '@/ui';
+import { Button, Card, ConfettiBurst, Loader, Screen, ScreenHeader, Text } from '@/ui';
 import { api } from '@/lib/api';
+import { haptic } from '@/lib/haptics';
 import { formatLKR } from '@/lib/format';
 import { colors, fonts, radii } from '@/theme/tokens';
 import { go } from '../orders/kit';
@@ -44,6 +45,14 @@ export function PaymentReturnScreen() {
 
   const settled = payment?.status === 'confirmed' || payment?.status === 'failed' || payment?.status === 'cancelled' || payment?.status === 'chargeback';
 
+  const celebrated = useRef(false);
+  useEffect(() => {
+    if (payment?.status === 'confirmed' && !celebrated.current) {
+      celebrated.current = true;
+      haptic.success();
+    }
+  }, [payment?.status]);
+
   const orderLink = poId ? `/buyer/order/${poId}` : '/buyer/orders';
 
   const state = settled
@@ -82,6 +91,7 @@ export function PaymentReturnScreen() {
       <ScreenHeader back kicker="Secure payment" title={state.title} />
       <Card kind="elevated" padding={28} radius={radii['3xl']} style={{ alignItems: 'center', gap: 14, marginTop: 8 }}>
         <View style={{ width: 104, height: 104, borderRadius: 52, backgroundColor: state.soft, alignItems: 'center', justifyContent: 'center' }}>
+          {payment?.status === 'confirmed' ? <ConfettiBurst size={120} /> : null}
           <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' }}>
             <Icon size={38} color={state.color} strokeWidth={1.7} />
           </View>

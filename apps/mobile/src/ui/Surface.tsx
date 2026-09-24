@@ -1,10 +1,12 @@
-import { type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { Easing, Extrapolation, interpolate, interpolateColor, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import type { LucideIcon } from 'lucide-react-native';
 import { colors, radii, shadow } from '@/theme/tokens';
 import { Touchable } from './Button';
-import { FlowField } from './Brand';
+import { AnimatedFlowField } from './Brand';
+import { useScreenScrollY } from './Screen';
 
 export type SurfaceKind = 'flat' | 'elevated' | 'floating' | 'ink' | 'volt' | 'outline' | 'bone' | 'copper';
 
@@ -51,6 +53,29 @@ function Sheen({ kind }: { kind: SurfaceKind }) {
   return null;
 }
 
+/** Slowly breathing gradient edge on premium volt cards. */
+function GlowBorder({ radius }: { radius: number }) {
+  const reduced = useReducedMotion();
+  const t = useSharedValue(0);
+  useEffect(() => {
+    if (reduced) return;
+    t.value = withRepeat(withTiming(1, { duration: 3200, easing: Easing.inOut(Easing.sin) }), -1, true);
+  }, [t, reduced]);
+  const anim = useAnimatedStyle(() => ({
+    borderColor: interpolateColor(t.value, [0, 0.5, 1], ['rgba(184,122,78,0)', 'rgba(184,122,78,0.55)', 'rgba(184,122,78,0)']),
+    shadowColor: colors.copper,
+    shadowOpacity: t.value * 0.5,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+  }));
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[StyleSheet.absoluteFill, { borderRadius: radius, borderCurve: 'continuous', borderWidth: 1.5, borderColor: 'transparent' }, anim]}
+    />
+  );
+}
+
 export interface CardProps {
   kind?: SurfaceKind;
   children?: ReactNode;
@@ -73,7 +98,8 @@ export function Card({ kind = 'flat', children, style, padding = 16, onPress, fl
   const inner = (
     <>
       <Sheen kind={kind} />
-      {flow ? <FlowField seed={flow} tone={kind === 'ink' ? 'paper' : 'ink'} opacity={kind === 'ink' ? 0.8 : 0.45} /> : null}
+      {kind === 'volt' ? <GlowBorder radius={radius} /> : null}
+      {flow ? <AnimatedFlowField seed={flow} tone={kind === 'ink' ? 'paper' : 'ink'} opacity={kind === 'ink' ? 0.8 : 0.45} /> : null}
       {children}
     </>
   );
@@ -88,10 +114,25 @@ export function Card({ kind = 'flat', children, style, padding = 16, onPress, fl
 }
 
 /**
- * Ink hero: deep material panel with a volt glow, copper counter-glow and
- * seeded flow art — the signature surface at the top of every dashboard.
+ * Ink hero: deep material panel with a soft diagonal gradient and animated
+ * flow lines — the signature surface at the top of every dashboard.
  */
 export function InkHero({ children, seed = 'hero', style }: { children: ReactNode; seed?: string; style?: StyleProp<ViewStyle> }) {
+  const scrollY = useScreenScrollY();
+  const reduced = useReducedMotion();
+  const mesh = useSharedValue(0);
+  useEffect(() => {
+    if (reduced) {
+      mesh.value = 0.4;
+      return;
+    }
+    mesh.value = withRepeat(withTiming(1, { duration: 9000, easing: Easing.inOut(Easing.sin) }), -1, true);
+  }, [mesh, reduced]);
+  const meshStyle = useAnimatedStyle(() => ({ opacity: 0.35 + mesh.value * 0.45 }));
+  const parallax = useAnimatedStyle(() => ({
+    transform: [{ translateY: reduced ? 0 : (scrollY?.value ?? 0) * 0.22 }],
+    opacity: reduced ? 1 : interpolate(scrollY?.value ?? 0, [0, 160], [1, 0.15], Extrapolation.CLAMP),
+  }));
   return (
     <View
       style={[
@@ -110,21 +151,24 @@ export function InkHero({ children, seed = 'hero', style }: { children: ReactNod
     >
       <LinearGradient
         pointerEvents="none"
-        colors={['#23261F', colors.ink, '#0A0B09']}
-        locations={[0, 0.55, 1]}
+        colors={['#2C3124', '#1B1E17', colors.ink]}
+        locations={[0, 0.5, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <View
-        pointerEvents="none"
-        style={{ position: 'absolute', width: 260, height: 260, borderRadius: 130, top: -150, right: -90, backgroundColor: colors.volt, opacity: 0.1 }}
-      />
-      <View
-        pointerEvents="none"
-        style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, bottom: -140, left: -70, backgroundColor: colors.copper, opacity: 0.12 }}
-      />
-      <FlowField seed={seed} opacity={0.75} />
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, meshStyle]}>
+        <LinearGradient
+          colors={['rgba(198,220,74,0.10)', 'rgba(198,220,74,0)', 'rgba(184,122,78,0.12)']}
+          locations={[0, 0.55, 1]}
+          start={{ x: 1, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, parallax]}>
+        <AnimatedFlowField seed={seed} opacity={0.6} />
+      </Animated.View>
       {children}
     </View>
   );

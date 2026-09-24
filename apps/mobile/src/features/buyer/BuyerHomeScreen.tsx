@@ -12,6 +12,7 @@ import {
   InkHero,
   ListHeader,
   ListScreen,
+  Marquee,
   QuickAction,
   QuickActions,
   SectionHeader,
@@ -82,6 +83,21 @@ export function BuyerHomeScreen() {
         </Text>
         <Text variant="displayMd">Ayubowan, {firstName}</Text>
       </Gutter>
+
+      {/* Live ticker — in-flight value, cart and savings at a glance */}
+      {inFlight.length || cartLines || topRepeat.length ? (
+        <Marquee speed={26}>
+          <Text variant="caption" color="ink4">
+            {[
+              inFlight.length ? `${inFlight.length} order${inFlight.length === 1 ? '' : 's'} in flight${inFlightValue ? ` · ${formatCompactLKR(inFlightValue)} on the move` : ''}` : null,
+              cartLines ? `${cartLines} cart line${cartLines === 1 ? '' : 's'} · ${formatCompactLKR(cartTotal)}` : null,
+              ...topRepeat.map((o) => `${o.supplierName} −${o.percent}% repeat offer`),
+            ]
+              .filter(Boolean)
+              .join('     •     ')}
+          </Text>
+        </Marquee>
+      ) : null}
 
       {/* Hero: in-flight POs + quick actions */}
       <Gutter>

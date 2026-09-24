@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { ArrowRight, CheckCircle2, Eraser, RefreshCw, Send, Sparkles, Store, Wrench } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Badge, Button, Card, Chip, IconButton, IconTile, InkHero, Kicker, ScreenHeader, Text, Touchable, useToast } from '@/ui';
+import { Badge, Button, Card, Chip, IconButton, IconTile, InkHero, Kicker, ScreenHeader, Text, Touchable, Typewriter, useToast } from '@/ui';
 import { api, errorMessage } from '@/lib/api';
 import { useBusinessId } from '@/lib/auth';
 import { formatLKR } from '@/lib/format';
@@ -200,7 +200,7 @@ function Turn({
 
       {turn.text ? (
         <Bubble mine={false}>
-          <Text variant="body">{turn.text}</Text>
+          <Typewriter text={turn.text} variant="body" />
         </Bubble>
       ) : working ? (
         <Bubble mine={false}>

@@ -1,15 +1,16 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { ArrowUpRight, ChevronRight, TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react-native';
-import { colors, radii, shadow } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { initials } from '@/lib/format';
 import { assetUrl } from '@/lib/api';
 import { haptic } from '@/lib/haptics';
 import { Text, Kicker } from './Text';
 import { Touchable } from './Button';
 import { Card } from './Surface';
+import { CountUp } from './Motion';
 
 /** Overline + title + optional "See all" pill — heads every content block. */
 export function SectionHeader({
@@ -83,8 +84,10 @@ export function Stat({
   onPress,
   style,
   accent,
+  format,
 }: {
   label: string;
+  /** Pass a number to tween the value in with CountUp. */
   value: string | number;
   hint?: string;
   /** Percentage change; positive renders green/up. */
@@ -94,6 +97,8 @@ export function Stat({
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
   accent?: boolean;
+  /** Number → display string for animated values (e.g. formatPercent). */
+  format?: (n: number) => string;
 }) {
   const fg = dark ? 'paper' : 'ink';
   const up = (delta ?? 0) >= 0;
@@ -141,9 +146,17 @@ export function Stat({
         ) : null}
       </View>
       <View style={{ gap: 3 }}>
-        <Text variant="metricSm" color={fg} numberOfLines={1} adjustsFontSizeToFit>
-          {String(value)}
-        </Text>
+        {typeof value === 'number' ? (
+          <CountUp
+            value={value}
+            format={format}
+            style={{ fontFamily: fonts.monoMedium, fontSize: 22, lineHeight: 26, letterSpacing: -0.8, color: dark ? colors.paper : colors.ink }}
+          />
+        ) : (
+          <Text variant="metricSm" color={fg} numberOfLines={1} adjustsFontSizeToFit>
+            {value}
+          </Text>
+        )}
         <Text variant="caption" weight="semibold" color={dark ? 'paperMuted' : accent ? 'ink2' : 'ink3'} numberOfLines={1}>
           {label}
         </Text>
@@ -217,6 +230,7 @@ export function ListRow({
   leading,
   trailing,
   onPress,
+  onLongPress,
   chevron = !!onPress,
   last,
   dark,
@@ -230,6 +244,7 @@ export function ListRow({
   leading?: ReactNode;
   trailing?: ReactNode;
   onPress?: () => void;
+  onLongPress?: () => void;
   chevron?: boolean;
   last?: boolean;
   dark?: boolean;
@@ -311,9 +326,21 @@ export function ListRow({
       ) : null}
     </View>
   );
-  if (!onPress) return content;
+  if (!onPress && !onLongPress) return content;
   return (
-    <Touchable onPress={onPress} hapticOnPress scaleTo={0.985}>
+    <Touchable
+      onPress={onPress}
+      hapticOnPress={!!onPress}
+      scaleTo={0.985}
+      onLongPress={
+        onLongPress
+          ? () => {
+              haptic.medium();
+              onLongPress();
+            }
+          : undefined
+      }
+    >
       {content}
     </Touchable>
   );
@@ -515,7 +542,7 @@ export function Timeline({ steps, dark }: { steps: TimelineStep[]; dark?: boolea
         const last = i === steps.length - 1;
         const dotColor = s.state === 'done' ? (dark ? colors.volt : colors.ink) : s.state === 'active' ? colors.volt : dark ? colors.paperLine : colors.mist;
         return (
-          <View key={`${s.label}-${i}`} style={{ flexDirection: 'row', gap: 14 }}>
+          <Animated.View key={`${s.label}-${i}`} entering={FadeInDown.delay(i * 110).duration(320)} style={{ flexDirection: 'row', gap: 14 }}>
             <View style={{ alignItems: 'center', width: 18 }}>
               <View
                 style={{
@@ -542,7 +569,7 @@ export function Timeline({ steps, dark }: { steps: TimelineStep[]; dark?: boolea
                 </Text>
               ) : null}
             </View>
-          </View>
+          </Animated.View>
         );
       })}
     </View>

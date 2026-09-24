@@ -10,5 +10,13 @@ export default function BuyerLayout() {
     if (user) setPortal('buyer');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.userId]);
-  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bone }, animation: 'slide_from_right' }} />;
+  return (
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bone }, animation: 'slide_from_right' }}>
+      {/* Sheet-like flows slide up from the bottom. */}
+      <Stack.Screen name="ask" options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="order/conversational" options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="checkout" options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="payment-return" options={{ animation: 'fade' }} />
+    </Stack>
+  );
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Database, Eye, Monitor, ShieldCheck, Smartphone } from 'lucide-react-native';
+import { Database, Eye, Monitor, ShieldCheck, Smartphone, KeyRound } from 'lucide-react-native';
 import {
   Banner,
   Button,
@@ -21,6 +21,7 @@ import { api, errorMessage } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { Section } from '../../buyer/orders/kit';
 import { Inset } from '@/features/admin/ops/kit';
+import { Can } from '@/features/admin/platform/kit';
 import { openDocument } from '@/lib/files';
 
 type AdminSession = {
@@ -113,6 +114,10 @@ export function AdminSecurityScreen() {
           <Button title="Start impersonation" icon={Eye} size="sm" loading={startImp.isPending} disabled={!impUser.trim() || !impReason.trim() || !!active} onPress={() => startImp.mutate()} />
         </Section>
 
+        <Can perm="2fa:enforce">
+          <TwoFactorSection />
+        </Can>
+
         <Section kicker="Privacy" title="Data export" icon={Database}>
           <Field label="User ID">
             <Input value={exportUser} onChangeText={setExportUser} placeholder="usr_…" autoCapitalize="none" />
@@ -171,5 +176,31 @@ export function AdminSecurityScreen() {
         loading={revoke.isPending}
       />
     </Screen>
+  );
+}
+
+/** POST /admin/users/:id/2fa/enforce|unenforce — mirrors web SecurityPage 2FA tab. */
+function TwoFactorSection() {
+  const toast = useToast();
+  const [userId, setUserId] = useState('');
+  const act = useMutation({
+    mutationFn: (enforce: boolean) =>
+      api.post<{ before: boolean; after: boolean }>(`/admin/users/${encodeURIComponent(userId.trim())}/2fa/${enforce ? 'enforce' : 'unenforce'}`, {}),
+    onSuccess: (r, enforce) => {
+      toast.success(enforce ? '2FA enforced' : '2FA unenforced', `Before: ${r.before} → after: ${r.after}`);
+      setUserId('');
+    },
+    onError: (e) => toast.error('Action failed', errorMessage(e)),
+  });
+  return (
+    <Section kicker="Multi-factor" title="2FA enforcement" icon={KeyRound}>
+      <Field label="User ID">
+        <Input value={userId} onChangeText={setUserId} placeholder="usr_…" autoCapitalize="none" />
+      </Field>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Button title="Unenforce" variant="paper" size="sm" style={{ flex: 1 }} loading={act.isPending} disabled={!userId.trim()} onPress={() => act.mutate(false)} />
+        <Button title="Enforce 2FA" variant="volt" size="sm" style={{ flex: 1 }} loading={act.isPending} disabled={!userId.trim()} onPress={() => act.mutate(true)} />
+      </View>
+    </Section>
   );
 }

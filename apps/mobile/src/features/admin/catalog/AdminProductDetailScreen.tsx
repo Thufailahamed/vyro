@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { History, Package, Store, Star } from 'lucide-react-native';
@@ -98,7 +99,9 @@ export function AdminProductDetailScreen() {
         {(d) => (
           <>
             <Appear>
-              <ProductImage src={null} seed={d.product.id} style={{ width: '100%', height: 220, borderRadius: radii['2xl'] }} />
+              <Animated.View sharedTransitionTag={`admin-product-${d.product.id}`} style={{ width: '100%', height: 220, borderRadius: radii['2xl'], overflow: 'hidden' }}>
+                <ProductImage src={null} seed={d.product.id} style={{ flex: 1 }} />
+              </Animated.View>
             </Appear>
             <Appear i={1}>
               <Section kicker="Listing" title={d.product.name} icon={Package}>

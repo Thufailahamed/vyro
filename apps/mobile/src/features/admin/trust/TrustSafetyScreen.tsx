@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileWarning, ShieldCheck, UserCheck } from 'lucide-react-native';
+import { FileText, FileWarning, ShieldCheck, StickyNote, UserCheck } from 'lucide-react-native';
 import { api, errorMessage, qs } from '@/lib/api';
 import { formatDateTime, humanize } from '@/lib/format';
+import { colors } from '@/theme/tokens';
 import {
   Button,
   ChipRow,
@@ -12,6 +13,7 @@ import {
   ErrorState,
   Field,
   Input,
+  KeyValue,
   Screen,
   Segmented,
   Select,
@@ -23,6 +25,7 @@ import {
 } from '@/ui';
 import { Appear, Can } from '@/features/admin/platform/kit';
 import { Inset, Pill, RecordCard } from '@/features/admin/ops/kit';
+import { shareApiFile } from '@/features/admin/money/accounts/shared';
 
 interface AbuseReport {
   id: string;
@@ -40,6 +43,20 @@ interface KycReview {
   userId: string;
   status: string;
   notes: string | null;
+  createdAt: number;
+}
+
+interface KycDetail extends KycReview {
+  documentsJson: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: number | null;
+}
+
+interface KycDocument {
+  id: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
   createdAt: number;
 }
 
@@ -75,6 +92,9 @@ export function TrustSafetyScreen() {
   const [note, setNote] = useState('');
   const [takedown, setTakedown] = useState<AbuseReport | null>(null);
   const [kycTarget, setKycTarget] = useState<{ row: KycReview; decision: Decision } | null>(null);
+  const [kycDossier, setKycDossier] = useState<KycReview | null>(null);
+  const [noteFor, setNoteFor] = useState<AbuseReport | null>(null);
+  const [reportNote, setReportNote] = useState('');
   const [busy, setBusy] = useState(false);
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['admin-abuse-reports'] });
@@ -214,6 +234,18 @@ export function TrustSafetyScreen() {
                             />
                           ) : null}
                         </Can>
+                        <Can perm="abuse_report:resolve">
+                          <Button
+                            title="Note"
+                            icon={StickyNote}
+                            size="sm"
+                            variant="paper"
+                            onPress={() => {
+                              setNoteFor(r);
+                              setReportNote('');
+                            }}
+                          />
+                        </Can>
                         <Can perm="takedown:write">
                           <Button
                             title="Takedown"
@@ -261,6 +293,7 @@ export function TrustSafetyScreen() {
                     titleMono
                     meta={`Opened ${formatDateTime(k.createdAt)}`}
                     status={<StatusBadge status={k.status} size="sm" />}
+                    onPress={() => setKycDossier(k)}
                     actions={
                       <Can perm="kyc:review">
                         <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
@@ -381,6 +414,154 @@ export function TrustSafetyScreen() {
           </Field>
         </View>
       </Sheet>
+
+      <Sheet
+        visible={!!noteFor}
+        onClose={() => setNoteFor(null)}
+        title="Add case note"
+        subtitle={noteFor ? `Report ${noteFor.id.slice(0, 10)}` : undefined}
+        scroll
+        footer={
+          <>
+            <Button
+              title="Save note"
+              full
+              size="lg"
+              loading={busy}
+              disabled={reportNote.trim().length < 3}
+              onPress={async () => {
+                if (!noteFor) return;
+                setBusy(true);
+                try {
+                  await api.post(`/admin/abuse-reports/${noteFor.id}/notes`, { note: reportNote.trim() });
+                  toast.success('Note recorded');
+                  setNoteFor(null);
+                  invalidate();
+                } catch (e) {
+                  toast.error('Note failed', errorMessage(e));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            />
+            <Button title="Cancel" variant="ghost" full onPress={() => setNoteFor(null)} />
+          </>
+        }
+      >
+        <Field label="Note" hint="Visible to other reviewers in the case trail.">
+          <Input value={reportNote} onChangeText={setReportNote} multiline placeholder="Contacted merchant, awaiting response…" />
+        </Field>
+      </Sheet>
+
+      <KycDossierSheet
+        review={kycDossier}
+        onClose={() => setKycDossier(null)}
+        onDecide={(row, decision) => {
+          setKycDossier(null);
+          setKycTarget({ row, decision });
+          setNote('');
+        }}
+      />
     </Screen>
+  );
+}
+
+/** KYC dossier — GET /admin/kyc/:id + /admin/kyc/:id/documents, mirrors the web dossier slide-over. */
+function KycDossierSheet({
+  review,
+  onClose,
+  onDecide,
+}: {
+  review: KycReview | null;
+  onClose: () => void;
+  onDecide: (row: KycReview, decision: Decision) => void;
+}) {
+  const toast = useToast();
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const detail = useQuery({
+    queryKey: ['admin-kyc', 'detail', review?.id],
+    enabled: !!review,
+    queryFn: () => api.get<KycDetail>(`/admin/kyc/${review!.id}`),
+  });
+  const docs = useQuery({
+    queryKey: ['admin-kyc', 'documents', review?.id],
+    enabled: !!review,
+    queryFn: () => api.get<{ documents: KycDocument[] }>(`/admin/kyc/${review!.id}/documents`),
+  });
+
+  const openDoc = async (d: KycDocument) => {
+    setDownloading(d.id);
+    try {
+      await shareApiFile(`/admin/documents/${d.id}/preview`, d.filename, d.mimeType);
+    } catch (e) {
+      toast.error('Open failed', errorMessage(e));
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const d: KycDetail | null = detail.data ?? (review ? { ...review, documentsJson: null } : null);
+  return (
+    <Sheet
+      visible={!!review}
+      onClose={onClose}
+      title="KYC dossier"
+      subtitle={d ? `User ${d.userId.slice(0, 16)}` : undefined}
+      scroll
+      footer={
+        <Can perm="kyc:review">
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Button title="Approve" size="sm" style={{ flex: 1 }} onPress={() => review && onDecide(review, 'approved')} />
+            <Button title="Reject" size="sm" variant="danger" style={{ flex: 1 }} onPress={() => review && onDecide(review, 'rejected')} />
+            <Button title="More info" size="sm" variant="paper" style={{ flex: 1 }} onPress={() => review && onDecide(review, 'needs_more_info')} />
+          </View>
+        </Can>
+      }
+    >
+      {detail.isLoading ? (
+        <SkeletonList rows={3} height={64} />
+      ) : detail.isError ? (
+        <ErrorState message={errorMessage(detail.error)} onRetry={() => detail.refetch()} />
+      ) : d ? (
+        <View style={{ gap: 16 }}>
+          <View>
+            <KeyValue label="Review" value={d.id} mono />
+            <KeyValue label="Status" value={humanize(d.status)} />
+            <KeyValue label="Opened" value={formatDateTime(d.createdAt)} />
+            {d.reviewedAt ? <KeyValue label="Reviewed" value={formatDateTime(d.reviewedAt)} /> : null}
+            {d.notes ? <KeyValue label="Notes" value={d.notes} last /> : null}
+          </View>
+          <View style={{ gap: 8 }}>
+            <Text variant="overline" color="ink5">
+              Documents {docs.data ? `· ${docs.data.documents.length}` : ''}
+            </Text>
+            {docs.isLoading ? (
+              <SkeletonList rows={2} height={44} />
+            ) : docs.isError ? (
+              <ErrorState message={errorMessage(docs.error)} onRetry={() => docs.refetch()} />
+            ) : docs.data!.documents.length === 0 ? (
+              <Text variant="bodySm" color="ink4">
+                No documents uploaded by this user.
+              </Text>
+            ) : (
+              docs.data!.documents.map((doc) => (
+                <Inset key={doc.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <FileText size={18} color={colors.ink4} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text variant="bodySm" weight="medium" numberOfLines={1}>
+                      {doc.filename}
+                    </Text>
+                    <Text variant="caption" color="ink4" numberOfLines={1}>
+                      {doc.mimeType} · {Math.ceil(doc.sizeBytes / 1024)} KB
+                    </Text>
+                  </View>
+                  <Button title="View" size="sm" variant="paper" loading={downloading === doc.id} onPress={() => void openDoc(doc)} />
+                </Inset>
+              ))
+            )}
+          </View>
+        </View>
+      ) : null}
+    </Sheet>
   );
 }

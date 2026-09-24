@@ -172,7 +172,7 @@ router.post('/import', session(), async (c) => {
   const { supplierId, csv, dryRun } = parsed.data;
   await requireSupplierMember(c.env.DB, supplierId, ctx.userId);
 
-  const { headers, records } = parseCsvRecords(csv);
+  const { headers, records, rowNumbers } = parseCsvRecords(csv);
   if (!headers.includes('price_lkr') && !headers.includes('stock_qty') && !headers.includes('active')) {
     throw httpError(400, 'VALIDATION_ERROR', 'CSV needs a header row with at least price_lkr, stock_qty or active. Download the template to start.');
   }
@@ -216,7 +216,7 @@ router.post('/import', session(), async (c) => {
 
   for (let i = 0; i < records.length; i++) {
     const rec = records[i]!;
-    const row = i + 2;
+    const row = rowNumbers[i]!;
     try {
       const { fields, stockQty } = parseRowFields(rec);
       let offer: Offer | undefined;
@@ -274,18 +274,20 @@ router.post('/import', session(), async (c) => {
       if (touched.has(`p:${product.id}`)) throw new Error('Same product appears more than once in this file');
       touched.add(`p:${product.id}`);
       if (fields.priceCents == null) throw new Error('price_lkr is required for a new listing');
+      // `active` is not part of the create schema (strict) — apply it post-create.
+      const { active: requestedActive, ...createFields } = fields;
       const crt = createSupplierProductSchema.safeParse({
         supplierId,
         productId: product.id,
-        ...fields,
+        ...createFields,
         ...(stockQty != null ? { stockQty, trackInventory: true } : {}),
       });
       if (!crt.success) throw new Error(zodMessage(crt.error));
       let offerId: string | undefined;
       if (!dryRun) {
-        const { supplierId: _s, active, ...rest } = crt.data as typeof crt.data & { active?: boolean };
+        const { supplierId: _s, ...rest } = crt.data;
         offerId = await createOffer(c.env.DB, { supplierId, ...rest });
-        if (active === false) await updateOffer(c.env.DB, offerId, { active: false });
+        if (requestedActive === false) await updateOffer(c.env.DB, offerId, { active: false });
       }
       created++;
       results.push({ row, status: 'created', productName: product.name, ...(offerId ? { offerId } : {}) });

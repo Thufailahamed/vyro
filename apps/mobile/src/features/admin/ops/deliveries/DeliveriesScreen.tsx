@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowUpRight, PackageX, Truck } from 'lucide-react-native';
 import { api, errorMessage, qs } from '@/lib/api';
 import { formatDateTime, formatLKR, humanize, timeAgo } from '@/lib/format';
+import { colors } from '@/theme/tokens';
 import {
   Button,
   ChipRow,
@@ -14,6 +15,7 @@ import {
   Screen,
   SearchBar,
   Select,
+  Pulse,
   Sheet,
   SkeletonList,
   StatusBadge,
@@ -99,7 +101,12 @@ export function DeliveriesScreen() {
                 subtitle={[d.deliveryCity, d.deliveryDistrict].filter(Boolean).join(', ') || 'No destination'}
                 meta={[d.driverName, d.createdAt ? timeAgo(d.createdAt) : null].filter(Boolean).join(' · ') || null}
                 amount={d.totalCents != null ? formatLKR(d.totalCents) : null}
-                status={<StatusBadge status={d.status} size="sm" />}
+                status={
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    {d.status === 'in_transit' || d.status === 'picked_up' ? <Pulse color={colors.copper} size={6} /> : null}
+                    <StatusBadge status={d.status} size="sm" />
+                  </View>
+                }
                 chips={<Pill label={d.poNumber ?? d.purchaseOrderId.slice(0, 10)} />}
                 actions={
                   <>

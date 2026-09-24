@@ -2,7 +2,7 @@
  * Minimal RFC 4180 CSV reader/writer (quoted fields, escaped quotes, CRLF/LF,
  * BOM). Used for supplier price-list import/export; no dependency needed.
  */
-export function parseCsv(text: string): string[][] {
+function scanCsv(text: string): string[][] {
   const src = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
   const rows: string[][] = [];
   let row: string[] = [];
@@ -42,24 +42,42 @@ export function parseCsv(text: string): string[][] {
     row.push(field);
     rows.push(row);
   }
-  // Drop fully blank lines (e.g. trailing newline, spreadsheet padding).
-  return rows.filter((r) => r.some((c) => c.trim() !== ''));
+  return rows;
 }
 
-/** Parses CSV with a header row into objects keyed by normalized header name. */
-export function parseCsvRecords(text: string): { headers: string[]; records: Record<string, string>[] } {
-  const rows = parseCsv(text);
-  if (rows.length === 0) return { headers: [], records: [] };
+export function parseCsv(text: string): string[][] {
+  // Drop fully blank lines (e.g. trailing newline, spreadsheet padding).
+  return scanCsv(text).filter((r) => r.some((c) => c.trim() !== ''));
+}
+
+/**
+ * Parses CSV with a header row into objects keyed by normalized header name.
+ * Blank padding rows are skipped, but `rowNumbers[i]` preserves the 1-based
+ * spreadsheet row of `records[i]` (header = 1) so import errors point at the
+ * right line.
+ */
+export function parseCsvRecords(text: string): {
+  headers: string[];
+  records: Record<string, string>[];
+  rowNumbers: number[];
+} {
+  const rows = scanCsv(text);
+  if (rows.length === 0) return { headers: [], records: [], rowNumbers: [] };
   const headers = rows[0]!.map((h) => h.trim().toLowerCase().replace(/[\s-]+/g, '_'));
-  const records = rows.slice(1).map((r) => {
+  const records: Record<string, string>[] = [];
+  const rowNumbers: number[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i]!;
+    if (!r.some((c) => c.trim() !== '')) continue;
     const rec: Record<string, string> = {};
     headers.forEach((h, idx) => {
       // Undo toCsv's formula guard so exported files re-import unchanged.
       rec[h] = (r[idx] ?? '').trim().replace(/^'(?=[=+\-@])/, '');
     });
-    return rec;
-  });
-  return { headers, records };
+    records.push(rec);
+    rowNumbers.push(i + 1);
+  }
+  return { headers, records, rowNumbers };
 }
 
 function escapeCell(v: unknown): string {

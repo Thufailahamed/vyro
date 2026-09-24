@@ -12,6 +12,7 @@ import {
   Megaphone,
   Package,
   Radar,
+  RotateCcw,
   Scale,
   Search,
   ShieldCheck,
@@ -19,6 +20,7 @@ import {
   SlidersHorizontal,
   Star,
   Store,
+  Timer,
   Truck,
   Users,
   type LucideIcon,
@@ -59,6 +61,7 @@ const SECTIONS: HubSection[] = [
     items: [
       { label: 'Orders', hint: 'Cross-tenant registry', href: '/admin/orders', icon: Package },
       { label: 'Deliveries', hint: 'Dispatch & tracking', href: '/admin/deliveries', icon: Truck },
+      { label: 'Returns', hint: 'RMA queue · held settlements', href: '/admin/returns', icon: RotateCcw },
       { label: 'Disputes', hint: 'GRN variances', href: '/admin/disputes', icon: Scale, perm: 'dispute:read' },
       { label: 'RFQs', hint: 'Quote oversight', href: '/admin/rfqs', icon: FileText },
       { label: 'Reviews', hint: 'Flag moderation', href: '/admin/reviews', icon: Star },
@@ -92,6 +95,7 @@ const SECTIONS: HubSection[] = [
     tone: 'ink',
     items: [
       { label: 'Platform config', hint: 'Flags · templates · webhooks', href: '/admin/platform', icon: SlidersHorizontal, perm: ['settings:read', 'feature_flag:read'] },
+      { label: 'Order lifecycle', hint: 'Timers & automation guards', href: '/admin/order-lifecycle', icon: Timer, perm: 'feature_flag:read' },
       { label: 'Security', hint: 'Sessions · 2FA · exports', href: '/admin/security', icon: ShieldCheck, perm: ['audit:read', 'admin:read'] },
       { label: 'Roles & invites', hint: 'Operator access', href: '/admin/roles', icon: Users, perm: 'admin:read' },
       { label: 'Activity', hint: 'Audit trail', href: '/admin/activity', icon: Gauge, perm: 'audit:read' },

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FolderTree, ShoppingBag, Star } from 'lucide-react-native';
 import { colors, radii } from '@/theme/tokens';
@@ -104,7 +105,9 @@ export function CatalogScreen() {
                 <Appear key={p.id} i={i % 10}>
                   <Card kind="flat" padding={12} onPress={() => go(`/admin/catalog/product/${p.id}`)} style={{ gap: 12 }}>
                     <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                      <ProductImage src={null} seed={p.id} style={{ width: 64, height: 64, borderRadius: radii.lg }} />
+                      <Animated.View sharedTransitionTag={`admin-product-${p.id}`} style={{ width: 64, height: 64, borderRadius: radii.lg, overflow: 'hidden' }}>
+                        <ProductImage src={null} seed={p.id} style={{ flex: 1 }} />
+                      </Animated.View>
                       <View style={{ flex: 1, gap: 3 }}>
                         <Text variant="h3" numberOfLines={2}>
                           {p.name}

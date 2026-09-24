@@ -30,7 +30,9 @@ export async function listListsForBusiness(d1: D1Database, businessId: string) {
       name: orderLists.name,
       createdAt: orderLists.createdAt,
       updatedAt: orderLists.updatedAt,
-      itemCount: sql<number>`(select count(*) from order_list_items oli where oli.list_id = ${orderLists.id})`,
+      // NB: embedding `${orderLists.id}` would render unqualified as "id" and
+      // bind to oli.id inside the subquery — always 0. Qualify explicitly.
+      itemCount: sql<number>`(select count(*) from order_list_items oli where oli.list_id = "order_lists"."id")`,
     })
     .from(orderLists)
     .where(eq(orderLists.businessId, businessId))

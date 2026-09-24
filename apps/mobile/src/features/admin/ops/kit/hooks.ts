@@ -26,7 +26,8 @@ export function useAdminList<T>({
 }: {
   endpoint: string;
   queryKey: readonly unknown[];
-  rowKey: string;
+  /** Response key holding the rows; pass fallbacks (e.g. ['users', 'items']). */
+  rowKey: string | string[];
   initialFilter?: Record<string, string>;
   enabled?: boolean;
 }) {
@@ -34,14 +35,16 @@ export function useAdminList<T>({
   const [searchInput, setSearchInput] = useState('');
   const q = useDebounced(searchInput, 300);
   const merged = useMemo(() => ({ ...filter, q }), [filter, q]);
+  const keys = useMemo(() => (Array.isArray(rowKey) ? rowKey : [rowKey]), [rowKey]);
 
   const query = useInfiniteQuery<Page<T>>({
     queryKey: [...queryKey, merged],
     enabled,
     queryFn: async ({ pageParam }) => {
       const data = await api.get<Record<string, unknown>>(endpoint + qs({ ...merged, cursor: pageParam as string | undefined }));
+      const rows = keys.map((k) => data?.[k]).find(Array.isArray) as T[] | undefined;
       return {
-        rows: ((data?.[rowKey] as T[] | undefined) ?? []) as T[],
+        rows: rows ?? [],
         nextCursor: (data?.nextCursor as string | undefined) ?? undefined,
       };
     },

@@ -10,3 +10,5 @@ export * from './Charts';
 export * from './Screen';
 export * from './TabBar';
 export * from './QueryView';
+export * from './Motion';
+export * from './Gestures';

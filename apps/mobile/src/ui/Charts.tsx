@@ -1,8 +1,28 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Animated, { Easing, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming, type SharedValue } from 'react-native-reanimated';
 import { colors, fonts } from '@/theme/tokens';
 import { Text } from './Text';
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedRect = Animated.createAnimatedComponent(Rect);
+const AnimatedG = Animated.createAnimatedComponent(G);
+
+/** One-shot 0→1 draw progress shared across a chart's parts. */
+function useDrawOn(enabled = true) {
+  const reduced = useReducedMotion();
+  const t = useSharedValue(0);
+  useEffect(() => {
+    if (!enabled) return;
+    if (reduced) {
+      t.value = 1;
+      return;
+    }
+    t.value = withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) });
+  }, [enabled, reduced, t]);
+  return t;
+}
 
 function useWidth(initial = 300) {
   const [w, setW] = useState(initial);
@@ -45,6 +65,12 @@ export function Sparkline({
   fill?: boolean;
 }) {
   const { w, onLayout } = useWidth(120);
+  const t = useDrawOn(values.length > 0);
+  // pathLength isn't exposed by react-native-svg — use a generous dash period
+  // (path can never exceed w + per-segment vertical travel) and sweep the offset.
+  const dashLen = (w + height * Math.max(2, values.length)) * 1.5;
+  const drawProps = useAnimatedProps(() => ({ strokeDashoffset: (1 - t.value) * dashLen }));
+  const fadeProps = useAnimatedProps(() => ({ opacity: t.value }));
   if (!values.length) return <View style={{ height }} />;
   const data = values.length === 1 ? [values[0], values[0]] : values;
   const { d, pts } = buildPath(data, w, height);
@@ -59,9 +85,19 @@ export function Sparkline({
             <Stop offset="1" stopColor={color} stopOpacity={0} />
           </LinearGradient>
         </Defs>
-        {fill ? <Path d={`${d} L${last[0]},${height} L${pts[0][0]},${height} Z`} fill={`url(#${id})`} /> : null}
-        <Path d={d} stroke={color} strokeWidth={1.8} fill="none" strokeLinecap="round" />
-        <Circle cx={last[0]} cy={last[1]} r={3} fill={color} />
+        {fill ? <AnimatedPath d={`${d} L${last[0]},${height} L${pts[0][0]},${height} Z`} fill={`url(#${id})`} animatedProps={fadeProps} /> : null}
+        <AnimatedPath
+          d={d}
+          stroke={color}
+          strokeWidth={1.8}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={dashLen}
+          animatedProps={drawProps}
+        />
+        <AnimatedG animatedProps={fadeProps}>
+          <Circle cx={last[0]} cy={last[1]} r={3} fill={color} />
+        </AnimatedG>
       </Svg>
     </View>
   );
@@ -84,6 +120,11 @@ export function AreaChart({
   const { w, onLayout } = useWidth();
   const stroke = color ?? (dark ? colors.volt : colors.ink);
   const [active, setActive] = useState<number | null>(null);
+  const t = useDrawOn(data.length > 0);
+  const chartHForDash = height - 26;
+  const dashLen = (w + chartHForDash * Math.max(2, data.length)) * 1.5;
+  const drawProps = useAnimatedProps(() => ({ strokeDashoffset: (1 - t.value) * dashLen }));
+  const fadeProps = useAnimatedProps(() => ({ opacity: t.value }));
   if (!data.length) {
     return (
       <View style={{ height, alignItems: 'center', justifyContent: 'center' }}>
@@ -126,8 +167,16 @@ export function AreaChart({
         {[0.25, 0.5, 0.75].map((f) => (
           <Line key={f} x1={0} x2={w} y1={chartH * f} y2={chartH * f} stroke={dark ? colors.paperLine : colors.lineSoft} strokeDasharray="3 5" />
         ))}
-        <Path d={`${d} L${last[0]},${chartH} L${pts[0][0]},${chartH} Z`} fill={`url(#${gid})`} />
-        <Path d={d} stroke={stroke} strokeWidth={2} fill="none" strokeLinecap="round" />
+        <AnimatedPath d={`${d} L${last[0]},${chartH} L${pts[0][0]},${chartH} Z`} fill={`url(#${gid})`} animatedProps={fadeProps} />
+        <AnimatedPath
+          d={d}
+          stroke={stroke}
+          strokeWidth={2}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={dashLen}
+          animatedProps={drawProps}
+        />
         {pts.map(([x, y], i) => (
           <G key={i}>
             <Rect x={x - w / pts.length / 2} y={0} width={w / pts.length} height={chartH} fill="transparent" onPressIn={() => setActive(i)} />
@@ -170,6 +219,7 @@ export function BarChart({
 }) {
   const { w, onLayout } = useWidth();
   const [active, setActive] = useState<number | null>(null);
+  const t = useDrawOn(data.length > 0);
   if (!data.length) {
     return (
       <View style={{ height, alignItems: 'center', justifyContent: 'center' }}>
@@ -196,13 +246,14 @@ export function BarChart({
           const bh = Math.max(2, (d.value / max) * (chartH - 4));
           const on = active === i || (active === null && highlightMax && i === maxIdx);
           return (
-            <Rect
+            <GrowBar
               key={i}
+              t={t}
+              i={i}
               x={i * (bw + gap)}
-              y={chartH - bh}
-              width={bw}
-              height={bh}
-              rx={Math.min(4, bw / 2)}
+              bh={bh}
+              chartH={chartH}
+              bw={bw}
               fill={on ? colors.volt : dark ? 'rgba(250,247,240,0.18)' : colors.ink}
               opacity={on ? 1 : dark ? 1 : 0.85}
               onPressIn={() => setActive(i)}
@@ -219,6 +270,35 @@ export function BarChart({
       </View>
     </View>
   );
+}
+
+function GrowBar({
+  t,
+  i,
+  x,
+  bh,
+  chartH,
+  bw,
+  fill,
+  opacity,
+  onPressIn,
+}: {
+  t: SharedValue<number>;
+  i: number;
+  x: number;
+  bh: number;
+  chartH: number;
+  bw: number;
+  fill: string;
+  opacity: number;
+  onPressIn: () => void;
+}) {
+  const props = useAnimatedProps(() => {
+    const local = Math.max(0, Math.min(1, t.value * 1.4 - i * 0.06));
+    const h = bh * local;
+    return { y: chartH - h, height: h };
+  });
+  return <AnimatedRect x={x} y={chartH - bh} width={bw} height={bh} rx={Math.min(4, bw / 2)} fill={fill} opacity={opacity} onPressIn={onPressIn} animatedProps={props} />;
 }
 
 /** Horizontal ranked bars with labels — "top suppliers", "top products". */
@@ -245,12 +325,26 @@ export function RankBars({
             </Text>
           </View>
           <View style={{ height: 6, borderRadius: 3, backgroundColor: dark ? colors.paperLine : colors.mist, overflow: 'hidden' }}>
-            <View style={{ width: `${(d.value / max) * 100}%`, height: 6, borderRadius: 3, backgroundColor: i === 0 ? colors.volt : dark ? colors.paperMuted : colors.ink }} />
+            <RankFill pct={d.value / max} i={i} color={i === 0 ? colors.volt : dark ? colors.paperMuted : colors.ink} />
           </View>
         </View>
       ))}
     </View>
   );
+}
+
+function RankFill({ pct, i, color }: { pct: number; i: number; color: string }) {
+  const reduced = useReducedMotion();
+  const w = useSharedValue(0);
+  useEffect(() => {
+    if (reduced) {
+      w.value = pct;
+      return;
+    }
+    w.value = withDelay(i * 70, withTiming(pct, { duration: 650, easing: Easing.out(Easing.cubic) }));
+  }, [pct, i, reduced, w]);
+  const anim = useAnimatedStyle(() => ({ width: `${w.value * 100}%` }));
+  return <Animated.View style={[{ height: 6, borderRadius: 3, backgroundColor: color }, anim]} />;
 }
 
 /** Donut with centred total and a legend. */
@@ -270,6 +364,8 @@ export function Donut({
   dark?: boolean;
 }) {
   const palette = [colors.volt, colors.copper, dark ? colors.paper : colors.ink, colors.mint, colors.amber, colors.ink5];
+  const t = useDrawOn(data.length > 0);
+  const spinProps = useAnimatedProps(() => ({ opacity: t.value }));
   const total = data.reduce((s, d) => s + d.value, 0) || 1;
   const r = (size - thickness) / 2;
   const c = 2 * Math.PI * r;
@@ -282,17 +378,18 @@ export function Donut({
           {data.map((d, i) => {
             const len = (d.value / total) * c;
             const el = (
-              <Circle
-                key={i}
-                cx={size / 2}
-                cy={size / 2}
-                r={r}
-                stroke={d.color ?? palette[i % palette.length]}
-                strokeWidth={thickness}
-                fill="none"
-                strokeDasharray={`${Math.max(0, len - 2)} ${c}`}
-                strokeDashoffset={-acc}
-              />
+              <AnimatedG key={i} animatedProps={spinProps}>
+                <Circle
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={r}
+                  stroke={d.color ?? palette[i % palette.length]}
+                  strokeWidth={thickness}
+                  fill="none"
+                  strokeDasharray={`${Math.max(0, len - 2)} ${c}`}
+                  strokeDashoffset={-acc}
+                />
+              </AnimatedG>
             );
             // eslint-disable-next-line react-hooks/immutability -- local accumulator for dash offsets within this render pass
             acc += len;
