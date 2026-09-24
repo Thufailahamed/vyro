@@ -1,16 +1,43 @@
-import { md5 } from './hash';
+import { paymentsLkEventToType, paymentsLkStatusCode, verifyPaymentsSignature } from './paymentslk';
 import type {
   GatewayAdapter,
   StartCheckoutInput,
   StartCheckoutResult,
   WebhookEvent,
+  WebhookEventType,
   RefundInput,
   RefundResult,
+  ChargeSavedCardInput,
+  ChargeSavedCardResult,
+  CheckoutStatusResult,
 } from './types';
 
+const INTERNAL_EVENT_TYPES: readonly string[] = [
+  'payment.success',
+  'payment.pending',
+  'payment.failed',
+  'payment.expired',
+  'payment.cancelled',
+  'payment.chargeback',
+  'refund.completed',
+  'refund.failed',
+  'card.saved',
+];
+
+/** Vendor event names map through payments.lk's vocabulary; internal names pass through. */
+function mockEventType(raw: string): WebhookEventType {
+  const mapped = paymentsLkEventToType(raw);
+  if (mapped !== 'unknown') return mapped;
+  return (INTERNAL_EVENT_TYPES as readonly string[]).includes(raw) ? (raw as WebhookEventType) : 'unknown';
+}
+
 export interface MockConfig {
-  secret?: string | undefined; // for HMAC body signing
+  /** Webhook signing secret — same t.v1 HMAC contract as payments.lk. */
+  secret?: string | undefined;
+  /** Fail every success-shaped webhook and refund. */
   forceFailure?: boolean | undefined;
+  /** Default 'completed'; 'pending' exercises webhook-driven refund finalization. */
+  refundResult?: 'completed' | 'pending' | 'failed' | undefined;
 }
 
 export class MockGateway implements GatewayAdapter {
@@ -27,77 +54,63 @@ export class MockGateway implements GatewayAdapter {
   }
 
   async parseWebhook(rawBody: string, signature: string | null): Promise<WebhookEvent> {
-    const params = new URLSearchParams(rawBody);
-    const raw: Record<string, string> = {};
-    params.forEach((v, k) => (raw[k] = v));
-
-    if (this.cfg.forceFailure && raw['type'] === 'payment.success') {
+    let parsed: Record<string, any>;
+    try {
+      parsed = rawBody.trimStart().startsWith('{')
+        ? (JSON.parse(rawBody) as Record<string, any>)
+        : Object.fromEntries(new URLSearchParams(rawBody));
+    } catch {
+      throw new Error('mock webhook: unparseable body');
+    }
+    const vendorType = typeof parsed.type === 'string' ? parsed.type : '';
+    const type = mockEventType(vendorType);
+    if (this.cfg.forceFailure && type === 'payment.success') {
       throw new Error('mock: forced failure');
     }
-
-    // Verify md5 signature if present
-    if (signature) {
-      const merchantId = raw.merchant_id ?? 'mock';
-      const orderId = raw.order_id ?? '';
-      const amount = raw.payhere_amount ?? '';
-      const currency = raw.payhere_currency ?? '';
-      const status = raw.type ?? 'payment.success';
-      const expected = md5(
-        `${merchantId}${orderId}${amount}${currency}${status}${md5(this.cfg.secret ?? '').toUpperCase()}`,
-      );
-      if (signature.toUpperCase() !== expected.toUpperCase()) {
-        throw new Error('mock webhook signature mismatch');
-      }
+    if (signature && !verifyPaymentsSignature(this.cfg.secret ?? '', rawBody, signature)) {
+      throw new Error('mock webhook signature mismatch');
     }
-
-    const type = (raw.type as WebhookEvent['type']) ?? 'payment.success';
-    const amountCents = raw.amount
-      ? Math.round(parseFloat(raw.amount) * 100)
-      : undefined;
-
+    const data = (parsed.data ?? {}) as Record<string, any>;
+    const legacyAmountCents =
+      typeof parsed.amount === 'string' ? Math.round(parseFloat(parsed.amount) * 100) : undefined;
     return {
       type,
-      gatewayRef: raw.order_id ?? '',
-      paymentId: raw.payment_id ?? undefined,
-      amountCents,
-      currency: raw.payhere_currency ?? 'LKR',
-      raw,
+      gatewayRef: String(data.reference ?? parsed.reference ?? parsed.order_id ?? ''),
+      paymentId: data.paymentId ? String(data.paymentId) : parsed.payment_id ? String(parsed.payment_id) : undefined,
+      amountCents: typeof data.amountCents === 'number' ? data.amountCents : legacyAmountCents,
+      currency: typeof data.currency === 'string' ? data.currency : 'LKR',
+      statusCode: paymentsLkStatusCode(vendorType) ?? paymentsLkStatusCode(type),
+      refundId: data.refundId ? String(data.refundId) : undefined,
+      raw: parsed,
     };
   }
 
   refund(input: RefundInput): Promise<RefundResult> {
-    if (this.cfg.forceFailure) {
-      return Promise.resolve({
-        gatewayRefundId: '',
-        status: 'failed',
-        raw: { reason: 'mock-forced-failure' },
-      });
+    if (this.cfg.forceFailure || this.cfg.refundResult === 'failed') {
+      return Promise.resolve({ gatewayRefundId: '', status: 'failed', raw: { reason: 'mock-forced-failure' } });
     }
-    return Promise.resolve({
-      gatewayRefundId: `MOCK-RFND-${input.refundId}`,
-      status: 'completed',
-      raw: { input },
-    });
+    if (this.cfg.refundResult === 'pending') {
+      return Promise.resolve({ gatewayRefundId: `MOCK-RFND-${input.refundId}`, status: 'pending', raw: { input } });
+    }
+    return Promise.resolve({ gatewayRefundId: `MOCK-RFND-${input.refundId}`, status: 'completed', raw: { input } });
+  }
+
+  async chargeSavedCard(input: ChargeSavedCardInput): Promise<ChargeSavedCardResult> {
+    if (this.cfg.forceFailure) return { status: 'failed', error: 'mock-forced-failure' };
+    return { status: 'succeeded', paymentId: `MOCK-PAY-${Date.now()}` };
+  }
+
+  async getCheckoutStatus(_gatewayRef: string): Promise<CheckoutStatusResult> {
+    if (this.cfg.forceFailure) return { status: 'failed' };
+    return { status: 'pending' };
   }
 
   verifySignature(rawBody: string, signature: string | null): boolean {
-    // When a secret is configured, mock MUST enforce HMAC just like the
-    // real gateway. Without a secret, dev callers can sign nothing — but
-    // they also can't generate a valid signature, so spoof attempts fail.
-    if (!this.cfg.secret) {
-      // Dev convenience: only accept when caller explicitly skipped sig.
-      return signature === null;
+    if (!this.cfg.secret) return signature === null;
+    try {
+      return verifyPaymentsSignature(this.cfg.secret, rawBody, signature);
+    } catch {
+      return false;
     }
-    if (!signature) return false;
-    const params = new URLSearchParams(rawBody);
-    const merchantId = params.get('merchant_id') ?? 'mock';
-    const orderId = params.get('order_id') ?? '';
-    const amount = params.get('payhere_amount') ?? '';
-    const currency = params.get('payhere_currency') ?? '';
-    const status = params.get('type') ?? 'payment.success';
-    const expected = md5(
-      `${merchantId}${orderId}${amount}${currency}${status}${md5(this.cfg.secret).toUpperCase()}`,
-    );
-    return signature.toUpperCase() === expected.toUpperCase();
   }
 }

@@ -1,23 +1,30 @@
-import { PayHereGateway, type PayHereConfig } from './payhere';
+import { PaymentsLkGateway, type PaymentsLkConfig } from './paymentslk';
 import { MockGateway, type MockConfig } from './mock';
 import type { GatewayAdapter, GatewayProvider } from './types';
 
 export * from './types';
-export { PayHereGateway, type PayHereConfig, formatPayHereAmount, hashCheckoutRequest, verifyPayHereMd5sig, type PayHereNotifyParams } from './payhere';
+export {
+  PaymentsLkGateway,
+  type PaymentsLkConfig,
+  buildPaymentsSignatureHeader,
+  verifyPaymentsSignature,
+  paymentsLkEventToType,
+  paymentsLkStatusCode,
+  type FetchLike,
+} from './paymentslk';
 export { MockGateway, type MockConfig } from './mock';
-export { md5, hmacSha256Hex } from './hash';
+export { md5, hmacSha256Hex, hmacSha256Sync, sha256Hex, timingSafeEqualHex } from './hash';
 
 export interface GatewayEnv {
-  PAYHERE_MERCHANT_ID?: string;
-  PAYHERE_MERCHANT_SECRET?: string;
-  PAYHERE_ENV?: string;
-  PAYHERE_SANDBOX?: string;
-  PAYHERE_RETURN_URL?: string;
-  PAYHERE_CANCEL_URL?: string;
-  PAYHERE_NOTIFY_URL?: string;
-  PAYHERE_REFUND_API_URL?: string;
-  PAYHERE_MOCK?: string;
-  PAYHERE_MOCK_FORCE_FAILURE?: string;
+  PAYMENTS_LK_SECRET_KEY?: string;
+  PAYMENTS_LK_WEBHOOK_SECRET?: string;
+  PAYMENTS_LK_API_URL?: string;
+  PAYMENTS_LK_RETURN_URL?: string;
+  PAYMENTS_LK_CANCEL_URL?: string;
+  PAYMENTS_LK_WEBHOOK_URL?: string;
+  /** =1 forces the mock gateway (local/staging only). */
+  PAYMENTS_LK_MOCK?: string;
+  PAYMENTS_LK_MOCK_FORCE_FAILURE?: string;
   /**
    * Environment name. When 'production' and the resolved gateway is mock,
    * `resolveGateway` throws — preventing silent mock usage in prod.
@@ -40,21 +47,21 @@ export class GatewayConfigError extends Error {
 }
 
 /**
- * Resolve gateway adapter from env. Throws GatewayConfigError when running
- * in production and the mock gateway would be selected — preventing silent
- * money-loss when merchant creds are missing on a prod deploy.
+ * Resolve gateway adapter from env. Throws GatewayConfigError when running in
+ * production and the mock gateway would be selected — preventing silent
+ * money-loss when gateway secrets are missing on a prod deploy.
  *
- * Local + staging may explicitly opt into mock via `PAYHERE_MOCK=1`.
+ * Local + staging may explicitly opt into mock via `PAYMENTS_LK_MOCK=1`.
  */
 export function resolveGateway(env: GatewayEnv | undefined): ResolvedGateway {
   const e = env ?? {};
-  const forceMock = e.PAYHERE_MOCK === '1';
-  const hasCreds = !!e.PAYHERE_MERCHANT_ID && !!e.PAYHERE_MERCHANT_SECRET;
+  const forceMock = e.PAYMENTS_LK_MOCK === '1';
+  const hasCreds = !!e.PAYMENTS_LK_SECRET_KEY && !!e.PAYMENTS_LK_WEBHOOK_SECRET;
   const wouldUseMock = forceMock || !hasCreds;
 
   if (wouldUseMock && e.ENVIRONMENT === 'production') {
     throw new GatewayConfigError(
-      'PAYHERE_MERCHANT_ID / PAYHERE_MERCHANT_SECRET missing in production. ' +
+      'PAYMENTS_LK_SECRET_KEY / PAYMENTS_LK_WEBHOOK_SECRET missing in production. ' +
         'Refusing to fall back to mock gateway to prevent silent money loss.',
     );
   }
@@ -62,25 +69,22 @@ export function resolveGateway(env: GatewayEnv | undefined): ResolvedGateway {
   if (wouldUseMock) {
     return {
       adapter: new MockGateway({
-        secret: e.PAYHERE_MERCHANT_SECRET,
-        forceFailure: e.PAYHERE_MOCK_FORCE_FAILURE === '1',
+        secret: e.PAYMENTS_LK_WEBHOOK_SECRET,
+        forceFailure: e.PAYMENTS_LK_MOCK_FORCE_FAILURE === '1',
       }),
       provider: 'mock',
       isMock: true,
     };
   }
-  const envName = (e.PAYHERE_ENV ?? '').toLowerCase();
-  const sandbox =
-    envName === 'production' ? false : envName === 'sandbox' ? true : e.PAYHERE_SANDBOX === '0' ? false : true;
-  const cfg: PayHereConfig = {
-    merchantId: e.PAYHERE_MERCHANT_ID!,
-    merchantSecret: e.PAYHERE_MERCHANT_SECRET!,
-    sandbox,
-    refundApiUrl: e.PAYHERE_REFUND_API_URL,
+
+  const cfg: PaymentsLkConfig = {
+    secretKey: e.PAYMENTS_LK_SECRET_KEY!,
+    webhookSecret: e.PAYMENTS_LK_WEBHOOK_SECRET!,
+    apiBaseUrl: e.PAYMENTS_LK_API_URL,
   };
   return {
-    adapter: new PayHereGateway(cfg),
-    provider: 'payhere',
+    adapter: new PaymentsLkGateway(cfg),
+    provider: 'payments_lk',
     isMock: false,
   };
 }

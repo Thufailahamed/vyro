@@ -29,10 +29,12 @@ const DEFAULT_API_BASE = 'https://api.payments.lk';
 export function paymentsLkStatusCode(eventType: string): number | undefined {
   switch (eventType) {
     case 'payment.succeeded':
+    case 'payment.success':
       return 2;
     case 'payment.failed':
       return -2;
     case 'checkout.expired':
+    case 'payment.expired':
       return 0;
     case 'refund.completed':
       return 3;
