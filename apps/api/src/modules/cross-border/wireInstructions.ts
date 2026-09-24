@@ -40,8 +40,8 @@ export interface WireInstructions {
  * Builds wire payment instructions for a cross-border PO and stamps
  * `paymentMethod = 'wire'`, `paymentInitiatedAt`. Buyer must own the PO.
  *
- * Returns the supplier-facing instruction block; the buyer hits PayHere in
- * the response flow only when paymentMethod = 'payhere'.
+ * Returns the supplier-facing instruction block; the buyer pays by card via
+ * payments.lk in the response flow only when paymentMethod = 'payments_lk'.
  */
 export async function buildWireInstructions(
   env: Env,

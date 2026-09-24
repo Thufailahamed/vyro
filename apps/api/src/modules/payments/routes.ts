@@ -174,7 +174,7 @@ router.post('/', session(), async (c) => {
         businessId: po.businessId,
         supplierId: po.supplierId,
         method: parsed.data.method,
-        provider: parsed.data.method === 'online' ? 'payhere' : 'manual',
+        provider: parsed.data.method === 'online' ? 'payments_lk' : 'manual',
         status: 'pending',
         amountCents,
         feeCents,
@@ -195,7 +195,7 @@ router.post('/', session(), async (c) => {
   try {
     attempt = await recordAttempt(c.env.DB, {
       paymentId: id,
-      provider: parsed.data.method === 'online' ? 'payhere' : 'manual',
+      provider: parsed.data.method === 'online' ? 'payments_lk' : 'manual',
       amountCents,
       currency: po.currency,
       status: 'initiated',
@@ -492,11 +492,11 @@ router.post('/:id/checkout', session(), async (c) => {
   const env = c.env as Env;
   const { adapter, provider } = resolveGateway(env);
   const origin = env.WEB_ORIGIN;
-  const notifyUrl = env.PAYHERE_NOTIFY_URL ?? `${origin}/api/webhooks/payhere`;
+  const notifyUrl = env.PAYMENTS_LK_WEBHOOK_URL ?? `${origin}/api/webhooks/payments-lk`;
   const returnUrl =
-    env.PAYHERE_RETURN_URL ?? `${origin}/orders/${po.id}/payment-success?paymentId=${payment.id}`;
+    env.PAYMENTS_LK_RETURN_URL ?? `${origin}/orders/${po.id}/payment-success?paymentId=${payment.id}`;
   const cancelUrl =
-    env.PAYHERE_CANCEL_URL ?? `${origin}/orders/${po.id}/payment-cancel?paymentId=${payment.id}`;
+    env.PAYMENTS_LK_CANCEL_URL ?? `${origin}/orders/${po.id}/payment-cancel?paymentId=${payment.id}`;
 
   const result = await adapter.startCheckout({
     paymentId: payment.id,
@@ -516,7 +516,7 @@ router.post('/:id/checkout', session(), async (c) => {
   await db.update(payments)
     .set({
       gatewayRef: result.gatewayRef,
-      gatewayPayload: JSON.stringify({ provider, orderId: payment.id }),
+      gatewayPayload: JSON.stringify({ provider, orderId: payment.id, checkoutId: result.gatewayRef }),
       providerReference: result.gatewayRef,
       updatedAt: Date.now(),
     })
@@ -562,6 +562,54 @@ router.post('/:id/checkout', session(), async (c) => {
     provider: adapter.provider,
     isMock: adapter.provider === 'mock',
   });
+});
+
+// Late-webhook fallback: confirm payment state from the provider checkout.
+// Server truth only — the browser redirect never confirms anything.
+router.post('/:id/checkout-status', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+
+  const payment = await findPaymentForUpdate(c.env.DB, c.req.param('id'));
+  if (!payment) throw httpError(404, 'NOT_FOUND', 'Payment not found');
+  if (payment.method !== 'online') {
+    throw httpError(400, 'VALIDATION_ERROR', 'Only online payments have gateway status');
+  }
+
+  const { po } = await rolesForPo(c.env.DB, payment.purchaseOrderId, ctx.userId, ctx.isAdmin);
+  if (!po) throw httpError(404, 'NOT_FOUND', 'PO not found');
+  if (!ctx.isAdmin) {
+    try {
+      await requireBusinessPaymentRole(c.env.DB, po.businessId, ctx.userId);
+    } catch {
+      throw httpError(403, 'FORBIDDEN', 'Insufficient role');
+    }
+  }
+
+  if (payment.status !== 'pending') {
+    return c.json({ status: payment.status, source: 'payment' });
+  }
+
+  const env = c.env as Env;
+  const { adapter } = resolveGateway(env);
+  if (!payment.gatewayRef || !adapter.getCheckoutStatus) {
+    return c.json({ status: 'pending', source: 'unknown' });
+  }
+  const st = await adapter.getCheckoutStatus(payment.gatewayRef);
+  if (st.status === 'succeeded') {
+    const { applyGatewayPaymentEvent } = await import('../webhooks/paymentslk');
+    await applyGatewayPaymentEvent(env, {
+      type: 'payment.success',
+      gatewayRef: payment.gatewayRef,
+      paymentId: st.paymentId,
+      amountCents: payment.amountCents,
+      currency: payment.currency,
+      raw: { source: 'checkout-status-poll' },
+    });
+    const fresh = await findPaymentForUpdate(c.env.DB, payment.id);
+    return c.json({ status: fresh?.status ?? payment.status, source: 'gateway' });
+  }
+  return c.json({ status: st.status, source: 'gateway' });
 });
 
 export default router;

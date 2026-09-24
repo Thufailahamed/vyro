@@ -301,6 +301,7 @@ describe('Accounts E2E: PayHere + refunds (C)', () => {
     expect(n1.status).toBe(200);
     const chain = await api('GET', `/api/finance/payments/${ids.payC}`);
     expect(chain.body.payment.status).toBe('confirmed');
+    expect(chain.body.payment.provider).toBe('payments_lk');
     expect(chain.body.attempts.length).toBeGreaterThanOrEqual(2);
     expect(chain.body.earnings.length).toBe(1);
     expect(chain.body.invoices.length).toBe(1);

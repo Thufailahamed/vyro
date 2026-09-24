@@ -4,8 +4,9 @@ import { users } from './users';
 
 /**
  * Payment attempts (spec §6). A single payment may be attempted multiple
- * times (e.g. PayHere failed twice, succeeded third). Attempts are append-only
- * history — never overwritten. Essential for reconciliation and debugging.
+ * times (e.g. gateway declined twice, succeeded third). Attempts are
+ * append-only history — never overwritten. Essential for reconciliation and
+ * debugging.
  */
 export const paymentAttempts = sqliteTable(
   'payment_attempts',
@@ -15,7 +16,7 @@ export const paymentAttempts = sqliteTable(
       .notNull()
       .references(() => payments.id),
     attemptNumber: integer('attempt_number').notNull(),
-    provider: text('provider').notNull().default('payhere'),
+    provider: text('provider').notNull().default('payments_lk'),
     amountCents: integer('amount_cents').notNull(),
     currency: text('currency').notNull().default('LKR'),
     status: text('status', {

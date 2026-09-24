@@ -114,7 +114,7 @@ export const checkoutService = {
       groups.set(o.sp.supplierId, list);
     }
 
-    const created: Array<{ poId: string; direction: 'domestic' | 'export' | 'import'; paymentMethod: 'payhere' | 'wire' }> = [];
+    const created: Array<{ poId: string; direction: 'domestic' | 'export' | 'import'; paymentMethod: 'payments_lk' | 'wire' }> = [];
     const now = Date.now();
 
     // Repeat Offers: pre-compute eligibility once. Discount applied per-PO below.
@@ -244,7 +244,7 @@ export const checkoutService = {
       created.push({
         poId,
         direction: crossBorder?.direction ?? 'domestic',
-        paymentMethod: (crossBorder?.direction && crossBorder.direction !== 'domestic') ? 'wire' : 'payhere',
+        paymentMethod: (crossBorder?.direction && crossBorder.direction !== 'domestic') ? 'wire' : 'payments_lk',
       });
 
       // Reserve stock atomically; oversell is impossible because the UPDATE is

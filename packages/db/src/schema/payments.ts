@@ -13,7 +13,7 @@ export const payments = sqliteTable(
     businessId: text('business_id'),
     supplierId: text('supplier_id'),
     method: text('method', { enum: ['cash', 'bank_transfer', 'online'] }).notNull(),
-    provider: text('provider').notNull().default('payhere'),
+    provider: text('provider').notNull().default('payments_lk'),
     status: text('status', { enum: ['pending', 'confirmed', 'failed', 'cancelled', 'chargeback', 'refunded'] })
       .notNull()
       .default('pending'),

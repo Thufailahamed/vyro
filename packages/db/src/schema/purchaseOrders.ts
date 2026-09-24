@@ -67,10 +67,13 @@ export const purchaseOrders = sqliteTable(
     wireReceivedCurrency: text('wire_received_currency'),
     wireReceivedAt: integer('wire_received_at'),
     wireReceivedBy: text('wire_received_by'),
-    // Buyer payment choice at checkout. Default payhere preserves existing flow;
-    // service layer forces 'wire' for direction IN ('export','import') because
-    // PayHere only charges LKR locally.
-    paymentMethod: text('payment_method', { enum: ['payhere', 'wire'] }).notNull().default('payhere'),
+    // Buyer payment choice at checkout. 'payments_lk' is the current gateway;
+    // 'payhere' is a legacy value kept for historical rows. The service layer
+    // forces 'wire' for direction IN ('export','import') because card
+    // payments settle in LKR locally.
+    paymentMethod: text('payment_method', { enum: ['payments_lk', 'payhere', 'wire'] })
+      .notNull()
+      .default('payments_lk'),
     paymentInitiatedAt: integer('payment_initiated_at'),
     paymentInitiatedByUserId: text('payment_initiated_by_user_id'),
     // Lifecycle metadata (0048).

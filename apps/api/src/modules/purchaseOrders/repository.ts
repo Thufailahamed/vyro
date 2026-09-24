@@ -28,16 +28,16 @@ export async function insertPo(
     updatedAt: number;
     direction?: 'domestic' | 'export' | 'import';
     fxSnapshotId?: string | null;
-    paymentMethod?: 'payhere' | 'wire';
+    paymentMethod?: 'payments_lk' | 'payhere' | 'wire';
     rfqId?: string | null;
   },
 ) {
   const db = getDb(d1);
   const { direction, fxSnapshotId, paymentMethod, rfqId, ...rest } = row;
-  // Cross-border POs default to 'wire' — PayHere only charges LKR locally.
-  // Domestic stays 'payhere' (existing flow preserved).
+  // Cross-border POs default to 'wire' — card payments settle in LKR locally.
+  // Domestic defaults to 'payments_lk'.
   const resolvedPaymentMethod =
-    paymentMethod ?? (direction && direction !== 'domestic' ? 'wire' : 'payhere');
+    paymentMethod ?? (direction && direction !== 'domestic' ? 'wire' : 'payments_lk');
   await db.insert(purchaseOrders).values({
     ...rest,
     direction: direction ?? 'domestic',
