@@ -16,16 +16,7 @@
  */
 import { describe, expect, it, vi, beforeAll } from 'vitest';
 import { Hono } from 'hono';
-
-const nodeSqlite = vi.hoisted(() => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const req = require('node:sqlite') as typeof import('node:sqlite');
-  const fs = require('node:fs') as typeof import('node:fs');
-  const path = require('node:path') as typeof import('node:path');
-  const url = require('node:url') as typeof import('node:url');
-  return { DatabaseSync: req.DatabaseSync, fs, path, url };
-});
-type DatabaseSync = InstanceType<typeof nodeSqlite.DatabaseSync>;
+import { makeD1, applyMigrations } from '../helpers/d1';
 
 const actor = vi.hoisted(() => ({ ctx: null as any }));
 
@@ -36,35 +27,6 @@ vi.mock('../../src/middleware/session', () => ({
     await next();
   },
 }));
-
-function makeD1(sqlite: DatabaseSync): D1Database {
-  const wrap = (sqlText: string, bound: unknown[] = []): D1PreparedStatement => {
-    const st = {
-      bind(...params: unknown[]) { return wrap(sqlText, [...bound, ...params]); },
-      first: async (col?: string) => {
-        const row = sqlite.prepare(sqlText).get(...bound) as Record<string, unknown> | undefined;
-        if (!row) return null;
-        return col ? (row[col] ?? null) : row;
-      },
-      all: async () => ({ results: sqlite.prepare(sqlText).all(...bound), success: true, meta: {} }),
-      run: async () => {
-        const r = sqlite.prepare(sqlText).run(...bound) as unknown as { changes: unknown; lastInsertRowid: unknown };
-        return { success: true, meta: { changes: r.changes, last_row_id: r.lastInsertRowid } };
-      },
-      raw: async () => (sqlite.prepare(sqlText).all(...bound) as Record<string, unknown>[]).map((r) => Object.values(r)),
-    };
-    return st as unknown as D1PreparedStatement;
-  };
-  return {
-    prepare: (sqlText: string) => wrap(sqlText),
-    exec: async (sqlText: string) => { sqlite.exec(sqlText); },
-    batch: async (stmts: D1PreparedStatement[]) => {
-      const out = [];
-      for (const s of stmts) out.push(await (s as unknown as { run(): Promise<unknown> }).run());
-      return out as never;
-    },
-  } as unknown as D1Database;
-}
 
 const r2store = new Map<string, { bytes: Uint8Array; type: string }>();
 const env: any = {
@@ -112,15 +74,9 @@ async function api(method: string, path: string, body?: unknown, headers: Record
 }
 
 beforeAll(async () => {
-  const sqlite: DatabaseSync = new nodeSqlite.DatabaseSync(':memory:');
-  sqlite.exec('PRAGMA foreign_keys = ON;');
-  const d1 = makeD1(sqlite);
+  const d1 = makeD1();
+  await applyMigrations(d1);
   env.DB = d1;
-  const root = nodeSqlite.path.join(nodeSqlite.path.dirname(nodeSqlite.url.fileURLToPath(import.meta.url)), '..', '..', '..', '..');
-  const migDir = nodeSqlite.path.join(root, 'packages/db/migrations');
-  for (const f of nodeSqlite.fs.readdirSync(migDir).filter((x: string) => x.endsWith('.sql')).sort()) {
-    sqlite.exec(nodeSqlite.fs.readFileSync(nodeSqlite.path.join(migDir, f), 'utf8').split('--> statement-breakpoint').join(';'));
-  }
 
   const paymentRouter = (await import('../../src/modules/payments/routes')).default;
   const refundsRouter = (await import('../../src/modules/refunds/routes')).default;
@@ -335,13 +291,12 @@ describe('Accounts E2E: PayHere + refunds (C)', () => {
     const co = await api('POST', `/api/payments/${ids.payC}/checkout`, {});
     expect(co.status).toBe(200);
     expect(co.body.provider).toBe('mock');
-    const major = `${p.body.amountCents / 100}`;
-    const raw = new URLSearchParams({
-      order_id: ids.payC, amount: major, payhere_currency: 'LKR',
-      type: 'payment.success', merchant_id: 'mock', payment_id: 'MOCK-1',
-    }).toString();
-    const n1 = await app.fetch(new Request('http://localhost/api/webhooks/payhere', {
-      method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: raw,
+    const raw = JSON.stringify({
+      type: 'payment.success',
+      data: { reference: ids.payC, amountCents: p.body.amountCents, id: 'MOCK-PAY-1', currency: 'LKR' },
+    });
+    const n1 = await app.fetch(new Request('http://localhost/api/webhooks/payments-lk', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: raw,
     }), env);
     expect(n1.status).toBe(200);
     const chain = await api('GET', `/api/finance/payments/${ids.payC}`);
@@ -350,17 +305,17 @@ describe('Accounts E2E: PayHere + refunds (C)', () => {
     expect(chain.body.earnings.length).toBe(1);
     expect(chain.body.invoices.length).toBe(1);
     // duplicate delivery is idempotent
-    const n2 = await app.fetch(new Request('http://localhost/api/webhooks/payhere', {
-      method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: raw,
+    const n2 = await app.fetch(new Request('http://localhost/api/webhooks/payments-lk', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: raw,
     }), env);
     expect(n2.status).toBe(200);
     expect(((await n2.json()) as any).alreadyProcessed).toBe(true);
     const chain2 = await api('GET', `/api/finance/payments/${ids.payC}`);
     expect(chain2.body.earnings.length).toBe(1);
     // wrong amount rejected
-    const bad = new URLSearchParams({ order_id: ids.payC, amount: '1.00', payhere_currency: 'LKR', type: 'payment.success' }).toString();
-    const n3 = await app.fetch(new Request('http://localhost/api/webhooks/payhere', {
-      method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: bad,
+    const bad = JSON.stringify({ type: 'payment.success', data: { reference: ids.payC, amountCents: 1, currency: 'LKR' } });
+    const n3 = await app.fetch(new Request('http://localhost/api/webhooks/payments-lk', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: bad,
     }), env);
     expect(n3.status).toBe(400);
   });

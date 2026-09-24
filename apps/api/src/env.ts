@@ -16,16 +16,21 @@ export interface Env {
   BETTER_AUTH_URL: string;
   VERSION?: string;
   DEPLOYED_AT?: string;
-  PAYHERE_MERCHANT_ID?: string;
-  PAYHERE_MERCHANT_SECRET?: string;
-  PAYHERE_ENV?: string;
-  PAYHERE_SANDBOX?: string;
-  PAYHERE_RETURN_URL?: string;
-  PAYHERE_CANCEL_URL?: string;
-  PAYHERE_NOTIFY_URL?: string;
-  PAYHERE_REFUND_API_URL?: string;
-  PAYHERE_MOCK?: string;
-  PAYHERE_MOCK_FORCE_FAILURE?: string;
+  /** payments.lk REST secret key (sk_test_… / sk_live_…). */
+  PAYMENTS_LK_SECRET_KEY?: string;
+  /** payments.lk webhook signing secret. */
+  PAYMENTS_LK_WEBHOOK_SECRET?: string;
+  /** Override payments.lk API base (default https://api.payments.lk). */
+  PAYMENTS_LK_API_URL?: string;
+  /** Override the hosted-checkout return URL. */
+  PAYMENTS_LK_RETURN_URL?: string;
+  /** Override the hosted-checkout cancel URL. */
+  PAYMENTS_LK_CANCEL_URL?: string;
+  /** Override the webhook endpoint registered at payments.lk (default /api/webhooks/payments-lk). */
+  PAYMENTS_LK_WEBHOOK_URL?: string;
+  /** =1 forces the mock gateway (local/staging only). */
+  PAYMENTS_LK_MOCK?: string;
+  PAYMENTS_LK_MOCK_FORCE_FAILURE?: string;
   LEDGER_ENCRYPTION_KEY?: string;
   /** Resend transactional email API key. Optional. */
   RESEND_API_KEY?: string;

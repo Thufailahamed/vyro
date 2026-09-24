@@ -3,7 +3,7 @@ import { httpError } from '../lib/errors';
 import type { Env } from '../env';
 
 // Machine-to-machine callers that legitimately arrive with no Origin header.
-const EXEMPT_EXACT = ['/api/csp-report', '/api/webhooks/payhere', '/api/payments/payhere/notify'];
+const EXEMPT_EXACT = ['/api/csp-report', '/api/webhooks/payments-lk', '/api/webhooks/plk-notify'];
 
 /**
  * Origin-based CSRF defence for state-changing requests.

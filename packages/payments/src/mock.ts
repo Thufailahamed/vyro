@@ -73,14 +73,28 @@ export class MockGateway implements GatewayAdapter {
     const data = (parsed.data ?? {}) as Record<string, any>;
     const legacyAmountCents =
       typeof parsed.amount === 'string' ? Math.round(parseFloat(parsed.amount) * 100) : undefined;
+    const payment = (data.payment ?? {}) as Record<string, any>;
     return {
       type,
       gatewayRef: String(data.reference ?? parsed.reference ?? parsed.order_id ?? ''),
-      paymentId: data.paymentId ? String(data.paymentId) : parsed.payment_id ? String(parsed.payment_id) : undefined,
-      amountCents: typeof data.amountCents === 'number' ? data.amountCents : legacyAmountCents,
+      paymentId: data.id
+        ? String(data.id)
+        : data.paymentId
+          ? String(data.paymentId)
+          : payment.id
+            ? String(payment.id)
+            : parsed.payment_id
+              ? String(parsed.payment_id)
+              : undefined,
+      amountCents:
+        typeof data.amountCents === 'number'
+          ? data.amountCents
+          : typeof payment.amountCents === 'number'
+            ? payment.amountCents
+            : legacyAmountCents,
       currency: typeof data.currency === 'string' ? data.currency : 'LKR',
       statusCode: paymentsLkStatusCode(vendorType) ?? paymentsLkStatusCode(type),
-      refundId: data.refundId ? String(data.refundId) : undefined,
+      refundId: data.refundId ? String(data.refundId) : data.refund?.id ? String(data.refund.id) : undefined,
       raw: parsed,
     };
   }

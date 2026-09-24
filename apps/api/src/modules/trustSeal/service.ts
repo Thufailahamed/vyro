@@ -50,7 +50,7 @@ export const trustSealService = {
       description: 'VYRO TrustSEAL annual verification (12 months)',
       returnUrl: `${webOrigin}/supplier/verification?trustseal=return`,
       cancelUrl: `${webOrigin}/supplier/verification?trustseal=cancelled`,
-      notifyUrl: `${notifyBase}/api/payments/webhook/payhere`,
+      notifyUrl: `${notifyBase}/api/webhooks/payments-lk`,
       businessName: sup.name ?? 'Supplier',
       businessEmail: sup.email ?? 'supplier@vyro.lk',
       businessPhone: sup.phone ?? '',

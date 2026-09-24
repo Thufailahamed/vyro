@@ -1,2 +1,2 @@
-import webhooksRouter from './payhere';
-export default webhooksRouter;
+import paymentsLkRouter from './paymentslk';
+export default paymentsLkRouter;
