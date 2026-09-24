@@ -53,13 +53,14 @@ export function CatalogScreen() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  // Sync when navigated with ?q= (e.g. from cart "Compare") — adjust during render
-  const [prevNav, setPrevNav] = useState({ q: params.q, category: params.category });
-  if (params.q !== prevNav.q || params.category !== prevNav.category) {
-    setPrevNav({ q: params.q, category: params.category });
+  // Sync when navigated with ?q= (e.g. from cart "Compare") — moved to
+  // useEffect so we don't setState during render (mobile-005).
+  const navKey = `${params.q ?? ''}|${params.category ?? ''}`;
+  useEffect(() => {
     const next = params.q ?? params.category ?? '';
     if (next !== searchInput) setSearchInput(next);
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navKey]);
 
   const search = useQuery({
     queryKey: ['search', q],

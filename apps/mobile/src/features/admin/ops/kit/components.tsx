@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Linking, Share, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -183,11 +183,9 @@ export function ReasonSheet({
   children?: ReactNode;
 }) {
   const [reason, setReason] = useState('');
-  const [prevVisible, setPrevVisible] = useState(visible);
-  if (visible !== prevVisible) {
-    setPrevVisible(visible);
+  useEffect(() => {
     if (!visible) setReason('');
-  }
+  }, [visible]);
   const ok = reason.trim().length >= minLength;
   return (
     <Sheet
