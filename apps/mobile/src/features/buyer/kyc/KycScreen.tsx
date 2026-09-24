@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import { Building2, FileCheck2, ShieldCheck } from 'lucide-react-native';
-import { Badge, Banner, Button, Card, Field, Gutter, IconTile, InkHero, Input, Kicker, Loader, RadioCards, Screen, ScreenHeader, Text } from '@/ui';
+import { Badge, Banner, Button, Card, ErrorState, Field, Gutter, IconTile, InkHero, Input, Kicker, Loader, RadioCards, Screen, ScreenHeader, Text } from '@/ui';
 import { api, errorMessage } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import { go } from '../orders/kit';
@@ -38,9 +38,10 @@ export function KycScreen() {
   const kycLevel = business.data?.business?.kycLevel ?? 'none';
   const verifiedAt = business.data?.business?.kycVerifiedAt;
   const country = business.data?.business?.countryCode ?? 'LK';
+  const canSubmit = !!id && business.isSuccess && kycLevel === 'none';
 
   return (
-    <Screen keyboard footer={kycLevel === 'none' ? <Button title="Submit for review" icon={ShieldCheck} variant="volt" size="lg" full loading={submit.isPending} onPress={() => { setSubmitErr(''); submit.mutate(); }} /> : undefined}>
+    <Screen keyboard footer={canSubmit ? <Button title="Submit for review" icon={ShieldCheck} variant="volt" size="lg" full loading={submit.isPending} disabled={!docs.trim()} onPress={() => { setSubmitErr(''); submit.mutate(); }} /> : undefined}>
       <ScreenHeader
         back
         kicker="Cross-Border Verification"
@@ -49,9 +50,11 @@ export function KycScreen() {
       />
       <Gutter style={{ gap: 14 }}>
         {!id ? (
-          <Banner tone="warning" message="No business ID provided." />
+          <ErrorState message="No business ID was provided. Open verification from checkout or your business profile." />
         ) : business.isLoading ? (
           <Loader label="Loading business…" />
+        ) : business.isError ? (
+          <ErrorState message={errorMessage(business.error)} onRetry={() => business.refetch()} />
         ) : (
           <>
             <InkHero seed={`kyc-${id}`} style={{ gap: 10 }}>

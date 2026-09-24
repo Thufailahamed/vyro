@@ -353,19 +353,21 @@ export function ListScreen<T>({
     <ChromeCtx.Provider value={chrome.api}>
       <View style={{ flex: 1, backgroundColor: dark ? colors.ink : colors.bone, paddingTop: insets.top }}>
         <StatusBar style={dark ? 'light' : 'dark'} />
-        <Animated.FlatList
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          onScroll={chrome.onScroll}
-          scrollEventThrottle={16}
-          itemLayoutAnimation={LinearTransition.duration(220)}
-          ListHeaderComponent={header}
-          contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: (tabBar ? TAB_BAR_SPACE : 28) + insets.bottom, gap: 12 }}
-          refreshControl={refresh ? <RefreshControl refreshing={refreshing} tintColor={dark ? colors.volt : colors.ink} onRefresh={refresh} /> : undefined}
-          {...(list as FlatListPropsWithLayout<T>)}
-        />
-        <CompactBar info={chrome.info} scrollY={chrome.scrollY} backRef={chrome.backRef} />
-        <RefreshGlyph show={refreshing} dark={dark} />
+        <View style={{ flex: 1 }}>
+          <Animated.FlatList
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            onScroll={chrome.onScroll}
+            scrollEventThrottle={16}
+            itemLayoutAnimation={LinearTransition.duration(220)}
+            ListHeaderComponent={header}
+            contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: (tabBar ? TAB_BAR_SPACE : 28) + insets.bottom, gap: 12 }}
+            refreshControl={refresh ? <RefreshControl refreshing={refreshing} tintColor={dark ? colors.volt : colors.ink} onRefresh={refresh} /> : undefined}
+            {...(list as FlatListPropsWithLayout<T>)}
+          />
+          <CompactBar info={chrome.info} scrollY={chrome.scrollY} backRef={chrome.backRef} />
+          <RefreshGlyph show={refreshing} dark={dark} />
+        </View>
       </View>
     </ChromeCtx.Provider>
   );

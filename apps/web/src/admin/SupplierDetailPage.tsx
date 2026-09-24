@@ -2,7 +2,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import { PageHeader } from '@/components/ui';
+import { Button, Label, Textarea } from '@/components/ui';
 import { useToast } from '@vyro/ui';
 import {
   StoreIcon,
@@ -13,12 +13,26 @@ import {
   CheckCircleIcon,
   ClockIcon,
   ArrowRightIcon,
-  ArrowLeftIcon,
   PackageIcon,
   TruckIcon,
   UserIcon,
+  XIcon,
 } from '@/components/icons';
 import { SupplierTrustSignalsCard } from './trust/SupplierTrustSignalsCard';
+import {
+  AdminPage,
+  AdminPageHeader,
+  Card,
+  Callout,
+  EmptyBlock,
+  Panel,
+  Pill,
+  Skeleton,
+  StatCard,
+  StatGrid,
+  TableCard,
+  TableSkeleton,
+} from './ui';
 
 type VerificationStatus = 'pending' | 'verified' | 'rejected' | 'suspended';
 
@@ -91,44 +105,50 @@ export function SupplierDetailPage() {
 
   if (detail.isError) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
-        <Link
-          to="/admin/suppliers"
-          className="inline-flex items-center gap-1.5 text-xs font-mono text-ink-4 hover:text-copper transition-colors"
-        >
-          <ArrowLeftIcon size={14} /> Back to Wholesale Suppliers
-        </Link>
-        <div className="p-10 bg-paper border border-ink/15 text-center space-y-3">
-          <AlertCircleIcon size={32} className="mx-auto text-rose" />
-          <h2 className="vyro-display text-2xl font-bold text-ink">Supplier not found</h2>
-          <p className="text-xs text-ink-4">
-            Could not find an active or archived supplier hub with ID{' '}
-            <code className="font-mono text-ink">{id}</code>.
-          </p>
-          <div className="pt-2">
-            <Link
-              to="/admin/suppliers"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-ink text-paper text-xs font-mono font-bold uppercase tracking-wider hover:bg-charcoal transition-colors"
-            >
-              Return to Registry
-            </Link>
-          </div>
-        </div>
-      </div>
+      <AdminPage>
+        <AdminPageHeader
+          back={{ to: '/admin/suppliers', label: 'Suppliers registry' }}
+          kicker="Registry"
+          title="Supplier not found"
+        />
+        <Card>
+          <EmptyBlock
+            icon={<AlertCircleIcon size={22} />}
+            title="Supplier not found"
+            description={
+              <>
+                Could not find an active or archived supplier hub with ID{' '}
+                <code className="font-mono text-ink">{id}</code>.
+              </>
+            }
+            action={
+              <Link to="/admin/suppliers">
+                <Button variant="secondary" size="sm" icon={<ArrowRightIcon size={13} />}>
+                  Return to registry
+                </Button>
+              </Link>
+            }
+          />
+        </Card>
+      </AdminPage>
     );
   }
 
   if (!detail.data) {
     return (
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="h-8 w-48 bg-bone border border-ink/10 animate-pulse" />
-        <div className="h-28 bg-paper border border-ink/10 animate-pulse" />
-        <div className="grid sm:grid-cols-4 gap-4">
+      <AdminPage>
+        <Skeleton className="h-4 w-44" />
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-20 bg-paper border border-ink/10 animate-pulse" />
+            <Skeleton key={i} className="h-24" />
           ))}
         </div>
-      </div>
+        <Skeleton className="h-56" />
+      </AdminPage>
     );
   }
 
@@ -137,313 +157,249 @@ export function SupplierDetailPage() {
   const verification = s.verificationStatus;
   const rejectReasonOk = rejectReason.trim().length >= 5;
 
-  return (
-    <div className="space-y-8 max-w-5xl mx-auto">
-      {/* Breadcrumbs & Navigation */}
-      <div className="flex items-center justify-between">
-        <Link
-          to="/admin/suppliers"
-          className="inline-flex items-center gap-1.5 text-xs font-mono font-medium text-ink-4 hover:text-copper transition-colors"
-        >
-          <ArrowLeftIcon size={13} />
-          <span>Back to Suppliers Registry</span>
-        </Link>
-        <span className="text-[10px] font-mono text-ink-4">ID: {s.id}</span>
-      </div>
+  const verificationTone =
+    verification === 'verified'
+      ? 'success'
+      : verification === 'pending'
+        ? 'warning'
+        : verification === 'rejected'
+          ? 'danger'
+          : 'neutral';
+  const verificationLabel =
+    verification === 'verified'
+      ? 'Verified'
+      : verification === 'pending'
+        ? 'In review'
+        : verification === 'rejected'
+          ? 'Rejected'
+          : 'Suspended';
 
-      {/* Executive Page Header */}
-      <SupplierTrustSignalsCard supplierId={s.id} />
-      <PageHeader
+  return (
+    <AdminPage>
+      <AdminPageHeader
+        back={{ to: '/admin/suppliers', label: 'Suppliers registry' }}
         kicker={
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="vyro-kicker text-copper">Registry</span>
-            <span className="text-ink-4">/</span>
-            <span className="text-[11px] font-mono text-ink-3">Supplier Hub</span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider">
-              <StoreIcon size={12} className="text-volt-deep" />
-              Verified Facility
-            </span>
-          </div>
+          <>
+            <span>Registry</span>
+            <span className="text-ink-5">/</span>
+            <span>Supplier Hub</span>
+          </>
         }
         title={s.name}
-        sub={s.description || 'Primary agricultural milling & commercial distribution hub registered on the VYRO wholesale network.'}
+        description={
+          s.description ||
+          'Primary agricultural milling & commercial distribution hub registered on the VYRO wholesale network.'
+        }
+        meta={
+          <>
+            <Pill tone={verificationTone} dot>
+              {verificationLabel} facility
+            </Pill>
+            <Pill tone={isFrozen ? 'danger' : 'success'} dot>
+              {isFrozen ? 'Suspended' : 'Operational'}
+            </Pill>
+            <span className="font-mono text-[11px] text-ink-4">ID: {s.id}</span>
+          </>
+        }
         actions={
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => toggleFreeze.mutate()}
-              disabled={toggleFreeze.isPending}
-              className={`inline-flex items-center gap-2 h-9 px-4 text-xs font-mono font-bold uppercase tracking-wider border transition-all ${
-                isFrozen
-                  ? 'bg-ink text-paper border-ink hover:bg-charcoal'
-                  : 'bg-paper text-rose border-rose/30 hover:bg-rose/10 hover:border-rose'
-              }`}
-            >
-              {toggleFreeze.isPending
-                ? 'Updating…'
-                : isFrozen
-                  ? 'Unfreeze Supplier Hub'
-                  : 'Freeze Supplier Hub'}
-            </button>
-          </div>
+          <Button
+            variant={isFrozen ? 'success' : 'secondary'}
+            size="sm"
+            className={isFrozen ? '' : 'text-rose hover:bg-rose/10'}
+            onClick={() => toggleFreeze.mutate()}
+            loading={toggleFreeze.isPending}
+          >
+            {isFrozen ? 'Unfreeze supplier hub' : 'Freeze supplier hub'}
+          </Button>
         }
       />
 
-      {/* KPI Status Ribbon */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Operating Status */}
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            Operating Status
-          </div>
-          <div className="flex items-center gap-2 pt-1">
-            <span
-              className={`size-2.5 rounded-full ${isFrozen ? 'bg-rose animate-ping' : 'bg-emerald-500'}`}
-            />
-            <span
-              className={`vyro-display text-lg font-bold uppercase ${
-                isFrozen ? 'text-rose' : 'text-mint'
-              }`}
-            >
-              {isFrozen ? 'Suspended' : 'Operational'}
-            </span>
-          </div>
-          <div className="text-[10px] text-ink-4">
-            {isFrozen ? 'Trading held by admin action' : 'Allowed to publish & clear POs'}
-          </div>
-        </div>
+      <StatGrid cols={4}>
+        <StatCard
+          label="Operating status"
+          value={isFrozen ? 'Suspended' : 'Operational'}
+          sub={isFrozen ? 'Trading held by admin action' : 'Allowed to publish & clear POs'}
+          icon={<StoreIcon size={16} />}
+          tone={isFrozen ? 'danger' : 'success'}
+        />
+        <StatCard
+          label="KYB compliance"
+          value={verificationLabel}
+          sub="Business registration status"
+          icon={<ShieldCheckIcon size={16} />}
+          tone={verificationTone}
+        />
+        <StatCard
+          label="Catalog offers"
+          value={s.offerCount}
+          sub="Active product listings"
+          icon={<PackageIcon size={16} />}
+        />
+        <StatCard
+          label="Active orders"
+          value={s.activePoCount}
+          sub="Open fulfillment batches"
+          icon={<TruckIcon size={16} />}
+        />
+      </StatGrid>
 
-        {/* Verification KYB Status */}
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            KYB Compliance
-          </div>
-          <div className="flex items-center gap-2 pt-1">
-            {verification === 'verified' && (
-              <>
-                <CheckCircleIcon size={16} className="text-mint" />
-                <span className="vyro-display text-lg font-bold text-mint uppercase">Verified</span>
-              </>
-            )}
-            {verification === 'pending' && (
-              <>
-                <ClockIcon size={16} className="text-amber" />
-                <span className="vyro-display text-lg font-bold text-amber uppercase">In Review</span>
-              </>
-            )}
-            {verification === 'rejected' && (
-              <>
-                <AlertCircleIcon size={16} className="text-rose" />
-                <span className="vyro-display text-lg font-bold text-rose uppercase">Rejected</span>
-              </>
-            )}
-            {verification === 'suspended' && (
-              <>
-                <AlertCircleIcon size={16} className="text-ink-4" />
-                <span className="vyro-display text-lg font-bold text-ink-4 uppercase">Suspended</span>
-              </>
-            )}
-          </div>
-          <div className="text-[10px] text-ink-4">Business registration status</div>
-        </div>
-
-        {/* Published Offers */}
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold flex items-center justify-between">
-            <span>Catalog Offers</span>
-            <PackageIcon size={13} className="text-ink-4" />
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-ink">{s.offerCount}</div>
-          <div className="text-[10px] text-ink-4">Active product listings</div>
-        </div>
-
-        {/* Active Purchase Orders */}
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold flex items-center justify-between">
-            <span>Active Orders</span>
-            <TruckIcon size={13} className="text-ink-4" />
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-copper-deep">{s.activePoCount}</div>
-          <div className="text-[10px] text-ink-4">Open fulfillment batches</div>
-        </div>
-      </div>
-
-      {/* KYB Verification Decision Console */}
-      <div className="p-6 bg-paper border border-ink/15 shadow-sm space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-ink/10">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <ShieldCheckIcon size={18} className="text-copper" />
-              <h2 className="vyro-display text-lg font-bold text-ink">
-                Wholesale KYB Verification Control
-              </h2>
-            </div>
-            <p className="text-xs text-ink-4 leading-relaxed">
-              Verify compliance certificates, Sri Lanka business registration (BR), food hygiene standards, and factory milling permits.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                verify.mutate({ status: 'verified', reason: '', expectStatus: verification })
-              }
+      <Panel
+        title="KYB verification"
+        description="Verify compliance certificates, Sri Lanka business registration (BR), food hygiene standards, and factory milling permits."
+        icon={<ShieldCheckIcon size={16} />}
+        actions={
+          <>
+            <Button
+              variant="success"
+              size="sm"
+              onClick={() => verify.mutate({ status: 'verified', reason: '', expectStatus: verification })}
               disabled={verify.isPending || verification === 'verified'}
-              className="inline-flex items-center gap-1.5 h-9 px-4 text-xs font-mono font-bold uppercase tracking-wider bg-ink text-paper hover:bg-charcoal disabled:opacity-40 disabled:pointer-events-none transition-colors"
+              icon={<CheckCircleIcon size={13} />}
             >
-              <CheckCircleIcon size={13} className="text-volt" />
-              <span>Approve &amp; Authorize</span>
-            </button>
-
-            <button
-              type="button"
+              Approve &amp; authorize
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="text-rose hover:bg-rose/10"
               onClick={() => setRejectOpen((v) => !v)}
               disabled={verify.isPending || verification === 'rejected'}
-              className="inline-flex items-center gap-1.5 h-9 px-3.5 text-xs font-mono font-bold uppercase tracking-wider bg-paper text-rose border border-rose/30 hover:bg-rose/10 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+              icon={<XIcon size={13} />}
             >
-              <AlertCircleIcon size={13} />
-              <span>Reject Submission</span>
-            </button>
-
-            {verification !== 'pending' && (
-              <button
-                type="button"
-                onClick={() =>
-                  verify.mutate({ status: 'pending', reason: '', expectStatus: verification })
-                }
+              Reject submission
+            </Button>
+            {verification !== 'pending' ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => verify.mutate({ status: 'pending', reason: '', expectStatus: verification })}
                 disabled={verify.isPending}
-                className="inline-flex items-center gap-1.5 h-9 px-3.5 text-xs font-mono font-semibold uppercase tracking-wider bg-bone text-ink-3 hover:text-ink hover:bg-mist border border-ink/15 disabled:opacity-40 transition-colors"
+                icon={<ClockIcon size={13} />}
               >
-                <ClockIcon size={13} />
-                <span>Return to Review</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Rejection Form Drawer */}
-        {rejectOpen && (
-          <div className="p-4 bg-rose/5 border border-rose/25 space-y-3 animate-fadeIn">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-mono font-bold uppercase tracking-wider text-rose">
-                Required Feedback for Supplier
-              </label>
-              <span className="text-[10px] font-mono text-ink-4">
-                {rejectReason.length}/500 chars (min 5)
-              </span>
+                Return to review
+              </Button>
+            ) : null}
+          </>
+        }
+      >
+        {rejectOpen ? (
+          <Callout tone="danger" title="Required feedback for supplier">
+            <div className="mt-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="reject-reason" className="mb-0">
+                  Rejection reason
+                </Label>
+                <span className="font-mono text-[10px] text-ink-4">
+                  {rejectReason.length}/500 · min 5
+                </span>
+              </div>
+              <Textarea
+                id="reject-reason"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder="State reasons for KYB rejection (e.g. invalid tax identification number, expired municipal food health license, unverified contact information)…"
+              />
+              <div className="flex items-center justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setRejectOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  disabled={!rejectReasonOk}
+                  loading={verify.isPending}
+                  onClick={() =>
+                    verify.mutate({
+                      status: 'rejected',
+                      reason: rejectReason.trim(),
+                      expectStatus: verification,
+                    })
+                  }
+                >
+                  Confirm rejection
+                </Button>
+              </div>
             </div>
-            <textarea
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              className="w-full min-h-[88px] bg-paper p-3 text-sm text-ink border border-ink/20 focus:border-rose focus:outline-none placeholder:text-ink-4 font-mono shadow-sm"
-              maxLength={500}
-              placeholder="State reasons for KYB rejection (e.g. invalid tax identification number, expired municipal food health license, unverified contact information)..."
-            />
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setRejectOpen(false)}
-                className="px-3 py-1.5 text-xs font-mono font-medium text-ink-3 hover:text-ink"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={!rejectReasonOk || verify.isPending}
-                onClick={() =>
-                  verify.mutate({
-                    status: 'rejected',
-                    reason: rejectReason.trim(),
-                    expectStatus: verification,
-                  })
-                }
-                className="px-4 py-1.5 text-xs font-mono font-bold uppercase tracking-wider bg-rose text-paper hover:bg-rose-deep disabled:opacity-50 transition-colors shadow-sm"
-              >
-                Confirm Rejection Notice
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Authorized Organization Members */}
-      <div className="bg-paper border border-ink/15 shadow-sm overflow-hidden">
-        <div className="p-4 sm:px-6 border-b border-ink/10 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <UserIcon size={16} className="text-copper" />
-            <h2 className="vyro-display text-lg font-bold text-ink">
-              Authorized Personnel &amp; Operators ({s.members.length})
-            </h2>
-          </div>
-          <span className="text-[10px] font-mono text-ink-4 uppercase tracking-wider">
-            RBAC Access Ledger
-          </span>
-        </div>
-
-        {s.members.length === 0 ? (
-          <div className="p-8 text-center text-xs text-ink-4">
-            No linked team members found for this supplier entity.
-          </div>
+          </Callout>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead>
-                <tr className="border-b border-ink/10 bg-bone/60 text-[10px] font-mono uppercase tracking-wider text-ink-3">
-                  <th className="py-2.5 px-4 sm:px-6">Member / Email</th>
-                  <th className="py-2.5 px-4 sm:px-6">Assigned Role</th>
-                  <th className="py-2.5 px-4 sm:px-6">User ID</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/10">
-                {s.members.map((m) => (
-                  <tr key={m.userId} className="hover:bg-bone/40 transition-colors">
-                    <td className="py-3 px-4 sm:px-6">
-                      <div className="font-mono text-xs font-semibold text-ink">
-                        {m.email || '—'}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 sm:px-6">
-                      <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-mist text-ink border border-line">
-                        {m.role}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 sm:px-6 font-mono text-[11px] text-ink-4">
-                      {m.userId}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <p className="text-xs leading-relaxed text-ink-4">
+            Current status: <span className="font-semibold text-ink">{verificationLabel}</span>. Approving authorizes the
+            hub to publish offers and clear purchase orders; rejecting returns the submission to the supplier with your
+            feedback.
+          </p>
         )}
-      </div>
+      </Panel>
 
-      {/* Facility Metadata & Audit Info */}
-      <div className="p-5 bg-bone/50 border border-ink/10 text-xs text-ink-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="space-y-0.5">
+      <SupplierTrustSignalsCard supplierId={s.id} />
+
+      <TableCard
+        title={
+          <>
+            <span className="inline-flex items-center gap-2">
+              <UserIcon size={15} className="text-ink-3" />
+              Authorized personnel &amp; operators
+            </span>
+          </>
+        }
+        description={`${s.members.length} linked ${s.members.length === 1 ? 'member' : 'members'} · RBAC access ledger`}
+      >
+        {s.members.length === 0 ? (
+          <EmptyBlock
+            icon={<UserIcon size={22} />}
+            title="No team members"
+            description="No linked team members found for this supplier entity."
+          />
+        ) : (
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Member / email</th>
+                <th>Assigned role</th>
+                <th>User ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {s.members.map((m) => (
+                <tr key={m.userId}>
+                  <td>
+                    <span className="font-mono text-[13px] font-medium text-ink">{m.email || '—'}</span>
+                  </td>
+                  <td>
+                    <Pill tone="neutral">{m.role}</Pill>
+                  </td>
+                  <td>
+                    <span className="font-mono text-[11px] text-ink-4">{m.userId}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </TableCard>
+
+      <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1 text-xs text-ink-4">
           <div>
             Entity registered on{' '}
-            <span className="font-mono text-ink font-semibold">
+            <span className="font-mono font-semibold text-ink">
               {new Date(s.createdAt).toLocaleString('en-US', {
                 dateStyle: 'medium',
                 timeStyle: 'short',
               })}
             </span>
           </div>
-          <div className="text-[10px]">
-            Wholesale clearing identification:{' '}
-            <span className="font-mono text-ink-3">{s.id}</span>
-          </div>
+          <div className="font-mono text-[11px]">Wholesale clearing ID: {s.id}</div>
         </div>
         <Link
           to="/admin/suppliers"
-          className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-copper hover:text-ink transition-colors self-start sm:self-auto"
+          className="inline-flex items-center gap-1.5 self-start text-xs font-semibold text-copper transition-colors hover:text-ink sm:self-auto"
         >
-          <span>View All Registered Suppliers</span>
+          View all registered suppliers
           <ArrowRightIcon size={12} />
         </Link>
-      </div>
-    </div>
+      </Card>
+    </AdminPage>
   );
 }

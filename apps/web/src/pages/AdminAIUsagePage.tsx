@@ -1,13 +1,29 @@
 import { useEffect, useState, useMemo } from 'react';
-import { PageHeader, Surface, ErrorBanner, Button, EmptyState } from '@/components/ui';
+import { Button } from '@/components/ui';
 import {
   ClockIcon,
-  CheckCircleIcon,
   AlertCircleIcon,
   TrendingUpIcon,
   SparklesIcon,
   FileTextIcon,
+  RefreshCwIcon,
+  CalendarIcon,
 } from '@/components/icons';
+import { cn } from '@vyro/ui';
+import {
+  AdminPage,
+  AdminPageHeader,
+  Callout,
+  Card,
+  EmptyBlock,
+  Panel,
+  Pill,
+  StatCard,
+  StatGrid,
+  TableCard,
+  TableSkeleton,
+  Tabs,
+} from '@/admin/ui';
 
 interface UsageRow {
   intent: string;
@@ -101,240 +117,219 @@ export function AdminAIUsagePage() {
     return (data.tokensIn ?? 0) + (data.tokensOut ?? 0);
   }, [data]);
 
+  const activeRange = TIME_RANGES.find((r) => r.days === days);
+
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-12">
-      {/* Top Header */}
-      <PageHeader
+    <AdminPage>
+      <AdminPageHeader
         kicker="AI Platform & Inference"
         title="AI Telemetry & Costs"
-        sub="Monitor token consumption, inference latency, provider routing, error rates, and model economics across platform AI features."
+        description="Monitor token consumption, inference latency, provider routing, error rates, and model economics across platform AI features."
         actions={
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-ink/10 shadow-sm text-xs">
-              {TIME_RANGES.map((r) => (
-                <button
-                  key={r.days}
-                  type="button"
-                  onClick={() => setDays(r.days)}
-                  className={`px-3 py-1 rounded-lg font-medium transition-all ${
-                    days === r.days
-                      ? 'bg-ink text-volt font-bold shadow-sm'
-                      : 'text-ink-4 hover:text-ink'
-                  }`}
-                >
-                  {r.short}
-                </button>
-              ))}
-            </div>
-
+          <>
+            <Tabs
+              items={TIME_RANGES.map((r) => ({ key: String(r.days), label: r.short }))}
+              value={String(days)}
+              onChange={(k) => setDays(Number(k))}
+              ariaLabel="Telemetry time range"
+            />
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
+              className="h-10"
               onClick={() => fetchData(days)}
               loading={loading}
+              icon={<RefreshCwIcon size={14} />}
               title="Refresh AI usage data"
             >
               Refresh
             </Button>
-          </div>
+          </>
         }
       />
 
       {error ? (
-        <ErrorBanner message={error} />
+        <Callout
+          tone="danger"
+          title="Could not load AI telemetry"
+          action={
+            <Button variant="secondary" size="sm" onClick={() => fetchData(days)}>
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Callout>
       ) : null}
 
       {/* Loading Skeleton */}
-      {loading && !data && (
-        <div className="py-16 text-center text-xs font-mono text-ink-4">
-          Querying AI inference telemetry and usage logs...
+      {loading && !data ? (
+        <div className="space-y-6">
+          <StatGrid cols={4}>
+            {[0, 1, 2, 3].map((i) => (
+              <StatCard key={i} label="" value="" loading />
+            ))}
+          </StatGrid>
+          <Card>
+            <TableSkeleton rows={5} cols={3} />
+          </Card>
         </div>
-      )}
+      ) : null}
 
       {/* Main Content */}
-      {data && (
+      {data ? (
         <>
-          {/* Executive KPI Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Total Invocations */}
-            <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Total Calls</span>
-                <div className="w-8 h-8 rounded-lg bg-sand/60 flex items-center justify-center text-ink">
-                  <SparklesIcon size={16} />
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl font-bold font-mono text-ink">
-                  {data.totalRequests.toLocaleString()}
-                </div>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span
-                    className={`px-1.5 py-0.5 text-[10px] font-mono font-bold uppercase rounded ${
-                      data.failedRequests === 0
-                        ? 'bg-mint/15 text-mint'
-                        : 'bg-rose/15 text-rose'
-                    }`}
-                  >
-                    {data.failedRequests === 0 ? '0 Failed' : `${data.failedRequests} Failed (${(data.failureRate * 100).toFixed(1)}%)`}
-                  </span>
-                </div>
-              </div>
-            </div>
+          <StatGrid cols={4}>
+            <StatCard
+              label="Total calls"
+              value={data.totalRequests.toLocaleString()}
+              sub={activeRange ? activeRange.label : `${days}d window`}
+              icon={<SparklesIcon size={16} />}
+              status={
+                data.failedRequests === 0 ? (
+                  <Pill tone="success" dot>
+                    0 failed
+                  </Pill>
+                ) : (
+                  <Pill tone="danger" dot>
+                    {data.failedRequests} failed ({(data.failureRate * 100).toFixed(1)}%)
+                  </Pill>
+                )
+              }
+              tone={data.failedRequests > 0 ? 'danger' : 'neutral'}
+            />
+            <StatCard
+              label="Tokens processed"
+              value={totalTokens.toLocaleString()}
+              sub={`In: ${data.tokensIn.toLocaleString()} · Out: ${data.tokensOut.toLocaleString()}`}
+              icon={<FileTextIcon size={16} />}
+            />
+            <StatCard
+              label="Estimated cost"
+              value={`$${data.costEstimateUsd.toFixed(2)}`}
+              sub="Workers AI standard tier pricing"
+              icon={<TrendingUpIcon size={16} />}
+              tone={data.costEstimateUsd > 0 ? 'warning' : 'neutral'}
+            />
+            <StatCard
+              label="Avg latency"
+              value={`${data.avgLatencyMs.toLocaleString()} ms`}
+              sub={`p95: ${(data.p95LatencyMs ?? data.avgLatencyMs).toLocaleString()} ms`}
+              icon={<ClockIcon size={16} />}
+            />
+          </StatGrid>
 
-            {/* Token Consumption */}
-            <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Tokens Processed</span>
-                <div className="w-8 h-8 rounded-lg bg-sand/60 flex items-center justify-center text-ink">
-                  <FileTextIcon size={16} />
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl font-bold font-mono text-ink">
-                  {totalTokens.toLocaleString()}
-                </div>
-                <p className="text-[11px] text-ink-4 mt-1 font-mono">
-                  In: {data.tokensIn.toLocaleString()} &bull; Out: {data.tokensOut.toLocaleString()}
-                </p>
-              </div>
-            </div>
-
-            {/* Estimated Spend */}
-            <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Estimated Cost</span>
-                <div className="w-8 h-8 rounded-lg bg-mint/15 flex items-center justify-center text-mint">
-                  <TrendingUpIcon size={16} />
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl font-bold font-mono text-ink">
-                  ${data.costEstimateUsd.toFixed(2)}
-                </div>
-                <p className="text-[11px] text-ink-4 mt-1">
-                  Workers AI standard tier pricing
-                </p>
-              </div>
-            </div>
-
-            {/* Inference Latency */}
-            <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Avg Latency</span>
-                <div className="w-8 h-8 rounded-lg bg-sand/60 flex items-center justify-center text-ink">
-                  <ClockIcon size={16} />
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl font-bold font-mono text-ink">
-                  {data.avgLatencyMs} <span className="text-xs font-normal text-ink-4">ms</span>
-                </div>
-                <p className="text-[11px] text-ink-4 mt-1 font-mono">
-                  p95: {data.p95LatencyMs ?? data.avgLatencyMs} ms
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Breakdown Grids: Intent, Provider, Errors */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {/* By Intent */}
-            <Surface className="p-5 bg-white border border-ink/10 shadow-sm space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-ink/10">
-                <h3 className="text-sm font-bold text-ink">Invocations by Intent</h3>
-                <span className="text-xs font-mono text-ink-4">{data.byIntent.length} intents</span>
-              </div>
+          {/* Breakdown Grids: Intent, Provider */}
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <Panel
+              title="Invocations by intent"
+              description="AI feature call distribution"
+              icon={<SparklesIcon size={16} />}
+              actions={<Pill tone="neutral">{data.byIntent.length} intents</Pill>}
+            >
               <BarBreakdown rows={data.byIntent} labelKey="intent" total={data.totalRequests} suffix="calls" />
-            </Surface>
+            </Panel>
 
-            {/* By Provider */}
-            <Surface className="p-5 bg-white border border-ink/10 shadow-sm space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-ink/10">
-                <h3 className="text-sm font-bold text-ink">Model Provider Routing</h3>
-                <span className="text-xs font-mono text-ink-4">{data.byProvider.length} providers</span>
-              </div>
+            <Panel
+              title="Model provider routing"
+              description="Traffic split across inference providers"
+              icon={<TrendingUpIcon size={16} />}
+              actions={<Pill tone="neutral">{data.byProvider.length} providers</Pill>}
+            >
               <BarBreakdown rows={data.byProvider} labelKey="provider" total={data.totalRequests} suffix="calls" />
-            </Surface>
+            </Panel>
           </div>
 
           {/* Error Code Breakdown (if any) */}
-          {data.byError.length > 0 && (
-            <Surface className="p-5 bg-white border border-rose/30 shadow-sm space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-rose/20">
-                <div className="flex items-center gap-2">
-                  <AlertCircleIcon size={18} className="text-rose" />
-                  <h3 className="text-sm font-bold text-ink">Error & Anomaly Breakdown</h3>
-                </div>
-                <span className="px-2 py-0.5 text-xs font-mono font-bold rounded bg-rose/15 text-rose">
+          {data.byError.length > 0 ? (
+            <Panel
+              title="Error & anomaly breakdown"
+              description="Failures grouped by error code"
+              icon={<AlertCircleIcon size={16} className="text-rose" />}
+              actions={
+                <Pill tone="danger" dot>
                   {data.failedRequests} total failures
-                </span>
-              </div>
+                </Pill>
+              }
+            >
               <BarBreakdown rows={data.byError} labelKey="code" total={data.failedRequests} suffix="errors" accent="rose" />
-            </Surface>
-          )}
+            </Panel>
+          ) : null}
 
           {/* Daily Consumption Ledger */}
-          {data.cost?.byDay && data.cost.byDay.length > 0 && (
-            <Surface className="p-5 bg-white border border-ink/10 shadow-sm space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-ink/10">
-                <div>
-                  <h3 className="text-sm font-bold text-ink">Daily Consumption & Token Ledger</h3>
-                  <p className="text-xs text-ink-4 mt-0.5">Historical breakdown across calendar days</p>
-                </div>
-                <span className="text-xs font-mono text-ink-4">UTC Calendar</span>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-ink/10 bg-bone/40 text-[11px] uppercase tracking-wider font-semibold text-ink-3">
-                      <th className="py-2.5 px-3">Date (UTC)</th>
-                      <th className="py-2.5 px-3 text-right">Invocations</th>
-                      <th className="py-2.5 px-3 text-right">Tokens In</th>
-                      <th className="py-2.5 px-3 text-right">Tokens Out</th>
-                      <th className="py-2.5 px-3 text-right">Total Tokens</th>
-                      <th className="py-2.5 px-3 text-right">Errors</th>
+          {data.cost?.byDay && data.cost.byDay.length > 0 ? (
+            <TableCard
+              title="Daily consumption & token ledger"
+              description="Historical breakdown across calendar days."
+              actions={<Pill tone="neutral">UTC calendar</Pill>}
+              footer={
+                <span>
+                  <strong className="text-ink">{data.cost.byDay.length}</strong> day(s) in window
+                </span>
+              }
+            >
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Date (UTC)</th>
+                    <th className="text-right">Invocations</th>
+                    <th className="text-right">Tokens in</th>
+                    <th className="text-right">Tokens out</th>
+                    <th className="text-right">Total tokens</th>
+                    <th className="text-right">Errors</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.cost.byDay.map((d) => (
+                    <tr key={d.day}>
+                      <td>
+                        <span className="font-mono text-xs font-semibold text-ink">{d.day}</span>
+                      </td>
+                      <td className="text-right font-mono text-xs font-semibold text-ink">
+                        {d.calls.toLocaleString()}
+                      </td>
+                      <td className="text-right font-mono text-xs text-ink-4">{d.tokensIn.toLocaleString()}</td>
+                      <td className="text-right font-mono text-xs text-ink-4">{d.tokensOut.toLocaleString()}</td>
+                      <td className="text-right font-mono text-xs font-bold text-ink">
+                        {(d.tokensIn + d.tokensOut).toLocaleString()}
+                      </td>
+                      <td className="text-right">
+                        {d.errors > 0 ? (
+                          <Pill tone="danger">{d.errors}</Pill>
+                        ) : (
+                          <span className="font-mono text-xs text-mint">0</span>
+                        )}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-ink/5 font-mono">
-                    {data.cost.byDay.map((d) => (
-                      <tr key={d.day} className="hover:bg-sand/20 transition-colors">
-                        <td className="py-2.5 px-3 font-semibold text-ink">{d.day}</td>
-                        <td className="py-2.5 px-3 text-right text-ink font-semibold">{d.calls.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right text-ink-4">{d.tokensIn.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right text-ink-4">{d.tokensOut.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-ink">
-                          {(d.tokensIn + d.tokensOut).toLocaleString()}
-                        </td>
-                        <td className="py-2.5 px-3 text-right">
-                          {d.errors > 0 ? (
-                            <span className="text-rose font-bold">{d.errors}</span>
-                          ) : (
-                            <span className="text-mint">0</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Surface>
-          )}
+                  ))}
+                </tbody>
+              </table>
+            </TableCard>
+          ) : null}
 
           {/* Zero Data State */}
-          {data.totalRequests === 0 && (
-            <Surface className="p-12 text-center bg-white border border-ink/10">
-              <EmptyState
-                icon={<SparklesIcon size={28} />}
-                title="No AI Invocations Recorded"
+          {data.totalRequests === 0 ? (
+            <Card>
+              <EmptyBlock
+                icon={<SparklesIcon size={22} />}
+                title="No AI invocations recorded"
                 description={`No AI inference requests or token consumption were logged in the past ${days} day(s).`}
+                action={
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<CalendarIcon size={14} />}
+                    onClick={() => setDays(90)}
+                  >
+                    View past quarter
+                  </Button>
+                }
               />
-            </Surface>
-          )}
+            </Card>
+          ) : null}
         </>
-      )}
-    </div>
+      ) : null}
+    </AdminPage>
   );
 }
 
@@ -351,11 +346,13 @@ function BarBreakdown({
   suffix: string;
   accent?: 'rose';
 }) {
-  if (!rows.length) return <div className="text-xs text-ink-4 py-4 text-center">No telemetry data recorded.</div>;
+  if (!rows.length) {
+    return <p className="py-4 text-center text-xs text-ink-4">No telemetry data recorded.</p>;
+  }
   const max = Math.max(...rows.map((r) => Number(r.count ?? 0)), 1);
 
   return (
-    <ul className="space-y-2.5">
+    <ul className="space-y-3">
       {rows.map((r, i) => {
         const label = String(r[labelKey] ?? '—');
         const count = Number(r.count ?? 0);
@@ -363,18 +360,19 @@ function BarBreakdown({
         const pctOfTotal = total > 0 ? Math.round((count / total) * 100) : 0;
 
         return (
-          <li key={i} className="space-y-1 text-xs">
-            <div className="flex items-center justify-between font-mono">
-              <span className="font-semibold text-ink truncate max-w-xs">{label}</span>
-              <span className="text-ink-4">
-                {count.toLocaleString()} {suffix} ({pctOfTotal}%)
+          <li key={i} className="space-y-1.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="max-w-[60%] truncate font-mono text-xs font-semibold text-ink">{label}</span>
+              <span className="shrink-0 font-mono text-[11px] text-ink-4">
+                {count.toLocaleString()} {suffix} · {pctOfTotal}%
               </span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-sand/60">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/[0.07]">
               <div
-                className={`h-full rounded-full transition-all duration-300 ${
-                  accent === 'rose' ? 'bg-rose' : 'bg-ink'
-                }`}
+                className={cn(
+                  'h-full rounded-full transition-all duration-300',
+                  accent === 'rose' ? 'bg-rose' : 'bg-ink',
+                )}
                 style={{ width: `${Math.max(pctOfMax, 3)}%` }}
               />
             </div>

@@ -1,16 +1,15 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, type Dispatch, type SetStateAction } from 'react';
 import { Link } from 'react-router-dom';
-import { PageHeader } from '@/components/ui';
+import { cn } from '@vyro/ui';
+import { Button } from '@/components/ui';
 import {
-  MapPinIcon,
-  MailIcon,
-  ChevronDownIcon,
   StoreIcon,
   Building2Icon,
   ShieldCheckIcon,
   AlertCircleIcon,
+  MapPinIcon,
 } from './icons';
-import { PhoneIcon, SearchIcon, CheckCircleIcon, ClockIcon, ArrowRightIcon } from '@/components/icons';
+import { SearchIcon, ClockIcon, ArrowRightIcon, RefreshCwIcon, XIcon } from '@/components/icons';
 import { useAdminTable } from '@/lib/useAdminTable';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePermission } from './lib/permissions';
@@ -22,6 +21,20 @@ import {
 import { BulkActionBar } from './BulkActionBar';
 import { BulkConfirmDialog } from './BulkConfirmDialog';
 import { BulkResultDialog } from './BulkResultDialog';
+import {
+  AdminPage,
+  AdminPageHeader,
+  Callout,
+  CellStack,
+  EmptyBlock,
+  Pill,
+  StatCard,
+  StatGrid,
+  TableCard,
+  TableSkeleton,
+  Toolbar,
+  controlClass,
+} from './ui';
 
 interface Supplier {
   id: string;
@@ -48,6 +61,21 @@ interface Business {
   createdAt?: number;
 }
 
+interface RegistryTableHandle {
+  rows: (Supplier | Business)[];
+  loading: boolean;
+  fetchingMore: boolean;
+  hasMore: boolean;
+  loadMore: () => void;
+  error: boolean;
+  isFetching: boolean;
+  refetch: () => void;
+  filter: Record<string, string>;
+  setFilter: Dispatch<SetStateAction<Record<string, string>>>;
+  searchInput: string;
+  setSearchInput: (v: string) => void;
+}
+
 export function SuppliersPage() {
   const table = useAdminTable<Supplier>({
     endpoint: '/admin/suppliers',
@@ -66,87 +94,76 @@ export function SuppliersPage() {
   }, [rows]);
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
-      {/* Executive Header */}
-      <PageHeader
+    <AdminPage>
+      <AdminPageHeader
         kicker={
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="vyro-kicker text-copper">Registry</span>
-            <span className="text-ink-4">/</span>
-            <span className="text-[11px] font-mono text-ink-3">Wholesale Facilities</span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider">
-              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Verified Mill Ledger
-            </span>
-          </div>
+          <>
+            <span>Registry</span>
+            <span className="text-ink-5">/</span>
+            <span>Wholesale Facilities</span>
+          </>
         }
         title="Registered Suppliers"
-        sub="Audit, verify, and moderate primary agricultural millers, tea estates, certified food importers, and authorized wholesale distribution hubs across Sri Lanka."
+        description="Audit, verify, and moderate primary agricultural millers, tea estates, certified food importers, and authorized wholesale distribution hubs across Sri Lanka."
         actions={
-          <span className="inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-mono font-bold bg-paper border border-ink/15 text-ink shadow-sm">
-            <StoreIcon size={14} className="text-volt-deep" />
-            <span>{table.rows.length} Facilities Loaded{table.hasMore ? '+' : ''}</span>
-          </span>
+          <>
+            <Pill tone="brand" dot>
+              Verified mill ledger
+            </Pill>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={table.refetch}
+              loading={table.isFetching && !table.loading}
+              icon={table.isFetching ? undefined : <RefreshCwIcon size={14} />}
+            >
+              Refresh
+            </Button>
+          </>
         }
       />
 
-      {/* KPI Tiles */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            Total Wholesale Hubs
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-ink">{stats.total}</div>
-          <div className="text-[10px] text-ink-4">Registered facilities</div>
-        </div>
+      <StatGrid cols={5}>
+        <StatCard label="Wholesale hubs" value={stats.total} sub="Registered facilities" icon={<StoreIcon size={16} />} loading={table.loading} />
+        <StatCard
+          label="Verified & active"
+          value={stats.verified}
+          sub="Passed compliance audits"
+          icon={<ShieldCheckIcon size={16} />}
+          tone={stats.verified > 0 ? 'success' : 'neutral'}
+          loading={table.loading}
+        />
+        <StatCard
+          label="Pending review"
+          value={stats.pending}
+          sub="Awaiting certificate checks"
+          icon={<ClockIcon size={16} />}
+          tone={stats.pending > 0 ? 'warning' : 'neutral'}
+          loading={table.loading}
+        />
+        <StatCard
+          label="Suspended"
+          value={stats.suspended}
+          sub="Access held"
+          icon={<AlertCircleIcon size={16} />}
+          tone={stats.suspended > 0 ? 'danger' : 'neutral'}
+          loading={table.loading}
+        />
+        <StatCard
+          label="Regional coverage"
+          value={stats.districts}
+          sub="Districts served"
+          icon={<MapPinIcon size={16} />}
+          loading={table.loading}
+        />
+      </StatGrid>
 
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            Verified & Active
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-mint flex items-center gap-2">
-            <span>{stats.verified}</span>
-            <span className="size-2 rounded-full bg-mint" />
-          </div>
-          <div className="text-[10px] text-ink-4">Passed compliance audits</div>
-        </div>
-
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            Pending Review
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-amber">{stats.pending}</div>
-          <div className="text-[10px] text-ink-4">Awaiting certificate checks</div>
-        </div>
-
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            Regional Coverage
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-ink">{stats.districts} Districts</div>
-          <div className="text-[10px] text-ink-4">Milling & logistics depots</div>
-        </div>
-      </div>
-
-      {/* Search & Filter Controls */}
-      <TableControls
-        search={table.searchInput}
-        onSearch={table.setSearchInput}
-        status={table.filter.status ?? ''}
-        onStatus={(v) => table.setFilter((f) => ({ ...f, status: v }))}
+      <RegistryTable
+        kind="suppliers"
+        table={table}
         placeholder="Filter by supplier name, contact, city…"
       />
-
-      {/* Main Table Ledger */}
-      <Table
-        rows={table.rows}
-        isLoading={table.loading}
-        kind="suppliers"
-        loadMore={table.loadMore}
-        hasMore={table.hasMore}
-        fetchingMore={table.fetchingMore}
-      />
-    </div>
+    </AdminPage>
   );
 }
 
@@ -203,82 +220,66 @@ export function BusinessesPage() {
   ] : [];
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
-      {/* Executive Header */}
-      <PageHeader
+    <AdminPage>
+      <AdminPageHeader
         kicker={
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="vyro-kicker text-copper">Registry</span>
-            <span className="text-ink-4">/</span>
-            <span className="text-[11px] font-mono text-ink-3">Purchasing Entities</span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider">
-              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              SVAT Invoicing Ledger
-            </span>
-          </div>
+          <>
+            <span>Registry</span>
+            <span className="text-ink-5">/</span>
+            <span>Purchasing Entities</span>
+          </>
         }
         title="Registered Businesses"
-        sub="Manage commercial purchasing accounts across hotel groups, restaurant chains, regional supermarket retailers, and institutional buyers."
+        description="Manage commercial purchasing accounts across hotel groups, restaurant chains, regional supermarket retailers, and institutional buyers."
         actions={
-          <span className="inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-mono font-bold bg-paper border border-ink/15 text-ink shadow-sm">
-            <Building2Icon size={14} className="text-copper" />
-            <span>{table.rows.length} Buyers Loaded{table.hasMore ? '+' : ''}</span>
-          </span>
+          <>
+            <Pill tone="brand" dot>
+              SVAT invoicing ledger
+            </Pill>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={table.refetch}
+              loading={table.isFetching && !table.loading}
+              icon={table.isFetching ? undefined : <RefreshCwIcon size={14} />}
+            >
+              Refresh
+            </Button>
+          </>
         }
       />
 
-      {/* KPI Tiles */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            Total Commercial Buyers
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-ink">{stats.total}</div>
-          <div className="text-[10px] text-ink-4">Registered purchasing entities</div>
-        </div>
+      <StatGrid cols={4}>
+        <StatCard label="Commercial buyers" value={stats.total} sub="Registered purchasing entities" icon={<Building2Icon size={16} />} loading={table.loading} />
+        <StatCard
+          label="Active accounts"
+          value={stats.active}
+          sub="Eligible to issue POs"
+          icon={<ShieldCheckIcon size={16} />}
+          tone={stats.active > 0 ? 'success' : 'neutral'}
+          loading={table.loading}
+        />
+        <StatCard
+          label="Suspended"
+          value={stats.suspended}
+          sub="Access temporarily held"
+          icon={<AlertCircleIcon size={16} />}
+          tone={stats.suspended > 0 ? 'danger' : 'neutral'}
+          loading={table.loading}
+        />
+        <StatCard
+          label="Regional operations"
+          value={stats.districts}
+          sub="Distribution destinations"
+          icon={<MapPinIcon size={16} />}
+          loading={table.loading}
+        />
+      </StatGrid>
 
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            Active Purchasing Accounts
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-mint">{stats.active}</div>
-          <div className="text-[10px] text-ink-4">Eligible to issue POs</div>
-        </div>
-
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            Suspended Accounts
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-rose">{stats.suspended}</div>
-          <div className="text-[10px] text-ink-4">Access temporarily held</div>
-        </div>
-
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            Regional Operations
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-ink">{stats.districts} Districts</div>
-          <div className="text-[10px] text-ink-4">Distribution destinations</div>
-        </div>
-      </div>
-
-      {/* Search & Filter Controls */}
-      <TableControls
-        search={table.searchInput}
-        onSearch={table.setSearchInput}
-        status={table.filter.status ?? ''}
-        onStatus={(v) => table.setFilter((f) => ({ ...f, status: v }))}
-        placeholder="Filter by business name, contact, city…"
-      />
-
-      {/* Main Table Ledger */}
-      <Table
-        rows={table.rows}
-        isLoading={table.loading}
+      <RegistryTable
         kind="businesses"
-        loadMore={table.loadMore}
-        hasMore={table.hasMore}
-        fetchingMore={table.fetchingMore}
+        table={table}
+        placeholder="Filter by business name, contact, city…"
         selected={selected}
         onToggle={toggle}
         onToggleAll={toggleAll}
@@ -306,253 +307,250 @@ export function BusinessesPage() {
         result={result}
         onClose={() => setResult(null)}
       />
-    </div>
+    </AdminPage>
   );
 }
 
-function TableControls({
-  search,
-  onSearch,
-  status,
-  onStatus,
-  placeholder = 'Filter by name…',
-}: {
-  search: string;
-  onSearch: (v: string) => void;
-  status: string;
-  onStatus: (v: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div className="flex flex-col sm:flex-row gap-3">
-      <div className="relative flex-1">
-        <SearchIcon size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-4" />
-        <input
-          type="text"
-          placeholder={placeholder}
-          value={search}
-          onChange={(e) => onSearch(e.target.value)}
-          className="w-full h-10 pl-10 pr-3 text-sm bg-paper placeholder:text-ink-4 focus:outline-none border border-ink/15 focus:border-ink shadow-sm"
-        />
-      </div>
-      <div className="relative shrink-0">
-        <select
-          value={status}
-          onChange={(e) => onStatus(e.target.value)}
-          className="appearance-none h-10 pl-3.5 pr-9 text-xs font-mono font-medium bg-paper border border-ink/15 focus:border-ink focus:outline-none cursor-pointer shadow-sm"
-        >
-          <option value="">All Operating Statuses</option>
-          <option value="active">Active Accounts</option>
-          <option value="suspended">Suspended Accounts</option>
-        </select>
-        <ChevronDownIcon size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-ink-4" />
-      </div>
-    </div>
-  );
-}
-
-function Table({
-  rows,
-  isLoading,
+function RegistryTable({
   kind,
-  loadMore,
-  hasMore,
-  fetchingMore,
+  table,
+  placeholder = 'Filter by name…',
   selected,
   onToggle,
   onToggleAll,
   exceedsCap,
 }: {
-  rows: (Supplier | Business)[];
-  isLoading?: boolean;
   kind: 'suppliers' | 'businesses';
-  loadMore: () => void;
-  hasMore: boolean;
-  fetchingMore: boolean;
+  table: RegistryTableHandle;
+  placeholder?: string;
   selected?: Set<string>;
   onToggle?: (id: string) => void;
   onToggleAll?: () => void;
   exceedsCap?: boolean;
 }) {
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-16 bg-paper border border-ink/10 animate-pulse" />
-        ))}
-      </div>
-    );
-  }
+  const rows = table.rows;
+  const noun = kind === 'suppliers' ? 'supplier' : 'business';
+  const filtered = table.searchInput.trim() !== '' || !!table.filter.status;
+  const resetFilters = () => {
+    table.setSearchInput('');
+    table.setFilter((f) => ({ ...f, status: '' }));
+  };
 
   return (
-    <div className="space-y-4">
-      {rows.length === 0 ? (
-        <div className="p-12 text-center bg-paper border border-ink/15 shadow-sm space-y-3">
-          <div className="size-12 bg-bone text-ink-3 mx-auto flex items-center justify-center">
-            {kind === 'suppliers' ? <StoreIcon size={22} /> : <Building2Icon size={22} />}
-          </div>
-          <h3 className="vyro-display text-xl text-ink font-bold">No records found</h3>
-          <p className="text-xs text-ink-4">No matching registered entities in this view filter.</p>
-        </div>
-      ) : (
-        <div className="bg-paper border border-ink/15 overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead>
-                <tr className="border-b border-ink/15 bg-bone/70 text-[10px] font-mono uppercase tracking-wider text-ink-3">
-                  {selected && onToggle && onToggleAll ? (
-                    <th className="py-3 px-4 w-8">
-                      <input
-                        type="checkbox"
-                        aria-label="Select all"
-                        checked={selected.size > 0 && selected.size === rows.length}
-                        disabled={!!exceedsCap}
-                        title={exceedsCap ? 'Bulk actions cap at 100 — refine filter' : undefined}
-                        onChange={onToggleAll}
-                      />
-                    </th>
-                  ) : null}
-                  <th className="py-3 px-4">Entity & ID</th>
-                  <th className="py-3 px-4">Location & District</th>
-                  <th className="py-3 px-4">Direct Contact</th>
-                  <th className="py-3 px-4">Compliance Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/10">
-                {rows.map((r) => {
-                  const isSup = kind === 'suppliers';
-                  const sup = isSup ? (r as Supplier) : null;
-                  const detailPath = isSup ? `/admin/suppliers/${r.id}` : `/admin/businesses/${r.id}`;
-                  const isSuspended = r.status === 'suspended';
-                  const isVerified = sup?.verificationStatus === 'verified';
-                  const isPending = sup?.verificationStatus === 'pending';
-
-                  return (
-                    <tr key={r.id} className="hover:bg-bone/40 transition-colors group">
-                      {selected && onToggle ? (
-                        <td className="py-3.5 px-4 w-8">
-                          <input
-                            type="checkbox"
-                            aria-label={`Select ${r.name}`}
-                            checked={selected.has(r.id)}
-                            onChange={() => onToggle(r.id)}
-                          />
-                        </td>
-                      ) : null}
-                      <td className="py-3.5 px-4">
-                        <Link to={detailPath} className="block group-hover:text-copper transition-colors">
-                          <div className="font-display font-semibold text-ink text-base flex items-center gap-2">
-                            <span>{r.name}</span>
-                            {isVerified && (
-                              <span className="size-2 rounded-full bg-emerald-500 shrink-0" title="Verified Facility" />
-                            )}
-                          </div>
-                          <div className="text-[10px] font-mono text-ink-4 mt-0.5">
-                            ID: {r.id}
-                          </div>
-                        </Link>
-                      </td>
-
-                      <td className="py-3.5 px-4 text-xs">
-                        <div className="flex items-center gap-1.5 font-medium text-ink">
-                          <MapPinIcon size={13} className="text-copper shrink-0" />
-                          <span>{r.city}</span>
-                        </div>
-                        <div className="mt-1">
-                          <span className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider bg-mist text-ink border border-line">
-                            {r.district}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td className="py-3.5 px-4 text-xs space-y-1">
-                        {r.contactPerson && (
-                          <div className="font-medium text-ink text-[11px]">
-                            {r.contactPerson}
-                          </div>
-                        )}
-                        <div className="flex flex-col gap-0.5">
-                          <a
-                            href={`mailto:${r.email}`}
-                            className="inline-flex items-center gap-1.5 text-copper hover:text-ink font-mono text-xs transition-colors"
-                          >
-                            <MailIcon size={12} className="shrink-0" />
-                            <span className="truncate max-w-[190px]">{r.email}</span>
-                          </a>
-                          {r.phone && (
-                            <a
-                              href={`tel:${r.phone}`}
-                              className="inline-flex items-center gap-1.5 text-ink-4 hover:text-ink font-mono text-[11px] transition-colors"
-                            >
-                              <PhoneIcon size={11} className="shrink-0" />
-                              <span>{r.phone}</span>
-                            </a>
-                          )}
-                        </div>
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <div className="flex flex-col gap-1 items-start">
-                          {isSup ? (
-                            isVerified ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-mint/15 text-mint border border-mint/25">
-                                <CheckCircleIcon size={11} /> Verified
-                              </span>
-                            ) : isPending ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-amber/15 text-amber border border-amber/25">
-                                <ClockIcon size={11} /> Pending KYC
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-mist text-ink-4 border border-line">
-                                Standard
-                              </span>
-                            )
-                          ) : null}
-
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider ${
-                              isSuspended
-                                ? 'bg-rose/15 text-rose border border-rose/30'
-                                : 'bg-bone text-ink-3 border border-ink/10'
-                            }`}
-                          >
-                            <span className={`size-1.5 rounded-full ${isSuspended ? 'bg-rose' : 'bg-emerald-500'}`} />
-                            {isSuspended ? 'Suspended' : 'Active Account'}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td className="py-3.5 px-4 text-right">
-                        <Link
-                          to={detailPath}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-bone hover:bg-ink hover:text-paper border border-ink/15 transition-all group-hover:border-ink"
-                        >
-                          <span>Manage</span>
-                          <ArrowRightIcon size={12} className="opacity-60 group-hover:opacity-100" />
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {hasMore && (
-            <div className="border-t border-ink/10 p-4 text-center bg-bone/30">
+    <TableCard
+      title={kind === 'suppliers' ? 'Supplier ledger' : 'Buyer ledger'}
+      toolbar={
+        <Toolbar
+          actions={
+            <select
+              value={table.filter.status ?? ''}
+              onChange={(e) => table.setFilter((f) => ({ ...f, status: e.target.value }))}
+              className={cn(controlClass, 'w-auto')}
+              aria-label="Filter by operating status"
+            >
+              <option value="">All operating statuses</option>
+              <option value="active">Active accounts</option>
+              <option value="suspended">Suspended accounts</option>
+            </select>
+          }
+        >
+          <div className="relative min-w-0 flex-1 sm:max-w-sm">
+            <SearchIcon size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
+            <input
+              type="text"
+              placeholder={placeholder}
+              value={table.searchInput}
+              onChange={(e) => table.setSearchInput(e.target.value)}
+              className={cn(controlClass, 'w-full pl-9 pr-8')}
+            />
+            {table.searchInput ? (
               <button
                 type="button"
-                onClick={loadMore}
-                disabled={fetchingMore}
-                className="text-xs font-mono font-bold uppercase tracking-wider text-ink hover:text-copper disabled:opacity-50 px-4 py-2 border border-ink/15 hover:border-ink bg-paper transition-all"
+                onClick={() => table.setSearchInput('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-4 transition-colors hover:text-ink"
+                title="Clear search"
+                aria-label="Clear search"
               >
-                {fetchingMore ? 'Loading More Records…' : 'Load Next Page ↓'}
+                <XIcon size={14} />
               </button>
-            </div>
-          )}
-        </div>
+            ) : null}
+          </div>
+        </Toolbar>
+      }
+      footer={
+        <>
+          <span>
+            Showing <strong className="text-ink">{rows.length}</strong> {noun}
+            {rows.length === 1 ? '' : 's'}
+            {filtered ? ' · filters applied' : ''}
+            {table.hasMore ? ' · more available' : ''}
+          </span>
+          <span className="flex items-center gap-3">
+            {filtered ? (
+              <button type="button" onClick={resetFilters} className="font-semibold text-copper transition-colors hover:text-ink">
+                Reset filters
+              </button>
+            ) : null}
+            {table.hasMore ? (
+              <Button variant="secondary" size="sm" onClick={table.loadMore} loading={table.fetchingMore}>
+                Load next page
+              </Button>
+            ) : null}
+          </span>
+        </>
+      }
+    >
+      {table.error ? (
+        <Callout
+          tone="danger"
+          className="m-4 sm:m-6"
+          title={`Couldn't load ${noun}s`}
+          action={
+            <Button variant="secondary" size="sm" onClick={table.refetch}>
+              Retry
+            </Button>
+          }
+        >
+          The registry API didn't respond. Check the service and try again.
+        </Callout>
+      ) : null}
+      {table.loading ? (
+        <TableSkeleton rows={6} cols={selected ? 6 : 5} />
+      ) : rows.length === 0 ? (
+        <EmptyBlock
+          icon={kind === 'suppliers' ? <StoreIcon size={22} /> : <Building2Icon size={22} />}
+          title="No records found"
+          description={
+            filtered
+              ? 'No registered entities match the current search or status filter.'
+              : `There are no ${noun}s in the registry yet.`
+          }
+          action={
+            filtered ? (
+              <Button variant="secondary" size="sm" onClick={resetFilters}>
+                Reset all filters
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <table className="admin-table">
+          <thead>
+            <tr>
+              {selected && onToggle && onToggleAll ? (
+                <th className="w-10">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all"
+                    checked={selected.size > 0 && selected.size === rows.length}
+                    disabled={!!exceedsCap}
+                    title={exceedsCap ? 'Bulk actions cap at 100 — refine filter' : undefined}
+                    onChange={onToggleAll}
+                    className="accent-ink"
+                  />
+                </th>
+              ) : null}
+              <th>Entity &amp; ID</th>
+              <th>Location &amp; district</th>
+              <th>Direct contact</th>
+              <th>Compliance status</th>
+              <th>
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const isSup = kind === 'suppliers';
+              const sup = isSup ? (r as Supplier) : null;
+              const detailPath = isSup ? `/admin/suppliers/${r.id}` : `/admin/businesses/${r.id}`;
+              const isSuspended = r.status === 'suspended';
+              const isVerified = sup?.verificationStatus === 'verified';
+              const isPending = sup?.verificationStatus === 'pending';
+
+              return (
+                <tr key={r.id}>
+                  {selected && onToggle ? (
+                    <td className="w-10">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${r.name}`}
+                        checked={selected.has(r.id)}
+                        onChange={() => onToggle(r.id)}
+                        className="accent-ink"
+                      />
+                    </td>
+                  ) : null}
+                  <td>
+                    <Link to={detailPath} className="group/entity block">
+                      <span className="flex items-center gap-1.5 font-medium text-ink transition-colors group-hover/entity:text-copper">
+                        <span className="truncate">{r.name}</span>
+                        {isVerified ? (
+                          <span className="size-1.5 shrink-0 rounded-full bg-mint" title="Verified facility" />
+                        ) : null}
+                      </span>
+                      <span className="mt-0.5 block max-w-[220px] truncate font-mono text-[11px] text-ink-4">
+                        ID: {r.id}
+                      </span>
+                    </Link>
+                  </td>
+                  <td>
+                    <CellStack primary={r.city} secondary={r.district || undefined} />
+                  </td>
+                  <td>
+                    <div className="space-y-0.5">
+                      {r.contactPerson ? <div className="text-xs font-medium text-ink">{r.contactPerson}</div> : null}
+                      <a
+                        href={`mailto:${r.email}`}
+                        className="block max-w-[200px] truncate font-mono text-[11px] text-copper transition-colors hover:text-ink"
+                      >
+                        {r.email}
+                      </a>
+                      {r.phone ? (
+                        <a
+                          href={`tel:${r.phone}`}
+                          className="block font-mono text-[11px] text-ink-4 transition-colors hover:text-ink"
+                        >
+                          {r.phone}
+                        </a>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="flex flex-col items-start gap-1.5">
+                      {isSup ? (
+                        isVerified ? (
+                          <Pill tone="success" dot>
+                            Verified
+                          </Pill>
+                        ) : isPending ? (
+                          <Pill tone="warning" dot>
+                            Pending KYC
+                          </Pill>
+                        ) : (
+                          <Pill tone="neutral">Standard</Pill>
+                        )
+                      ) : null}
+                      <Pill tone={isSuspended ? 'danger' : 'success'} dot>
+                        {isSuspended ? 'Suspended' : 'Active'}
+                      </Pill>
+                    </div>
+                  </td>
+                  <td className="text-right">
+                    <Link
+                      to={detailPath}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-ink-3 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.14)] transition-colors hover:bg-ink hover:text-paper"
+                    >
+                      Manage
+                      <ArrowRightIcon size={12} />
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       )}
-    </div>
+    </TableCard>
   );
 }

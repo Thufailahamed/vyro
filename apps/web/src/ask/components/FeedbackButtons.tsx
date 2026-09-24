@@ -34,7 +34,7 @@ export function FeedbackButtons({ requestId, intentHint }: { requestId: string; 
     if (sent || sending || !requestId) return;
     setSending(true);
     try {
-      await api.post('/api/ai/feedback', {
+      await api.post('/ai/feedback', {
         requestId,
         helpful,
         ...(reason ? { reason } : {}),

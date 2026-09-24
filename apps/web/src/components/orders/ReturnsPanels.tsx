@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { RETURN_REASON_CODES, RETURN_REASON_LABEL, type ReturnReasonCode } from '@vyro/shared';
 import { api } from '@/lib/api';
 import { Button, EmptyState, ErrorBanner, Input, Label, PageHeader, Select, Textarea } from '@/components/ui';
-import { RefreshCwIcon, CheckCircleIcon, XIcon, PackageIcon } from '@/components/icons';
+import { RefreshCwIcon, CheckCircleIcon, XIcon, PackageIcon, ClockIcon, BanknoteIcon } from '@/components/icons';
 import { formatLKR } from '@/lib/format';
 import {
   formatLifecycleDate,
@@ -478,6 +478,30 @@ function ReceiveReturnDialog({ ret, onClose, onDone }: { ret: OrderReturn; onClo
 
 /* ── List pages ── */
 
+function ReturnsTableSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="vyro-surface overflow-hidden">
+      <div className="divide-y divide-ink/[0.05]">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="flex items-center gap-6 px-5 py-4 animate-pulse">
+            <div className="w-28 space-y-2">
+              <div className="h-3.5 rounded bg-ink/10" />
+              <div className="h-2.5 w-2/3 rounded bg-ink/5" />
+            </div>
+            <div className="h-3.5 w-20 rounded bg-ink/10" />
+            <div className="flex-1 space-y-2">
+              <div className="h-3.5 w-1/2 rounded bg-ink/10" />
+              <div className="h-2.5 w-1/3 rounded bg-ink/5" />
+            </div>
+            <div className="h-5 w-16 rounded-md bg-ink/10" />
+            <div className="h-3.5 w-16 rounded bg-ink/10" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ReturnsTable({
   returns,
   orderLink,
@@ -486,39 +510,70 @@ export function ReturnsTable({
   orderLink: (r: OrderReturn) => string;
 }) {
   return (
-    <div className="overflow-x-auto border border-ink/10 rounded-xl bg-paper">
-      <table className="w-full text-sm text-left">
-        <thead>
-          <tr className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 border-b border-ink/10 bg-bone/40">
-            <th className="py-3 px-4 font-bold">RMA</th>
-            <th className="py-3 px-4 font-bold">Order</th>
-            <th className="py-3 px-4 font-bold">Status</th>
-            <th className="py-3 px-4 font-bold">Reason</th>
-            <th className="py-3 px-4 font-bold text-right">Refund</th>
-            <th className="py-3 px-4 font-bold text-right">Requested</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-ink/5">
-          {returns.map((r) => (
-            <tr key={r.id} className="hover:bg-bone/40 transition-colors">
-              <td className="py-3 px-4 font-mono font-semibold text-ink-1">{r.rmaNumber}</td>
-              <td className="py-3 px-4">
-                <Link to={orderLink(r)} className="font-mono text-copper hover:underline">
-                  {r.poNumber ?? r.purchaseOrderId.slice(0, 8)}
-                </Link>
-              </td>
-              <td className="py-3 px-4">
-                <ReturnStatusBadge status={r.status} />
-              </td>
-              <td className="py-3 px-4 text-xs text-ink-3">{RETURN_REASON_LABEL[r.reasonCode] ?? r.reasonCode}</td>
-              <td className="py-3 px-4 text-right font-mono">
-                {r.refundCents != null && r.refundCents > 0 ? formatLKR(r.refundCents) : '—'}
-              </td>
-              <td className="py-3 px-4 text-right text-xs font-mono text-ink-4">{formatLifecycleDate(r.requestedAt)}</td>
+    <div className="vyro-surface overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-ink/10 bg-bone/60 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-4">
+              <th className="px-5 py-3">RMA</th>
+              <th className="px-4 py-3">Order</th>
+              <th className="px-4 py-3">Reason</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-right">Refund</th>
+              <th className="px-5 py-3 text-right">Requested</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-ink/[0.05]">
+            {returns.map((r) => {
+              const itemCount = r.items.reduce((n, it) => n + it.quantity, 0);
+              return (
+                <tr key={r.id} className="transition-colors hover:bg-bone/40">
+                  <td className="px-5 py-3.5">
+                    <div className="font-mono text-[13px] font-semibold text-ink-1">{r.rmaNumber}</div>
+                    <div className="mt-0.5 text-[11px] text-ink-4">
+                      {itemCount} {itemCount === 1 ? 'unit' : 'units'} · {r.items.length} {r.items.length === 1 ? 'line' : 'lines'}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <Link
+                      to={orderLink(r)}
+                      className="font-mono text-[13px] text-copper transition-colors hover:text-ink"
+                    >
+                      {r.poNumber ?? r.purchaseOrderId.slice(0, 8)}
+                    </Link>
+                  </td>
+                  <td className="max-w-[220px] px-4 py-3.5">
+                    <div className="truncate text-xs font-medium text-ink-2">
+                      {RETURN_REASON_LABEL[r.reasonCode] ?? r.reasonCode}
+                    </div>
+                    {r.reasonNote ? (
+                      <div className="mt-0.5 truncate text-[11px] text-ink-4" title={r.reasonNote}>
+                        {r.reasonNote}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <ReturnStatusBadge status={r.status} />
+                  </td>
+                  <td className="px-4 py-3.5 text-right font-mono text-[13px] font-semibold">
+                    {r.refundCents != null && r.refundCents > 0 ? (
+                      formatLKR(r.refundCents)
+                    ) : (
+                      <span className="font-normal text-ink-4">—</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3.5 text-right font-mono text-[11px] text-ink-4">
+                    {formatLifecycleDate(r.requestedAt)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="border-t border-ink/[0.06] px-5 py-2.5 text-[11px] text-ink-4">
+        Showing <strong className="text-ink-2">{returns.length}</strong> {returns.length === 1 ? 'return' : 'returns'}
+      </div>
     </div>
   );
 }
@@ -555,6 +610,16 @@ export function ReturnsListView({
   });
   const returns = q.data?.returns ?? [];
 
+  const stats = useMemo(() => {
+    let awaiting = 0;
+    let refundCents = 0;
+    for (const r of returns) {
+      if (r.status === 'requested') awaiting++;
+      if (r.refundCents != null && r.refundCents > 0) refundCents += r.refundCents;
+    }
+    return { total: returns.length, awaiting, refundCents };
+  }, [returns]);
+
   return (
     <div className="space-y-6 max-w-6xl pb-12">
       <PageHeader
@@ -562,27 +627,80 @@ export function ReturnsListView({
         title={title}
         sub={sub}
         actions={
-          <div className="flex items-center gap-1.5">
-            {(['open', 'all'] as const).map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setFilter(f)}
-                className={`px-3.5 py-1.5 text-xs font-mono tracking-wider transition-colors border rounded ${
-                  filter === f
-                    ? 'bg-ink text-paper border-ink font-semibold'
-                    : 'bg-paper text-ink-3 border-ink/10 hover:bg-mist/60'
-                }`}
-              >
-                {f === 'open' ? 'Open' : 'All'}
-              </button>
-            ))}
-          </div>
+          <>
+            <div
+              role="tablist"
+              aria-label="Return status filter"
+              className="inline-flex items-center gap-1 rounded-full bg-ink/[0.05] p-1"
+            >
+              {(['open', 'all'] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === f}
+                  onClick={() => setFilter(f)}
+                  className={`rounded-full px-3.5 py-1.5 text-xs transition-colors ${
+                    filter === f
+                      ? 'bg-paper font-semibold text-ink shadow-sm'
+                      : 'font-medium text-ink-3 hover:text-ink'
+                  }`}
+                >
+                  {f === 'open' ? 'Open' : 'All'}
+                </button>
+              ))}
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void q.refetch()}
+              loading={q.isFetching && !q.isLoading}
+              icon={q.isFetching ? undefined : <RefreshCwIcon size={14} />}
+            >
+              Refresh
+            </Button>
+          </>
         }
       />
-      <ErrorBanner message={q.isError ? lifecycleErrorMessage(q.error, 'Could not load returns') : ''} />
+
+      {q.isError ? (
+        <ErrorBanner message={lifecycleErrorMessage(q.error, 'Could not load returns')} />
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatTile
+            label="In view"
+            value={String(stats.total)}
+            sub="Matching current filter"
+            icon={<PackageIcon size={15} />}
+            loading={q.isLoading}
+          />
+          <StatTile
+            label="Awaiting review"
+            value={String(stats.awaiting)}
+            sub="Needs a decision"
+            icon={<ClockIcon size={15} />}
+            tone="text-amber"
+            loading={q.isLoading}
+          />
+          <StatTile
+            label="Refund value"
+            value={formatLKR(stats.refundCents)}
+            sub="Issued to buyers"
+            icon={<BanknoteIcon size={15} />}
+            tone="text-mint"
+            loading={q.isLoading}
+          />
+        </div>
+      )}
+
       {q.isLoading ? (
-        <div className="h-40 bg-mist/60 animate-pulse rounded-xl" />
+        <ReturnsTableSkeleton />
+      ) : q.isError ? (
+        <div className="flex justify-center">
+          <Button variant="secondary" size="sm" onClick={() => void q.refetch()} icon={<RefreshCwIcon size={14} />}>
+            Try again
+          </Button>
+        </div>
       ) : returns.length === 0 ? (
         <EmptyState
           icon={<RefreshCwIcon size={20} />}
@@ -592,6 +710,37 @@ export function ReturnsListView({
       ) : (
         <ReturnsTable returns={returns} orderLink={orderLink} />
       )}
+    </div>
+  );
+}
+
+function StatTile({
+  label,
+  value,
+  sub,
+  icon,
+  tone = 'text-ink-3',
+  loading,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  icon: ReactNode;
+  tone?: string;
+  loading?: boolean;
+}) {
+  return (
+    <div className="vyro-surface p-4">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-4">{label}</span>
+        <span className={`flex size-8 items-center justify-center rounded-lg bg-bone ${tone}`}>{icon}</span>
+      </div>
+      {loading ? (
+        <div className="mt-2 h-7 w-16 animate-pulse rounded bg-ink/10" />
+      ) : (
+        <div className="mt-2 font-mono text-2xl font-semibold tracking-tight text-ink">{value}</div>
+      )}
+      <div className="mt-0.5 text-[11px] text-ink-4">{sub}</div>
     </div>
   );
 }

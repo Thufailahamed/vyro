@@ -365,7 +365,13 @@ function EmptyNote({ icon, children }: { icon: ReactNode; children: ReactNode })
 function DailyGmvChart({ days }: { days: Array<{ day: string; cents: number }> }) {
   const [hover, setHover] = useState<number | null>(null);
   const max = Math.max(...days.map((d) => d.cents), 1);
-  const active = hover !== null ? days[hover] : null;
+  const single = days.length === 1;
+  // ≤7 days get fixed-width centred columns; denser ranges fill the width.
+  const sparse = days.length <= 7;
+
+  if (!days.some((d) => d.cents > 0)) {
+    return <EmptyNote icon={<TrendingUpIcon size={18} />}>No invoiced volume in this window yet.</EmptyNote>;
+  }
 
   return (
     <figure>
@@ -380,13 +386,18 @@ function DailyGmvChart({ days }: { days: Array<{ day: string; cents: number }> }
           ))}
         </div>
 
-        <div className="relative ml-[4.5rem] flex h-44 items-end gap-0.5" onMouseLeave={() => setHover(null)} role="img" aria-label={`Daily GMV over ${days.length} days, peak ${formatLKR(max)}`}>
+        <div
+          className={cn('relative ml-[4.5rem] flex h-44 items-end', sparse ? 'justify-center gap-2' : 'gap-0.5')}
+          onMouseLeave={() => setHover(null)}
+          role="img"
+          aria-label={`Daily GMV over ${days.length} day${single ? '' : 's'}, peak ${formatLKR(max)}`}
+        >
           {days.map((d, i) => {
             const pct = Math.max(2, (d.cents / max) * 100);
             return (
               <div
                 key={d.day}
-                className="relative flex h-full flex-1 min-w-[3px] items-end cursor-default"
+                className={cn('relative flex h-full items-end cursor-default', sparse ? 'w-10' : 'min-w-[3px] flex-1')}
                 onMouseEnter={() => setHover(i)}
               >
                 <div
@@ -396,26 +407,28 @@ function DailyGmvChart({ days }: { days: Array<{ day: string; cents: number }> }
                   )}
                   style={{ height: `${pct}%` }}
                 />
+                {hover === i ? (
+                  <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink px-2.5 py-1.5 text-paper shadow-3">
+                    <div className="text-[10px] text-paper/60">{formatDay(d.day)}</div>
+                    <div className="text-xs font-semibold num-tabular">{formatLKR(d.cents)}</div>
+                  </div>
+                ) : null}
               </div>
             );
           })}
-
-          {active && hover !== null && (
-            <div
-              className="pointer-events-none absolute -top-2 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg bg-ink px-2.5 py-1.5 text-paper shadow-3"
-              style={{ left: `${((hover + 0.5) / days.length) * 100}%` }}
-            >
-              <div className="text-[10px] text-paper/60">{formatDay(active.day)}</div>
-              <div className="text-xs font-semibold num-tabular">{formatLKR(active.cents)}</div>
-            </div>
-          )}
         </div>
       </div>
 
-      <figcaption className="ml-[4.5rem] mt-2 flex justify-between text-[10px] text-ink-4">
-        <span>{formatDay(days[0]!.day)}</span>
-        <span>{days.length} days</span>
-        <span>{formatDay(days[days.length - 1]!.day)}</span>
+      <figcaption className={cn('ml-[4.5rem] mt-2 text-[10px] text-ink-4', single ? 'text-center' : 'flex justify-between')}>
+        {single ? (
+          <span>{formatDay(days[0]!.day)}</span>
+        ) : (
+          <>
+            <span>{formatDay(days[0]!.day)}</span>
+            <span>{days.length} days</span>
+            <span>{formatDay(days[days.length - 1]!.day)}</span>
+          </>
+        )}
       </figcaption>
 
       <table className="sr-only">

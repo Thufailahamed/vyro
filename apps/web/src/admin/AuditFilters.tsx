@@ -1,5 +1,8 @@
 import { useState, useId } from 'react';
+import { cn } from '@vyro/ui';
+import { Label } from '@/components/ui';
 import { SearchIcon, FilterIcon, ClockIcon } from '@/components/icons';
+import { Card, Tabs, controlClass } from './ui';
 
 export type AuditFiltersState = {
   actorId: string;
@@ -142,34 +145,23 @@ export function AuditFilters({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-ink/10 shadow-sm p-4 sm:p-5 space-y-4">
+    <Card className="space-y-4">
       {/* Top Bar: Presets & Reset */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-ink/10">
-        <div className="flex items-center gap-2">
-          <ClockIcon size={16} className="text-ink-4" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Time Range</span>
-          <div className="flex flex-wrap items-center gap-1.5 ml-1">
-            {PRESETS.map((p) => {
-              const active = activePreset === p.id;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => handlePresetSelect(p.id)}
-                  className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-all ${
-                    active
-                      ? 'bg-ink text-volt font-semibold shadow-sm'
-                      : 'bg-bone text-ink-3 hover:bg-sand/60 hover:text-ink'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              );
-            })}
-          </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4">
+            <ClockIcon size={14} />
+            Time range
+          </span>
+          <Tabs
+            items={PRESETS.map((p) => ({ key: p.id, label: p.label }))}
+            value={activePreset}
+            onChange={(key) => handlePresetSelect(key as (typeof PRESETS)[number]['id'])}
+            ariaLabel="Time range presets"
+          />
         </div>
 
-        {isFiltered && (
+        {isFiltered ? (
           <button
             type="button"
             onClick={() => {
@@ -178,19 +170,19 @@ export function AuditFilters({
               setCustomTargetMode(false);
               onChange(emptyFilters());
             }}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-rose hover:text-rose/80 hover:underline self-start sm:self-auto"
+            className="self-start text-xs font-semibold text-rose transition-colors hover:text-rose/80 sm:self-auto"
           >
-            <span>Reset All Filters</span>
+            Reset all filters
           </button>
-        )}
+        ) : null}
       </div>
 
       {/* Custom Date Range Picker (shown when custom is selected) */}
-      {(isCustomDate || activePreset === 'custom') && (
-        <div className="flex flex-wrap items-center gap-3 p-3 bg-bone/70 rounded-xl border border-ink/10 animate-fade-in text-xs">
-          <span className="font-semibold text-ink-3 uppercase tracking-wider">Custom Window:</span>
+      {isCustomDate || activePreset === 'custom' ? (
+        <div className="flex flex-wrap items-center gap-4 rounded-lg bg-ink/[0.04] px-4 py-3 text-xs animate-fade-in">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4">Custom window</span>
           <label className="flex items-center gap-2">
-            <span className="text-ink-4">From:</span>
+            <span className="text-ink-4">From</span>
             <input
               type="date"
               value={formatDateVal(value.from)}
@@ -203,11 +195,11 @@ export function AuditFilters({
                   onChange({ ...value, from: String(ms) });
                 }
               }}
-              className="h-8 px-2 bg-white border border-ink/20 rounded-lg text-xs font-mono text-ink focus:outline-none focus:border-ink"
+              className={cn(controlClass, 'h-9 w-auto font-mono text-xs')}
             />
           </label>
           <label className="flex items-center gap-2">
-            <span className="text-ink-4">To:</span>
+            <span className="text-ink-4">To</span>
             <input
               type="date"
               value={formatDateVal(value.to)}
@@ -220,19 +212,17 @@ export function AuditFilters({
                   onChange({ ...value, to: String(ms) });
                 }
               }}
-              className="h-8 px-2 bg-white border border-ink/20 rounded-lg text-xs font-mono text-ink focus:outline-none focus:border-ink"
+              className={cn(controlClass, 'h-9 w-auto font-mono text-xs')}
             />
           </label>
         </div>
-      )}
+      ) : null}
 
       {/* Main Filter Grid: Action, Target Type, Actor, Target ID */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 gap-4 border-t border-ink/[0.07] pt-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Action Filter */}
         <div>
-          <label htmlFor={`${filterId}-action`} className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-            Action
-          </label>
+          <Label htmlFor={`${filterId}-action`}>Action</Label>
           {customActionMode ? (
             <div className="flex items-center gap-1.5">
               <input
@@ -241,7 +231,7 @@ export function AuditFilters({
                 placeholder="e.g. user.suspend"
                 value={value.action}
                 onChange={(e) => onChange({ ...value, action: e.target.value })}
-                className="w-full h-9 px-3 bg-paper text-xs font-mono text-ink rounded-lg border border-ink/20 focus:outline-none focus:border-ink"
+                className={cn(controlClass, 'w-full font-mono text-xs')}
               />
               <button
                 type="button"
@@ -249,7 +239,7 @@ export function AuditFilters({
                   setCustomActionMode(false);
                   onChange({ ...value, action: '' });
                 }}
-                className="px-2 h-9 text-xs text-ink-4 hover:text-ink border border-ink/15 rounded-lg bg-bone"
+                className={cn(controlClass, 'h-10 shrink-0 px-2.5 text-xs text-ink-3 hover:text-ink')}
                 title="Back to dropdown"
               >
                 List
@@ -267,9 +257,9 @@ export function AuditFilters({
                   onChange({ ...value, action: e.target.value });
                 }
               }}
-              className="w-full h-9 px-2.5 bg-paper text-xs text-ink rounded-lg border border-ink/20 focus:outline-none focus:border-ink font-medium"
+              className={cn(controlClass, 'w-full')}
             >
-              <option value="">All Actions</option>
+              <option value="">All actions</option>
               {COMMON_ACTIONS.map((group) => (
                 <optgroup key={group.group} label={group.group}>
                   {group.actions.map((act) => (
@@ -279,25 +269,23 @@ export function AuditFilters({
                   ))}
                 </optgroup>
               ))}
-              <option value="__custom__">Custom action query...</option>
+              <option value="__custom__">Custom action query…</option>
             </select>
           )}
         </div>
 
         {/* Target Type Filter */}
         <div>
-          <label htmlFor={`${filterId}-targetType`} className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-            Target Type
-          </label>
+          <Label htmlFor={`${filterId}-targetType`}>Target type</Label>
           {customTargetMode ? (
             <div className="flex items-center gap-1.5">
               <input
                 id={`${filterId}-targetType`}
                 type="text"
-                placeholder="e.g. user, order..."
+                placeholder="e.g. user, order…"
                 value={value.targetType}
                 onChange={(e) => onChange({ ...value, targetType: e.target.value })}
-                className="w-full h-9 px-3 bg-paper text-xs font-mono text-ink rounded-lg border border-ink/20 focus:outline-none focus:border-ink"
+                className={cn(controlClass, 'w-full font-mono text-xs')}
               />
               <button
                 type="button"
@@ -305,7 +293,7 @@ export function AuditFilters({
                   setCustomTargetMode(false);
                   onChange({ ...value, targetType: '' });
                 }}
-                className="px-2 h-9 text-xs text-ink-4 hover:text-ink border border-ink/15 rounded-lg bg-bone"
+                className={cn(controlClass, 'h-10 shrink-0 px-2.5 text-xs text-ink-3 hover:text-ink')}
                 title="Back to dropdown"
               >
                 List
@@ -323,59 +311,57 @@ export function AuditFilters({
                   onChange({ ...value, targetType: e.target.value });
                 }
               }}
-              className="w-full h-9 px-2.5 bg-paper text-xs text-ink rounded-lg border border-ink/20 focus:outline-none focus:border-ink font-medium"
+              className={cn(controlClass, 'w-full')}
             >
-              <option value="">All Target Types</option>
+              <option value="">All target types</option>
               {TARGET_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>
               ))}
-              <option value="__custom__">Custom target type...</option>
+              <option value="__custom__">Custom target type…</option>
             </select>
           )}
         </div>
 
         {/* Actor Search Input */}
         <div>
-          <label htmlFor={`${filterId}-actorId`} className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-            Actor ID
-          </label>
+          <Label htmlFor={`${filterId}-actorId`}>Actor ID</Label>
           <div className="relative">
+            <SearchIcon
+              size={14}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-4"
+            />
             <input
               id={`${filterId}-actorId`}
               type="text"
-              placeholder="Operator UUID..."
+              placeholder="Operator UUID…"
               value={value.actorId}
               onChange={(e) => onChange({ ...value, actorId: e.target.value })}
-              className="w-full h-9 pl-8 pr-3 bg-paper text-xs font-mono text-ink rounded-lg border border-ink/20 focus:outline-none focus:border-ink"
+              className={cn(controlClass, 'w-full pl-9 font-mono text-xs')}
             />
-            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-ink-4">
-              <SearchIcon size={14} />
-            </div>
           </div>
         </div>
 
         {/* Target ID / Search Input */}
         <div>
-          <label htmlFor={`${filterId}-targetId`} className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-            Target ID
-          </label>
+          <Label htmlFor={`${filterId}-targetId`}>Target ID</Label>
           <div className="relative">
+            <FilterIcon
+              size={14}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-4"
+            />
             <input
               id={`${filterId}-targetId`}
               type="text"
-              placeholder="Entity UUID or code..."
+              placeholder="Entity UUID or code…"
               value={value.targetId ?? ''}
               onChange={(e) => onChange({ ...value, targetId: e.target.value })}
-              className="w-full h-9 pl-8 pr-3 bg-paper text-xs font-mono text-ink rounded-lg border border-ink/20 focus:outline-none focus:border-ink"
+              className={cn(controlClass, 'w-full pl-9 font-mono text-xs')}
             />
-            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-ink-4">
-              <FilterIcon size={14} />
-            </div>
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

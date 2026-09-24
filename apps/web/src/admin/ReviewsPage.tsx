@@ -11,7 +11,7 @@ export function AdminReviewsPage(): JSX.Element {
   useEffect(() => {
     api
       .get<{ items?: Array<{ supplierId: string; flagCount: number }> }>(
-        '/api/admin/reviews/flag-burst?windowHours=24&minCount=3',
+        '/admin/reviews/flag-burst?windowHours=24&minCount=3',
       )
       .then((j) => setBurst(j.items ?? []))
       .catch(() => {});

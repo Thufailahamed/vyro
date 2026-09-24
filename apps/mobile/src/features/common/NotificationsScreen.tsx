@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
@@ -36,7 +36,7 @@ import { api, errorMessage, qs } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { humanize, timeAgo } from '@/lib/format';
 import { mobileHref } from '@/lib/mobileHref';
-import { colors, radii, shadow } from '@/theme/tokens';
+import { colors, radii } from '@/theme/tokens';
 import { go } from '../buyer/orders/kit';
 
 type Severity = 'info' | 'warning' | 'critical';
@@ -182,6 +182,12 @@ export function NotificationsScreen() {
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   gap: 12,
+                  backgroundColor: colors.voltSoft,
+                  borderRadius: radii.lg,
+                  borderCurve: 'continuous',
+                  paddingLeft: 14,
+                  paddingRight: 6,
+                  paddingVertical: 6,
                 }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -190,8 +196,7 @@ export function NotificationsScreen() {
                       width: 8,
                       height: 8,
                       borderRadius: 4,
-                      backgroundColor: colors.volt,
-                      ...shadow.volt,
+                      backgroundColor: colors.voltDeep,
                     }}
                   />
                   <Text variant="bodySm" weight="semibold" color="ink2">
@@ -268,7 +273,7 @@ export function NotificationsScreen() {
             accessibilityLabel={displayTitle(n)}
           >
             <Card
-              padding={14}
+              padding={16}
               style={{
                 flexDirection: 'row',
                 alignItems: 'flex-start',
@@ -276,7 +281,24 @@ export function NotificationsScreen() {
                 backgroundColor: isUnread ? colors.paper : colors.pearl,
               }}
             >
-              <IconTile icon={Icon} tone={tone} size={42} />
+              <View>
+                <IconTile icon={Icon} tone={tone} size={42} />
+                {isUnread ? (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: -3,
+                      right: -3,
+                      width: 12,
+                      height: 12,
+                      borderRadius: 6,
+                      backgroundColor: colors.volt,
+                      borderWidth: 2,
+                      borderColor: colors.paper,
+                    }}
+                  />
+                ) : null}
+              </View>
               <View style={{ flex: 1, gap: 4 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Text
@@ -326,31 +348,28 @@ export function NotificationsScreen() {
                       </View>
                     ) : null}
                     {n.link ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                        <Text variant="caption" weight="semibold" color="ink4">
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 2,
+                          paddingHorizontal: 8,
+                          height: 22,
+                          borderRadius: radii.pill,
+                          backgroundColor: colors.bone,
+                          borderWidth: StyleSheet.hairlineWidth,
+                          borderColor: colors.line,
+                        }}
+                      >
+                        <Text variant="caption" weight="semibold" color="ink3" style={{ fontSize: 10.5 }}>
                           Open
                         </Text>
-                        <ChevronRight size={13} color={colors.ink4} />
+                        <ChevronRight size={12} color={colors.ink3} />
                       </View>
                     ) : null}
                   </View>
                 ) : null}
               </View>
-              {isUnread ? (
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: 12,
-                    left: 12,
-                    width: 12,
-                    height: 12,
-                    borderRadius: 6,
-                    backgroundColor: colors.volt,
-                    borderWidth: 2,
-                    borderColor: colors.paper,
-                  }}
-                />
-              ) : null}
             </Card>
           </Touchable>
           </SwipeableRow>

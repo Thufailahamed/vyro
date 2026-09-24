@@ -63,7 +63,7 @@ function DataPrivacyTab() {
     setDeleting(true);
     setMessage(null);
     try {
-      await api.post('/api/settings/me/delete', { confirm: 'DELETE' });
+      await api.post('/settings/me/delete', { confirm: 'DELETE' });
       setMessage({ kind: 'ok', text: 'Account scheduled for deletion in 30 days.' });
       setConfirmText('');
     } catch (e) {

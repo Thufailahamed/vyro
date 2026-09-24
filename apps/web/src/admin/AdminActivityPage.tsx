@@ -1,12 +1,42 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { PageHeader, Button, Surface, ErrorBanner, Input, EmptyState } from '@/components/ui';
-import { SearchIcon, ClockIcon, CheckCircleIcon, ShieldCheckIcon, AlertCircleIcon, FileTextIcon } from '@/components/icons';
+import { cn } from '@vyro/ui';
+import { Button, Input, Label, Select } from '@/components/ui';
+import {
+  SearchIcon,
+  ShieldCheckIcon,
+  AlertCircleIcon,
+  FileTextIcon,
+  RefreshCwIcon,
+  DownloadIcon,
+  XIcon,
+  CopyIcon,
+  CheckIcon,
+  CalendarIcon,
+  ArrowRightIcon,
+} from '@/components/icons';
 import { AuditFilters, emptyFilters, toApiFilters, type AuditFiltersState } from './AuditFilters';
 import { useAdminAudit, auditCsvUrl, type AuditEntry } from './useAdminAudit';
 import { usePermission } from './lib/permissions';
 import { RoleBadge } from './RoleBadge';
 import { api } from '@/lib/api';
+import {
+  AdminPage,
+  AdminPageHeader,
+  Callout,
+  Card,
+  CellStack,
+  DetailList,
+  EmptyBlock,
+  Panel,
+  Pill,
+  StatCard,
+  StatGrid,
+  TableCard,
+  TableSkeleton,
+  Tabs,
+  type PillTone,
+} from './ui';
 
 interface ExportSchedule {
   id: string;
@@ -17,6 +47,35 @@ interface ExportSchedule {
   nextRunAt: number | null;
   cancelledAt: number | null;
   createdAt: number;
+}
+
+const HIGH_IMPACT_RE = /suspend|takedown|revoke|delete|demote|role_changed|cancel|refund/i;
+
+function actionTone(action: string): PillTone {
+  const norm = action.toLowerCase();
+  if (/suspend|takedown|delete|revoke|demote|cancel/.test(norm)) return 'danger';
+  if (/update|status|refund|decision|change/.test(norm)) return 'warning';
+  if (/create|invite|approve|promote|resolve/.test(norm)) return 'success';
+  if (/export|read|view|config/.test(norm)) return 'info';
+  return 'neutral';
+}
+
+function CopyChip({ text, id, copiedId, onCopy }: { text: string; id: string; copiedId: string | null; onCopy: (t: string, i: string) => void }) {
+  const copied = copiedId === id;
+  return (
+    <button
+      type="button"
+      onClick={(evt) => {
+        evt.stopPropagation();
+        onCopy(text, id);
+      }}
+      title={`Copy ${text}`}
+      className="inline-flex items-center gap-1 rounded-md bg-ink/[0.04] px-1.5 py-0.5 font-mono text-[11px] text-ink-3 transition-colors hover:bg-ink/[0.08] hover:text-ink"
+    >
+      {copied ? <CheckIcon size={11} className="text-mint" /> : <CopyIcon size={11} className="text-ink-4" />}
+      <span className={copied ? 'text-mint font-semibold' : undefined}>{copied ? 'Copied' : text.length > 18 ? `${text.slice(0, 14)}…` : text}</span>
+    </button>
+  );
 }
 
 export function AdminActivityPage() {
@@ -38,9 +97,7 @@ export function AdminActivityPage() {
   const metrics = useMemo(() => {
     const totalWrites = entries.length;
     const uniqueActors = new Set(entries.map((e) => e.actorEmail || e.actorId)).size;
-    const highImpactCount = entries.filter((e) =>
-      /suspend|takedown|revoke|delete|demote|role_changed|cancel|refund/i.test(e.action)
-    ).length;
+    const highImpactCount = entries.filter((e) => HIGH_IMPACT_RE.test(e.action)).length;
     return { totalWrites, uniqueActors, highImpactCount };
   }, [entries]);
 
@@ -51,214 +108,224 @@ export function AdminActivityPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-12">
-      {/* Top Header */}
-      <PageHeader
+    <AdminPage>
+      <AdminPageHeader
         kicker="Governance & Compliance"
         title="Activity Audit Trail"
-        sub="Comprehensive, immutable record of every administrative write, access mutation, and operational event."
+        description="Comprehensive, immutable record of every administrative write, access mutation, and operational event."
         actions={
-          <div className="flex items-center gap-2">
+          <>
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
+              className="h-10"
               onClick={() => void qc.invalidateQueries({ queryKey: ['admin-audit'] })}
               loading={q.isFetching && !q.isFetchingNextPage}
+              icon={<RefreshCwIcon size={14} />}
               title="Refresh activity logs"
             >
               Refresh
             </Button>
             {canExport ? (
               <a href={auditCsvUrl(apiFilters)} download className="no-underline">
-                <Button variant="secondary" size="sm">
+                <Button variant="primary" size="sm" className="h-10" icon={<DownloadIcon size={14} />}>
                   Export CSV
                 </Button>
               </a>
             ) : null}
-          </div>
+          </>
         }
       />
 
-      {/* Executive KPI Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Events in View</span>
-            <div className="w-8 h-8 rounded-lg bg-sand/60 flex items-center justify-center text-ink">
-              <FileTextIcon size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono text-ink">
-              {metrics.totalWrites}
-              {q.hasNextPage ? '+' : ''}
-            </div>
-            <p className="text-[11px] text-ink-4 mt-0.5">Matching current query</p>
-          </div>
-        </div>
+      <StatGrid cols={4}>
+        <StatCard
+          label="Events in view"
+          value={`${metrics.totalWrites}${q.hasNextPage ? '+' : ''}`}
+          sub="Matching current query"
+          icon={<FileTextIcon size={16} />}
+          loading={q.isLoading}
+        />
+        <StatCard
+          label="Active operators"
+          value={metrics.uniqueActors}
+          sub="Distinct admin actors"
+          icon={<ShieldCheckIcon size={16} />}
+          loading={q.isLoading}
+        />
+        <StatCard
+          label="High-impact actions"
+          value={metrics.highImpactCount}
+          sub="Suspensions, takedowns, demotions"
+          icon={<AlertCircleIcon size={16} />}
+          tone={metrics.highImpactCount > 0 ? 'danger' : 'neutral'}
+          status={
+            metrics.highImpactCount > 0 ? (
+              <Pill tone="danger" dot>
+                Review advised
+              </Pill>
+            ) : undefined
+          }
+          loading={q.isLoading}
+        />
+        <StatCard
+          label="Audit retention"
+          value="365 days"
+          sub="Immutable D1 storage"
+          icon={<CalendarIcon size={16} />}
+        />
+      </StatGrid>
 
-        <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Active Operators</span>
-            <div className="w-8 h-8 rounded-lg bg-sand/60 flex items-center justify-center text-ink">
-              <ShieldCheckIcon size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono text-ink">{metrics.uniqueActors}</div>
-            <p className="text-[11px] text-ink-4 mt-0.5">Distinct admin actors</p>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">High-Impact Actions</span>
-            <div className="w-8 h-8 rounded-lg bg-rose/10 flex items-center justify-center text-rose">
-              <AlertCircleIcon size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono text-rose">{metrics.highImpactCount}</div>
-            <p className="text-[11px] text-ink-4 mt-0.5">Suspensions, takedowns, demotions</p>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Audit Retention</span>
-            <div className="w-8 h-8 rounded-lg bg-sand/60 flex items-center justify-center text-ink">
-              <ClockIcon size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono text-ink">365 Days</div>
-            <p className="text-[11px] text-ink-4 mt-0.5">Immutable D1 storage</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Query & Filter Toolbar */}
       <AuditFilters value={filters} onChange={setFilters} />
 
-      {errMsg ? <ErrorBanner message={errMsg} /> : null}
+      {errMsg ? (
+        <Callout
+          tone="danger"
+          title="Could not load audit trail"
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void qc.invalidateQueries({ queryKey: ['admin-audit'] })}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {errMsg}
+        </Callout>
+      ) : null}
 
-      {/* Activity Log Table Surface */}
-      <Surface className="overflow-hidden border border-ink/10 bg-white">
-        <div className="px-5 py-4 border-b border-ink/10 flex items-center justify-between bg-sand/20">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-ink">Recorded Operations</h2>
-            <span className="px-2 py-0.5 text-[11px] font-mono font-semibold rounded-full bg-bone text-ink-3 border border-ink/10">
-              {entries.length} loaded
+      <TableCard
+        title="Recorded operations"
+        description="Click any entry to inspect its payload diff."
+        actions={<Pill tone="neutral">{entries.length} loaded</Pill>}
+        footer={
+          <>
+            <span>
+              Displaying <strong className="text-ink">{entries.length}</strong> recorded events
+              {q.hasNextPage ? ' · older activity available' : ''}
             </span>
-          </div>
-          <span className="text-xs text-ink-4">Click any entry to inspect payload diff</span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+            {q.hasNextPage ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void q.fetchNextPage()}
+                loading={q.isFetchingNextPage}
+              >
+                Load older activity
+              </Button>
+            ) : null}
+          </>
+        }
+      >
+        {q.isLoading ? (
+          <TableSkeleton rows={8} cols={6} />
+        ) : entries.length === 0 ? (
+          <EmptyBlock
+            icon={<SearchIcon size={22} />}
+            title="No audit records found"
+            description="No administrative operations matched the specified filter criteria and time window."
+            action={
+              <Button variant="secondary" size="sm" onClick={() => setFilters(emptyFilters())}>
+                Reset all filters
+              </Button>
+            }
+          />
+        ) : (
+          <table className="admin-table">
             <thead>
-              <tr className="border-b border-ink/10 bg-bone/40 text-[11px] uppercase tracking-wider font-semibold text-ink-3">
-                <th className="py-3.5 px-4 font-semibold">Timestamp</th>
-                <th className="py-3.5 px-4 font-semibold">Operator</th>
-                <th className="py-3.5 px-4 font-semibold">Action</th>
-                <th className="py-3.5 px-4 font-semibold">Target Entity</th>
-                <th className="py-3.5 px-4 font-semibold">Network & Request</th>
-                <th className="py-3.5 px-4 font-semibold text-right">Details</th>
+              <tr>
+                <th>Timestamp</th>
+                <th>Operator</th>
+                <th>Action</th>
+                <th>Target entity</th>
+                <th>Network &amp; request</th>
+                <th>
+                  <span className="sr-only">Details</span>
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink/5 text-sm">
+            <tbody>
               {entries.map((e) => {
                 const hasPayload = Boolean(e.before || e.after);
                 return (
                   <tr
                     key={e.id}
                     onClick={() => setSelectedEntry(e)}
-                    className="hover:bg-sand/30 transition-colors cursor-pointer group"
+                    className="group cursor-pointer"
                   >
-                    {/* Timestamp */}
-                    <td className="py-3.5 px-4 align-top whitespace-nowrap">
-                      <div className="font-mono text-xs font-semibold text-ink">
-                        {formatDateTime(e.createdAt)}
-                      </div>
-                      <div className="flex items-center gap-1 mt-0.5 text-[11px] text-ink-4 font-mono">
-                        <ClockIcon size={12} />
-                        <span>{formatRelativeTime(e.createdAt)}</span>
-                      </div>
+                    <td>
+                      <CellStack
+                        mono
+                        primary={formatDateTime(e.createdAt)}
+                        secondary={formatRelativeTime(e.createdAt)}
+                      />
                     </td>
-
-                    {/* Operator */}
-                    <td className="py-3.5 px-4 align-top">
+                    <td>
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-ink text-volt text-xs font-bold flex items-center justify-center shrink-0">
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-bold text-volt">
                           {(e.actorEmail?.[0] ?? 'A').toUpperCase()}
-                        </div>
+                        </span>
                         <div className="min-w-0">
-                          <div className="text-xs font-medium text-ink truncate max-w-[180px]">
+                          <div className="max-w-[180px] truncate text-xs font-medium text-ink">
                             {e.actorEmail ?? e.actorId}
                           </div>
                           <div className="mt-0.5">
                             {e.actorRole ? (
                               <RoleBadge role={e.actorRole} compact />
                             ) : (
-                              <span className="font-mono text-[10px] text-ink-4">ID: {e.actorId.slice(0, 8)}...</span>
+                              <span className="font-mono text-[10px] text-ink-4">ID: {e.actorId.slice(0, 8)}…</span>
                             )}
                           </div>
                         </div>
                       </div>
                     </td>
-
-                    {/* Action */}
-                    <td className="py-3.5 px-4 align-top">
-                      <ActionBadge action={e.action} />
+                    <td>
+                      <Pill tone={actionTone(e.action)} dot className="font-mono">
+                        {e.action}
+                      </Pill>
                     </td>
-
-                    {/* Target */}
-                    <td className="py-3.5 px-4 align-top">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider rounded bg-bone text-ink-3 border border-ink/10">
-                          {e.targetType}
-                        </span>
-                        <span
-                          className="font-mono text-xs text-ink-3 hover:text-ink cursor-pointer"
-                          onClick={(evt) => {
-                            evt.stopPropagation();
-                            copyToClipboard(e.targetId, `target-${e.id}`);
-                          }}
-                          title="Click to copy target ID"
-                        >
-                          {e.targetId.length > 16 ? `${e.targetId.slice(0, 12)}…` : e.targetId}
-                        </span>
-                        {copiedId === `target-${e.id}` && (
-                          <span className="text-[10px] text-mint font-semibold">Copied!</span>
-                        )}
-                      </div>
+                    <td>
+                      <CellStack
+                        primary={
+                          <Pill tone="neutral" className="uppercase">
+                            {e.targetType}
+                          </Pill>
+                        }
+                        secondary={
+                          <CopyChip
+                            text={e.targetId}
+                            id={`target-${e.id}`}
+                            copiedId={copiedId}
+                            onCopy={copyToClipboard}
+                          />
+                        }
+                      />
                     </td>
-
-                    {/* Network & Request */}
-                    <td className="py-3.5 px-4 align-top">
-                      <div className="font-mono text-xs text-ink-3">{e.ip ?? '—'}</div>
-                      <div
-                        className="font-mono text-[10px] text-ink-4 hover:text-ink cursor-pointer truncate max-w-[140px] mt-0.5"
-                        onClick={(evt) => {
-                          evt.stopPropagation();
-                          copyToClipboard(e.requestId, `req-${e.id}`);
-                        }}
-                        title={`Request ID: ${e.requestId} (click to copy)`}
-                      >
-                        req: {e.requestId.slice(0, 10)}…
-                      </div>
+                    <td>
+                      <CellStack
+                        mono
+                        primary={e.ip ?? '—'}
+                        secondary={
+                          <CopyChip
+                            text={`req: ${e.requestId}`}
+                            id={`req-${e.id}`}
+                            copiedId={copiedId}
+                            onCopy={copyToClipboard}
+                          />
+                        }
+                      />
                     </td>
-
-                    {/* Details Action */}
-                    <td className="py-3.5 px-4 align-top text-right">
+                    <td className="text-right">
                       <div className="inline-flex items-center gap-1.5">
-                        {hasPayload && (
-                          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-amber/15 text-amber border border-amber/30">
+                        {hasPayload ? (
+                          <Pill tone="warning" className="uppercase">
                             Delta
-                          </span>
-                        )}
-                        <span className="text-xs font-semibold text-ink group-hover:text-ink underline decoration-ink/30">
-                          Inspect &rarr;
+                          </Pill>
+                        ) : null}
+                        <span className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink-3 transition-colors group-hover:bg-ink group-hover:text-paper">
+                          Inspect
+                          <ArrowRightIcon size={13} />
                         </span>
                       </div>
                     </td>
@@ -267,97 +334,31 @@ export function AdminActivityPage() {
               })}
             </tbody>
           </table>
-        </div>
-
-        {/* Empty State */}
-        {entries.length === 0 && !q.isLoading && (
-          <div className="p-8">
-            <EmptyState
-              icon={<SearchIcon size={24} />}
-              title="No Audit Records Found"
-              description="No administrative operations matched the specified filter criteria and time window."
-              action={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setFilters(emptyFilters())}
-                >
-                  Reset All Filters
-                </Button>
-              }
-            />
-          </div>
         )}
-
-        {/* Loading Spinner */}
-        {q.isLoading && (
-          <div className="py-16 text-center text-ink-4 text-xs font-mono">
-            Loading activity log entries...
-          </div>
-        )}
-
-        {/* Pagination Load More */}
-        {q.hasNextPage ? (
-          <div className="p-4 border-t border-ink/10 bg-sand/10 flex items-center justify-between">
-            <span className="text-xs text-ink-4">
-              Displaying {entries.length} recorded events
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void q.fetchNextPage()}
-              disabled={q.isFetchingNextPage}
-              loading={q.isFetchingNextPage}
-            >
-              Load Older Activity
-            </Button>
-          </div>
-        ) : null}
-      </Surface>
+      </TableCard>
 
       {/* Scheduled Exports Section */}
       {canExport ? <ExportSchedulesSection /> : null}
 
       {/* Interactive Audit Entry Inspector Modal */}
-      {selectedEntry && (
+      {selectedEntry ? (
         <AuditInspectorModal
           entry={selectedEntry}
           onClose={() => setSelectedEntry(null)}
           onCopy={copyToClipboard}
           copiedId={copiedId}
         />
-      )}
-    </div>
+      ) : null}
+    </AdminPage>
   );
 }
 
 // Action Pill with visual categorization
 function ActionBadge({ action }: { action: string }) {
-  const norm = action.toLowerCase();
-  let badgeStyle = 'bg-sand/60 text-ink border-ink/15';
-  let dotStyle = 'bg-ink/40';
-
-  if (/suspend|takedown|delete|revoke|demote|cancel/.test(norm)) {
-    badgeStyle = 'bg-rose/15 text-rose border-rose/30';
-    dotStyle = 'bg-rose';
-  } else if (/update|status|refund|decision|change/.test(norm)) {
-    badgeStyle = 'bg-amber/15 text-amber border-amber/30';
-    dotStyle = 'bg-amber';
-  } else if (/create|invite|approve|promote|resolve/.test(norm)) {
-    badgeStyle = 'bg-mint/15 text-mint border-mint/30';
-    dotStyle = 'bg-mint';
-  } else if (/export|read|view|config/.test(norm)) {
-    badgeStyle = 'bg-sky-500/15 text-sky-700 border-sky-500/30';
-    dotStyle = 'bg-sky-500';
-  }
-
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-mono font-semibold rounded-md border ${badgeStyle}`}
-    >
-      <span className={`w-1.5 h-1.5 rounded-full ${dotStyle}`} />
-      <span>{action}</span>
-    </span>
+    <Pill tone={actionTone(action)} dot className="font-mono">
+      {action}
+    </Pill>
   );
 }
 
@@ -406,132 +407,105 @@ function AuditInspectorModal({
   }, [beforeObj, afterObj]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-2xl border border-ink/20 shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-sm animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="vyro-surface flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-ink/10 flex items-center justify-between bg-sand/20">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Audit Inspector</span>
-              <ActionBadge action={entry.action} />
+        <div className="flex items-center justify-between gap-3 border-b border-ink/[0.07] bg-bone/40 px-5 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-copper/15 text-copper">
+              <FileTextIcon size={15} />
+            </span>
+            <div className="min-w-0">
+              <h3 className="truncate text-base font-semibold text-ink">Event: {entry.action}</h3>
+              <p className="mt-0.5 truncate font-mono text-[11px] text-ink-4">Audit inspector · {entry.id}</p>
             </div>
-            <h3 className="text-lg font-bold text-ink">Event: {entry.action}</h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-bone hover:bg-sand/60 flex items-center justify-center text-ink text-sm font-semibold transition-colors"
+            aria-label="Close"
+            className="flex size-8 items-center justify-center rounded-lg text-ink-4 transition-colors hover:bg-ink/5 hover:text-ink"
           >
-            &times;
+            <XIcon size={16} />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-6">
-          {/* Metadata Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-bone/50 rounded-xl border border-ink/10 text-xs">
-            <div>
-              <span className="text-[10px] uppercase tracking-wider text-ink-4 block">Timestamp</span>
-              <span className="font-mono font-semibold text-ink">{formatDateTime(entry.createdAt)}</span>
-            </div>
-            <div>
-              <span className="text-[10px] uppercase tracking-wider text-ink-4 block">Operator</span>
-              <span className="font-semibold text-ink truncate block" title={entry.actorEmail ?? entry.actorId}>
-                {entry.actorEmail ?? entry.actorId}
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] uppercase tracking-wider text-ink-4 block">Target Entity</span>
-              <span className="font-mono font-semibold text-ink">
-                {entry.targetType}: {entry.targetId.slice(0, 10)}…
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] uppercase tracking-wider text-ink-4 block">Client IP</span>
-              <span className="font-mono font-semibold text-ink">{entry.ip ?? 'Internal'}</span>
-            </div>
-          </div>
+        <div className="space-y-5 overflow-y-auto p-5 sm:p-6">
+          <DetailList
+            columns={2}
+            items={[
+              { label: 'Timestamp', value: <span className="font-mono text-xs">{formatDateTime(entry.createdAt)}</span> },
+              { label: 'Operator', value: entry.actorEmail ?? entry.actorId },
+              {
+                label: 'Target entity',
+                value: (
+                  <span className="font-mono text-xs">
+                    {entry.targetType}: {entry.targetId.slice(0, 10)}…
+                  </span>
+                ),
+              },
+              { label: 'Client IP', value: <span className="font-mono text-xs">{entry.ip ?? 'Internal'}</span> },
+            ]}
+          />
 
-          {/* Identifier Details */}
-          <div className="p-3 bg-sand/20 rounded-xl border border-ink/10 space-y-2 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-ink-4 font-medium">Event UUID:</span>
-              <div className="flex items-center gap-1.5">
-                <code className="font-mono text-[11px] text-ink">{entry.id}</code>
-                <button
-                  type="button"
-                  onClick={() => onCopy(entry.id, `modal-id-${entry.id}`)}
-                  className="text-[11px] text-ink hover:underline font-medium"
-                >
-                  {copiedId === `modal-id-${entry.id}` ? 'Copied' : 'Copy'}
-                </button>
-              </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="flex items-center justify-between rounded-lg bg-ink/[0.04] px-3.5 py-2.5">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-4">Event UUID</span>
+              <CopyChip text={entry.id} id={`modal-id-${entry.id}`} copiedId={copiedId} onCopy={onCopy} />
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-ink-4 font-medium">Request ID:</span>
-              <div className="flex items-center gap-1.5">
-                <code className="font-mono text-[11px] text-ink">{entry.requestId}</code>
-                <button
-                  type="button"
-                  onClick={() => onCopy(entry.requestId, `modal-req-${entry.id}`)}
-                  className="text-[11px] text-ink hover:underline font-medium"
-                >
-                  {copiedId === `modal-req-${entry.id}` ? 'Copied' : 'Copy'}
-                </button>
-              </div>
+            <div className="flex items-center justify-between rounded-lg bg-ink/[0.04] px-3.5 py-2.5">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-4">Request ID</span>
+              <CopyChip text={entry.requestId} id={`modal-req-${entry.id}`} copiedId={copiedId} onCopy={onCopy} />
             </div>
           </div>
 
           {/* Payload Changes & State Delta */}
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <h4 className="text-sm font-bold text-ink">State Changes (Delta)</h4>
-                {(beforeObj || afterObj) && (
-                  <span className="px-2 py-0.5 text-[10px] font-mono font-semibold bg-mint/15 text-mint border border-mint/30 rounded">
-                    Data Recorded
-                  </span>
-                )}
+                <h4 className="text-sm font-semibold text-ink">State changes (delta)</h4>
+                {beforeObj || afterObj ? (
+                  <Pill tone="success" dot>
+                    Data recorded
+                  </Pill>
+                ) : null}
               </div>
-              <div className="flex items-center gap-1 bg-bone p-1 rounded-lg border border-ink/10 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('diff')}
-                  className={`px-2.5 py-0.5 rounded font-medium transition-all ${
-                    viewMode === 'diff' ? 'bg-white shadow text-ink font-semibold' : 'text-ink-4 hover:text-ink'
-                  }`}
-                >
-                  Visual Diff
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('raw')}
-                  className={`px-2.5 py-0.5 rounded font-medium transition-all ${
-                    viewMode === 'raw' ? 'bg-white shadow text-ink font-semibold' : 'text-ink-4 hover:text-ink'
-                  }`}
-                >
-                  Raw JSON
-                </button>
-              </div>
+              <Tabs
+                items={[
+                  { key: 'diff', label: 'Visual diff' },
+                  { key: 'raw', label: 'Raw JSON' },
+                ]}
+                value={viewMode}
+                onChange={(k) => setViewMode(k as 'diff' | 'raw')}
+                ariaLabel="Payload view mode"
+              />
             </div>
 
             {!beforeObj && !afterObj ? (
-              <div className="p-8 text-center bg-bone/40 rounded-xl border border-ink/10 text-xs text-ink-4">
-                No payload delta or state snapshot was recorded for this event.
-              </div>
+              <EmptyBlock
+                title="No payload recorded"
+                description="No delta or state snapshot was captured for this event."
+              />
             ) : viewMode === 'diff' ? (
-              <div className="space-y-2">
-                {diffKeys.length === 0 ? (
-                  <div className="p-4 text-center bg-bone/40 rounded-xl text-xs text-ink-4">
-                    Payload is empty.
+              diffKeys.length === 0 ? (
+                <EmptyBlock title="Empty payload" description="The recorded payload contains no attributes." />
+              ) : (
+                <div className="overflow-hidden rounded-lg shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08)]">
+                  <div className="grid grid-cols-3 gap-2 bg-ink/[0.05] px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-ink-4">
+                    <div>Attribute</div>
+                    <div>Before</div>
+                    <div>After</div>
                   </div>
-                ) : (
-                  <div className="border border-ink/10 rounded-xl overflow-hidden divide-y divide-ink/10 text-xs font-mono">
-                    <div className="grid grid-cols-3 bg-sand/30 font-sans font-semibold text-[11px] uppercase tracking-wider text-ink-3 p-2.5">
-                      <div>Attribute</div>
-                      <div>Previous (Before)</div>
-                      <div>Current (After)</div>
-                    </div>
+                  <div className="divide-y divide-ink/[0.06]">
                     {diffKeys.map((key) => {
                       const prevVal = beforeObj?.[key];
                       const nextVal = afterObj?.[key];
@@ -539,49 +513,50 @@ function AuditInspectorModal({
                       return (
                         <div
                           key={key}
-                          className={`grid grid-cols-3 p-2.5 items-center gap-2 ${
-                            isChanged ? 'bg-amber/5' : 'bg-white'
-                          }`}
+                          className={cn(
+                            'grid grid-cols-3 items-center gap-2 px-3 py-2 font-mono text-xs',
+                            isChanged ? 'bg-amber/[0.06]' : undefined,
+                          )}
                         >
-                          <div className="font-bold text-ink truncate">{key}</div>
-                          <div className="text-rose/90 break-all">
-                            {prevVal !== undefined ? JSON.stringify(prevVal) : <span className="text-ink-4 italic">—</span>}
+                          <div className="truncate font-sans font-semibold text-ink">{key}</div>
+                          <div className="break-all text-rose/90">
+                            {prevVal !== undefined ? JSON.stringify(prevVal) : <span className="italic text-ink-4">—</span>}
                           </div>
-                          <div className="text-mint break-all font-semibold">
-                            {nextVal !== undefined ? JSON.stringify(nextVal) : <span className="text-ink-4 italic">—</span>}
+                          <div className="break-all font-semibold text-mint">
+                            {nextVal !== undefined ? JSON.stringify(nextVal) : <span className="italic text-ink-4">—</span>}
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                )}
-              </div>
+                </div>
+              )
             ) : (
               <div className="space-y-3">
-                {beforeObj && (
+                {beforeObj ? (
                   <div>
-                    <span className="text-xs font-semibold text-rose block mb-1">Before State</span>
-                    <pre className="p-3 bg-charcoal text-paper rounded-xl text-xs font-mono overflow-x-auto">
+                    <span className="mb-1 block text-xs font-semibold text-rose">Before state</span>
+                    <pre className="overflow-x-auto rounded-lg bg-charcoal p-3 font-mono text-xs text-paper">
                       {JSON.stringify(beforeObj, null, 2)}
                     </pre>
                   </div>
-                )}
-                {afterObj && (
+                ) : null}
+                {afterObj ? (
                   <div>
-                    <span className="text-xs font-semibold text-mint block mb-1">After State</span>
-                    <pre className="p-3 bg-charcoal text-paper rounded-xl text-xs font-mono overflow-x-auto">
+                    <span className="mb-1 block text-xs font-semibold text-mint">After state</span>
+                    <pre className="overflow-x-auto rounded-lg bg-charcoal p-3 font-mono text-xs text-paper">
                       {JSON.stringify(afterObj, null, 2)}
                     </pre>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
           </div>
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3 border-t border-ink/10 bg-sand/10 flex items-center justify-end">
-          <Button variant="outline" size="sm" onClick={onClose}>
+        <div className="flex items-center justify-end border-t border-ink/[0.07] px-5 py-3">
+          <Button variant="ghost" size="sm" onClick={onClose}>
             Close
           </Button>
         </div>
@@ -630,138 +605,132 @@ function ExportSchedulesSection() {
   const schedules = (list.data ?? []).filter((s) => !s.cancelledAt);
 
   return (
-    <Surface className="p-5 sm:p-6 space-y-5 border border-ink/10 bg-white">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-ink/10">
-        <div>
-          <h3 className="text-base font-bold text-ink flex items-center gap-2">
-            <span>Automated Recurring Exports</span>
-            <span className="px-2 py-0.5 text-[10px] font-mono font-semibold rounded bg-mint/15 text-mint border border-mint/30">
-              {schedules.length} Active
-            </span>
-          </h3>
-          <p className="text-xs text-ink-4 mt-0.5">
-            Deliver scheduled activity snapshots directly to compliance, legal, or security inboxes.
-          </p>
-        </div>
-      </div>
+    <Panel
+      title="Automated recurring exports"
+      description="Deliver scheduled activity snapshots directly to compliance, legal, or security inboxes."
+      icon={<DownloadIcon size={16} />}
+      actions={
+        schedules.length > 0 ? (
+          <Pill tone="success" dot>
+            {schedules.length} active
+          </Pill>
+        ) : undefined
+      }
+    >
+      <div className="space-y-5">
+        {errMsg ? <Callout tone="danger">{errMsg}</Callout> : null}
+        {createErr ? <Callout tone="danger">{createErr}</Callout> : null}
+        {successNotice ? (
+          <Callout tone="success">{successNotice}</Callout>
+        ) : null}
 
-      {errMsg ? <ErrorBanner message={errMsg} /> : null}
-      {createErr ? <ErrorBanner message={createErr} /> : null}
-      {successNotice ? (
-        <div className="p-3 bg-mint/10 border border-mint/30 text-mint text-xs rounded-xl flex items-center gap-2">
-          <CheckCircleIcon size={16} />
-          <span>{successNotice}</span>
+        {/* Creation form */}
+        <div className="grid grid-cols-1 items-end gap-4 rounded-lg bg-ink/[0.03] p-4 sm:grid-cols-12">
+          <div className="sm:col-span-5">
+            <Label htmlFor="export-email">Recipient mailbox</Label>
+            <Input
+              id="export-email"
+              type="email"
+              placeholder="compliance@vyro.lk"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="sm:col-span-3">
+            <Label htmlFor="export-frequency">Frequency</Label>
+            <Select
+              id="export-frequency"
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value as typeof frequency)}
+            >
+              <option value="daily">Daily (midnight UTC)</option>
+              <option value="weekly">Weekly (Monday)</option>
+              <option value="monthly">Monthly (1st of month)</option>
+            </Select>
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="export-format">Format</Label>
+            <Select id="export-format" value={format} onChange={(e) => setFormat(e.target.value as typeof format)}>
+              <option value="csv">CSV (spreadsheet)</option>
+              <option value="json">JSON (data)</option>
+            </Select>
+          </div>
+          <div className="sm:col-span-2">
+            <Button
+              className="w-full"
+              onClick={() => create.mutate()}
+              loading={create.isPending}
+              disabled={!email.includes('@')}
+            >
+              Schedule
+            </Button>
+          </div>
         </div>
-      ) : null}
 
-      {/* Creation form */}
-      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end p-4 bg-sand/20 rounded-xl border border-ink/10">
-        <div className="sm:col-span-5">
-          <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-            Recipient Mailbox
-          </label>
-          <Input
-            type="email"
-            placeholder="compliance@vyro.lk"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+        {/* Active schedules list */}
+        {list.isLoading ? (
+          <TableSkeleton rows={3} cols={5} />
+        ) : schedules.length === 0 ? (
+          <EmptyBlock
+            icon={<CalendarIcon size={22} />}
+            title="No export schedules"
+            description="Create one above to receive recurring activity archives."
           />
-        </div>
-        <div className="sm:col-span-3">
-          <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-            Frequency
-          </label>
-          <select
-            value={frequency}
-            onChange={(e) => setFrequency(e.target.value as typeof frequency)}
-            className="w-full h-11 px-3 bg-paper text-sm text-ink rounded-lg shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] focus:outline-none focus:shadow-[inset_0_0_0_1px_#0C0E0B]"
-          >
-            <option value="daily">Daily (Midnight UTC)</option>
-            <option value="weekly">Weekly (Monday)</option>
-            <option value="monthly">Monthly (1st of Month)</option>
-          </select>
-        </div>
-        <div className="sm:col-span-2">
-          <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-            Format
-          </label>
-          <select
-            value={format}
-            onChange={(e) => setFormat(e.target.value as typeof format)}
-            className="w-full h-11 px-3 bg-paper text-sm text-ink rounded-lg shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] focus:outline-none focus:shadow-[inset_0_0_0_1px_#0C0E0B]"
-          >
-            <option value="csv">CSV (Spreadsheet)</option>
-            <option value="json">JSON (Data)</option>
-          </select>
-        </div>
-        <div className="sm:col-span-2">
-          <Button
-            className="w-full h-11"
-            onClick={() => create.mutate()}
-            loading={create.isPending}
-            disabled={!email.includes('@')}
-          >
-            Schedule
-          </Button>
-        </div>
-      </div>
-
-      {/* Active schedules list */}
-      {schedules.length === 0 ? (
-        <div className="text-center py-6 border border-dashed border-ink/15 rounded-xl text-xs text-ink-4">
-          No automated export schedules configured. Create one above to receive recurring activity archives.
-        </div>
-      ) : (
-        <div className="overflow-x-auto border border-ink/10 rounded-xl">
-          <table className="w-full text-sm text-left">
-            <thead>
-              <tr className="border-b border-ink/10 bg-bone/40 text-[11px] uppercase tracking-wider font-semibold text-ink-3">
-                <th className="py-3 px-4">Recipient Mailbox</th>
-                <th className="py-3 px-4">Delivery Cadence</th>
-                <th className="py-3 px-4">Format</th>
-                <th className="py-3 px-4">Next Scheduled Run</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink/5">
-              {schedules.map((s) => (
-                <tr key={s.id} className="hover:bg-sand/20 transition-colors">
-                  <td className="py-3 px-4 font-mono text-xs font-semibold text-ink">
-                    {s.email}
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded bg-bone text-ink border border-ink/10 capitalize">
-                      <ClockIcon size={12} />
-                      {s.frequency}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-sand/60 text-ink border border-ink/10">
-                      {s.format}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 font-mono text-xs text-ink-3">
-                    {s.nextRunAt ? new Date(s.nextRunAt).toISOString().slice(0, 10) : 'Pending'}
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => cancel.mutate(s.id)}
-                      loading={cancel.isPending && cancel.variables === s.id}
-                      aria-label={`Cancel schedule for ${s.email}`}
-                      className="text-rose hover:bg-rose/10"
-                    >
-                      Cancel Schedule
-                    </Button>
-                  </td>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Recipient mailbox</th>
+                  <th>Delivery cadence</th>
+                  <th>Format</th>
+                  <th>Next scheduled run</th>
+                  <th>
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Surface>
+              </thead>
+              <tbody>
+                {schedules.map((s) => (
+                  <tr key={s.id}>
+                    <td>
+                      <span className="font-mono text-xs font-semibold text-ink">{s.email}</span>
+                    </td>
+                    <td>
+                      <Pill tone="neutral" className="capitalize">
+                        {s.frequency}
+                      </Pill>
+                    </td>
+                    <td>
+                      <Pill tone="info" className="font-mono uppercase">
+                        {s.format}
+                      </Pill>
+                    </td>
+                    <td>
+                      <span className="font-mono text-xs text-ink-3">
+                        {s.nextRunAt ? new Date(s.nextRunAt).toISOString().slice(0, 10) : 'Pending'}
+                      </span>
+                    </td>
+                    <td className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => cancel.mutate(s.id)}
+                        loading={cancel.isPending && cancel.variables === s.id}
+                        aria-label={`Cancel schedule for ${s.email}`}
+                        className="text-rose hover:bg-rose/10"
+                      >
+                        Cancel schedule
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </Panel>
   );
 }
 

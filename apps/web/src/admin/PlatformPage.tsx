@@ -1,14 +1,20 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { PageHeader, Surface, ErrorBanner, Button, Input, EmptyState } from '@/components/ui';
+import { cn } from '@vyro/ui';
+import { Button, Input, Label, Select, Textarea } from '@/components/ui';
 import {
   SearchIcon,
-  CheckCircleIcon,
-  AlertCircleIcon,
   ClockIcon,
   ShieldCheckIcon,
   FileTextIcon,
   Trash2Icon,
+  PlusIcon,
+  SaveIcon,
+  MailIcon,
+  BellIcon,
+  XIcon,
+  EyeIcon,
+  EyeOffIcon,
 } from '@/components/icons';
 import { usePermission } from './lib/permissions';
 import {
@@ -22,9 +28,27 @@ import {
   useUpdateWebhook,
   useWebhookDeliveries,
   useRetryDelivery,
-  type WebhookRow,
   type WebhookDeliveryRow,
 } from './useAdminPlatformConfig';
+import {
+  AdminPage,
+  AdminPageHeader,
+  Callout,
+  Card,
+  CellStack,
+  DetailList,
+  EmptyBlock,
+  Panel,
+  Pill,
+  StatCard,
+  StatGrid,
+  StatusPill,
+  TableCard,
+  TableSkeleton,
+  Tabs,
+  Toolbar,
+  controlClass,
+} from './ui';
 
 type Tab = 'flags' | 'templates' | 'webhooks';
 
@@ -115,11 +139,84 @@ const WEBHOOK_EVENT_CATALOG = [
   'abuse_report.created',
 ];
 
+function ModalShell({
+  title,
+  sub,
+  icon,
+  onClose,
+  children,
+  wide,
+}: {
+  title: string;
+  sub?: string | undefined;
+  icon: React.ReactNode;
+  onClose: () => void;
+  children: React.ReactNode;
+  wide?: boolean;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-sm animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className={cn('vyro-surface w-full overflow-hidden', wide ? 'max-w-2xl' : 'max-w-md')}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-ink/[0.07] bg-bone/40 px-5 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-copper/15 text-copper">
+              {icon}
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold text-ink">{title}</h3>
+              {sub ? <p className="mt-0.5 truncate font-mono text-[11px] text-ink-4">{sub}</p> : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex size-8 items-center justify-center rounded-lg text-ink-4 transition-colors hover:bg-ink/5 hover:text-ink"
+          >
+            <XIcon size={16} />
+          </button>
+        </div>
+        <div className={cn('p-5 sm:p-6', wide && 'max-h-[75vh] overflow-y-auto')}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function ModeSwitch({
+  mode,
+  onChange,
+  visualLabel,
+}: {
+  mode: 'visual' | 'json';
+  onChange: (m: 'visual' | 'json') => void;
+  visualLabel: string;
+}) {
+  return (
+    <Tabs
+      items={[
+        { key: 'visual', label: visualLabel },
+        { key: 'json', label: 'Raw JSON' },
+      ]}
+      value={mode}
+      onChange={(k) => onChange(k as 'visual' | 'json')}
+      ariaLabel="Editor mode"
+    />
+  );
+}
+
 export function PlatformPage() {
   const [params, setParams] = useSearchParams();
   const tab = (params.get('tab') as Tab | null) ?? 'flags';
 
-  const switchTab = (next: Tab) => {
+  const switchTab = (next: string) => {
     const p = new URLSearchParams(params);
     p.set('tab', next);
     setParams(p);
@@ -134,129 +231,68 @@ export function PlatformPage() {
   const templateCount = Object.keys(templatesQuery.data?.value ?? {}).length;
   const webhookCount = webhooksQuery.data?.length ?? 0;
   const activeWebhookCount = (webhooksQuery.data ?? []).filter((w) => w.active === 1).length;
+  const kpisLoading = flagsQuery.isLoading || templatesQuery.isLoading || webhooksQuery.isLoading;
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-12">
-      {/* Top Header */}
-      <PageHeader
+    <AdminPage>
+      <AdminPageHeader
         kicker="System & Platform Control"
         title="Platform Configuration"
-        sub="Runtime control plane for feature toggles, customer notification templates, and real-time webhook event relays."
+        description="Runtime control plane for feature toggles, customer notification templates, and real-time webhook event relays."
       />
 
-      {/* Executive KPI Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Feature Flags</span>
-            <div className="w-8 h-8 rounded-lg bg-sand/60 flex items-center justify-center text-ink">
-              <ShieldCheckIcon size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono text-ink">{flagCount}</div>
-            <p className="text-[11px] text-ink-4 mt-0.5">Schema version v{flagsQuery.data?.version ?? 0}</p>
-          </div>
-        </div>
+      <StatGrid cols={4}>
+        <StatCard
+          label="Feature flags"
+          value={flagCount}
+          sub={`Schema version v${flagsQuery.data?.version ?? 0}`}
+          icon={<ShieldCheckIcon size={16} />}
+          loading={kpisLoading}
+        />
+        <StatCard
+          label="Email templates"
+          value={templateCount}
+          sub={`Schema version v${templatesQuery.data?.version ?? 0}`}
+          icon={<MailIcon size={16} />}
+          loading={kpisLoading}
+        />
+        <StatCard
+          label="Active webhooks"
+          value={activeWebhookCount}
+          sub={`${webhookCount} endpoints registered`}
+          icon={<BellIcon size={16} />}
+          status={
+            webhookCount > 0 ? (
+              <Pill tone={activeWebhookCount === webhookCount ? 'success' : 'warning'} dot>
+                {activeWebhookCount === webhookCount ? 'All live' : `${webhookCount - activeWebhookCount} disabled`}
+              </Pill>
+            ) : undefined
+          }
+          loading={kpisLoading}
+        />
+        <StatCard
+          label="Platform concurrency"
+          value="Optimistic"
+          sub="Version mismatch protected"
+          icon={<ClockIcon size={16} />}
+        />
+      </StatGrid>
 
-        <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Email Templates</span>
-            <div className="w-8 h-8 rounded-lg bg-sand/60 flex items-center justify-center text-ink">
-              <FileTextIcon size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono text-ink">{templateCount}</div>
-            <p className="text-[11px] text-ink-4 mt-0.5">Schema version v{templatesQuery.data?.version ?? 0}</p>
-          </div>
-        </div>
+      <Tabs
+        items={[
+          { key: 'flags', label: 'Feature flags', icon: <ShieldCheckIcon size={15} />, count: flagCount },
+          { key: 'templates', label: 'Email templates', icon: <MailIcon size={15} />, count: templateCount },
+          { key: 'webhooks', label: 'Webhooks & deliveries', icon: <BellIcon size={15} />, count: webhookCount },
+        ]}
+        value={tab}
+        onChange={switchTab}
+        ariaLabel="Platform configuration sections"
+      />
 
-        <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Active Webhooks</span>
-            <div className="w-8 h-8 rounded-lg bg-sand/60 flex items-center justify-center text-ink">
-              <CheckCircleIcon size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono text-ink">
-              {activeWebhookCount} <span className="text-xs text-ink-4 font-normal">/ {webhookCount} total</span>
-            </div>
-            <p className="text-[11px] text-ink-4 mt-0.5">Event dispatch endpoints</p>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Platform Concurrency</span>
-            <div className="w-8 h-8 rounded-lg bg-sand/60 flex items-center justify-center text-ink">
-              <ClockIcon size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono text-ink">Optimistic</div>
-            <p className="text-[11px] text-ink-4 mt-0.5">Version mismatch protected</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Accessible High-Contrast Navigation Tabs */}
-      <nav className="flex items-center gap-2 border-b border-ink/10">
-        <button
-          type="button"
-          onClick={() => switchTab('flags')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px rounded-t-lg ${
-            tab === 'flags'
-              ? 'border-ink text-ink font-semibold bg-sand/30 shadow-sm'
-              : 'border-transparent text-ink-4 hover:text-ink hover:border-ink/20'
-          }`}
-        >
-          <ShieldCheckIcon size={16} />
-          <span>Feature Flags</span>
-          <span className="px-2 py-0.5 text-xs font-mono rounded-full bg-bone text-ink-3 border border-ink/10">
-            {flagCount}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => switchTab('templates')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px rounded-t-lg ${
-            tab === 'templates'
-              ? 'border-ink text-ink font-semibold bg-sand/30 shadow-sm'
-              : 'border-transparent text-ink-4 hover:text-ink hover:border-ink/20'
-          }`}
-        >
-          <FileTextIcon size={16} />
-          <span>Email Templates</span>
-          <span className="px-2 py-0.5 text-xs font-mono rounded-full bg-bone text-ink-3 border border-ink/10">
-            {templateCount}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => switchTab('webhooks')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px rounded-t-lg ${
-            tab === 'webhooks'
-              ? 'border-ink text-ink font-semibold bg-sand/30 shadow-sm'
-              : 'border-transparent text-ink-4 hover:text-ink hover:border-ink/20'
-          }`}
-        >
-          <ClockIcon size={16} />
-          <span>Webhooks & Deliveries</span>
-          <span className="px-2 py-0.5 text-xs font-mono rounded-full bg-bone text-ink-3 border border-ink/10">
-            {webhookCount}
-          </span>
-        </button>
-      </nav>
-
-      {/* Tab Panels */}
       {tab === 'flags' ? <FlagsTab /> : null}
       {tab === 'templates' ? <TemplatesTab /> : null}
       {tab === 'webhooks' ? <WebhooksTab /> : null}
-    </div>
+    </AdminPage>
   );
 }
 
@@ -305,24 +341,26 @@ function FlagsTab() {
     }
   }, [q.data]);
 
-  if (!canRead) return <ErrorBanner message="You need feature_flag:read permission to view flags." />;
-
   const filteredItems = useMemo(() => {
     if (!search.trim()) return items;
     const term = search.toLowerCase();
     return items.filter((f) => f.key.toLowerCase().includes(term) || (f.notes ?? '').toLowerCase().includes(term));
   }, [items, search]);
 
-  const handleToggleFlag = (key: string) => {
-    setItems((prev) =>
-      prev.map((f) => (f.key === key ? { ...f, enabled: !f.enabled } : f))
+  if (!canRead) {
+    return (
+      <Callout tone="warning" title="Insufficient permissions">
+        You need the <span className="font-mono text-xs">feature_flag:read</span> permission to view flags.
+      </Callout>
     );
+  }
+
+  const handleToggleFlag = (key: string) => {
+    setItems((prev) => prev.map((f) => (f.key === key ? { ...f, enabled: !f.enabled } : f)));
   };
 
   const handleRolloutChange = (key: string, rollout: number) => {
-    setItems((prev) =>
-      prev.map((f) => (f.key === key ? { ...f, rollout } : f))
-    );
+    setItems((prev) => prev.map((f) => (f.key === key ? { ...f, rollout } : f)));
   };
 
   const handleDeleteFlag = (key: string) => {
@@ -345,7 +383,7 @@ function FlagsTab() {
           setSaveSuccess(true);
           setTimeout(() => setSaveSuccess(false), 3000);
         },
-      }
+      },
     );
   };
 
@@ -364,7 +402,7 @@ function FlagsTab() {
             setSaveSuccess(true);
             setTimeout(() => setSaveSuccess(false), 3000);
           },
-        }
+        },
       );
     } catch {
       setJsonError('Invalid JSON syntax. Please verify commas and quotes.');
@@ -379,7 +417,7 @@ function FlagsTab() {
           setSaveSuccess(true);
           setTimeout(() => setSaveSuccess(false), 3000);
         },
-      }
+      },
     );
   };
 
@@ -404,123 +442,118 @@ function FlagsTab() {
 
   return (
     <div className="space-y-4">
-      {q.isError ? <ErrorBanner message={(q.error as Error).message} /> : null}
-      {update.isError ? <ErrorBanner message={(update.error as Error).message} /> : null}
-      {jsonError ? <ErrorBanner message={jsonError} /> : null}
-      {saveSuccess && (
-        <div className="p-3 bg-mint/10 border border-mint/30 text-mint text-xs rounded-xl flex items-center gap-2">
-          <CheckCircleIcon size={16} />
-          <span>Feature flag configuration updated successfully (v{q.data?.version}).</span>
-        </div>
-      )}
+      {q.isError ? <Callout tone="danger">{(q.error as Error).message}</Callout> : null}
+      {update.isError ? <Callout tone="danger">{(update.error as Error).message}</Callout> : null}
+      {jsonError ? <Callout tone="danger">{jsonError}</Callout> : null}
+      {saveSuccess ? (
+        <Callout tone="success">
+          Feature flag configuration updated successfully (v{q.data?.version}).
+        </Callout>
+      ) : null}
 
       {/* Controls Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-ink/10 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="relative w-64">
+      <Card>
+        <Toolbar
+          actions={
+            <>
+              <ModeSwitch mode={mode} onChange={setMode} visualLabel="Visual cards" />
+              {canWrite && mode === 'visual' ? (
+                <Button size="sm" variant="secondary" className="h-10" icon={<PlusIcon size={14} />} onClick={() => setShowAddModal(true)}>
+                  New flag
+                </Button>
+              ) : null}
+              {canWrite ? (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="h-10"
+                  icon={<SaveIcon size={14} />}
+                  onClick={mode === 'visual' ? handleSaveVisual : handleSaveJson}
+                  loading={update.isPending}
+                >
+                  Save changes
+                </Button>
+              ) : null}
+            </>
+          }
+        >
+          <div className="relative min-w-0 flex-1 sm:max-w-xs">
+            <SearchIcon size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
             <input
               type="text"
-              placeholder="Search feature flags..."
+              placeholder="Search feature flags…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-9 pl-8 pr-3 bg-paper text-xs text-ink rounded-lg border border-ink/20 focus:outline-none focus:border-ink"
+              className={cn(controlClass, 'w-full pl-9')}
             />
-            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-ink-4">
-              <SearchIcon size={14} />
-            </div>
           </div>
-          <span className="text-xs font-mono text-ink-4">
-            v{q.data?.version ?? 0} &bull; {items.length} total
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Mode Switch */}
-          <div className="flex items-center gap-1 bg-bone p-1 rounded-lg border border-ink/10 text-xs">
-            <button
-              type="button"
-              onClick={() => setMode('visual')}
-              className={`px-3 py-1 rounded font-medium transition-all ${
-                mode === 'visual' ? 'bg-white shadow text-ink font-semibold' : 'text-ink-4 hover:text-ink'
-              }`}
-            >
-              Visual Cards
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('json')}
-              className={`px-3 py-1 rounded font-medium transition-all ${
-                mode === 'json' ? 'bg-white shadow text-ink font-semibold' : 'text-ink-4 hover:text-ink'
-              }`}
-            >
-              Raw JSON
-            </button>
-          </div>
-
-          {canWrite && mode === 'visual' && (
-            <Button size="sm" variant="outline" onClick={() => setShowAddModal(true)}>
-              + New Flag
-            </Button>
-          )}
-
-          {canWrite && (
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={mode === 'visual' ? handleSaveVisual : handleSaveJson}
-              loading={update.isPending}
-            >
-              Save Changes
-            </Button>
-          )}
-        </div>
-      </div>
+          <Pill tone="neutral" className="font-mono">
+            v{q.data?.version ?? 0} · {items.length} total
+          </Pill>
+        </Toolbar>
+      </Card>
 
       {/* Visual Mode */}
       {mode === 'visual' ? (
-        items.length === 0 ? (
-          <Surface className="p-10 text-center">
-            <EmptyState
-              icon={<ShieldCheckIcon size={28} />}
-              title="No Feature Flags Defined"
-              description="Your database currently has an empty configuration {}. You can initialize standard Vyro e-commerce flags or create a custom flag."
+        q.isLoading ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {[0, 1, 2, 3].map((i) => (
+              <Card key={i} className="h-36 animate-pulse bg-ink/[0.03]" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <Card>
+            <EmptyBlock
+              icon={<ShieldCheckIcon size={22} />}
+              title="No feature flags defined"
+              description="The configuration store is empty. Initialize standard VYRO e-commerce flags or create a custom flag."
               action={
                 canWrite ? (
-                  <div className="flex items-center justify-center gap-3">
+                  <div className="flex flex-wrap items-center justify-center gap-2">
                     <Button size="sm" variant="primary" onClick={handleInitDefaults} loading={update.isPending}>
-                      Initialize Standard Flags
+                      Initialize standard flags
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => setShowAddModal(true)}>
-                      Create Custom Flag
+                    <Button size="sm" variant="secondary" onClick={() => setShowAddModal(true)}>
+                      Create custom flag
                     </Button>
                   </div>
-                ) : null
+                ) : undefined
               }
             />
-          </Surface>
+          </Card>
+        ) : filteredItems.length === 0 ? (
+          <Card>
+            <EmptyBlock
+              icon={<SearchIcon size={22} />}
+              title="No matching flags"
+              description={`No feature flags match "${search}".`}
+              action={
+                <Button size="sm" variant="secondary" onClick={() => setSearch('')}>
+                  Clear search
+                </Button>
+              }
+            />
+          </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {filteredItems.map((flag) => (
-              <div
-                key={flag.key}
-                className="p-5 bg-white rounded-2xl border border-ink/10 shadow-sm flex flex-col justify-between hover:border-ink/25 transition-all"
-              >
+              <Card key={flag.key} className="flex flex-col justify-between gap-4 transition-shadow hover:shadow-md">
                 <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
                         <code className="font-mono text-sm font-bold text-ink">{flag.key}</code>
-                        <span
-                          className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded-full border ${
-                            flag.enabled
-                              ? 'bg-mint/15 text-mint border-mint/30'
-                              : 'bg-bone text-ink-4 border-ink/10'
-                          }`}
-                        >
-                          {flag.enabled ? 'ACTIVE' : 'DISABLED'}
-                        </span>
+                        {flag.enabled ? (
+                          <Pill tone="success" dot>
+                            Active
+                          </Pill>
+                        ) : (
+                          <Pill tone="neutral" dot>
+                            Disabled
+                          </Pill>
+                        )}
                       </div>
-                      <p className="text-xs text-ink-4 leading-relaxed">
+                      <p className="text-xs leading-relaxed text-ink-4">
                         {flag.notes || 'No operational documentation provided for this flag.'}
                       </p>
                     </div>
@@ -528,26 +561,30 @@ function FlagsTab() {
                     {/* Toggle Switch */}
                     <button
                       type="button"
+                      role="switch"
+                      aria-checked={flag.enabled}
                       disabled={!canWrite}
                       onClick={() => handleToggleFlag(flag.key)}
-                      className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors duration-200 shrink-0 ${
-                        flag.enabled ? 'bg-ink' : 'bg-bone border border-ink/20'
-                      }`}
-                      title={flag.enabled ? 'Disable Flag' : 'Enable Flag'}
+                      className={cn(
+                        'flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50',
+                        flag.enabled ? 'bg-ink' : 'bg-ink/15',
+                      )}
+                      title={flag.enabled ? 'Disable flag' : 'Enable flag'}
                     >
-                      <div
-                        className={`w-4 h-4 rounded-full transition-transform duration-200 ${
-                          flag.enabled ? 'transform translate-x-6 bg-volt' : 'bg-ink-4'
-                        }`}
+                      <span
+                        className={cn(
+                          'size-5 rounded-full transition-transform duration-200',
+                          flag.enabled ? 'translate-x-5 bg-volt' : 'translate-x-0 bg-paper shadow-sm',
+                        )}
                       />
                     </button>
                   </div>
 
                   {/* Rollout Percentage Slider */}
-                  <div className="mt-4 pt-3 border-t border-ink/5">
-                    <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-semibold text-ink-3 uppercase tracking-wider text-[10px]">
-                        Rollout Cohort
+                  <div className="mt-4 border-t border-ink/[0.07] pt-3">
+                    <div className="mb-1.5 flex items-center justify-between text-xs">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">
+                        Rollout cohort
                       </span>
                       <span className="font-mono font-bold text-ink">{flag.rollout ?? 100}%</span>
                     </div>
@@ -559,39 +596,39 @@ function FlagsTab() {
                       disabled={!canWrite || !flag.enabled}
                       value={flag.rollout ?? 100}
                       onChange={(e) => handleRolloutChange(flag.key, Number(e.target.value))}
-                      className="w-full accent-ink cursor-pointer disabled:opacity-40"
+                      className="w-full cursor-pointer accent-ink disabled:opacity-40"
                     />
                   </div>
                 </div>
 
                 {/* Footer Delete */}
-                {canWrite && (
-                  <div className="mt-3 pt-2 border-t border-ink/5 flex justify-end">
+                {canWrite ? (
+                  <div className="flex justify-end border-t border-ink/[0.07] pt-3">
                     <button
                       type="button"
                       onClick={() => handleDeleteFlag(flag.key)}
-                      className="text-xs text-rose/70 hover:text-rose flex items-center gap-1 font-medium transition-colors"
+                      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-rose/80 transition-colors hover:bg-rose/10 hover:text-rose"
                       title="Remove this flag"
                     >
                       <Trash2Icon size={12} />
                       <span>Delete</span>
                     </button>
                   </div>
-                )}
-              </div>
+                ) : null}
+              </Card>
             ))}
           </div>
         )
       ) : (
         /* Raw JSON Mode */
-        <Surface className="p-5 space-y-3 bg-white border border-ink/10">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">
-              Direct JSON Editor (v{q.data?.version ?? 0})
-            </span>
+        <Panel
+          title={`Direct JSON editor`}
+          description={`Schema version v${q.data?.version ?? 0} — edits are validated before saving.`}
+          icon={<FileTextIcon size={16} />}
+          actions={
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               onClick={() => {
                 try {
                   const p = JSON.parse(jsonDraft);
@@ -603,84 +640,80 @@ function FlagsTab() {
             >
               Format JSON
             </Button>
-          </div>
-          <textarea
-            className="w-full h-96 font-mono text-xs bg-paper border border-ink/20 rounded-xl p-4 leading-relaxed focus:outline-none focus:border-ink"
+          }
+        >
+          <Textarea
+            className="h-96 font-mono text-xs leading-relaxed"
             value={jsonDraft}
             onChange={(e) => setJsonDraft(e.target.value)}
             disabled={!canWrite}
           />
-        </Surface>
+        </Panel>
       )}
 
       {/* New Flag Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl border border-ink/20 shadow-2xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-ink">Create Feature Flag</h3>
-            <div className="space-y-3">
+      {showAddModal ? (
+        <ModalShell
+          title="Create feature flag"
+          icon={<ShieldCheckIcon size={15} />}
+          onClose={() => setShowAddModal(false)}
+        >
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="new-flag-key">Flag key (identifier)</Label>
+              <Input
+                id="new-flag-key"
+                placeholder="e.g. instant_supplier_settlement"
+                value={newKey}
+                onChange={(e) => setNewKey(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+            <div>
+              <Label htmlFor="new-flag-notes">Operational notes / documentation</Label>
+              <Textarea
+                id="new-flag-notes"
+                placeholder="Explain what this flag gates…"
+                value={newNotes}
+                onChange={(e) => setNewNotes(e.target.value)}
+                rows={2}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-                  Flag Key (Identifier)
-                </label>
+                <Label htmlFor="new-flag-status">Initial status</Label>
+                <Select
+                  id="new-flag-status"
+                  value={newEnabled ? 'true' : 'false'}
+                  onChange={(e) => setNewEnabled(e.target.value === 'true')}
+                >
+                  <option value="true">Enabled (active)</option>
+                  <option value="false">Disabled (off)</option>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="new-flag-rollout">Rollout %</Label>
                 <Input
-                  placeholder="e.g. instant_supplier_settlement"
-                  value={newKey}
-                  onChange={(e) => setNewKey(e.target.value)}
+                  id="new-flag-rollout"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={newRollout}
+                  onChange={(e) => setNewRollout(Number(e.target.value))}
                 />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-                  Operational Notes / Documentation
-                </label>
-                <textarea
-                  placeholder="Explain what this flag gates..."
-                  value={newNotes}
-                  onChange={(e) => setNewNotes(e.target.value)}
-                  className="w-full bg-paper p-3 text-xs border border-ink/20 rounded-lg focus:outline-none focus:border-ink"
-                  rows={2}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-                    Initial Status
-                  </label>
-                  <select
-                    value={newEnabled ? 'true' : 'false'}
-                    onChange={(e) => setNewEnabled(e.target.value === 'true')}
-                    className="w-full h-11 px-3 bg-paper text-xs rounded-lg border border-ink/20 focus:outline-none focus:border-ink"
-                  >
-                    <option value="true">Enabled (Active)</option>
-                    <option value="false">Disabled (Off)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-                    Rollout %
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={newRollout}
-                    onChange={(e) => setNewRollout(Number(e.target.value))}
-                  />
-                </div>
               </div>
             </div>
-
-            <div className="flex justify-end gap-2 pt-3 border-t border-ink/10">
-              <Button variant="outline" size="sm" onClick={() => setShowAddModal(false)}>
+            <div className="flex justify-end gap-2 border-t border-ink/[0.07] pt-4">
+              <Button variant="ghost" size="sm" onClick={() => setShowAddModal(false)}>
                 Cancel
               </Button>
               <Button variant="primary" size="sm" disabled={!newKey.trim()} onClick={handleCreateNewFlag}>
-                Add Flag
+                Add flag
               </Button>
             </div>
           </div>
-        </div>
-      )}
+        </ModalShell>
+      ) : null}
     </div>
   );
 }
@@ -726,15 +759,19 @@ function TemplatesTab() {
     }
   }, [q.data, activeKey]);
 
-  if (!canRead) return <ErrorBanner message="You need email_template:read permission to view templates." />;
-
   const activeTemplate = templates.find((t) => t.key === activeKey) ?? templates[0];
+
+  if (!canRead) {
+    return (
+      <Callout tone="warning" title="Insufficient permissions">
+        You need the <span className="font-mono text-xs">email_template:read</span> permission to view templates.
+      </Callout>
+    );
+  }
 
   const handleUpdateActive = (patch: Partial<EmailTemplateItem>) => {
     if (!activeTemplate) return;
-    setTemplates((prev) =>
-      prev.map((t) => (t.key === activeTemplate.key ? { ...t, ...patch } : t))
-    );
+    setTemplates((prev) => prev.map((t) => (t.key === activeTemplate.key ? { ...t, ...patch } : t)));
   };
 
   const handleSaveVisual = () => {
@@ -753,7 +790,7 @@ function TemplatesTab() {
           setSaveSuccess(true);
           setTimeout(() => setSaveSuccess(false), 3000);
         },
-      }
+      },
     );
   };
 
@@ -767,7 +804,7 @@ function TemplatesTab() {
             setSaveSuccess(true);
             setTimeout(() => setSaveSuccess(false), 3000);
           },
-        }
+        },
       );
     } catch {
       setJsonError('Invalid JSON syntax');
@@ -782,7 +819,7 @@ function TemplatesTab() {
           setSaveSuccess(true);
           setTimeout(() => setSaveSuccess(false), 3000);
         },
-      }
+      },
     );
   };
 
@@ -814,89 +851,75 @@ function TemplatesTab() {
 
   return (
     <div className="space-y-4">
-      {q.isError ? <ErrorBanner message={(q.error as Error).message} /> : null}
-      {update.isError ? <ErrorBanner message={(update.error as Error).message} /> : null}
-      {saveSuccess && (
-        <div className="p-3 bg-mint/10 border border-mint/30 text-mint text-xs rounded-xl flex items-center gap-2">
-          <CheckCircleIcon size={16} />
-          <span>Email templates updated successfully (v{q.data?.version}).</span>
-        </div>
-      )}
+      {q.isError ? <Callout tone="danger">{(q.error as Error).message}</Callout> : null}
+      {update.isError ? <Callout tone="danger">{(update.error as Error).message}</Callout> : null}
+      {jsonError ? <Callout tone="danger">{jsonError}</Callout> : null}
+      {saveSuccess ? (
+        <Callout tone="success">Email templates updated successfully (v{q.data?.version}).</Callout>
+      ) : null}
 
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-ink/10 shadow-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">Template Editor</span>
-          <span className="px-2 py-0.5 text-xs font-mono rounded bg-bone text-ink-4">
-            v{q.data?.version ?? 0} &bull; {templates.length} templates
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-bone p-1 rounded-lg border border-ink/10 text-xs">
-            <button
-              type="button"
-              onClick={() => setMode('visual')}
-              className={`px-3 py-1 rounded font-medium transition-all ${
-                mode === 'visual' ? 'bg-white shadow text-ink font-semibold' : 'text-ink-4 hover:text-ink'
-              }`}
-            >
-              Visual Designer
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('json')}
-              className={`px-3 py-1 rounded font-medium transition-all ${
-                mode === 'json' ? 'bg-white shadow text-ink font-semibold' : 'text-ink-4 hover:text-ink'
-              }`}
-            >
-              Raw JSON
-            </button>
-          </div>
-
-          {canWrite && mode === 'visual' && (
-            <Button size="sm" variant="outline" onClick={handleAddNewTemplate}>
-              + Add Template
-            </Button>
-          )}
-
-          {canWrite && (
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={mode === 'visual' ? handleSaveVisual : handleSaveJson}
-              loading={update.isPending}
-            >
-              Save Changes
-            </Button>
-          )}
-        </div>
-      </div>
+      <Card>
+        <Toolbar
+          actions={
+            <>
+              <ModeSwitch mode={mode} onChange={setMode} visualLabel="Visual designer" />
+              {canWrite && mode === 'visual' ? (
+                <Button size="sm" variant="secondary" className="h-10" icon={<PlusIcon size={14} />} onClick={handleAddNewTemplate}>
+                  Add template
+                </Button>
+              ) : null}
+              {canWrite ? (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="h-10"
+                  icon={<SaveIcon size={14} />}
+                  onClick={mode === 'visual' ? handleSaveVisual : handleSaveJson}
+                  loading={update.isPending}
+                >
+                  Save changes
+                </Button>
+              ) : null}
+            </>
+          }
+        >
+          <span className="text-sm font-semibold text-ink">Template editor</span>
+          <Pill tone="neutral" className="font-mono">
+            v{q.data?.version ?? 0} · {templates.length} templates
+          </Pill>
+        </Toolbar>
+      </Card>
 
       {mode === 'visual' ? (
-        templates.length === 0 ? (
-          <Surface className="p-10 text-center">
-            <EmptyState
-              icon={<FileTextIcon size={28} />}
-              title="No Email Templates Configured"
+        q.isLoading ? (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+            <Card className="h-64 animate-pulse bg-ink/[0.03] lg:col-span-4" />
+            <Card className="h-64 animate-pulse bg-ink/[0.03] lg:col-span-8" />
+          </div>
+        ) : templates.length === 0 ? (
+          <Card>
+            <EmptyBlock
+              icon={<MailIcon size={22} />}
+              title="No email templates configured"
               description="Your database currently has no transactional notification templates configured."
               action={
                 canWrite ? (
                   <Button size="sm" variant="primary" onClick={handleInitDefaults} loading={update.isPending}>
-                    Load Default Operational Templates
+                    Load default operational templates
                   </Button>
-                ) : null
+                ) : undefined
               }
             />
-          </Surface>
+          </Card>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
             {/* Sidebar list */}
-            <div className="lg:col-span-4 space-y-2">
-              <div className="p-3 bg-white rounded-2xl border border-ink/10 shadow-sm space-y-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-4 px-2 block mb-1">
-                  Configured Templates
-                </span>
+            <Card className="h-fit lg:col-span-4" >
+              <span className="mb-2 block px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">
+                Configured templates
+              </span>
+              <div className="space-y-1.5">
                 {templates.map((tmpl) => {
                   const active = (activeTemplate?.key ?? '') === tmpl.key;
                   return (
@@ -904,115 +927,108 @@ function TemplatesTab() {
                       key={tmpl.key}
                       type="button"
                       onClick={() => setActiveKey(tmpl.key)}
-                      className={`w-full text-left p-2.5 rounded-xl transition-all flex flex-col gap-1 ${
-                        active
-                          ? 'bg-ink text-white font-medium shadow-sm'
-                          : 'hover:bg-sand/30 text-ink'
-                      }`}
+                      className={cn(
+                        'flex w-full flex-col gap-1 rounded-lg p-2.5 text-left transition-colors',
+                        active ? 'bg-ink text-paper' : 'text-ink hover:bg-ink/[0.05]',
+                      )}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs font-semibold truncate">{tmpl.key}</span>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate font-mono text-xs font-semibold">{tmpl.key}</span>
                         <span
-                          className={`text-[9px] font-mono uppercase px-1.5 py-0.5 rounded ${
-                            active ? 'bg-volt text-ink font-bold' : 'bg-bone text-ink-4'
-                          }`}
+                          className={cn(
+                            'rounded px-1.5 py-0.5 font-mono text-[9px] uppercase',
+                            active ? 'bg-volt font-bold text-ink' : 'bg-ink/[0.06] text-ink-4',
+                          )}
                         >
                           {tmpl.locale}
                         </span>
                       </div>
-                      <p
-                        className={`text-[11px] truncate ${
-                          active ? 'text-paper/80' : 'text-ink-4'
-                        }`}
-                      >
+                      <p className={cn('truncate text-[11px]', active ? 'text-paper/70' : 'text-ink-4')}>
                         {tmpl.subject || 'No subject set'}
                       </p>
                     </button>
                   );
                 })}
               </div>
-            </div>
+            </Card>
 
             {/* Template Editor & Live Preview */}
-            {activeTemplate && (
-              <div className="lg:col-span-8 space-y-4">
-                <Surface className="p-5 space-y-4 bg-white border border-ink/10">
-                  <div className="flex items-center justify-between pb-3 border-b border-ink/10">
-                    <div>
-                      <h4 className="font-mono text-sm font-bold text-ink">{activeTemplate.key}</h4>
-                      <p className="text-xs text-ink-4">Edit template copy and dynamic placeholders</p>
-                    </div>
-                    {canWrite && (
-                      <button
-                        type="button"
+            {activeTemplate ? (
+              <div className="space-y-4 lg:col-span-8">
+                <Panel
+                  title={<span className="font-mono">{activeTemplate.key}</span>}
+                  description="Edit template copy and dynamic placeholders"
+                  icon={<MailIcon size={16} />}
+                  actions={
+                    canWrite ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-rose hover:bg-rose/10"
                         onClick={() => handleDeleteTemplate(activeTemplate.key)}
-                        className="text-xs text-rose hover:underline font-medium"
                       >
-                        Delete Template
-                      </button>
-                    )}
-                  </div>
+                        Delete template
+                      </Button>
+                    ) : undefined
+                  }
+                >
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+                      <div className="sm:col-span-3">
+                        <Label htmlFor="tpl-subject">Email subject line</Label>
+                        <Input
+                          id="tpl-subject"
+                          value={activeTemplate.subject}
+                          onChange={(e) => handleUpdateActive({ subject: e.target.value })}
+                          disabled={!canWrite}
+                        />
+                      </div>
+                      <div className="sm:col-span-1">
+                        <Label htmlFor="tpl-locale">Locale</Label>
+                        <Select
+                          id="tpl-locale"
+                          value={activeTemplate.locale}
+                          onChange={(e) => handleUpdateActive({ locale: e.target.value })}
+                          disabled={!canWrite}
+                        >
+                          <option value="en">English (en)</option>
+                          <option value="si">Sinhala (si)</option>
+                          <option value="ta">Tamil (ta)</option>
+                        </Select>
+                      </div>
+                    </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <div className="sm:col-span-3">
-                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-                        Email Subject Line
-                      </label>
-                      <Input
-                        value={activeTemplate.subject}
-                        onChange={(e) => handleUpdateActive({ subject: e.target.value })}
+                    <div>
+                      <div className="mb-1 flex flex-wrap items-center justify-between gap-1">
+                        <Label htmlFor="tpl-body">Email body (plaintext / markdown)</Label>
+                        <span className="font-mono text-[10px] text-ink-4">
+                          {'{{customerName}} {{orderId}} {{trackingUrl}}'}
+                        </span>
+                      </div>
+                      <Textarea
+                        id="tpl-body"
+                        rows={8}
+                        className="font-mono text-xs leading-relaxed"
+                        value={activeTemplate.body}
+                        onChange={(e) => handleUpdateActive({ body: e.target.value })}
                         disabled={!canWrite}
                       />
                     </div>
-                    <div className="sm:col-span-1">
-                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-                        Locale
-                      </label>
-                      <select
-                        value={activeTemplate.locale}
-                        onChange={(e) => handleUpdateActive({ locale: e.target.value })}
-                        disabled={!canWrite}
-                        className="w-full h-11 px-3 bg-paper text-xs rounded-lg border border-ink/20 focus:outline-none focus:border-ink"
-                      >
-                        <option value="en">English (en)</option>
-                        <option value="si">Sinhala (si)</option>
-                        <option value="ta">Tamil (ta)</option>
-                      </select>
-                    </div>
                   </div>
-
-                  {/* Body Textarea */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3">
-                        Email Body (Plaintext / Markdown)
-                      </label>
-                      <div className="text-[10px] text-ink-4">
-                        Supported: {'{{customerName}}'}, {'{{orderId}}'}, {'{{trackingUrl}}'}
-                      </div>
-                    </div>
-                    <textarea
-                      rows={8}
-                      className="w-full bg-paper p-3.5 text-xs font-mono text-ink rounded-xl border border-ink/20 focus:outline-none focus:border-ink leading-relaxed"
-                      value={activeTemplate.body}
-                      onChange={(e) => handleUpdateActive({ body: e.target.value })}
-                      disabled={!canWrite}
-                    />
-                  </div>
-                </Surface>
+                </Panel>
 
                 {/* Simulated Customer Preview */}
-                <Surface className="p-5 bg-sand/20 border border-ink/10 space-y-3">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-4 flex items-center gap-1.5">
-                    <FileTextIcon size={14} />
-                    <span>Customer Inbox Preview</span>
+                <Card className="bg-bone/50">
+                  <span className="mb-3 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">
+                    <EyeIcon size={13} />
+                    Customer inbox preview
                   </span>
-                  <div className="p-5 bg-white rounded-xl border border-ink/10 shadow-sm space-y-3 font-sans">
-                    <div className="border-b border-ink/10 pb-2">
+                  <div className="vyro-surface space-y-3 p-5 font-sans">
+                    <div className="border-b border-ink/[0.07] pb-2">
                       <div className="text-xs text-ink-4">From: VYRO Notifications &lt;notifications@vyro.lk&gt;</div>
-                      <div className="text-sm font-bold text-ink mt-0.5">{activeTemplate.subject}</div>
+                      <div className="mt-0.5 text-sm font-bold text-ink">{activeTemplate.subject}</div>
                     </div>
-                    <div className="text-xs text-ink whitespace-pre-wrap leading-relaxed">
+                    <div className="whitespace-pre-wrap text-xs leading-relaxed text-ink">
                       {activeTemplate.body
                         .replace(/\{\{customerName\}\}/g, 'Thufail Ahamed')
                         .replace(/\{\{orderId\}\}/g, 'VY-8921')
@@ -1024,21 +1040,25 @@ function TemplatesTab() {
                         .replace(/\{\{estimatedDelivery\}\}/g, 'Tomorrow by 5:00 PM')}
                     </div>
                   </div>
-                </Surface>
+                </Card>
               </div>
-            )}
+            ) : null}
           </div>
         )
       ) : (
         /* Raw JSON mode */
-        <Surface className="p-5 space-y-3 bg-white border border-ink/10">
-          <textarea
-            className="w-full h-96 font-mono text-xs bg-paper border border-ink/20 rounded-xl p-4 leading-relaxed focus:outline-none focus:border-ink"
+        <Panel
+          title="Direct JSON editor"
+          description={`Schema version v${q.data?.version ?? 0} — edits are validated before saving.`}
+          icon={<FileTextIcon size={16} />}
+        >
+          <Textarea
+            className="h-96 font-mono text-xs leading-relaxed"
             value={jsonDraft}
             onChange={(e) => setJsonDraft(e.target.value)}
             disabled={!canWrite}
           />
-        </Surface>
+        </Panel>
       )}
     </div>
   );
@@ -1070,8 +1090,6 @@ function WebhooksTab() {
   const deliveries = useWebhookDeliveries(selectedId);
   const [inspectDelivery, setInspectDelivery] = useState<WebhookDeliveryRow | null>(null);
 
-  if (!canRead) return <ErrorBanner message="You need webhook:read permission to view webhooks." />;
-
   const generateSecret = () => {
     const chars = 'abcdef0123456789';
     let s = 'whsec_';
@@ -1098,50 +1116,89 @@ function WebhooksTab() {
           setSecret('');
           setSelectedEvents(['order.created']);
         },
-      }
+      },
     );
   };
 
   const toggleEventSelection = (ev: string) => {
-    setSelectedEvents((prev) =>
-      prev.includes(ev) ? prev.filter((e) => e !== ev) : [...prev, ev]
-    );
+    setSelectedEvents((prev) => (prev.includes(ev) ? prev.filter((e) => e !== ev) : [...prev, ev]));
   };
 
   const toggleSecretReveal = (id: string) => {
     setRevealedSecrets((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  if (!canRead) {
+    return (
+      <Callout tone="warning" title="Insufficient permissions">
+        You need the <span className="font-mono text-xs">webhook:read</span> permission to view webhooks.
+      </Callout>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Top Controls */}
-      <div className="flex items-center justify-between p-4 bg-white rounded-2xl border border-ink/10 shadow-sm">
-        <div>
-          <h3 className="text-sm font-bold text-ink">Configured Webhook Endpoints</h3>
-          <p className="text-xs text-ink-4">Outbound event notification triggers dispatched via HTTP POST</p>
-        </div>
-        {canWrite && (
-          <Button size="sm" variant="primary" onClick={() => setShowCreateModal(true)}>
-            + Register Endpoint
-          </Button>
-        )}
-      </div>
-
       {/* Webhooks Table */}
-      <Surface className="overflow-hidden border border-ink/10 bg-white">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
+      <TableCard
+        title="Configured webhook endpoints"
+        description="Outbound event notification triggers dispatched via HTTP POST."
+        actions={
+          canWrite ? (
+            <Button size="sm" variant="primary" icon={<PlusIcon size={14} />} onClick={() => setShowCreateModal(true)}>
+              Register endpoint
+            </Button>
+          ) : undefined
+        }
+        footer={
+          <span>
+            <strong className="text-ink">{(list.data ?? []).length}</strong> endpoints registered
+          </span>
+        }
+      >
+        {list.isError ? (
+          <div className="p-5 sm:p-6">
+            <Callout
+              tone="danger"
+              title="Could not load webhooks"
+              action={
+                <Button variant="secondary" size="sm" onClick={() => void list.refetch()}>
+                  Retry
+                </Button>
+              }
+            >
+              {(list.error as Error).message}
+            </Callout>
+          </div>
+        ) : list.isLoading ? (
+          <TableSkeleton rows={3} cols={6} />
+        ) : !(list.data ?? []).length ? (
+          <EmptyBlock
+            icon={<BellIcon size={22} />}
+            title="No webhooks registered"
+            description="Register an endpoint above to relay platform events."
+            action={
+              canWrite ? (
+                <Button size="sm" variant="primary" icon={<PlusIcon size={14} />} onClick={() => setShowCreateModal(true)}>
+                  Register endpoint
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <table className="admin-table">
             <thead>
-              <tr className="border-b border-ink/10 bg-bone/40 text-[11px] uppercase tracking-wider font-semibold text-ink-3">
-                <th className="py-3 px-4">Endpoint Name</th>
-                <th className="py-3 px-4">Target URL</th>
-                <th className="py-3 px-4">Subscribed Events</th>
-                <th className="py-3 px-4">Signing Secret</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+              <tr>
+                <th>Endpoint</th>
+                <th>Target URL</th>
+                <th>Subscribed events</th>
+                <th>Signing secret</th>
+                <th>Status</th>
+                <th>
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink/5 text-xs">
+            <tbody>
               {(list.data ?? []).map((h) => {
                 const events: string[] = (() => {
                   try {
@@ -1153,51 +1210,51 @@ function WebhooksTab() {
                 const isSecretRevealed = Boolean(revealedSecrets[h.id]);
 
                 return (
-                  <tr key={h.id} className="hover:bg-sand/20 transition-colors">
-                    <td className="py-3 px-4 font-mono font-bold text-ink">
-                      {h.name}
+                  <tr key={h.id}>
+                    <td>
+                      <CellStack mono primary={h.name} secondary={h.id} />
                     </td>
-                    <td className="py-3 px-4 font-mono text-ink-3 max-w-xs truncate" title={h.url}>
-                      {h.url}
+                    <td>
+                      <span className="block max-w-[220px] truncate font-mono text-xs text-ink-3" title={h.url}>
+                        {h.url}
+                      </span>
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="flex flex-wrap gap-1 max-w-xs">
+                    <td>
+                      <div className="flex max-w-xs flex-wrap gap-1">
                         {events.map((ev) => (
-                          <span
-                            key={ev}
-                            className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-sand/60 text-ink border border-ink/10"
-                          >
+                          <Pill key={ev} tone="neutral" className="font-mono">
                             {ev}
-                          </span>
+                          </Pill>
                         ))}
                       </div>
                     </td>
-                    <td className="py-3 px-4 font-mono">
-                      <div className="flex items-center gap-1.5">
-                        <span>{isSecretRevealed ? h.secret : '••••••••••••••••'}</span>
+                    <td>
+                      <div className="flex items-center gap-1.5 font-mono text-xs">
+                        <span className="text-ink-3">{isSecretRevealed ? h.secret : '••••••••••••'}</span>
                         <button
                           type="button"
                           onClick={() => toggleSecretReveal(h.id)}
-                          className="text-[10px] text-ink-4 hover:text-ink underline"
+                          className="rounded p-1 text-ink-4 transition-colors hover:bg-ink/5 hover:text-ink"
+                          title={isSecretRevealed ? 'Hide secret' : 'Reveal secret'}
+                          aria-label={isSecretRevealed ? 'Hide secret' : 'Reveal secret'}
                         >
-                          {isSecretRevealed ? 'Hide' : 'Show'}
+                          {isSecretRevealed ? <EyeOffIcon size={13} /> : <EyeIcon size={13} />}
                         </button>
                       </div>
                     </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded-full ${
-                          h.active === 1
-                            ? 'bg-mint/15 text-mint border border-mint/30'
-                            : 'bg-bone text-ink-4 border border-ink/10'
-                        }`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${h.active === 1 ? 'bg-mint' : 'bg-ink-4'}`} />
-                        {h.active === 1 ? 'Active' : 'Disabled'}
-                      </span>
+                    <td>
+                      {h.active === 1 ? (
+                        <Pill tone="success" dot>
+                          Active
+                        </Pill>
+                      ) : (
+                        <Pill tone="neutral" dot>
+                          Disabled
+                        </Pill>
+                      )}
                     </td>
-                    <td className="py-3 px-4 text-right">
-                      {canWrite && (
+                    <td className="text-right">
+                      {canWrite ? (
                         h.active === 1 ? (
                           <Button
                             size="sm"
@@ -1219,206 +1276,208 @@ function WebhooksTab() {
                             Re-enable
                           </Button>
                         )
-                      )}
+                      ) : null}
                     </td>
                   </tr>
                 );
               })}
-              {!list.data?.length && (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-xs text-ink-4">
-                    No webhooks registered. Register an endpoint above to relay platform events.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
-        </div>
-      </Surface>
+        )}
+      </TableCard>
 
       {/* Recent Deliveries Table */}
-      <Surface className="p-5 space-y-4 border border-ink/10 bg-white">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-ink/10">
-          <div>
-            <h3 className="text-sm font-bold text-ink">Recent Outbound Deliveries</h3>
-            <p className="text-xs text-ink-4">Event dispatch logs, response HTTP status codes, and automatic retries</p>
-          </div>
-
-          {list.data && list.data.length > 1 && (
-            <label className="text-xs flex items-center gap-2">
-              <span className="text-ink-4 font-semibold uppercase tracking-wider text-[10px]">Filter Webhook:</span>
-              <select
-                value={selectedId ?? ''}
-                onChange={(e) => setSelectedWebhookId(e.target.value || null)}
-                className="h-8 px-2.5 bg-paper text-xs rounded-lg border border-ink/20 focus:outline-none focus:border-ink font-mono"
-              >
-                {list.data.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
+      <TableCard
+        title="Recent outbound deliveries"
+        description="Event dispatch logs, response HTTP status codes, and automatic retries."
+        toolbar={
+          list.data && list.data.length > 1 ? (
+            <Toolbar
+              actions={
+                <Select
+                  value={selectedId ?? ''}
+                  onChange={(e) => setSelectedWebhookId(e.target.value || null)}
+                  className="w-auto font-mono text-xs"
+                  aria-label="Filter deliveries by endpoint"
+                >
+                  {list.data.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.name}
+                    </option>
+                  ))}
+                </Select>
+              }
+            >
+              <span className="text-xs text-ink-4">
+                Showing deliveries for the selected endpoint
+              </span>
+            </Toolbar>
+          ) : undefined
+        }
+      >
+        {deliveries.isLoading && selectedId ? (
+          <TableSkeleton rows={4} cols={6} />
+        ) : !selectedId ? (
+          <EmptyBlock
+            icon={<BellIcon size={22} />}
+            title="No endpoint selected"
+            description="Create a webhook above to monitor outgoing dispatches."
+          />
+        ) : !(deliveries.data ?? []).length ? (
+          <EmptyBlock
+            icon={<BellIcon size={22} />}
+            title="No deliveries yet"
+            description="No webhook deliveries logged yet for this endpoint."
+          />
+        ) : (
+          <table className="admin-table">
             <thead>
-              <tr className="border-b border-ink/10 bg-bone/40 text-[11px] uppercase tracking-wider font-semibold text-ink-3">
-                <th className="py-2.5 px-4">Delivery UUID</th>
-                <th className="py-2.5 px-4">Event Type</th>
-                <th className="py-2.5 px-4">Delivery Status</th>
-                <th className="py-2.5 px-4">HTTP Response</th>
-                <th className="py-2.5 px-4">Attempts</th>
-                <th className="py-2.5 px-4 text-right">Actions</th>
+              <tr>
+                <th>Delivery</th>
+                <th>Event type</th>
+                <th>Status</th>
+                <th>HTTP response</th>
+                <th>Attempts</th>
+                <th>
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink/5 text-xs">
+            <tbody>
               {(deliveries.data ?? []).map((d) => (
-                <tr key={d.id} className="hover:bg-sand/20 transition-colors">
-                  <td className="py-2.5 px-4 font-mono text-ink font-semibold">
-                    {d.id.slice(0, 8)}…
+                <tr key={d.id}>
+                  <td>
+                    <CellStack mono primary={`${d.id.slice(0, 8)}…`} secondary={d.id} />
                   </td>
-                  <td className="py-2.5 px-4 font-mono">
-                    <span className="px-2 py-0.5 rounded bg-sand/60 text-ink border border-ink/10">
+                  <td>
+                    <Pill tone="neutral" className="font-mono">
                       {d.eventType}
-                    </span>
+                    </Pill>
                   </td>
-                  <td className="py-2.5 px-4">
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded-full ${
-                        d.status === 'success'
-                          ? 'bg-mint/15 text-mint border border-mint/30'
-                          : d.status === 'failed'
-                          ? 'bg-rose/15 text-rose border border-rose/30'
-                          : 'bg-amber/15 text-amber border border-amber/30'
-                      }`}
-                    >
-                      {d.status}
-                    </span>
+                  <td>
+                    <StatusPill status={d.status} />
                   </td>
-                  <td className="py-2.5 px-4 font-mono font-semibold">
+                  <td>
                     {d.responseStatus ? (
-                      <span className={d.responseStatus >= 200 && d.responseStatus < 300 ? 'text-mint' : 'text-rose'}>
+                      <span
+                        className={cn(
+                          'font-mono text-xs font-semibold',
+                          d.responseStatus >= 200 && d.responseStatus < 300 ? 'text-mint' : 'text-rose',
+                        )}
+                      >
                         {d.responseStatus}
                       </span>
                     ) : (
                       <span className="text-ink-4">—</span>
                     )}
                   </td>
-                  <td className="py-2.5 px-4 font-mono">{d.attemptCount}</td>
-                  <td className="py-2.5 px-4 text-right space-x-2">
-                    <button
-                      type="button"
-                      onClick={() => setInspectDelivery(d)}
-                      className="text-xs text-ink hover:underline font-medium"
-                    >
-                      Inspect
-                    </button>
-                    {canRetry && d.status === 'failed' && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => retry.mutate({ webhookId: d.webhookId, deliveryId: d.id })}
-                        loading={retry.isPending && retry.variables?.deliveryId === d.id}
-                      >
-                        Retry
+                  <td>
+                    <span className="font-mono text-xs">{d.attemptCount}</span>
+                  </td>
+                  <td className="text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button size="sm" variant="ghost" onClick={() => setInspectDelivery(d)}>
+                        Inspect
                       </Button>
-                    )}
+                      {canRetry && d.status === 'failed' ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => retry.mutate({ webhookId: d.webhookId, deliveryId: d.id })}
+                          loading={retry.isPending && retry.variables?.deliveryId === d.id}
+                        >
+                          Retry
+                        </Button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
-              {!selectedId ? (
-                <tr>
-                  <td colSpan={6} className="py-6 text-center text-xs text-ink-4">
-                    Create a webhook above to monitor outgoing dispatches.
-                  </td>
-                </tr>
-              ) : !deliveries.data?.length ? (
-                <tr>
-                  <td colSpan={6} className="py-6 text-center text-xs text-ink-4">
-                    No webhook deliveries logged yet for this endpoint.
-                  </td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
-        </div>
-      </Surface>
+        )}
+      </TableCard>
 
       {/* Register Webhook Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl border border-ink/20 shadow-2xl max-w-xl w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-ink">Register Webhook Endpoint</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-                  Endpoint Name
-                </label>
-                <Input
-                  placeholder="e.g. ERP Order Sync"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
+      {showCreateModal ? (
+        <ModalShell
+          title="Register webhook endpoint"
+          icon={<BellIcon size={15} />}
+          onClose={() => setShowCreateModal(false)}
+          wide
+        >
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="wh-name">Endpoint name</Label>
+              <Input
+                id="wh-name"
+                placeholder="e.g. ERP Order Sync"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="wh-url">Target HTTPS URL</Label>
+              <Input
+                id="wh-url"
+                placeholder="https://api.partner.com/vyro-webhooks"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <Label htmlFor="wh-secret" className="mb-0">
+                  Signing secret (min 8 chars)
+                </Label>
+                <button
+                  type="button"
+                  onClick={generateSecret}
+                  className="text-[11px] font-medium text-copper transition-colors hover:text-ink"
+                >
+                  Auto-generate
+                </button>
               </div>
-              <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-                  Target HTTPS URL
-                </label>
-                <Input
-                  placeholder="https://api.partner.com/vyro-webhooks"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3">
-                    Signing Secret (min 8 chars)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={generateSecret}
-                    className="text-[11px] text-ink hover:underline font-medium"
-                  >
-                    Auto-generate
-                  </button>
-                </div>
-                <Input
-                  type="text"
-                  placeholder="Enter secret or click auto-generate"
-                  value={secret}
-                  onChange={(e) => setSecret(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
-                  Subscribed Events
-                </label>
-                <div className="grid grid-cols-2 gap-2 p-3 bg-bone/50 rounded-xl border border-ink/10 max-h-40 overflow-y-auto">
-                  {WEBHOOK_EVENT_CATALOG.map((ev) => {
-                    const isChecked = selectedEvents.includes(ev);
-                    return (
-                      <label key={ev} className="flex items-center gap-2 text-xs font-mono cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleEventSelection(ev)}
-                          className="accent-ink rounded"
-                        />
-                        <span>{ev}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
+              <Input
+                id="wh-secret"
+                type="text"
+                placeholder="Enter secret or click auto-generate"
+                value={secret}
+                onChange={(e) => setSecret(e.target.value)}
+                className="font-mono"
+              />
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-ink/10">
-              <Button variant="outline" size="sm" onClick={() => setShowCreateModal(false)}>
+            <div>
+              <Label>Subscribed events</Label>
+              <div className="grid max-h-44 grid-cols-1 gap-1 overflow-y-auto rounded-lg bg-ink/[0.04] p-3 sm:grid-cols-2">
+                {WEBHOOK_EVENT_CATALOG.map((ev) => {
+                  const isChecked = selectedEvents.includes(ev);
+                  return (
+                    <label
+                      key={ev}
+                      className={cn(
+                        'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 font-mono text-xs transition-colors',
+                        isChecked ? 'bg-paper text-ink shadow-sm' : 'text-ink-3 hover:bg-paper/60',
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleEventSelection(ev)}
+                        className="accent-ink"
+                      />
+                      <span>{ev}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-xs text-ink-4">{selectedEvents.length} event(s) selected.</p>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-ink/[0.07] pt-4">
+              <Button variant="ghost" size="sm" onClick={() => setShowCreateModal(false)}>
                 Cancel
               </Button>
               <Button
@@ -1428,82 +1487,69 @@ function WebhooksTab() {
                 onClick={handleCreate}
                 loading={create.isPending}
               >
-                Register Endpoint
+                Register endpoint
               </Button>
             </div>
           </div>
-        </div>
-      )}
+        </ModalShell>
+      ) : null}
 
       {/* Inspect Delivery Modal */}
-      {inspectDelivery && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl border border-ink/20 shadow-2xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between pb-2 border-b border-ink/10">
-              <div>
-                <h3 className="text-base font-bold text-ink">Delivery Inspector</h3>
-                <p className="text-xs text-ink-4 font-mono">{inspectDelivery.id}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setInspectDelivery(null)}
-                className="w-8 h-8 rounded-full bg-bone flex items-center justify-center font-bold text-sm"
-              >
-                &times;
-              </button>
+      {inspectDelivery ? (
+        <ModalShell
+          title="Delivery inspector"
+          sub={inspectDelivery.id}
+          icon={<FileTextIcon size={15} />}
+          onClose={() => setInspectDelivery(null)}
+          wide
+        >
+          <div className="space-y-5">
+            <DetailList
+              columns={3}
+              items={[
+                { label: 'Event', value: <span className="font-mono text-xs">{inspectDelivery.eventType}</span> },
+                { label: 'Status', value: <StatusPill status={inspectDelivery.status} /> },
+                {
+                  label: 'HTTP code',
+                  value: <span className="font-mono text-xs">{inspectDelivery.responseStatus ?? '—'}</span>,
+                },
+              ]}
+            />
+
+            <div>
+              <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4">
+                Dispatched payload
+              </h4>
+              <pre className="overflow-x-auto rounded-lg bg-charcoal p-3.5 font-mono text-xs leading-relaxed text-paper">
+                {(() => {
+                  try {
+                    return JSON.stringify(JSON.parse(inspectDelivery.payloadJson), null, 2);
+                  } catch {
+                    return inspectDelivery.payloadJson;
+                  }
+                })()}
+              </pre>
             </div>
 
-            <div className="overflow-y-auto space-y-4 text-xs font-mono">
-              <div className="grid grid-cols-3 gap-2 p-3 bg-bone/50 rounded-xl">
-                <div>
-                  <span className="text-[10px] text-ink-4 block uppercase">Event</span>
-                  <span className="font-bold text-ink">{inspectDelivery.eventType}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-ink-4 block uppercase">Status</span>
-                  <span className="font-bold text-ink">{inspectDelivery.status}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-ink-4 block uppercase">HTTP Code</span>
-                  <span className="font-bold text-ink">{inspectDelivery.responseStatus ?? '—'}</span>
-                </div>
-              </div>
-
+            {inspectDelivery.responseBody ? (
               <div>
-                <span className="text-[11px] font-sans font-semibold uppercase tracking-wider text-ink-3 block mb-1">
-                  Dispatched Payload
-                </span>
-                <pre className="p-3 bg-charcoal text-paper rounded-xl overflow-x-auto text-xs">
-                  {(() => {
-                    try {
-                      return JSON.stringify(JSON.parse(inspectDelivery.payloadJson), null, 2);
-                    } catch {
-                      return inspectDelivery.payloadJson;
-                    }
-                  })()}
+                <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4">
+                  Response body
+                </h4>
+                <pre className="overflow-x-auto rounded-lg bg-ink/[0.05] p-3.5 font-mono text-xs leading-relaxed text-ink">
+                  {inspectDelivery.responseBody}
                 </pre>
               </div>
+            ) : null}
 
-              {inspectDelivery.responseBody && (
-                <div>
-                  <span className="text-[11px] font-sans font-semibold uppercase tracking-wider text-ink-3 block mb-1">
-                    Response Body
-                  </span>
-                  <pre className="p-3 bg-bone text-ink rounded-xl overflow-x-auto text-xs border border-ink/10">
-                    {inspectDelivery.responseBody}
-                  </pre>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-2 border-t border-ink/10">
-              <Button size="sm" variant="outline" onClick={() => setInspectDelivery(null)}>
+            <div className="flex justify-end border-t border-ink/[0.07] pt-4">
+              <Button size="sm" variant="ghost" onClick={() => setInspectDelivery(null)}>
                 Close
               </Button>
             </div>
           </div>
-        </div>
-      )}
+        </ModalShell>
+      ) : null}
     </div>
   );
 }

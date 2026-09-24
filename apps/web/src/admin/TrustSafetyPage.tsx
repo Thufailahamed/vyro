@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Surface, ErrorBanner, SuccessBanner, Button, EmptyState } from '@/components/ui';
+import { cn } from '@vyro/ui';
+import { Button, Input, Label, Select, Textarea } from '@/components/ui';
 import { usePermission } from './lib/permissions';
 import { api } from '@/lib/api';
 import {
@@ -15,27 +16,46 @@ import {
   useSuspendUser,
   useUnsuspendUser,
   type AbuseReportRow,
-  type KycReviewRow,
 } from './useAdminTrustSafety';
 import { DocumentViewer } from './DocumentViewer';
 import {
   ShieldCheckIcon,
   AlertTriangleIcon,
   UserCheckIcon,
-  UsersIcon,
   SearchIcon,
   XIcon,
   RefreshCwIcon,
   CheckCircleIcon,
-  CheckCircle2Icon,
-  ClockIcon,
   ArrowRightIcon,
   ExternalLinkIcon,
   FileTextIcon,
   EyeIcon,
 } from '@/components/icons';
+import {
+  AdminPage,
+  AdminPageHeader,
+  Callout,
+  Card,
+  CellStack,
+  DetailList,
+  EmptyBlock,
+  Panel,
+  Pill,
+  StatCard,
+  StatGrid,
+  StatusPill,
+  TableCard,
+  TableSkeleton,
+  Tabs,
+  Toolbar,
+  controlClass,
+  type PillTone,
+} from './ui';
 
 type Tab = 'reports' | 'kyc' | 'users';
+
+const linkBtnClass =
+  'inline-flex h-10 items-center gap-2 rounded-lg bg-paper px-4 text-sm font-medium text-ink shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] transition-colors hover:bg-ink hover:text-paper';
 
 function formatTimestamp(t: number | null | undefined): string {
   if (!t) return '—';
@@ -58,11 +78,122 @@ function getInitials(id: string): string {
   return clean.slice(0, 2).toUpperCase();
 }
 
+function reasonTone(reason: string): PillTone {
+  if (reason === 'fraud') return 'danger';
+  if (reason === 'harassment') return 'warning';
+  if (reason === 'spam') return 'info';
+  return 'neutral';
+}
+
+function kycTone(status: string): PillTone {
+  if (status === 'approved') return 'success';
+  if (status === 'rejected') return 'danger';
+  if (status === 'needs_more_info') return 'info';
+  return 'warning';
+}
+
+function SearchInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="relative min-w-0 flex-1 sm:max-w-md">
+      <SearchIcon size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={cn(controlClass, 'w-full pl-9 pr-8')}
+      />
+      {value ? (
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-4 transition-colors hover:text-ink"
+          title="Clear search"
+          aria-label="Clear search"
+        >
+          <XIcon size={14} />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function ModalShell({
+  title,
+  sub,
+  icon,
+  tone = 'neutral',
+  onClose,
+  children,
+  wide,
+}: {
+  title: string;
+  sub?: string | undefined;
+  icon: React.ReactNode;
+  tone?: 'neutral' | 'danger';
+  onClose: () => void;
+  children: React.ReactNode;
+  wide?: boolean;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-sm animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className={cn('vyro-surface w-full overflow-hidden', wide ? 'max-w-2xl' : 'max-w-md')}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className={cn(
+            'flex items-center justify-between gap-3 border-b border-ink/[0.07] px-5 py-4',
+            tone === 'danger' ? 'bg-rose/[0.07]' : 'bg-bone/40',
+          )}
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <span
+              className={cn(
+                'flex size-9 shrink-0 items-center justify-center rounded-lg',
+                tone === 'danger' ? 'bg-rose/15 text-rose' : 'bg-copper/15 text-copper',
+              )}
+            >
+              {icon}
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold text-ink">{title}</h3>
+              {sub ? <p className="mt-0.5 truncate font-mono text-[11px] text-ink-4">{sub}</p> : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex size-8 items-center justify-center rounded-lg text-ink-4 transition-colors hover:bg-ink/5 hover:text-ink"
+          >
+            <XIcon size={16} />
+          </button>
+        </div>
+        <div className={cn('p-5 sm:p-6', wide && 'max-h-[75vh] overflow-y-auto')}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export function TrustSafetyPage() {
   const [params, setParams] = useSearchParams();
   const tab = (params.get('tab') as Tab | null) ?? 'reports';
 
-  const switchTab = (next: Tab) => {
+  const switchTab = (next: string) => {
     const p = new URLSearchParams(params);
     p.set('tab', next);
     setParams(p);
@@ -74,218 +205,107 @@ export function TrustSafetyPage() {
 
   const openReportsCount = openReportsQuery.data?.length ?? 0;
   const pendingKycCount = pendingKycQuery.data?.length ?? 0;
+  const kpisLoading = openReportsQuery.isLoading || pendingKycQuery.isLoading;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* Header */}
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-ink/10 pb-5">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-ink/60 mb-1">
-            <span>Governance & Access</span>
-            <span>/</span>
-            <span className="text-copper font-bold">Trust, Safety & Identity</span>
-          </div>
-          <h1 className="vyro-display text-3xl md:text-4xl text-ink tracking-tight">Trust & Safety</h1>
-          <p className="text-sm text-ink-500 mt-1 max-w-2xl">
-            Incident triage, abuse report mediation, merchant identity verification (KYC), and platform account enforcement.
-          </p>
-        </div>
+    <AdminPage>
+      <AdminPageHeader
+        kicker={
+          <>
+            <span>Governance &amp; Access</span>
+            <span className="text-ink-4">/</span>
+            <span>Trust, Safety &amp; Identity</span>
+          </>
+        }
+        title="Trust & Safety"
+        description="Incident triage, abuse report mediation, merchant identity verification (KYC), and platform account enforcement."
+        actions={
+          <>
+            <Link to="/admin/users" className={linkBtnClass}>
+              User accounts
+              <ExternalLinkIcon size={14} />
+            </Link>
+            <Link to="/admin/audit" className={linkBtnClass}>
+              Audit trail
+              <ArrowRightIcon size={14} />
+            </Link>
+          </>
+        }
+      />
 
-        <div className="flex items-center flex-wrap gap-2">
-          <Link
-            to="/admin/users"
-            className="vyro-btn vyro-btn-secondary text-xs h-9 px-3 gap-1.5 flex items-center font-medium"
-          >
-            User Accounts
-            <ExternalLinkIcon size={13} />
-          </Link>
-          <Link
-            to="/admin/audit"
-            className="vyro-btn vyro-btn-secondary text-xs h-9 px-3 gap-1.5 flex items-center font-medium"
-          >
-            Audit Trail
-            <ArrowRightIcon size={13} />
-          </Link>
-        </div>
-      </header>
+      <StatGrid cols={4}>
+        <StatCard
+          label="Open abuse reports"
+          value={openReportsCount}
+          sub="Community reports"
+          icon={<AlertTriangleIcon size={16} />}
+          tone={openReportsCount > 0 ? 'danger' : 'neutral'}
+          status={
+            openReportsCount > 0 ? (
+              <Pill tone="danger" dot>
+                Requires triage
+              </Pill>
+            ) : (
+              <Pill tone="success" dot>
+                Queue clear
+              </Pill>
+            )
+          }
+          loading={kpisLoading}
+        />
+        <StatCard
+          label="Pending KYC reviews"
+          value={pendingKycCount}
+          sub="Identity verification"
+          icon={<UserCheckIcon size={16} />}
+          tone={pendingKycCount > 0 ? 'warning' : 'neutral'}
+          status={
+            pendingKycCount > 0 ? (
+              <Pill tone="warning" dot>
+                Awaiting review
+              </Pill>
+            ) : (
+              <Pill tone="success" dot>
+                All verified
+              </Pill>
+            )
+          }
+          loading={kpisLoading}
+        />
+        <StatCard
+          label="Account enforcement"
+          value="Active"
+          sub="Automated session kill on suspension"
+          icon={<ShieldCheckIcon size={16} />}
+          status={
+            <Pill tone="success" dot>
+              Live
+            </Pill>
+          }
+        />
+        <StatCard
+          label="Compliance & safety"
+          value="Audited"
+          sub="100% traceability · immutable logging"
+          icon={<FileTextIcon size={16} />}
+        />
+      </StatGrid>
 
-      {/* KPI Cards */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Open Abuse Reports */}
-        <Surface className="p-4 relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase tracking-wider text-ink-500 font-semibold">
-              Open Abuse Reports
-            </span>
-            <div
-              className={`p-2 rounded-md ${
-                openReportsCount > 0 ? 'bg-rose/10 text-rose' : 'bg-mint/10 text-mint'
-              }`}
-            >
-              <AlertTriangleIcon size={18} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono text-ink tracking-tight">
-              {openReportsCount}
-            </div>
-            <div className="flex items-center gap-2 mt-1 text-xs text-ink-500">
-              {openReportsCount > 0 ? (
-                <span className="font-semibold text-rose">• Requires Triage</span>
-              ) : (
-                <span className="font-semibold text-mint">• Queue Clear</span>
-              )}
-              <span>• Community reports</span>
-            </div>
-          </div>
-        </Surface>
+      <Tabs
+        items={[
+          { key: 'reports', label: 'Abuse reports', icon: <AlertTriangleIcon size={15} />, count: openReportsCount > 0 ? openReportsCount : undefined },
+          { key: 'kyc', label: 'KYC verification', icon: <UserCheckIcon size={15} />, count: pendingKycCount > 0 ? pendingKycCount : undefined },
+          { key: 'users', label: 'Account enforcement', icon: <ShieldCheckIcon size={15} /> },
+        ]}
+        value={tab}
+        onChange={switchTab}
+        ariaLabel="Trust & safety sections"
+      />
 
-        {/* Pending KYC Dossiers */}
-        <Surface className="p-4 relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase tracking-wider text-ink-500 font-semibold">
-              Pending KYC Reviews
-            </span>
-            <div
-              className={`p-2 rounded-md ${
-                pendingKycCount > 0 ? 'bg-amber/10 text-amber' : 'bg-sand/30 text-ink'
-              }`}
-            >
-              <UserCheckIcon size={18} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono text-ink tracking-tight">
-              {pendingKycCount}
-            </div>
-            <div className="flex items-center gap-2 mt-1 text-xs text-ink-500">
-              {pendingKycCount > 0 ? (
-                <span className="font-semibold text-amber">• Awaiting Review</span>
-              ) : (
-                <span className="font-semibold text-mint">• All Verified</span>
-              )}
-              <span>• Identity verification</span>
-            </div>
-          </div>
-        </Surface>
-
-        {/* Enforcement Engine */}
-        <Surface className="p-4 relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase tracking-wider text-ink-500 font-semibold">
-              Account Enforcement
-            </span>
-            <div className="p-2 rounded-md bg-sand/30 text-ink">
-              <ShieldCheckIcon size={18} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono text-ink tracking-tight">
-              Active
-            </div>
-            <div className="flex items-center gap-2 mt-1 text-xs text-ink-500">
-              <span className="font-semibold text-mint">• Automated session kill</span>
-              <span>On suspension</span>
-            </div>
-          </div>
-        </Surface>
-
-        {/* Audit Verification */}
-        <Surface className="p-4 relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase tracking-wider text-ink-500 font-semibold">
-              Compliance & Safety
-            </span>
-            <div className="p-2 rounded-md bg-sand/30 text-ink">
-              <FileTextIcon size={18} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono text-ink tracking-tight">
-              Audited
-            </div>
-            <div className="flex items-center gap-2 mt-1 text-xs text-ink-500">
-              <span className="font-semibold text-mint">• 100% Traceability</span>
-              <span>Immutable logging</span>
-            </div>
-          </div>
-        </Surface>
-      </section>
-
-      {/* Modern High-Contrast Navigation Tabs */}
-      <nav className="flex items-center gap-1 border-b border-ink/15 overflow-x-auto pt-2">
-        <TabButton
-          active={tab === 'reports'}
-          onClick={() => switchTab('reports')}
-          icon={<AlertTriangleIcon size={15} />}
-          badge={openReportsCount > 0 ? openReportsCount : undefined}
-          badgeColor="danger"
-        >
-          Abuse Reports
-        </TabButton>
-        <TabButton
-          active={tab === 'kyc'}
-          onClick={() => switchTab('kyc')}
-          icon={<UserCheckIcon size={15} />}
-          badge={pendingKycCount > 0 ? pendingKycCount : undefined}
-          badgeColor="danger"
-        >
-          KYC Verification
-        </TabButton>
-        <TabButton
-          active={tab === 'users'}
-          onClick={() => switchTab('users')}
-          icon={<ShieldCheckIcon size={15} />}
-        >
-          Account Enforcement
-        </TabButton>
-      </nav>
-
-      {/* Tab Panels */}
       {tab === 'reports' && <ReportsTab />}
       {tab === 'kyc' && <KycTab />}
       {tab === 'users' && <UsersTab />}
-    </div>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  icon,
-  badge,
-  badgeColor = 'default',
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon?: React.ReactNode;
-  badge?: number | undefined;
-  badgeColor?: 'default' | 'danger' | undefined;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-4 py-3 text-sm font-medium transition flex items-center gap-2 border-b-2 -mb-px whitespace-nowrap ${
-        active
-          ? 'bg-sand/30 border-ink text-ink font-semibold shadow-sm'
-          : 'border-transparent text-ink-500 hover:text-ink hover:bg-sand/10'
-      }`}
-    >
-      {icon}
-      <span>{children}</span>
-      {badge !== undefined && (
-        <span
-          className={`px-1.5 py-0.5 text-xs font-mono font-bold rounded-full ${
-            badgeColor === 'danger' ? 'bg-rose text-paper' : 'bg-ink/10 text-ink'
-          }`}
-        >
-          {badge}
-        </span>
-      )}
-    </button>
+    </AdminPage>
   );
 }
 
@@ -335,296 +355,234 @@ function ReportsTab() {
   }, [reportsQuery.data, search]);
 
   if (!canRead) {
-    return <ErrorBanner message="You require the 'abuse_report:read' permission to inspect abuse reports." />;
+    return (
+      <Callout tone="warning" title="Insufficient permissions">
+        You require the <span className="font-mono text-xs">abuse_report:read</span> permission to inspect abuse
+        reports.
+      </Callout>
+    );
   }
 
   return (
     <div className="space-y-4">
-      {/* Filter & Search Toolbar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-paper p-3 rounded-lg border border-ink/10">
-        <div className="relative flex-1 max-w-md">
-          <SearchIcon
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4 pointer-events-none"
-          />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by report ID, target ID, reason, or details…"
-            className="w-full pl-9 pr-8 py-1.5 text-sm bg-paper border border-ink/20 rounded focus:border-ink focus:outline-none placeholder:text-ink-4 text-ink"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-4 hover:text-ink"
-            >
-              <XIcon size={14} />
-            </button>
-          )}
-        </div>
-
-        {/* Status Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          {[
-            { id: 'open', label: 'Open' },
-            { id: 'investigating', label: 'Investigating' },
-            { id: 'resolved', label: 'Resolved' },
-            { id: 'dismissed', label: 'Dismissed' },
-            { id: 'all', label: 'All Reports' },
-          ].map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setStatusFilter(s.id)}
-              className={`px-2.5 py-1 text-xs font-mono font-medium rounded transition whitespace-nowrap ${
-                statusFilter === s.id
-                  ? 'bg-ink text-paper'
-                  : 'bg-sand/30 text-ink hover:bg-sand/60'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => reportsQuery.refetch()}
-            loading={reportsQuery.isFetching}
-            icon={<RefreshCwIcon size={13} />}
-            className="h-7 text-xs ml-1"
+      <TableCard
+        title="Abuse report queue"
+        description="Community-submitted incident reports awaiting triage and moderation."
+        toolbar={
+          <Toolbar
+            actions={
+              <>
+                <Tabs
+                  items={[
+                    { key: 'open', label: 'Open' },
+                    { key: 'investigating', label: 'Investigating' },
+                    { key: 'resolved', label: 'Resolved' },
+                    { key: 'dismissed', label: 'Dismissed' },
+                    { key: 'all', label: 'All reports' },
+                  ]}
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  ariaLabel="Filter by status"
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="h-10"
+                  onClick={() => void reportsQuery.refetch()}
+                  loading={reportsQuery.isFetching}
+                  icon={<RefreshCwIcon size={14} />}
+                >
+                  Refresh
+                </Button>
+              </>
+            }
           >
-            Refresh
-          </Button>
-        </div>
-      </div>
-
-      {reportsQuery.isError && (
-        <ErrorBanner message={(reportsQuery.error as Error).message} />
-      )}
-
-      {/* Main Table */}
-      {reportsQuery.isLoading ? (
-        <Surface className="p-8 text-center space-y-3">
-          <div className="animate-spin w-6 h-6 border-2 border-ink border-t-transparent rounded-full mx-auto" />
-          <p className="text-sm text-ink-500 font-mono">Loading incident reports…</p>
-        </Surface>
-      ) : filteredReports.length === 0 ? (
-        <EmptyState
-          icon={<CheckCircle2Icon size={24} />}
-          title="Incident Queue Clear"
-          description={`No abuse reports currently match the "${statusFilter}" filter.`}
-          action={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSearch('');
-                setStatusFilter('all');
-              }}
-              className="text-xs"
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search by report ID, target ID, reason, or details…"
+            />
+          </Toolbar>
+        }
+        footer={
+          <span>
+            Showing <strong className="text-ink">{filteredReports.length}</strong> of{' '}
+            {(reportsQuery.data ?? []).length} {statusFilter === 'all' ? 'reports' : `${statusFilter} reports`}
+            {search ? ' · filter applied' : ''}
+          </span>
+        }
+      >
+        {reportsQuery.isError ? (
+          <div className="p-5 sm:p-6">
+            <Callout
+              tone="danger"
+              title="Could not load abuse reports"
+              action={
+                <Button variant="secondary" size="sm" onClick={() => void reportsQuery.refetch()}>
+                  Retry
+                </Button>
+              }
             >
-              View All Reports
-            </Button>
-          }
-        />
-      ) : (
-        <Surface className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead>
-                <tr className="bg-sand/20 border-b border-ink/10 text-xs font-mono uppercase tracking-wider text-ink-500">
-                  <th className="py-3 px-4">Report ID</th>
-                  <th className="py-3 px-4">Target Entity</th>
-                  <th className="py-3 px-4">Violation Category</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Opened Timeline</th>
-                  <th className="py-3 px-4 text-right">Moderation Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/10">
-                {filteredReports.map((r) => {
-                  const reasonColor =
-                    r.reason === 'fraud'
-                      ? 'bg-rose/15 text-rose border-rose/30'
-                      : r.reason === 'harassment'
-                        ? 'bg-amber/15 text-amber border-amber/30'
-                        : r.reason === 'spam'
-                          ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30'
-                          : 'bg-sand/40 text-ink border-ink/20';
-
-                  const statusColor =
-                    r.status === 'open'
-                      ? 'text-amber bg-amber/10 border-amber/30'
-                      : r.status === 'investigating'
-                        ? 'text-sky-700 bg-sky-500/10 border-sky-500/30'
-                        : r.status === 'resolved'
-                          ? 'text-mint bg-mint/10 border-mint/30'
-                          : 'text-ink-4 bg-ink/5 border-ink/10';
-
-                  return (
-                    <tr key={r.id} className="hover:bg-sand/10 transition">
-                      {/* Report ID */}
-                      <td className="py-3 px-4">
-                        <span className="font-mono text-xs font-bold text-ink">
-                          {r.id}
-                        </span>
-                        {r.assignedTo && (
-                          <div className="text-[11px] font-mono text-ink-4 mt-0.5">
-                            Assigned: {r.assignedTo}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Target */}
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1.5">
-                          <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-ink/5 border border-ink/15 rounded text-ink">
-                            {r.targetType}
-                          </span>
-                          <span className="font-mono text-xs text-ink truncate max-w-[140px]" title={r.targetId}>
+              {(reportsQuery.error as Error).message}
+            </Callout>
+          </div>
+        ) : reportsQuery.isLoading ? (
+          <TableSkeleton rows={5} cols={6} />
+        ) : filteredReports.length === 0 ? (
+          <EmptyBlock
+            icon={<CheckCircleIcon size={22} />}
+            title="Incident queue clear"
+            description={`No abuse reports currently match the "${statusFilter}" filter.`}
+            action={
+              statusFilter !== 'all' || search ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setSearch('');
+                    setStatusFilter('all');
+                  }}
+                >
+                  View all reports
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Report</th>
+                <th>Target entity</th>
+                <th>Violation</th>
+                <th>Status</th>
+                <th>Opened</th>
+                <th>
+                  <span className="sr-only">Moderation actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredReports.map((r) => (
+                <tr key={r.id}>
+                  <td>
+                    <CellStack mono primary={r.id} secondary={r.assignedTo ? `Assigned: ${r.assignedTo}` : undefined} />
+                  </td>
+                  <td>
+                    <CellStack
+                      primary={
+                        <span className="flex items-center gap-1.5">
+                          <Pill tone="neutral" className="uppercase">{r.targetType}</Pill>
+                          <span className="max-w-[140px] truncate font-mono text-xs" title={r.targetId}>
                             {r.targetId}
                           </span>
-                        </div>
-                        {r.details && (
-                          <div className="text-xs text-ink-500 mt-1 line-clamp-1 max-w-xs" title={r.details}>
-                            {r.details}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Reason */}
-                      <td className="py-3 px-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-mono font-semibold uppercase tracking-wider border rounded ${reasonColor}`}>
+                        </span>
+                      }
+                      secondary={r.details ? r.details : undefined}
+                    />
+                  </td>
+                  <td>
+                    <CellStack
+                      primary={
+                        <Pill tone={reasonTone(r.reason)} className="uppercase">
                           {r.reason}
-                        </span>
-                        {r.resolutionNotes && (
-                          <div className="text-[11px] text-ink-4 mt-1 italic line-clamp-1">
-                            Note: {r.resolutionNotes}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-3 px-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono font-semibold border rounded capitalize ${statusColor}`}>
-                          {r.status === 'open' && <span className="w-1.5 h-1.5 rounded-full bg-amber animate-pulse" />}
-                          {r.status === 'resolved' && <span className="w-1.5 h-1.5 rounded-full bg-mint" />}
-                          {r.status}
-                        </span>
-                      </td>
-
-                      {/* Opened Timeline */}
-                      <td className="py-3 px-4 text-xs text-ink-500 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          <ClockIcon size={13} className="text-ink-4 shrink-0" />
-                          <span>{formatTimestamp(r.createdAt)}</span>
-                        </div>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {r.status === 'open' && (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => claim.mutate(r.id)}
-                              loading={claim.isPending && claim.variables === r.id}
-                              className="h-7 text-xs px-2"
-                            >
-                              Claim
-                            </Button>
-                          )}
-
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setSelectedReportForNotes(r);
-                              setReportNoteText('');
-                            }}
-                            className="h-7 text-xs px-2"
-                          >
-                            Add Note
-                          </Button>
-
-                          {canResolve && r.status !== 'resolved' && (
-                            <Button
-                              size="sm"
-                              variant="primary"
-                              onClick={() => {
-                                setSelectedReportForResolve({ report: r, resolution: 'resolved' });
-                                setResolveNoteText('');
-                              }}
-                              className="h-7 text-xs px-2.5"
-                            >
-                              Resolve
-                            </Button>
-                          )}
-
-                          {canResolve && r.status !== 'dismissed' && r.status !== 'resolved' && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setSelectedReportForResolve({ report: r, resolution: 'dismissed' });
-                                setResolveNoteText('');
-                              }}
-                              className="h-7 text-xs px-2 text-ink-500"
-                            >
-                              Dismiss
-                            </Button>
-                          )}
-
-                          {canTakedown && (
-                            <Button
-                              size="sm"
-                              variant="danger"
-                              onClick={() => setTakedownConfirm(r)}
-                              className="h-7 text-xs px-2"
-                            >
-                              Takedown
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Surface>
-      )}
+                        </Pill>
+                      }
+                      secondary={r.resolutionNotes ? `Note: ${r.resolutionNotes}` : undefined}
+                    />
+                  </td>
+                  <td>
+                    <StatusPill status={r.status} />
+                  </td>
+                  <td>
+                    <CellStack primary={formatTimestamp(r.createdAt)} />
+                  </td>
+                  <td className="text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {r.status === 'open' ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => claim.mutate(r.id)}
+                          loading={claim.isPending && claim.variables === r.id}
+                        >
+                          Claim
+                        </Button>
+                      ) : null}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedReportForNotes(r);
+                          setReportNoteText('');
+                        }}
+                      >
+                        Add note
+                      </Button>
+                      {canResolve && r.status !== 'resolved' ? (
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={() => {
+                            setSelectedReportForResolve({ report: r, resolution: 'resolved' });
+                            setResolveNoteText('');
+                          }}
+                        >
+                          Resolve
+                        </Button>
+                      ) : null}
+                      {canResolve && r.status !== 'dismissed' && r.status !== 'resolved' ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedReportForResolve({ report: r, resolution: 'dismissed' });
+                            setResolveNoteText('');
+                          }}
+                        >
+                          Dismiss
+                        </Button>
+                      ) : null}
+                      {canTakedown ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-rose hover:bg-rose/10"
+                          onClick={() => setTakedownConfirm(r)}
+                        >
+                          Takedown
+                        </Button>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </TableCard>
 
       {/* Add Note Modal */}
-      {selectedReportForNotes && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-paper w-full max-w-md rounded-xl shadow-2xl border border-ink/20 p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-ink/10 pb-3">
-              <h3 className="font-bold text-ink text-base">Add Investigation Note</h3>
-              <button
-                type="button"
-                onClick={() => setSelectedReportForNotes(null)}
-                className="text-ink-4 hover:text-ink p-1 rounded"
-              >
-                <XIcon size={16} />
-              </button>
+      {selectedReportForNotes ? (
+        <ModalShell
+          title="Add investigation note"
+          sub={`${selectedReportForNotes.id} · ${selectedReportForNotes.targetType}:${selectedReportForNotes.targetId}`}
+          icon={<FileTextIcon size={15} />}
+          onClose={() => setSelectedReportForNotes(null)}
+        >
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="report-note">Internal moderation note</Label>
+              <Textarea
+                id="report-note"
+                rows={3}
+                value={reportNoteText}
+                onChange={(e) => setReportNoteText(e.target.value)}
+                placeholder="Enter internal moderation note or investigator observations…"
+                disabled={addNote.isPending}
+              />
             </div>
-            <div className="text-xs text-ink-500">
-              Report <strong className="font-mono text-ink">{selectedReportForNotes.id}</strong> ({selectedReportForNotes.targetType}:{selectedReportForNotes.targetId})
-            </div>
-            <textarea
-              rows={3}
-              value={reportNoteText}
-              onChange={(e) => setReportNoteText(e.target.value)}
-              placeholder="Enter internal moderation note or investigator observations…"
-              className="w-full p-2.5 text-sm bg-paper border border-ink/20 rounded focus:border-ink focus:outline-none text-ink"
-              disabled={addNote.isPending}
-            />
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 border-t border-ink/[0.07] pt-4">
               <Button variant="ghost" size="sm" onClick={() => setSelectedReportForNotes(null)}>
                 Cancel
               </Button>
@@ -640,45 +598,38 @@ function ReportsTab() {
                   );
                 }}
               >
-                Save Note
+                Save note
               </Button>
             </div>
           </div>
-        </div>
-      )}
+        </ModalShell>
+      ) : null}
 
       {/* Resolve / Dismiss Dialog */}
-      {selectedReportForResolve && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-paper w-full max-w-md rounded-xl shadow-2xl border border-ink/20 p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-ink/10 pb-3">
-              <h3 className="font-bold text-ink text-base capitalize">
-                {selectedReportForResolve.resolution} Abuse Report
-              </h3>
-              <button
-                type="button"
-                onClick={() => setSelectedReportForResolve(null)}
-                className="text-ink-4 hover:text-ink p-1 rounded"
-              >
-                <XIcon size={16} />
-              </button>
-            </div>
-
-            <p className="text-xs text-ink-500">
-              Mark report <strong className="font-mono text-ink">{selectedReportForResolve.report.id}</strong> as{' '}
-              <span className="font-semibold text-ink uppercase">{selectedReportForResolve.resolution}</span>.
+      {selectedReportForResolve ? (
+        <ModalShell
+          title={`${selectedReportForResolve.resolution === 'resolved' ? 'Resolve' : 'Dismiss'} abuse report`}
+          sub={selectedReportForResolve.report.id}
+          icon={<CheckCircleIcon size={15} />}
+          onClose={() => setSelectedReportForResolve(null)}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-ink-3">
+              Mark report <strong className="font-mono text-xs text-ink">{selectedReportForResolve.report.id}</strong>{' '}
+              as <span className="font-semibold uppercase text-ink">{selectedReportForResolve.resolution}</span>.
             </p>
-
-            <textarea
-              rows={3}
-              value={resolveNoteText}
-              onChange={(e) => setResolveNoteText(e.target.value)}
-              placeholder="Resolution notes (e.g. Content reviewed and verified compliant, merchant warned)…"
-              className="w-full p-2.5 text-sm bg-paper border border-ink/20 rounded focus:border-ink focus:outline-none text-ink"
-              disabled={resolve.isPending}
-            />
-
-            <div className="flex justify-end gap-2">
+            <div>
+              <Label htmlFor="resolve-note">Resolution notes</Label>
+              <Textarea
+                id="resolve-note"
+                rows={3}
+                value={resolveNoteText}
+                onChange={(e) => setResolveNoteText(e.target.value)}
+                placeholder="e.g. Content reviewed and verified compliant, merchant warned…"
+                disabled={resolve.isPending}
+              />
+            </div>
+            <div className="flex justify-end gap-2 border-t border-ink/[0.07] pt-4">
               <Button variant="ghost" size="sm" onClick={() => setSelectedReportForResolve(null)}>
                 Cancel
               </Button>
@@ -697,31 +648,31 @@ function ReportsTab() {
                   );
                 }}
               >
-                Confirm {selectedReportForResolve.resolution === 'resolved' ? 'Resolution' : 'Dismissal'}
+                Confirm {selectedReportForResolve.resolution === 'resolved' ? 'resolution' : 'dismissal'}
               </Button>
             </div>
           </div>
-        </div>
-      )}
+        </ModalShell>
+      ) : null}
 
       {/* Takedown Confirmation Modal */}
-      {takedownConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-paper w-full max-w-md rounded-xl shadow-2xl border border-ink/20 p-6 space-y-4">
-            <div className="flex items-center gap-2 text-rose">
-              <AlertTriangleIcon size={20} />
-              <h3 className="font-bold text-base">Confirm Entity Takedown</h3>
-            </div>
-
-            <div className="p-3 bg-rose/10 border border-rose/20 rounded-md text-xs text-rose space-y-1">
-              <p className="font-semibold">Destructive Action</p>
-              <p>
-                This will immediately remove or delist target{' '}
-                <strong className="font-mono">{takedownConfirm.targetType}:{takedownConfirm.targetId}</strong> from public store catalog and mark the abuse report resolved.
-              </p>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
+      {takedownConfirm ? (
+        <ModalShell
+          title="Confirm entity takedown"
+          sub={`${takedownConfirm.targetType}:${takedownConfirm.targetId}`}
+          icon={<AlertTriangleIcon size={16} />}
+          tone="danger"
+          onClose={() => setTakedownConfirm(null)}
+        >
+          <div className="space-y-4">
+            <Callout tone="danger" title="Destructive action">
+              This will immediately remove or delist target{' '}
+              <strong className="font-mono text-xs">
+                {takedownConfirm.targetType}:{takedownConfirm.targetId}
+              </strong>{' '}
+              from the public store catalog and mark the abuse report resolved.
+            </Callout>
+            <div className="flex justify-end gap-2 pt-1">
               <Button variant="ghost" size="sm" onClick={() => setTakedownConfirm(null)} disabled={takedown.isPending}>
                 Cancel
               </Button>
@@ -735,12 +686,12 @@ function ReportsTab() {
                   });
                 }}
               >
-                Confirm Takedown
+                Confirm takedown
               </Button>
             </div>
           </div>
-        </div>
-      )}
+        </ModalShell>
+      ) : null}
     </div>
   );
 }
@@ -795,350 +746,290 @@ function KycTab() {
   }, [listQuery.data, search]);
 
   if (!canRead) {
-    return <ErrorBanner message="You require the 'kyc:read' permission to inspect KYC identity reviews." />;
+    return (
+      <Callout tone="warning" title="Insufficient permissions">
+        You require the <span className="font-mono text-xs">kyc:read</span> permission to inspect KYC identity
+        reviews.
+      </Callout>
+    );
   }
 
   return (
     <div className="space-y-4">
-      {/* Filter & Search Toolbar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-paper p-3 rounded-lg border border-ink/10">
-        <div className="relative flex-1 max-w-md">
-          <SearchIcon
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4 pointer-events-none"
-          />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search KYC dossiers by User ID or Review ID…"
-            className="w-full pl-9 pr-8 py-1.5 text-sm bg-paper border border-ink/20 rounded focus:border-ink focus:outline-none placeholder:text-ink-4 text-ink"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-4 hover:text-ink"
-            >
-              <XIcon size={14} />
-            </button>
-          )}
-        </div>
-
-        {/* Status Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          {[
-            { id: 'pending', label: 'Pending' },
-            { id: 'approved', label: 'Approved' },
-            { id: 'rejected', label: 'Rejected' },
-            { id: 'needs_more_info', label: 'Needs Info' },
-            { id: 'all', label: 'All Reviews' },
-          ].map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setStatusFilter(s.id)}
-              className={`px-2.5 py-1 text-xs font-mono font-medium rounded transition whitespace-nowrap ${
-                statusFilter === s.id
-                  ? 'bg-ink text-paper'
-                  : 'bg-sand/30 text-ink hover:bg-sand/60'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => listQuery.refetch()}
-            loading={listQuery.isFetching}
-            icon={<RefreshCwIcon size={13} />}
-            className="h-7 text-xs ml-1"
+      <TableCard
+        title="Identity verification queue"
+        description="Merchant KYC dossiers awaiting compliance review."
+        toolbar={
+          <Toolbar
+            actions={
+              <>
+                <Tabs
+                  items={[
+                    { key: 'pending', label: 'Pending' },
+                    { key: 'approved', label: 'Approved' },
+                    { key: 'rejected', label: 'Rejected' },
+                    { key: 'needs_more_info', label: 'Needs info' },
+                    { key: 'all', label: 'All reviews' },
+                  ]}
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  ariaLabel="Filter by status"
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="h-10"
+                  onClick={() => void listQuery.refetch()}
+                  loading={listQuery.isFetching}
+                  icon={<RefreshCwIcon size={14} />}
+                >
+                  Refresh
+                </Button>
+              </>
+            }
           >
-            Refresh
-          </Button>
-        </div>
-      </div>
-
-      {listQuery.isError && (
-        <ErrorBanner message={(listQuery.error as Error).message} />
-      )}
-
-      {/* Main Table */}
-      {listQuery.isLoading ? (
-        <Surface className="p-8 text-center space-y-3">
-          <div className="animate-spin w-6 h-6 border-2 border-ink border-t-transparent rounded-full mx-auto" />
-          <p className="text-sm text-ink-500 font-mono">Loading identity verification records…</p>
-        </Surface>
-      ) : filteredKyc.length === 0 ? (
-        <EmptyState
-          icon={<UserCheckIcon size={24} />}
-          title="No KYC Dossiers Found"
-          description={`There are currently no verification dossiers matching the "${statusFilter}" status.`}
-          action={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSearch('');
-                setStatusFilter('all');
-              }}
-              className="text-xs"
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search KYC dossiers by user ID or review ID…"
+            />
+          </Toolbar>
+        }
+        footer={
+          <span>
+            Showing <strong className="text-ink">{filteredKyc.length}</strong> of {(listQuery.data ?? []).length}{' '}
+            dossiers
+            {search ? ' · filter applied' : ''}
+          </span>
+        }
+      >
+        {listQuery.isError ? (
+          <div className="p-5 sm:p-6">
+            <Callout
+              tone="danger"
+              title="Could not load KYC reviews"
+              action={
+                <Button variant="secondary" size="sm" onClick={() => void listQuery.refetch()}>
+                  Retry
+                </Button>
+              }
             >
-              View All KYC Records
-            </Button>
-          }
-        />
-      ) : (
-        <Surface className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead>
-                <tr className="bg-sand/20 border-b border-ink/10 text-xs font-mono uppercase tracking-wider text-ink-500">
-                  <th className="py-3 px-4">Review ID</th>
-                  <th className="py-3 px-4">Subject User</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Submitted Timeline</th>
-                  <th className="py-3 px-4">Reviewer Notes</th>
-                  <th className="py-3 px-4 text-right">Dossier Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/10">
-                {filteredKyc.map((k) => {
-                  const statusColor =
-                    k.status === 'pending'
-                      ? 'text-amber bg-amber/10 border-amber/30'
-                      : k.status === 'approved'
-                        ? 'text-mint bg-mint/10 border-mint/30'
-                        : k.status === 'rejected'
-                          ? 'text-rose bg-rose/10 border-rose/30'
-                          : 'text-copper bg-copper/10 border-copper/30';
-
-                  return (
-                    <tr key={k.id} className="hover:bg-sand/10 transition">
-                      {/* ID */}
-                      <td className="py-3 px-4 font-mono text-xs font-bold text-ink">
-                        {k.id}
-                      </td>
-
-                      {/* User */}
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-full bg-ink text-paper font-mono font-bold text-xs flex items-center justify-center shrink-0">
-                            {getInitials(k.userId)}
-                          </div>
-                          <span className="font-mono text-xs text-ink truncate max-w-[160px]" title={k.userId}>
-                            {k.userId}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-3 px-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono font-semibold border rounded capitalize ${statusColor}`}>
-                          {k.status === 'pending' && <span className="w-1.5 h-1.5 rounded-full bg-amber animate-pulse" />}
-                          {k.status === 'approved' && <span className="w-1.5 h-1.5 rounded-full bg-mint" />}
-                          {k.status.replace(/_/g, ' ')}
-                        </span>
-                      </td>
-
-                      {/* Timeline */}
-                      <td className="py-3 px-4 text-xs text-ink-500 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          <ClockIcon size={13} className="text-ink-4 shrink-0" />
-                          <span>{formatTimestamp(k.createdAt)}</span>
-                        </div>
-                      </td>
-
-                      {/* Notes */}
-                      <td className="py-3 px-4 text-xs text-ink-500 max-w-xs truncate" title={k.notes || ''}>
-                        {k.notes || <span className="text-ink-4">—</span>}
-                      </td>
-
-                      {/* Action */}
-                      <td className="py-3 px-4 text-right">
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => {
-                            setDetailId(k.id);
-                            setDecisionNotes('');
-                          }}
-                          className="h-8 text-xs font-medium"
-                          icon={<EyeIcon size={13} />}
-                        >
-                          Review Dossier
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+              {(listQuery.error as Error).message}
+            </Callout>
           </div>
-        </Surface>
-      )}
+        ) : listQuery.isLoading ? (
+          <TableSkeleton rows={5} cols={6} />
+        ) : filteredKyc.length === 0 ? (
+          <EmptyBlock
+            icon={<UserCheckIcon size={22} />}
+            title="No KYC dossiers found"
+            description={`There are currently no verification dossiers matching the "${statusFilter.replace(/_/g, ' ')}" status.`}
+            action={
+              statusFilter !== 'all' || search ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setSearch('');
+                    setStatusFilter('all');
+                  }}
+                >
+                  View all KYC records
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Review</th>
+                <th>Subject user</th>
+                <th>Status</th>
+                <th>Submitted</th>
+                <th>Reviewer notes</th>
+                <th>
+                  <span className="sr-only">Action</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredKyc.map((k) => (
+                <tr key={k.id}>
+                  <td>
+                    <CellStack mono primary={k.id} />
+                  </td>
+                  <td>
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-[11px] font-bold text-paper">
+                        {getInitials(k.userId)}
+                      </span>
+                      <span className="max-w-[160px] truncate font-mono text-xs text-ink" title={k.userId}>
+                        {k.userId}
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <Pill tone={kycTone(k.status)} dot>
+                      {k.status.replace(/_/g, ' ')}
+                    </Pill>
+                  </td>
+                  <td>
+                    <CellStack primary={formatTimestamp(k.createdAt)} />
+                  </td>
+                  <td>
+                    <span className="block max-w-xs truncate text-xs text-ink-4" title={k.notes || ''}>
+                      {k.notes || '—'}
+                    </span>
+                  </td>
+                  <td className="text-right">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        setDetailId(k.id);
+                        setDecisionNotes('');
+                      }}
+                      icon={<EyeIcon size={13} />}
+                    >
+                      Review dossier
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </TableCard>
 
       {/* KYC Dossier Modal */}
-      {detailId && (
-        <div
-          className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setDetailId(null)}
+      {detailId ? (
+        <ModalShell
+          title="KYC identity dossier"
+          sub={detailId}
+          icon={<UserCheckIcon size={15} />}
+          onClose={() => setDetailId(null)}
+          wide
         >
-          <div
-            className="bg-paper border border-ink/20 rounded-xl max-w-2xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-ink/10 pb-3">
-              <div className="flex items-center gap-2">
-                <UserCheckIcon size={20} className="text-copper" />
-                <h3 className="font-bold text-ink text-base">KYC Identity Dossier</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDetailId(null)}
-                className="text-ink-4 hover:text-ink p-1 rounded"
-              >
-                <XIcon size={18} />
-              </button>
-            </div>
+          {detailQuery.isLoading ? (
+            <TableSkeleton rows={4} cols={3} />
+          ) : detailQuery.isError ? (
+            <Callout
+              tone="danger"
+              title="Could not load dossier"
+              action={
+                <Button variant="secondary" size="sm" onClick={() => void detailQuery.refetch()}>
+                  Retry
+                </Button>
+              }
+            >
+              {(detailQuery.error as Error).message}
+            </Callout>
+          ) : detailQuery.data ? (
+            <div className="space-y-5">
+              <DetailList
+                columns={2}
+                items={[
+                  { label: 'Review ID', value: <span className="font-mono text-xs">{detailQuery.data.id}</span> },
+                  { label: 'Subject user', value: <span className="font-mono text-xs">{detailQuery.data.userId}</span> },
+                  {
+                    label: 'Status',
+                    value: (
+                      <Pill tone={kycTone(detailQuery.data.status)} dot>
+                        {detailQuery.data.status.replace(/_/g, ' ')}
+                      </Pill>
+                    ),
+                  },
+                  { label: 'Submitted', value: formatTimestamp(detailQuery.data.createdAt) },
+                ]}
+              />
 
-            {detailQuery.isLoading ? (
-              <div className="py-8 text-center space-y-2">
-                <div className="animate-spin w-6 h-6 border-2 border-ink border-t-transparent rounded-full mx-auto" />
-                <p className="text-xs text-ink-500 font-mono">Loading dossier documents…</p>
+              <div>
+                <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4">
+                  Submitted identity documents
+                </h4>
+                <DocumentViewer kycId={detailQuery.data.id} />
               </div>
-            ) : detailQuery.isError ? (
-              <ErrorBanner message={(detailQuery.error as Error).message} />
-            ) : detailQuery.data ? (
-              <div className="space-y-4">
-                {/* Meta details */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 bg-sand/20 rounded-lg border border-ink/10 text-xs">
-                  <div>
-                    <span className="text-ink-500 block">Review ID:</span>
-                    <strong className="font-mono text-ink truncate block">{detailQuery.data.id}</strong>
-                  </div>
-                  <div>
-                    <span className="text-ink-500 block">Subject User:</span>
-                    <strong className="font-mono text-ink truncate block">{detailQuery.data.userId}</strong>
-                  </div>
-                  <div>
-                    <span className="text-ink-500 block">Status:</span>
-                    <strong className="capitalize text-ink">{detailQuery.data.status.replace(/_/g, ' ')}</strong>
-                  </div>
-                  <div>
-                    <span className="text-ink-500 block">Submitted:</span>
-                    <strong className="text-ink">{formatTimestamp(detailQuery.data.createdAt)}</strong>
-                  </div>
-                </div>
 
-                {/* Documents Display */}
+              {detailQuery.data.notes ? (
                 <div>
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-ink font-semibold mb-1.5">
-                    Submitted Identity Documents
+                  <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4">
+                    Existing reviewer notes
                   </h4>
-                  <DocumentViewer kycId={detailQuery.data.id} />
+                  <p className="rounded-lg bg-bone/60 p-3 text-xs leading-relaxed text-ink-3 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08)]">
+                    {detailQuery.data.notes}
+                  </p>
                 </div>
+              ) : null}
 
-                {/* Existing Notes */}
-                {detailQuery.data.notes && (
+              {canReview ? (
+                <div className="space-y-3 border-t border-ink/[0.07] pt-4">
                   <div>
-                    <h4 className="text-xs font-mono uppercase tracking-wider text-ink font-semibold mb-1">
-                      Existing Reviewer Notes
-                    </h4>
-                    <p className="p-2.5 bg-sand/20 rounded text-xs text-ink-500">
-                      {detailQuery.data.notes}
-                    </p>
-                  </div>
-                )}
-
-                {/* Reviewer Decision Controls */}
-                {canReview && (
-                  <div className="space-y-3 pt-3 border-t border-ink/10">
-                    <label className="block text-xs font-semibold text-ink">
-                      Reviewer Decision Notes (Optional)
-                    </label>
-                    <textarea
+                    <Label htmlFor="kyc-decision-notes">Reviewer decision notes (optional)</Label>
+                    <Textarea
+                      id="kyc-decision-notes"
                       rows={2}
                       value={decisionNotes}
                       onChange={(e) => setDecisionNotes(e.target.value)}
                       placeholder="Add compliance notes explaining this decision…"
-                      className="w-full p-2 text-xs bg-paper border border-ink/20 rounded text-ink focus:border-ink focus:outline-none"
                     />
-
-                    <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDetailId(null)}
-                      >
-                        Close
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={decision.isPending}
-                        onClick={() => {
-                          decision.mutate(
-                            {
-                              id: detailQuery.data!.id,
-                              decision: 'needs_more_info',
-                              notes: decisionNotes.trim() || undefined,
-                            },
-                            { onSuccess: () => setDetailId(null) },
-                          );
-                        }}
-                      >
-                        Request More Info
-                      </Button>
-
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        disabled={decision.isPending}
-                        onClick={() => {
-                          decision.mutate(
-                            {
-                              id: detailQuery.data!.id,
-                              decision: 'rejected',
-                              notes: decisionNotes.trim() || undefined,
-                            },
-                            { onSuccess: () => setDetailId(null) },
-                          );
-                        }}
-                      >
-                        Reject Identity
-                      </Button>
-
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        disabled={decision.isPending}
-                        onClick={() => {
-                          decision.mutate(
-                            {
-                              id: detailQuery.data!.id,
-                              decision: 'approved',
-                              notes: decisionNotes.trim() || undefined,
-                            },
-                            { onSuccess: () => setDetailId(null) },
-                          );
-                        }}
-                        className="bg-mint text-ink font-bold hover:bg-mint/90"
-                      >
-                        Approve Identity
-                      </Button>
-                    </div>
                   </div>
-                )}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setDetailId(null)}>
+                      Close
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={decision.isPending}
+                      onClick={() => {
+                        decision.mutate(
+                          { id: detailQuery.data!.id, decision: 'needs_more_info', notes: decisionNotes.trim() || undefined },
+                          { onSuccess: () => setDetailId(null) },
+                        );
+                      }}
+                    >
+                      Request more info
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      disabled={decision.isPending}
+                      onClick={() => {
+                        decision.mutate(
+                          { id: detailQuery.data!.id, decision: 'rejected', notes: decisionNotes.trim() || undefined },
+                          { onSuccess: () => setDetailId(null) },
+                        );
+                      }}
+                    >
+                      Reject identity
+                    </Button>
+                    <Button
+                      variant="success"
+                      size="sm"
+                      disabled={decision.isPending}
+                      onClick={() => {
+                        decision.mutate(
+                          { id: detailQuery.data!.id, decision: 'approved', notes: decisionNotes.trim() || undefined },
+                          { onSuccess: () => setDetailId(null) },
+                        );
+                      }}
+                    >
+                      Approve identity
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-end border-t border-ink/[0.07] pt-4">
+                  <Button variant="ghost" size="sm" onClick={() => setDetailId(null)}>
+                    Close
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </ModalShell>
+      ) : null}
     </div>
   );
 }
@@ -1159,176 +1050,153 @@ function UsersTab() {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   if (!canSuspend && !canUnsuspend) {
-    return <ErrorBanner message="You require 'user:suspend' permission to execute account enforcement actions." />;
+    return (
+      <Callout tone="warning" title="Insufficient permissions">
+        You require the <span className="font-mono text-xs">user:suspend</span> permission to execute account
+        enforcement actions.
+      </Callout>
+    );
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Main Enforcement Form */}
-      <Surface className="p-6 lg:col-span-2 space-y-6">
-        <div>
-          <div className="flex items-center gap-2">
-            <ShieldCheckIcon size={20} className="text-rose" />
-            <h2 className="text-lg font-bold text-ink">Account Sanctions & Suspension</h2>
-          </div>
-          <p className="text-xs text-ink-500 mt-1">
-            Execute immediate administrative account suspension or reinstatement.
-          </p>
-        </div>
-
-        {feedback && (
-          feedback.type === 'success' ? (
-            <SuccessBanner message={feedback.message} />
-          ) : (
-            <ErrorBanner message={feedback.message} />
-          )
-        )}
-
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <Panel
+        title="Account sanctions & suspension"
+        description="Execute immediate administrative account suspension or reinstatement."
+        icon={<ShieldCheckIcon size={16} />}
+        className="lg:col-span-2"
+      >
         <div className="space-y-4">
+          {feedback ? (
+            <Callout tone={feedback.type === 'success' ? 'success' : 'danger'}>{feedback.message}</Callout>
+          ) : null}
+
           <div>
-            <label className="block text-xs font-semibold text-ink mb-1">
-              Target User ID <span className="text-rose">*</span>
-            </label>
-            <input
+            <Label htmlFor="enforce-user-id">
+              Target user ID <span className="text-rose">*</span>
+            </Label>
+            <Input
+              id="enforce-user-id"
               type="text"
               value={userId}
               onChange={(e) => setUserId(e.target.value.trim())}
-              placeholder="e.g. usr_9f81a7b2... or user_..."
-              className="w-full px-3 py-2 text-sm font-mono bg-paper border border-ink/20 rounded-md focus:border-ink focus:outline-none placeholder:text-ink-4 text-ink"
+              placeholder="e.g. usr_9f81a7b2… or user_…"
+              className="font-mono"
             />
-            <p className="text-[11px] text-ink-4 mt-1">
-              Lookup registered IDs in the <Link to="/admin/users" className="underline hover:text-ink">Users Directory</Link>.
+            <p className="mt-1.5 text-xs text-ink-4">
+              Look up registered IDs in the{' '}
+              <Link to="/admin/users" className="font-medium text-copper transition-colors hover:text-ink">
+                Users directory
+              </Link>
+              .
             </p>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-ink mb-1">
-              Violation Category
-            </label>
-            <select
-              value={reasonCategory}
-              onChange={(e) => setReasonCategory(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-paper border border-ink/20 rounded-md focus:border-ink focus:outline-none text-ink font-medium"
-            >
+            <Label htmlFor="enforce-reason">Violation category</Label>
+            <Select id="enforce-reason" value={reasonCategory} onChange={(e) => setReasonCategory(e.target.value)}>
               <option value="terms">Terms of Service / Policy Violation</option>
               <option value="fraud">Suspected Fraud / Payment Dispute Abuse</option>
               <option value="counterfeit">Counterfeit, Expired, or Restricted Goods</option>
               <option value="harassment">Harassment / Abusive Communications</option>
               <option value="security">Account Compromise / Security Quarantine</option>
-            </select>
+            </Select>
           </div>
 
-          <div className="pt-2 flex flex-wrap gap-3">
-            {canSuspend && (
+          <div className="flex flex-wrap gap-2 border-t border-ink/[0.07] pt-4">
+            {canSuspend ? (
               <Button
                 variant="danger"
-                size="md"
+                size="sm"
                 disabled={!userId || suspend.isPending}
                 onClick={() => setConfirmModal('suspend')}
-                className="text-xs font-medium"
               >
-                Suspend Account
+                Suspend account
               </Button>
-            )}
-
-            {canUnsuspend && (
+            ) : null}
+            {canUnsuspend ? (
               <Button
                 variant="secondary"
-                size="md"
+                size="sm"
                 disabled={!userId || unsuspend.isPending}
                 onClick={() => setConfirmModal('unsuspend')}
-                className="text-xs font-medium"
               >
-                Unsuspend & Reinstate
+                Unsuspend &amp; reinstate
               </Button>
-            )}
+            ) : null}
           </div>
         </div>
-      </Surface>
+      </Panel>
 
-      {/* Enforcement Safeguards & Rules */}
       <div className="space-y-4">
-        <Surface className="p-5 space-y-3">
-          <h3 className="text-xs font-mono uppercase tracking-wider text-ink-500 font-semibold">
-            Enforcement Protocols
-          </h3>
-          <ul className="text-xs text-ink-500 space-y-2.5">
+        <Card>
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4">Enforcement protocols</h3>
+          <ul className="mt-3 space-y-3 text-xs text-ink-3">
             <li className="flex items-start gap-2">
-              <CheckCircleIcon size={15} className="text-rose shrink-0 mt-0.5" />
+              <AlertTriangleIcon size={15} className="mt-0.5 shrink-0 text-rose" />
               <span>
-                <strong className="text-ink">Session Invalidation:</strong> Suspension immediately terminates all active browser sessions and API bearer tokens.
+                <strong className="text-ink">Session invalidation:</strong> suspension immediately terminates all
+                active browser sessions and API bearer tokens.
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <CheckCircleIcon size={15} className="text-rose shrink-0 mt-0.5" />
+              <AlertTriangleIcon size={15} className="mt-0.5 shrink-0 text-rose" />
               <span>
-                <strong className="text-ink">Transaction Freeze:</strong> Prevents checkout, cart submissions, and payout disbursements.
+                <strong className="text-ink">Transaction freeze:</strong> prevents checkout, cart submissions, and
+                payout disbursements.
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <CheckCircleIcon size={15} className="text-mint shrink-0 mt-0.5" />
+              <CheckCircleIcon size={15} className="mt-0.5 shrink-0 text-mint" />
               <span>
-                <strong className="text-ink">Audited Signature:</strong> Every action records operator identity, IP, and reason in the immutable audit log.
+                <strong className="text-ink">Audited signature:</strong> every action records operator identity, IP,
+                and reason in the immutable audit log.
               </span>
             </li>
           </ul>
-        </Surface>
+        </Card>
 
-        <Surface className="p-5 space-y-3">
-          <h3 className="text-xs font-mono uppercase tracking-wider text-ink-500 font-semibold">
-            Related Portals
-          </h3>
-          <div className="space-y-2 text-xs">
-            <Link
-              to="/admin/users"
-              className="flex items-center justify-between p-2.5 rounded bg-sand/20 hover:bg-sand/40 transition font-medium text-ink"
-            >
-              <span>Platform Users Directory</span>
-              <ExternalLinkIcon size={14} className="text-ink-4" />
-            </Link>
-            <Link
-              to="/admin/audit"
-              className="flex items-center justify-between p-2.5 rounded bg-sand/20 hover:bg-sand/40 transition font-medium text-ink"
-            >
-              <span>Audit Activity Stream</span>
-              <ArrowRightIcon size={14} className="text-ink-4" />
-            </Link>
-            <Link
-              to="/admin/roles"
-              className="flex items-center justify-between p-2.5 rounded bg-sand/20 hover:bg-sand/40 transition font-medium text-ink"
-            >
-              <span>Administrator Roles</span>
-              <ArrowRightIcon size={14} className="text-ink-4" />
-            </Link>
+        <Card>
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4">Related portals</h3>
+          <div className="mt-3 space-y-2">
+            {[
+              { to: '/admin/users', label: 'Platform users directory', icon: <ExternalLinkIcon size={13} /> },
+              { to: '/admin/audit', label: 'Audit activity stream', icon: <ArrowRightIcon size={13} /> },
+              { to: '/admin/roles', label: 'Administrator roles', icon: <ArrowRightIcon size={13} /> },
+            ].map((l) => (
+              <Link
+                key={l.to}
+                to={l.to}
+                className="flex items-center justify-between rounded-lg bg-ink/[0.04] px-3.5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-ink/[0.08]"
+              >
+                <span>{l.label}</span>
+                <span className="text-ink-4">{l.icon}</span>
+              </Link>
+            ))}
           </div>
-        </Surface>
+        </Card>
       </div>
 
       {/* Confirmation Modal */}
-      {confirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-paper w-full max-w-md rounded-xl shadow-2xl border border-ink/20 p-6 space-y-4">
-            <div className="flex items-center gap-2 text-ink">
-              <AlertTriangleIcon size={20} className={confirmModal === 'suspend' ? 'text-rose' : 'text-mint'} />
-              <h3 className="font-bold text-base capitalize">
-                Confirm Account {confirmModal}
-              </h3>
-            </div>
-
-            <p className="text-xs text-ink-500 leading-relaxed">
-              Are you sure you want to {confirmModal} user account <strong className="font-mono text-ink">{userId}</strong>?
+      {confirmModal ? (
+        <ModalShell
+          title={`Confirm account ${confirmModal}`}
+          sub={userId}
+          icon={<AlertTriangleIcon size={16} />}
+          tone={confirmModal === 'suspend' ? 'danger' : 'neutral'}
+          onClose={() => setConfirmModal(null)}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-ink-3">
+              Are you sure you want to {confirmModal} user account{' '}
+              <strong className="font-mono text-xs text-ink">{userId}</strong>?
             </p>
-
-            {confirmModal === 'suspend' && (
-              <div className="p-3 bg-rose/10 border border-rose/20 rounded-md text-xs text-rose space-y-1">
-                <p className="font-semibold">Security Consequence</p>
-                <p>
-                  This terminates all active sessions immediately and locks platform login privileges.
-                </p>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
+            {confirmModal === 'suspend' ? (
+              <Callout tone="danger" title="Security consequence">
+                This terminates all active sessions immediately and locks platform login privileges.
+              </Callout>
+            ) : null}
+            <div className="flex justify-end gap-2 border-t border-ink/[0.07] pt-4">
               <Button
                 variant="ghost"
                 size="sm"
@@ -1369,12 +1237,12 @@ function UsersTab() {
                   }
                 }}
               >
-                Confirm {confirmModal === 'suspend' ? 'Suspension' : 'Reinstatement'}
+                Confirm {confirmModal === 'suspend' ? 'suspension' : 'reinstatement'}
               </Button>
             </div>
           </div>
-        </div>
-      )}
+        </ModalShell>
+      ) : null}
     </div>
   );
 }

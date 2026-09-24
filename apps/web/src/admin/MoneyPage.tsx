@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Surface, ErrorBanner, Button, EmptyState, StatusBadge } from '@/components/ui';
+import { cn } from '@vyro/ui';
+import { Button, Input, Label } from '@/components/ui';
 import { usePermission } from './lib/permissions';
 import {
   useRefundQueue,
@@ -22,9 +23,29 @@ import {
   ArrowRightIcon,
   TrendingUpIcon,
   PackageIcon,
-  ShieldCheckIcon,
+  FileTextIcon,
+  AlertTriangleIcon,
+  CreditCardIcon,
+  PlusIcon,
+  ScaleIcon,
 } from '@/components/icons';
 import { formatLKR, formatCompactLKR } from '@/lib/format';
+import {
+  AdminPage,
+  AdminPageHeader,
+  Callout,
+  CellStack,
+  EmptyBlock,
+  Panel,
+  Pill,
+  StatCard,
+  StatGrid,
+  StatusPill,
+  TableCard,
+  TableSkeleton,
+  Tabs,
+  controlClass,
+} from './ui';
 
 type Tab = 'refunds' | 'payouts' | 'ledger' | 'chargebacks' | 'credit';
 
@@ -43,7 +64,7 @@ export function MoneyPage() {
   const [params, setParams] = useSearchParams();
   const tab = (params.get('tab') as Tab | null) ?? 'refunds';
 
-  const switchTab = (next: Tab) => {
+  const switchTab = (next: string) => {
     const p = new URLSearchParams(params);
     p.set('tab', next);
     setParams(p);
@@ -73,158 +94,86 @@ export function MoneyPage() {
 
   const openChargebacksCount = chargebacks.data?.length ?? 0;
   const netLedgerCents = ledgerSummary.data?.netCents ?? 0;
+  const kpisLoading =
+    refundQueue.isLoading || payoutBatches.isLoading || chargebacks.isLoading || ledgerSummary.isLoading;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* 1. Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-ink/10 pb-5">
-        <div>
-          <p className="vyro-kicker flex items-center gap-1.5 text-ink-4">
-            <span>COMMERCE & SUPPLY</span>
-            <span>/</span>
-            <span>TREASURY & FINANCIAL SETTLEMENT</span>
-          </p>
-          <h1 className="vyro-display text-3xl font-bold tracking-tight text-ink mt-0.5">
-            Money & Orders Control
-          </h1>
-          <p className="text-sm text-ink-3 mt-1">
-            Approve refund disbursements, manage supplier payout batches, audit double-entry ledger, and resolve chargebacks.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
+    <AdminPage>
+      <AdminPageHeader
+        kicker={
+          <>
+            <span>Commerce &amp; Supply</span>
+            <span className="text-ink-4">/</span>
+            <span>Treasury &amp; Financial Settlement</span>
+          </>
+        }
+        title="Money & Orders Control"
+        description="Approve refund disbursements, manage supplier payout batches, audit the double-entry ledger, and resolve chargebacks."
+        actions={
           <Link
             to="/admin/payments"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium border border-ink/15 hover:bg-sand/40 bg-paper transition text-ink"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-paper px-4 text-sm font-medium text-ink shadow-[inset_0_0_0_1px_rgba(12,14,11,0.16)] transition-colors hover:bg-ink hover:text-paper"
           >
-            <span>All Payments Search</span>
-            <ArrowRightIcon size={12} />
+            All payments search
+            <ArrowRightIcon size={14} />
           </Link>
-        </div>
-      </div>
+        }
+      />
 
-      {/* 2. Operations KPI Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Surface className="p-4 border border-ink/10 bg-paper hover:border-ink/25 transition">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-ink-4">Pending Refunds</span>
-            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-amber/15 text-amber">
-              {pendingRefunds.length} req
-            </span>
-          </div>
-          <div className="mt-2 text-2xl font-bold font-mono text-ink tracking-tight">
-            {formatLKR(pendingRefundsTotalCents)}
-          </div>
-          <div className="mt-1 text-[11px] text-ink-4">Awaiting authorization</div>
-        </Surface>
+      <StatGrid cols={4}>
+        <StatCard
+          label="Pending refunds"
+          value={formatLKR(pendingRefundsTotalCents)}
+          sub={`${pendingRefunds.length} ${pendingRefunds.length === 1 ? 'request' : 'requests'} awaiting authorization`}
+          icon={<ClockIcon size={16} />}
+          tone={pendingRefunds.length > 0 ? 'warning' : 'neutral'}
+          status={pendingRefunds.length > 0 ? <Pill tone="warning">{pendingRefunds.length} req</Pill> : undefined}
+          loading={kpisLoading}
+        />
+        <StatCard
+          label="Pending batches"
+          value={formatLKR(pendingBatchesTotalCents)}
+          sub={`${pendingBatches.length} unreleased ${pendingBatches.length === 1 ? 'batch' : 'batches'}`}
+          icon={<PackageIcon size={16} />}
+          tone={pendingBatches.length > 0 ? 'warning' : 'neutral'}
+          loading={kpisLoading}
+        />
+        <StatCard
+          label="Open chargebacks"
+          value={openChargebacksCount}
+          sub="Disputed transactions"
+          icon={<AlertCircleIcon size={16} />}
+          tone={openChargebacksCount > 0 ? 'danger' : 'neutral'}
+          loading={kpisLoading}
+        />
+        <StatCard
+          label="Ledger net balance"
+          value={formatCompactLKR(netLedgerCents)}
+          sub="Platform settled capital"
+          icon={<TrendingUpIcon size={16} />}
+          loading={kpisLoading}
+        />
+      </StatGrid>
 
-        <Surface className="p-4 border border-ink/10 bg-paper hover:border-ink/25 transition">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-ink-4">Pending Batches</span>
-            <PackageIcon size={16} className="text-copper" />
-          </div>
-          <div className="mt-2 text-2xl font-bold font-mono text-copper-deep tracking-tight">
-            {formatLKR(pendingBatchesTotalCents)}
-          </div>
-          <div className="mt-1 text-[11px] text-ink-4">{pendingBatches.length} unreleased batches</div>
-        </Surface>
+      <Tabs
+        items={[
+          { key: 'refunds', label: 'Refund queue', icon: <ClockIcon size={15} />, count: pendingRefunds.length },
+          { key: 'payouts', label: 'Payout batches', icon: <PackageIcon size={15} />, count: pendingBatches.length },
+          { key: 'ledger', label: 'General ledger', icon: <FileTextIcon size={15} /> },
+          { key: 'chargebacks', label: 'Chargebacks', icon: <AlertTriangleIcon size={15} />, count: openChargebacksCount },
+          { key: 'credit', label: 'Credit', icon: <CreditCardIcon size={15} /> },
+        ]}
+        value={tab}
+        onChange={switchTab}
+        ariaLabel="Money control sections"
+      />
 
-        <Surface className="p-4 border border-ink/10 bg-paper hover:border-ink/25 transition">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-ink-4">Open Chargebacks</span>
-            <AlertCircleIcon size={16} className={openChargebacksCount > 0 ? 'text-rose' : 'text-ink-4'} />
-          </div>
-          <div className="mt-2 text-2xl font-bold font-mono text-ink tracking-tight">
-            {openChargebacksCount}
-          </div>
-          <div className="mt-1 text-[11px] text-ink-4">Disputed transactions</div>
-        </Surface>
-
-        <Surface className="p-4 border border-ink/10 bg-paper hover:border-ink/25 transition">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-ink-4">Ledger Net Balance</span>
-            <TrendingUpIcon size={16} className="text-mint" />
-          </div>
-          <div className="mt-2 text-2xl font-bold font-mono text-ink tracking-tight">
-            {formatCompactLKR(netLedgerCents)}
-          </div>
-          <div className="mt-1 text-[11px] text-ink-4">Platform settled capital</div>
-        </Surface>
-      </div>
-
-      {/* 3. Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-ink/10">
-        <TabBtn
-          active={tab === 'refunds'}
-          onClick={() => switchTab('refunds')}
-          count={pendingRefunds.length}
-        >
-          Refund queue
-        </TabBtn>
-        <TabBtn
-          active={tab === 'payouts'}
-          onClick={() => switchTab('payouts')}
-          count={pendingBatches.length}
-        >
-          Payout batches
-        </TabBtn>
-        <TabBtn active={tab === 'ledger'} onClick={() => switchTab('ledger')}>
-          General Ledger
-        </TabBtn>
-        <TabBtn
-          active={tab === 'chargebacks'}
-          onClick={() => switchTab('chargebacks')}
-          count={openChargebacksCount}
-        >
-          Chargebacks
-        </TabBtn>
-        <TabBtn active={tab === 'credit'} onClick={() => switchTab('credit')}>
-          Credit
-        </TabBtn>
-      </div>
-
-      {/* 4. Tab Content */}
       {tab === 'refunds' ? <RefundQueueTab /> : null}
       {tab === 'payouts' ? <PayoutBatchesTab /> : null}
       {tab === 'ledger' ? <LedgerTab /> : null}
       {tab === 'chargebacks' ? <ChargebacksTab /> : null}
       {tab === 'credit' ? <CreditTab /> : null}
-    </div>
-  );
-}
-
-function TabBtn({
-  active,
-  onClick,
-  count,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  count?: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-4 py-2 text-xs font-mono font-semibold transition border-b-2 -mb-px flex items-center gap-1.5 ${
-        active
-          ? 'border-ink text-ink bg-sand/30'
-          : 'border-transparent text-ink-4 hover:text-ink hover:border-ink/20'
-      }`}
-    >
-      <span>{children}</span>
-      {count !== undefined && count > 0 && (
-        <span
-          className={`px-1.5 py-0.2 text-[10px] rounded-full font-mono ${
-            active ? 'bg-ink text-paper' : 'bg-amber/20 text-ink'
-          }`}
-        >
-          {count}
-        </span>
-      )}
-    </button>
+    </AdminPage>
   );
 }
 
@@ -236,138 +185,155 @@ function RefundQueueTab() {
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
-  if (!canRefund) return <ErrorBanner message="You need payment:refund permission to view or manage refunds." />;
+  if (!canRefund) {
+    return (
+      <Callout tone="warning" title="Insufficient permissions">
+        You need the <span className="font-mono text-xs">payment:refund</span> permission to view or manage refunds.
+      </Callout>
+    );
+  }
 
   const refunds = queue.data ?? [];
 
   return (
     <div className="space-y-4">
-      {queue.isError ? <ErrorBanner message={(queue.error as Error).message} /> : null}
-      {reject.isError ? <ErrorBanner message={(reject.error as Error).message} /> : null}
-      {approve.isError ? <ErrorBanner message={(approve.error as Error).message} /> : null}
+      {queue.isError ? (
+        <Callout
+          tone="danger"
+          title="Could not load the refund queue"
+          action={
+            <Button variant="secondary" size="sm" onClick={() => void queue.refetch()}>
+              Retry
+            </Button>
+          }
+        >
+          {(queue.error as Error).message}
+        </Callout>
+      ) : null}
+      {reject.isError ? <Callout tone="danger">{(reject.error as Error).message}</Callout> : null}
+      {approve.isError ? <Callout tone="danger">{(approve.error as Error).message}</Callout> : null}
 
-      <Surface className="border border-ink/10 bg-paper overflow-hidden shadow-sm">
+      <TableCard
+        title="Refund queue"
+        description="Merchant and customer refund requests awaiting authorization."
+        footer={
+          <span>
+            <strong className="text-ink">{refunds.length}</strong> {refunds.length === 1 ? 'refund' : 'refunds'} in
+            queue
+          </span>
+        }
+      >
         {queue.isLoading ? (
-          <div className="divide-y divide-ink/5">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="p-4 flex items-center justify-between gap-4 animate-pulse">
-                <div className="h-4 bg-ink/10 rounded w-1/4" />
-                <div className="h-4 bg-ink/5 rounded w-1/4" />
-                <div className="h-6 bg-ink/10 rounded w-20" />
-              </div>
-            ))}
-          </div>
+          <TableSkeleton rows={4} cols={6} />
         ) : refunds.length === 0 ? (
-          <EmptyState
-            icon={<CheckCircleIcon size={24} />}
+          <EmptyBlock
+            icon={<CheckCircleIcon size={22} />}
             title="Refund queue clear"
             description="All merchant and customer refund requests have been authorized or reviewed."
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-sand/30 border-b border-ink/10 text-ink-4 font-mono uppercase tracking-wider text-[10px]">
-                  <th className="py-3 px-4">Refund ID</th>
-                  <th className="py-3 px-4">Payment Reference</th>
-                  <th className="py-3 px-4 text-right">Amount (LKR)</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Requested At</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/5">
-                {refunds.map((r) => (
-                  <tr key={r.id} className="hover:bg-sand/20 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-xs text-ink">
-                      {r.id}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-xs">
-                      <Link
-                        to={`/admin/payments?q=${r.paymentId}`}
-                        className="text-copper hover:underline"
-                        title="Inspect payment details"
-                      >
-                        {r.paymentId}
-                      </Link>
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono font-bold text-sm text-ink tabular-nums">
-                      {formatLKR(r.amountCents)}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <StatusBadge status={r.status} />
-                    </td>
-                    <td className="py-3.5 px-4 text-ink-4 font-mono text-[11px]">
-                      {formatFullDate(r.createdAt)}
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      {r.status === 'requested' ? (
-                        rejecting === r.id ? (
-                          <div className="inline-flex items-center gap-2">
-                            <input
-                              autoFocus
-                              placeholder="Reason (min 5 chars)"
-                              value={rejectReason}
-                              onChange={(e) => setRejectReason(e.target.value)}
-                              className="border border-ink/20 px-2 py-1 text-xs bg-paper focus:outline-none focus:border-ink w-44"
-                            />
-                            <button
-                              type="button"
-                              disabled={rejectReason.trim().length < 5 || reject.isPending}
-                              onClick={() =>
-                                reject.mutate(
-                                  { id: r.id, reason: rejectReason.trim() },
-                                  {
-                                    onSuccess: () => {
-                                      setRejecting(null);
-                                      setRejectReason('');
-                                    },
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Refund</th>
+                <th>Payment</th>
+                <th className="text-right">Amount</th>
+                <th>Status</th>
+                <th>Requested</th>
+                <th>
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {refunds.map((r) => (
+                <tr key={r.id}>
+                  <td>
+                    <CellStack mono primary={r.id} secondary={r.reason ?? undefined} />
+                  </td>
+                  <td>
+                    <Link
+                      to={`/admin/payments?q=${r.paymentId}`}
+                      className="font-mono text-xs font-medium text-copper transition-colors hover:text-ink"
+                      title="Inspect payment details"
+                    >
+                      {r.paymentId}
+                    </Link>
+                  </td>
+                  <td className="text-right font-mono text-sm font-semibold text-ink num-tabular">
+                    {formatLKR(r.amountCents)}
+                  </td>
+                  <td>
+                    <StatusPill status={r.status} />
+                  </td>
+                  <td>
+                    <CellStack primary={formatFullDate(r.createdAt)} />
+                  </td>
+                  <td className="text-right">
+                    {r.status === 'requested' ? (
+                      rejecting === r.id ? (
+                        <div className="inline-flex items-center gap-2">
+                          <input
+                            autoFocus
+                            placeholder="Reason (min 5 chars)"
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                            className={cn(controlClass, 'h-9 w-44 text-xs')}
+                          />
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            disabled={rejectReason.trim().length < 5}
+                            loading={reject.isPending}
+                            onClick={() =>
+                              reject.mutate(
+                                { id: r.id, reason: rejectReason.trim() },
+                                {
+                                  onSuccess: () => {
+                                    setRejecting(null);
+                                    setRejectReason('');
                                   },
-                                )
-                              }
-                              className="px-2.5 py-1 text-xs font-mono font-bold bg-rose text-paper hover:bg-rose-deep disabled:opacity-40"
-                            >
-                              Confirm
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setRejecting(null)}
-                              className="text-xs font-mono text-ink-3 hover:text-ink underline"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="inline-flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              disabled={approve.isPending}
-                              onClick={() => approve.mutate(r.id)}
-                              className="px-2.5 py-1 text-xs font-mono font-bold bg-ink text-paper hover:bg-ink-2 transition disabled:opacity-40"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setRejecting(r.id);
-                                setRejectReason('');
-                              }}
-                              className="px-2.5 py-1 text-xs font-mono font-medium border border-rose/30 text-rose hover:bg-rose/10 transition"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        )
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                                },
+                              )
+                            }
+                          >
+                            Confirm
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setRejecting(null)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1.5">
+                          <Button
+                            variant="success"
+                            size="sm"
+                            loading={approve.isPending}
+                            onClick={() => approve.mutate(r.id)}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-rose hover:bg-rose/10"
+                            onClick={() => {
+                              setRejecting(r.id);
+                              setRejectReason('');
+                            }}
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      )
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
-      </Surface>
+      </TableCard>
     </div>
   );
 }
@@ -380,125 +346,142 @@ function PayoutBatchesTab() {
   const approve = useApprovePayoutBatch();
   const [note, setNote] = useState('');
 
-  if (!canRead) return <ErrorBanner message="You need payout:read permission to view payout batches." />;
+  if (!canRead) {
+    return (
+      <Callout tone="warning" title="Insufficient permissions">
+        You need the <span className="font-mono text-xs">payout:read</span> permission to view payout batches.
+      </Callout>
+    );
+  }
 
   const batches = queue.data ?? [];
 
   return (
     <div className="space-y-6">
-      {/* Create Batch Card */}
       {canApprove ? (
-        <Surface className="p-4 border border-ink/10 bg-paper space-y-3">
-          <div className="flex items-center justify-between border-b border-ink/10 pb-2">
-            <div>
-              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-ink">
-                Create Disbursement Batch
-              </h3>
-              <p className="text-[11px] text-ink-4 mt-0.5">
-                Aggregates every unbatched eligible supplier payout into a single auditable disbursement batch.
-              </p>
+        <Panel
+          title="Create disbursement batch"
+          description="Aggregates every unbatched eligible supplier payout into a single auditable disbursement batch."
+          icon={<PlusIcon size={16} />}
+        >
+          <div className="space-y-4">
+            {create.isError ? <Callout tone="danger">{(create.error as Error).message}</Callout> : null}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <Label htmlFor="batch-note">Batch memo / operational note</Label>
+                <Input
+                  id="batch-note"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  maxLength={500}
+                  placeholder="e.g. Weekly scheduled settlement dispatch (Commercial Bank batch #24)"
+                />
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                className="h-11 shrink-0"
+                loading={create.isPending}
+                icon={<PlusIcon size={14} />}
+                onClick={() =>
+                  create.mutate(note.trim() ? { note: note.trim() } : {}, {
+                    onSuccess: () => setNote(''),
+                  })
+                }
+              >
+                Generate batch
+              </Button>
             </div>
           </div>
-
-          {create.isError ? <ErrorBanner message={(create.error as Error).message} /> : null}
-
-          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end pt-1">
-            <label className="flex flex-col text-xs flex-1">
-              <span className="text-ink-4 font-mono text-[10px] uppercase mb-1">Batch Memo / Operational Note</span>
-              <input
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                maxLength={500}
-                placeholder="e.g. Weekly scheduled settlement dispatch (Commercial Bank batch #24)"
-                className="border border-ink/20 px-3 py-2 text-xs bg-paper focus:outline-none focus:border-ink"
-              />
-            </label>
-            <Button
-              variant="primary"
-              disabled={create.isPending}
-              onClick={() =>
-                create.mutate(note.trim() ? { note: note.trim() } : {}, {
-                  onSuccess: () => setNote(''),
-                })
-              }
-              className="text-xs font-mono h-9"
-            >
-              {create.isPending ? 'Generating…' : 'Generate Batch'}
-            </Button>
-          </div>
-        </Surface>
+        </Panel>
       ) : null}
 
-      {/* Batches Table */}
-      <Surface className="border border-ink/10 bg-paper overflow-hidden shadow-sm">
-        {queue.isError ? <ErrorBanner message={(queue.error as Error).message} /> : null}
-
-        {queue.isLoading ? (
-          <div className="divide-y divide-ink/5">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="p-4 flex items-center justify-between gap-4 animate-pulse">
-                <div className="h-4 bg-ink/10 rounded w-1/4" />
-                <div className="h-4 bg-ink/5 rounded w-1/4" />
-                <div className="h-6 bg-ink/10 rounded w-20" />
-              </div>
-            ))}
+      <TableCard
+        title="Payout batches"
+        description="Aggregated supplier disbursement batches and their approval state."
+        footer={
+          <span>
+            <strong className="text-ink">{batches.length}</strong> {batches.length === 1 ? 'batch' : 'batches'} in
+            queue
+          </span>
+        }
+      >
+        {queue.isError ? (
+          <div className="p-5 sm:p-6">
+            <Callout
+              tone="danger"
+              title="Could not load payout batches"
+              action={
+                <Button variant="secondary" size="sm" onClick={() => void queue.refetch()}>
+                  Retry
+                </Button>
+              }
+            >
+              {(queue.error as Error).message}
+            </Callout>
           </div>
+        ) : queue.isLoading ? (
+          <TableSkeleton rows={4} cols={6} />
         ) : batches.length === 0 ? (
-          <EmptyState
-            icon={<PackageIcon size={24} />}
+          <EmptyBlock
+            icon={<PackageIcon size={22} />}
             title="No payout batches"
-            description="Create a new payout batch above to aggregate unbatched merchant disbursements."
+            description={
+              canApprove
+                ? 'Create a new payout batch above to aggregate unbatched merchant disbursements.'
+                : 'No disbursement batches are currently in the queue.'
+            }
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-sand/30 border-b border-ink/10 text-ink-4 font-mono uppercase tracking-wider text-[10px]">
-                  <th className="py-3 px-4">Batch ID</th>
-                  <th className="py-3 px-4">Created Date</th>
-                  <th className="py-3 px-4">Operational Note</th>
-                  <th className="py-3 px-4 text-right">Batch Total</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Approval</th>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Batch</th>
+                <th>Operational note</th>
+                <th className="text-right">Batch total</th>
+                <th>Status</th>
+                <th>
+                  <span className="sr-only">Approval</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {batches.map((b) => (
+                <tr key={b.id}>
+                  <td>
+                    <CellStack mono primary={b.id} secondary={formatFullDate(b.createdAt)} />
+                  </td>
+                  <td>
+                    {b.note ? (
+                      <span className="text-ink-3">{b.note}</span>
+                    ) : (
+                      <span className="font-mono text-ink-4">—</span>
+                    )}
+                  </td>
+                  <td className="text-right font-mono text-sm font-semibold text-ink num-tabular">
+                    {formatLKR(b.totalCents)}
+                  </td>
+                  <td>
+                    <StatusPill status={b.status} />
+                  </td>
+                  <td className="text-right">
+                    {canApprove && b.status === 'pending' ? (
+                      <Button
+                        variant="success"
+                        size="sm"
+                        loading={approve.isPending}
+                        onClick={() => approve.mutate(b.id)}
+                      >
+                        Approve batch
+                      </Button>
+                    ) : null}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/5">
-                {batches.map((b) => (
-                  <tr key={b.id} className="hover:bg-sand/20 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-xs text-ink">
-                      {b.id}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-ink-4 text-[11px]">
-                      {formatFullDate(b.createdAt)}
-                    </td>
-                    <td className="py-3.5 px-4 text-ink-3">
-                      {b.note ?? <span className="text-ink-4 font-mono">—</span>}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono font-bold text-sm text-ink tabular-nums">
-                      {formatLKR(b.totalCents)}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <StatusBadge status={b.status} />
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      {canApprove && b.status === 'pending' ? (
-                        <button
-                          type="button"
-                          disabled={approve.isPending}
-                          onClick={() => approve.mutate(b.id)}
-                          className="px-3 py-1 bg-ink text-paper hover:bg-ink-2 text-xs font-mono font-bold disabled:opacity-40 transition"
-                        >
-                          Approve Batch
-                        </button>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         )}
-      </Surface>
+      </TableCard>
     </div>
   );
 }
@@ -514,109 +497,131 @@ function LedgerTab() {
 
   return (
     <div className="space-y-6">
-      {/* Date Filter Bar */}
-      <Surface className="p-4 border border-ink/10 bg-paper space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex flex-col text-xs">
-              <span className="text-ink-4 font-mono text-[10px] uppercase mb-1">From Timestamp</span>
-              <input
-                type="datetime-local"
-                value={from}
-                onChange={(e) => setFrom(e.target.value)}
-                className="border border-ink/20 px-2.5 py-1.5 text-xs font-mono bg-paper focus:outline-none focus:border-ink"
-              />
-            </label>
-            <label className="flex flex-col text-xs">
-              <span className="text-ink-4 font-mono text-[10px] uppercase mb-1">To Timestamp</span>
-              <input
-                type="datetime-local"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-                className="border border-ink/20 px-2.5 py-1.5 text-xs font-mono bg-paper focus:outline-none focus:border-ink"
-              />
-            </label>
-          </div>
-
-          {(from || to) && (
-            <button
-              type="button"
+      <Panel
+        title="Reporting window"
+        description="Restrict the ledger summary to a timestamp range. Leave empty for all-time."
+        icon={<FileTextIcon size={16} />}
+        actions={
+          from || to ? (
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setFrom('');
                 setTo('');
               }}
-              className="text-xs font-mono text-ink-3 hover:text-ink underline self-end py-1.5"
             >
               Reset to all-time
-            </button>
-          )}
+            </Button>
+          ) : undefined
+        }
+      >
+        <div className="grid grid-cols-1 gap-4 sm:max-w-md sm:grid-cols-2">
+          <div>
+            <Label htmlFor="ledger-from">From timestamp</Label>
+            <Input
+              id="ledger-from"
+              type="datetime-local"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="ledger-to">To timestamp</Label>
+            <Input
+              id="ledger-to"
+              type="datetime-local"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+            />
+          </div>
         </div>
-      </Surface>
+      </Panel>
 
-      {summary.isError ? <ErrorBanner message={(summary.error as Error).message} /> : null}
-
-      {/* Ledger Net Overview Cards */}
-      {summary.data ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Surface className="p-4 border border-ink/10 bg-paper">
-            <span className="text-[10px] font-mono uppercase text-ink-4 block">Total Credits</span>
-            <div className="text-2xl font-bold font-mono text-mint tracking-tight mt-1">
-              {formatLKR(summary.data.totalCreditCents)}
-            </div>
-            <div className="text-[11px] text-ink-4 mt-0.5">Incoming receivables & settlements</div>
-          </Surface>
-
-          <Surface className="p-4 border border-ink/10 bg-paper">
-            <span className="text-[10px] font-mono uppercase text-ink-4 block">Total Debits</span>
-            <div className="text-2xl font-bold font-mono text-rose tracking-tight mt-1">
-              {formatLKR(summary.data.totalDebitCents)}
-            </div>
-            <div className="text-[11px] text-ink-4 mt-0.5">Disbursements & chargebacks</div>
-          </Surface>
-
-          <Surface className="p-4 border border-ink/10 bg-paper">
-            <span className="text-[10px] font-mono uppercase text-ink-4 block">Net Settlement Volume</span>
-            <div className="text-2xl font-bold font-mono text-ink tracking-tight mt-1">
-              {formatLKR(summary.data.netCents)}
-            </div>
-            <div className="text-[11px] text-ink-4 mt-0.5">Platform retained delta</div>
-          </Surface>
-        </div>
+      {summary.isError ? (
+        <Callout
+          tone="danger"
+          title="Could not load the ledger summary"
+          action={
+            <Button variant="secondary" size="sm" onClick={() => void summary.refetch()}>
+              Retry
+            </Button>
+          }
+        >
+          {(summary.error as Error).message}
+        </Callout>
       ) : null}
 
-      {/* Breakdown by Account Type */}
+      {summary.isLoading ? (
+        <StatGrid cols={3}>
+          <StatCard label="Total credits" value="—" loading />
+          <StatCard label="Total debits" value="—" loading />
+          <StatCard label="Net settlement volume" value="—" loading />
+        </StatGrid>
+      ) : summary.data ? (
+        <StatGrid cols={3}>
+          <StatCard
+            label="Total credits"
+            value={formatLKR(summary.data.totalCreditCents)}
+            sub="Incoming receivables & settlements"
+            icon={<TrendingUpIcon size={16} />}
+            tone="success"
+          />
+          <StatCard
+            label="Total debits"
+            value={formatLKR(summary.data.totalDebitCents)}
+            sub="Disbursements & chargebacks"
+            icon={<AlertCircleIcon size={16} />}
+            tone="danger"
+          />
+          <StatCard
+            label="Net settlement volume"
+            value={formatLKR(summary.data.netCents)}
+            sub="Platform retained delta"
+            icon={<ScaleIcon size={16} />}
+          />
+        </StatGrid>
+      ) : null}
+
       {summary.data ? (
-        <Surface className="border border-ink/10 bg-paper overflow-hidden shadow-sm">
-          <div className="p-4 border-b border-ink/10">
-            <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-ink">
-              Double-Entry Ledger by Account Category
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+        <TableCard
+          title="Double-entry ledger"
+          description="Credits and debits grouped by account category."
+          footer={
+            <span>
+              <strong className="text-ink">{summary.data.byAccountType.length}</strong> account{' '}
+              {summary.data.byAccountType.length === 1 ? 'category' : 'categories'}
+              {from || to ? ' · filtered window' : ' · all-time'}
+            </span>
+          }
+        >
+          {summary.data.byAccountType.length === 0 ? (
+            <EmptyBlock
+              icon={<FileTextIcon size={22} />}
+              title="No ledger activity"
+              description="No ledger entries were recorded in the selected window."
+            />
+          ) : (
+            <table className="admin-table">
               <thead>
-                <tr className="bg-sand/30 border-b border-ink/10 text-ink-4 font-mono uppercase tracking-wider text-[10px]">
-                  <th className="py-3 px-4">Account Category</th>
-                  <th className="py-3 px-4 text-right">Credit (LKR)</th>
-                  <th className="py-3 px-4 text-right">Debit (LKR)</th>
-                  <th className="py-3 px-4 text-right">Net Balance (LKR)</th>
+                <tr>
+                  <th>Account category</th>
+                  <th className="text-right">Credit (LKR)</th>
+                  <th className="text-right">Debit (LKR)</th>
+                  <th className="text-right">Net balance (LKR)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-ink/5 font-mono">
+              <tbody>
                 {summary.data.byAccountType.map((row) => {
                   const net = row.creditCents - row.debitCents;
                   return (
-                    <tr key={row.accountType} className="hover:bg-sand/20 transition-colors">
-                      <td className="py-3.5 px-4 font-sans font-semibold text-ink uppercase text-xs">
-                        {row.accountType}
+                    <tr key={row.accountType}>
+                      <td>
+                        <span className="font-semibold uppercase tracking-wide text-ink">{row.accountType}</span>
                       </td>
-                      <td className="py-3.5 px-4 text-right text-mint tabular-nums">
-                        {formatLKR(row.creditCents)}
-                      </td>
-                      <td className="py-3.5 px-4 text-right text-rose tabular-nums">
-                        {formatLKR(row.debitCents)}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-bold text-ink tabular-nums">
+                      <td className="text-right font-mono text-mint num-tabular">{formatLKR(row.creditCents)}</td>
+                      <td className="text-right font-mono text-rose num-tabular">{formatLKR(row.debitCents)}</td>
+                      <td className="text-right font-mono text-sm font-semibold text-ink num-tabular">
                         {formatLKR(net)}
                       </td>
                     </tr>
@@ -624,8 +629,8 @@ function LedgerTab() {
                 })}
               </tbody>
             </table>
-          </div>
-        </Surface>
+          )}
+        </TableCard>
       ) : null}
     </div>
   );
@@ -637,97 +642,118 @@ function ChargebacksTab() {
   const resolve = useResolveChargeback();
   const [notes, setNotes] = useState<Record<string, string>>({});
 
-  if (!canRefund) return <ErrorBanner message="You need payment:refund permission to view or resolve chargebacks." />;
+  if (!canRefund) {
+    return (
+      <Callout tone="warning" title="Insufficient permissions">
+        You need the <span className="font-mono text-xs">payment:refund</span> permission to view or resolve
+        chargebacks.
+      </Callout>
+    );
+  }
 
   const chargebacksList = list.data ?? [];
 
   return (
     <div className="space-y-4">
-      {list.isError ? <ErrorBanner message={(list.error as Error).message} /> : null}
+      {list.isError ? (
+        <Callout
+          tone="danger"
+          title="Could not load chargebacks"
+          action={
+            <Button variant="secondary" size="sm" onClick={() => void list.refetch()}>
+              Retry
+            </Button>
+          }
+        >
+          {(list.error as Error).message}
+        </Callout>
+      ) : null}
+      {resolve.isError ? <Callout tone="danger">{(resolve.error as Error).message}</Callout> : null}
 
-      <Surface className="border border-ink/10 bg-paper overflow-hidden shadow-sm">
+      <TableCard
+        title="Open chargebacks"
+        description="Gateway chargeback claims and payment disputes awaiting resolution."
+        footer={
+          <span>
+            <strong className="text-ink">{chargebacksList.length}</strong> open{' '}
+            {chargebacksList.length === 1 ? 'dispute' : 'disputes'}
+          </span>
+        }
+      >
         {list.isLoading ? (
-          <div className="divide-y divide-ink/5">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="p-4 flex items-center justify-between gap-4 animate-pulse">
-                <div className="h-4 bg-ink/10 rounded w-1/4" />
-                <div className="h-4 bg-ink/5 rounded w-1/4" />
-                <div className="h-6 bg-ink/10 rounded w-20" />
-              </div>
-            ))}
-          </div>
+          <TableSkeleton rows={4} cols={6} />
         ) : chargebacksList.length === 0 ? (
-          <EmptyState
-            icon={<CheckCircleIcon size={24} />}
+          <EmptyBlock
+            icon={<CheckCircleIcon size={22} />}
             title="No open chargebacks"
             description="All payment disputes and gateway chargeback claims have been cleared or resolved."
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-sand/30 border-b border-ink/10 text-ink-4 font-mono uppercase tracking-wider text-[10px]">
-                  <th className="py-3 px-4">Chargeback ID</th>
-                  <th className="py-3 px-4">Payment Reference</th>
-                  <th className="py-3 px-4">Dispute Reason</th>
-                  <th className="py-3 px-4">Opened Date</th>
-                  <th className="py-3 px-4">Resolution Memo</th>
-                  <th className="py-3 px-4 text-right">Action</th>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Chargeback</th>
+                <th>Payment</th>
+                <th>Dispute reason</th>
+                <th>Opened</th>
+                <th>Resolution memo</th>
+                <th>
+                  <span className="sr-only">Action</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {chargebacksList.map((cb) => (
+                <tr key={cb.id}>
+                  <td>
+                    <CellStack mono primary={cb.id} />
+                  </td>
+                  <td>
+                    <Link
+                      to={`/admin/payments?q=${cb.paymentId}`}
+                      className="font-mono text-xs font-medium text-copper transition-colors hover:text-ink"
+                      title="Inspect payment"
+                    >
+                      {cb.paymentId}
+                    </Link>
+                  </td>
+                  <td>
+                    <Pill tone="warning" className="font-mono normal-case tracking-normal">
+                      {cb.reason}
+                    </Pill>
+                  </td>
+                  <td>
+                    <CellStack primary={formatFullDate(cb.createdAt)} />
+                  </td>
+                  <td>
+                    <input
+                      className={cn(controlClass, 'h-9 w-52 text-xs')}
+                      value={notes[cb.id] ?? ''}
+                      onChange={(e) => setNotes({ ...notes, [cb.id]: e.target.value })}
+                      placeholder="Resolution memo…"
+                    />
+                  </td>
+                  <td className="text-right">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      loading={resolve.isPending}
+                      onClick={() =>
+                        resolve.mutate({
+                          id: cb.id,
+                          ...(notes[cb.id] ? { notes: notes[cb.id] } : {}),
+                        })
+                      }
+                    >
+                      Resolve
+                    </Button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/5">
-                {chargebacksList.map((cb) => (
-                  <tr key={cb.id} className="hover:bg-sand/20 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-xs text-ink">
-                      {cb.id}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-xs">
-                      <Link
-                        to={`/admin/payments?q=${cb.paymentId}`}
-                        className="text-copper hover:underline"
-                        title="Inspect payment"
-                      >
-                        {cb.paymentId}
-                      </Link>
-                    </td>
-                    <td className="py-3.5 px-4 text-ink-3">
-                      <span className="p-1 bg-sand/40 border border-ink/10 font-mono text-[11px]">
-                        {cb.reason}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-ink-4 text-[11px]">
-                      {formatFullDate(cb.createdAt)}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <input
-                        className="border border-ink/20 px-2.5 py-1 text-xs bg-paper focus:outline-none focus:border-ink w-52"
-                        value={notes[cb.id] ?? ''}
-                        onChange={(e) => setNotes({ ...notes, [cb.id]: e.target.value })}
-                        placeholder="Resolution memo…"
-                      />
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        type="button"
-                        disabled={resolve.isPending}
-                        onClick={() =>
-                          resolve.mutate({
-                            id: cb.id,
-                            ...(notes[cb.id] ? { notes: notes[cb.id] } : {}),
-                          })
-                        }
-                        className="px-3 py-1 bg-ink text-paper hover:bg-ink-2 text-xs font-mono font-bold transition disabled:opacity-40"
-                      >
-                        {resolve.isPending ? 'Resolving…' : 'Resolve'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         )}
-      </Surface>
+      </TableCard>
     </div>
   );
 }
@@ -737,86 +763,144 @@ function CreditTab() {
   const list = useCreditFacilities();
   const patch = usePatchCreditFacility();
   const [limits, setLimits] = useState<Record<string, string>>({});
-  if (!canManage) return <ErrorBanner message="You need payment:refund permission to manage credit facilities." />;
+
+  if (!canManage) {
+    return (
+      <Callout tone="warning" title="Insufficient permissions">
+        You need the <span className="font-mono text-xs">payment:refund</span> permission to manage credit
+        facilities.
+      </Callout>
+    );
+  }
+
   const rows = list.data ?? [];
+
   return (
     <div className="space-y-4">
-      {list.isError ? <ErrorBanner message={(list.error as Error).message} /> : null}
-      <Surface className="border border-ink/10 bg-paper overflow-hidden shadow-sm">
+      {list.isError ? (
+        <Callout
+          tone="danger"
+          title="Could not load credit facilities"
+          action={
+            <Button variant="secondary" size="sm" onClick={() => void list.refetch()}>
+              Retry
+            </Button>
+          }
+        >
+          {(list.error as Error).message}
+        </Callout>
+      ) : null}
+      {patch.isError ? <Callout tone="danger">{(patch.error as Error).message}</Callout> : null}
+
+      <TableCard
+        title="Credit facilities"
+        description="Per-business credit limits, utilization, and facility status."
+        footer={
+          <span>
+            <strong className="text-ink">{rows.length}</strong> {rows.length === 1 ? 'facility' : 'facilities'}
+          </span>
+        }
+      >
         {list.isLoading ? (
-          <div className="p-4 text-xs text-ink-4">Loading facilities…</div>
+          <TableSkeleton rows={4} cols={6} />
         ) : rows.length === 0 ? (
-          <EmptyState icon={<CheckCircleIcon size={24} />} title="No credit facilities" description="Facilities appear after businesses meet the 3-paid-orders rule or an admin creates one." />
+          <EmptyBlock
+            icon={<CreditCardIcon size={22} />}
+            title="No credit facilities"
+            description="Facilities appear after businesses meet the 3-paid-orders rule or an admin creates one."
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-sand/30 border-b border-ink/10 text-ink-4 font-mono uppercase tracking-wider text-[10px]">
-                  <th className="py-3 px-4">Business</th>
-                  <th className="py-3 px-4 text-right">Limit</th>
-                  <th className="py-3 px-4 text-right">Used</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">New limit (cents)</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/5">
-                {rows.map((r) => (
-                  <tr key={r.businessId} className="hover:bg-sand/20 transition-colors">
-                    <td className="py-3.5 px-4 font-mono text-xs">{r.businessId}</td>
-                    <td className="py-3.5 px-4 text-right font-mono">{formatLKR(r.limitCents)}</td>
-                    <td className="py-3.5 px-4 text-right font-mono">{formatLKR(r.usedCents)}</td>
-                    <td className="py-3.5 px-4"><StatusBadge status={r.status} /></td>
-                    <td className="py-3.5 px-4">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Business</th>
+                <th className="text-right">Limit</th>
+                <th className="text-right">Used</th>
+                <th>Status</th>
+                <th>New limit (cents)</th>
+                <th>
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const usedPct = r.limitCents > 0 ? Math.min(100, Math.round((r.usedCents / r.limitCents) * 100)) : 0;
+                return (
+                  <tr key={r.businessId}>
+                    <td>
+                      <CellStack mono primary={r.businessId} secondary={`Terms ${r.defaultTerms}`} />
+                    </td>
+                    <td className="text-right font-mono text-sm text-ink num-tabular">{formatLKR(r.limitCents)}</td>
+                    <td className="text-right">
+                      <CellStack
+                        primary={<span className="font-mono text-sm num-tabular">{formatLKR(r.usedCents)}</span>}
+                        secondary={`${usedPct}% of limit`}
+                      />
+                    </td>
+                    <td>
+                      <StatusPill status={r.status} />
+                    </td>
+                    <td>
                       <input
-                        className="border border-ink/20 px-2.5 py-1 text-xs bg-paper focus:outline-none focus:border-ink w-36 font-mono"
+                        className={cn(controlClass, 'h-9 w-36 font-mono text-xs')}
                         value={limits[r.businessId] ?? ''}
                         onChange={(e) => setLimits({ ...limits, [r.businessId]: e.target.value })}
                         placeholder={String(r.limitCents)}
                         inputMode="numeric"
                       />
                     </td>
-                    <td className="py-3.5 px-4 text-right space-x-2">
-                      <button
-                        type="button"
-                        disabled={patch.isPending || !limits[r.businessId]}
-                        onClick={() => patch.mutate({ businessId: r.businessId, patch: { limitCents: Number(limits[r.businessId]) } })}
-                        className="px-3 py-1 bg-ink text-paper hover:bg-ink-2 text-xs font-mono font-bold transition disabled:opacity-40"
-                      >
-                        Set limit
-                      </button>
-                      {r.status === 'active' ? (
-                        <button
-                          type="button"
-                          disabled={patch.isPending}
-                          onClick={() => {
-                            const reason = window.prompt('Suspend reason (required for audit):');
-                            if (!reason) return;
-                            patch.mutate({ businessId: r.businessId, patch: { status: 'suspended', reason } });
-                          }}
-                          className="px-3 py-1 border border-ink/20 hover:border-ink text-xs font-mono transition disabled:opacity-40"
+                    <td className="text-right">
+                      <div className="inline-flex items-center gap-1.5">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          disabled={!limits[r.businessId]}
+                          loading={patch.isPending}
+                          onClick={() =>
+                            patch.mutate({
+                              businessId: r.businessId,
+                              patch: { limitCents: Number(limits[r.businessId]) },
+                            })
+                          }
                         >
-                          Suspend
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={patch.isPending}
-                          onClick={() => patch.mutate({ businessId: r.businessId, patch: { status: 'active' } })}
-                          className="px-3 py-1 border border-ink/20 hover:border-ink text-xs font-mono transition disabled:opacity-40"
-                        >
-                          Resume
-                        </button>
-                      )}
+                          Set limit
+                        </Button>
+                        {r.status === 'active' ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-rose hover:bg-rose/10"
+                            disabled={patch.isPending}
+                            onClick={() => {
+                              const reason = window.prompt('Suspend reason (required for audit):');
+                              if (!reason) return;
+                              patch.mutate({ businessId: r.businessId, patch: { status: 'suspended', reason } });
+                            }}
+                          >
+                            Suspend
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={patch.isPending}
+                            onClick={() =>
+                              patch.mutate({ businessId: r.businessId, patch: { status: 'active' } })
+                            }
+                          >
+                            Resume
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
         )}
-      </Surface>
+      </TableCard>
     </div>
   );
 }
-

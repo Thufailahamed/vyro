@@ -53,6 +53,11 @@ export function useAdminTable<T>({
     loadMore: () => {
       if (q.hasNextPage && !q.isFetchingNextPage) void q.fetchNextPage();
     },
+    error: q.isError,
+    isFetching: q.isFetching,
+    refetch: () => {
+      void q.refetch();
+    },
     filter,
     setFilter,
     searchInput,

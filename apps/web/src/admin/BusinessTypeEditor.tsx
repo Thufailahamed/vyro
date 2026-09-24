@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Surface, Button, ErrorBanner } from '@/components/ui';
+import { cn } from '@vyro/ui';
+import { Button, Input, Label } from '@/components/ui';
 import {
   useAdminBusinessTypes,
   useCreateBusinessType,
@@ -14,12 +15,26 @@ import {
   SearchIcon,
   Edit3Icon,
   Trash2Icon,
-  CheckIcon,
+  CheckCircleIcon,
   XIcon,
   CopyIcon,
   CheckCheckIcon,
   AlertTriangleIcon,
 } from '@/components/icons';
+import {
+  Callout,
+  Card,
+  EmptyBlock,
+  Panel,
+  Pill,
+  StatCard,
+  StatGrid,
+  TableCard,
+  TableSkeleton,
+  Tabs,
+  Toolbar,
+  controlClass,
+} from './ui';
 
 function slugify(text: string): string {
   return text
@@ -105,261 +120,240 @@ export function BusinessTypeEditor() {
         ? create.error.message
         : null;
 
+  const filtered = search.trim() !== '' || statusFilter !== 'all';
+  const resetFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+  };
+
   return (
     <div className="space-y-6">
-      {/* 1. KPI Metric Summary Cards */}
-      <div className="grid grid-cols-2 gap-3 max-w-lg">
-        <Surface className="p-4 border border-ink/10 bg-white hover:border-ink/20 transition-all shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-ink-4">Business Types</span>
-            <div className="w-7 h-7 rounded-lg bg-amber/10 flex items-center justify-center text-amber">
-              <SparklesIcon size={15} />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-bold font-mono text-ink tracking-tight">
-            {metrics.total}
-          </div>
-          <div className="mt-1 text-[11px] text-ink-4">Total commerce classifications</div>
-        </Surface>
+      <StatGrid cols={2} className="max-w-lg">
+        <StatCard label="Business types" value={metrics.total} sub="Total commerce classifications" icon={<SparklesIcon size={16} />} loading={q.isLoading} />
+        <StatCard
+          label="Active types"
+          value={metrics.activeCount}
+          sub="Available during onboarding"
+          icon={<CheckCircleIcon size={16} />}
+          tone={metrics.activeCount > 0 ? 'success' : 'neutral'}
+          loading={q.isLoading}
+        />
+      </StatGrid>
 
-        <Surface className="p-4 border border-ink/10 bg-white hover:border-ink/20 transition-all shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-ink-4">Active Types</span>
-            <div className="w-7 h-7 rounded-lg bg-mint/10 flex items-center justify-center text-mint">
-              <CheckIcon size={15} />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-bold font-mono text-mint tracking-tight">
-            {metrics.activeCount}
-          </div>
-          <div className="mt-1 text-[11px] text-ink-4">Available during onboarding</div>
-        </Surface>
-      </div>
+      {err ? (
+        <Callout
+          tone="danger"
+          title="Business type operation failed"
+          action={
+            q.isError ? (
+              <Button variant="secondary" size="sm" onClick={() => void q.refetch()}>
+                Retry
+              </Button>
+            ) : undefined
+          }
+        >
+          {err}
+        </Callout>
+      ) : null}
 
-      {err && <ErrorBanner message={err} />}
-
-      {/* 2. Create Form */}
-      {canWrite && (
-        <Surface className="border border-ink/10 bg-white overflow-hidden shadow-sm">
-          <div className="px-5 py-4 border-b border-ink/10 bg-slate-50/50 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs">
-                <PlusIcon size={15} />
-              </div>
-              <div>
-                <h3 className="font-display text-sm font-semibold text-ink">Add New Business Type</h3>
-                <p className="text-[11px] text-ink-4">
-                  Define business classification personas used for buyer and supplier profile registration.
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsCreateOpen(!isCreateOpen)}
-              className="text-xs font-mono text-ink-4 hover:text-ink transition-colors px-2 py-1"
-            >
-              {isCreateOpen ? 'Hide Form' : 'Show Form'}
-            </button>
-          </div>
-
-          {isCreateOpen && (
-            <form onSubmit={handleCreate} className="p-5 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                <div className="md:col-span-6 space-y-1.5">
-                  <label className="block text-[11px] font-mono uppercase tracking-wider text-ink-4 font-semibold">
-                    Type Name <span className="text-rose">*</span>
-                  </label>
-                  <input
+      {canWrite ? (
+        isCreateOpen ? (
+          <Panel
+            title="Add business type"
+            description="Define business classification personas used for buyer and supplier profile registration."
+            icon={<PlusIcon size={16} />}
+            actions={
+              <Button variant="ghost" size="sm" onClick={() => setIsCreateOpen(false)}>
+                Hide form
+              </Button>
+            }
+          >
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="bt-name">
+                    Type name <span className="text-rose">*</span>
+                  </Label>
+                  <Input
+                    id="bt-name"
                     type="text"
                     required
                     value={draftName}
                     onChange={(e) => handleNameChange(e.target.value)}
-                    placeholder="e.g. Restaurant, Supermarket, Construction..."
-                    className="w-full h-9 px-3 text-xs bg-slate-50/60 border border-ink/15 rounded-lg focus:outline-none focus:border-emerald-600 focus:bg-white transition-all placeholder:text-ink-4/60"
+                    placeholder="e.g. Restaurant, Supermarket, Construction…"
                   />
                 </div>
-
-                <div className="md:col-span-6 space-y-1.5">
+                <div>
                   <div className="flex items-center justify-between">
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-ink-4 font-semibold">
-                      Slug Identifier <span className="text-rose">*</span>
-                    </label>
-                    <span className="text-[10px] text-ink-4 font-mono">auto-synced</span>
+                    <Label htmlFor="bt-slug" className="mb-0">
+                      Slug identifier <span className="text-rose">*</span>
+                    </Label>
+                    <span className="font-mono text-[10px] text-ink-4">auto-synced</span>
                   </div>
-                  <input
-                    type="text"
-                    required
-                    value={draftSlug}
-                    onChange={(e) => {
-                      setDraftSlug(slugify(e.target.value));
-                      setIsSlugTouched(true);
-                    }}
-                    placeholder="e.g. restaurant"
-                    className="w-full h-9 px-3 text-xs font-mono bg-slate-50/60 border border-ink/15 rounded-lg focus:outline-none focus:border-emerald-600 focus:bg-white transition-all"
-                  />
+                  <div className="mt-1.5">
+                    <Input
+                      id="bt-slug"
+                      type="text"
+                      required
+                      value={draftSlug}
+                      onChange={(e) => {
+                        setDraftSlug(slugify(e.target.value));
+                        setIsSlugTouched(true);
+                      }}
+                      placeholder="e.g. restaurant"
+                      className="font-mono"
+                    />
+                  </div>
                 </div>
               </div>
-
-              <div className="flex items-center justify-between pt-2 border-t border-ink/5">
-                <span className="text-[11px] text-ink-4">
-                  New business types will be enabled for selection immediately.
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink/[0.07] pt-4">
+                <span className="text-xs text-ink-4">
+                  New business types are enabled for selection immediately.
                 </span>
                 <Button
                   type="submit"
-                  disabled={!draftName.trim() || !draftSlug.trim() || create.isPending}
+                  size="sm"
+                  disabled={!draftName.trim() || !draftSlug.trim()}
                   loading={create.isPending}
-                  className="px-5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  icon={<PlusIcon size={14} />}
                 >
-                  <PlusIcon size={14} />
-                  <span>Create Business Type</span>
+                  Create business type
                 </Button>
               </div>
             </form>
-          )}
-        </Surface>
-      )}
-
-      {/* 3. Search & Filter Bar */}
-      <Surface className="p-3.5 border border-ink/10 bg-white space-y-3 shadow-sm">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <div className="relative flex-1 max-w-md">
-            <SearchIcon
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4 pointer-events-none"
-            />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search business types…"
-              className="w-full h-9 pl-9 pr-8 text-xs bg-slate-50/60 border border-ink/15 rounded-lg focus:outline-none focus:border-emerald-600 focus:bg-white transition-all"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-4 hover:text-ink text-xs"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-ink/10 text-[11px] font-mono">
-              <button
-                type="button"
-                onClick={() => setStatusFilter('all')}
-                className={`px-2.5 py-1 rounded-md transition-all ${
-                  statusFilter === 'all'
-                    ? 'bg-white text-ink font-semibold shadow-xs'
-                    : 'text-ink-4 hover:text-ink'
-                }`}
-              >
-                All
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatusFilter('active')}
-                className={`px-2.5 py-1 rounded-md transition-all ${
-                  statusFilter === 'active'
-                    ? 'bg-white text-emerald-700 font-semibold shadow-xs'
-                    : 'text-ink-4 hover:text-ink'
-                }`}
-              >
-                Active
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatusFilter('inactive')}
-                className={`px-2.5 py-1 rounded-md transition-all ${
-                  statusFilter === 'inactive'
-                    ? 'bg-white text-ink-3 font-semibold shadow-xs'
-                    : 'text-ink-4 hover:text-ink'
-                }`}
-              >
-                Inactive
-              </button>
-            </div>
-
-            <span className="text-xs font-mono text-ink-4 whitespace-nowrap pl-1">
-              <strong>{filteredRows.length}</strong> of {rows.length}
-            </span>
-          </div>
-        </div>
-      </Surface>
-
-      {/* 4. Business Types Table */}
-      <Surface className="border border-ink/10 bg-white overflow-hidden shadow-sm">
-        {q.isLoading ? (
-          <div className="divide-y divide-ink/5 p-6 space-y-4">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="flex items-center justify-between gap-4 animate-pulse pt-3 first:pt-0">
-                <div className="space-y-1.5 flex-1">
-                  <div className="h-4 bg-slate-200 rounded w-1/3" />
-                  <div className="h-3 bg-slate-100 rounded w-1/4" />
-                </div>
-                <div className="h-5 bg-slate-100 rounded w-20" />
-                <div className="h-6 bg-slate-200 rounded w-16" />
-              </div>
-            ))}
-          </div>
-        ) : filteredRows.length === 0 ? (
-          <div className="py-16 text-center space-y-3">
-            <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-ink-4 mx-auto">
-              <SparklesIcon size={24} />
-            </div>
-            <h4 className="font-display text-base font-semibold text-ink">No business types found</h4>
-            <p className="text-xs text-ink-4 max-w-sm mx-auto">
-              {search || statusFilter !== 'all'
-                ? 'No business types match your current search and filter settings.'
-                : 'There are no business types configured in the catalog yet.'}
-            </p>
-          </div>
+          </Panel>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-slate-50/80 border-b border-ink/10 text-ink-4 font-mono uppercase tracking-wider text-[10px]">
-                  <th className="py-3 px-5">Business Type</th>
-                  <th className="py-3 px-4">Slug Identifier</th>
-                  <th className="py-3 px-4 text-center">Status</th>
-                  {canWrite && <th className="py-3 px-5 text-right">Actions</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/5">
-                {filteredRows.map((row) => (
-                  <BusinessTypeTableRow
-                    key={row.id}
-                    row={row}
-                    canWrite={canWrite}
-                    copiedSlug={copiedSlug}
-                    onCopySlug={handleCopySlug}
-                    onEdit={() => setEditTarget(row)}
-                    onDelete={() => setDeleteTarget(row)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Card className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-bone text-ink-3">
+                <PlusIcon size={16} />
+              </span>
+              <div>
+                <div className="text-sm font-semibold text-ink">Add business type</div>
+                <div className="text-xs text-ink-4">
+                  Classifications used for buyer and supplier profile registration.
+                </div>
+              </div>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => setIsCreateOpen(true)} icon={<PlusIcon size={14} />}>
+              New type
+            </Button>
+          </Card>
+        )
+      ) : null}
+
+      <TableCard
+        title="Business type registry"
+        toolbar={
+          <Toolbar
+            actions={
+              <Tabs
+                items={[
+                  { key: 'all', label: 'All' },
+                  { key: 'active', label: 'Active' },
+                  { key: 'inactive', label: 'Inactive' },
+                ]}
+                value={statusFilter}
+                onChange={setStatusFilter}
+                ariaLabel="Filter by status"
+              />
+            }
+          >
+            <div className="relative min-w-0 flex-1 sm:max-w-sm">
+              <SearchIcon size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search business types…"
+                className={cn(controlClass, 'w-full pl-9 pr-8')}
+              />
+              {search ? (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-4 transition-colors hover:text-ink"
+                  title="Clear search"
+                  aria-label="Clear search"
+                >
+                  <XIcon size={14} />
+                </button>
+              ) : null}
+            </div>
+          </Toolbar>
+        }
+        footer={
+          <>
+            <span>
+              Showing <strong className="text-ink">{filteredRows.length}</strong> of {rows.length}{' '}
+              {rows.length === 1 ? 'type' : 'types'}
+              {filtered ? ' · filters applied' : ''}
+            </span>
+            {filtered ? (
+              <button type="button" onClick={resetFilters} className="font-semibold text-copper transition-colors hover:text-ink">
+                Reset filters
+              </button>
+            ) : null}
+          </>
+        }
+      >
+        {q.isLoading ? (
+          <TableSkeleton rows={5} cols={4} />
+        ) : filteredRows.length === 0 ? (
+          <EmptyBlock
+            icon={<SparklesIcon size={22} />}
+            title="No business types found"
+            description={
+              filtered
+                ? 'No business types match the current search and filter settings.'
+                : 'There are no business types configured in the catalog yet.'
+            }
+            action={
+              filtered ? (
+                <Button variant="secondary" size="sm" onClick={resetFilters}>
+                  Reset filters
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Business type</th>
+                <th>Slug identifier</th>
+                <th>Status</th>
+                {canWrite ? (
+                  <th>
+                    <span className="sr-only">Actions</span>
+                  </th>
+                ) : null}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRows.map((row) => (
+                <BusinessTypeTableRow
+                  key={row.id}
+                  row={row}
+                  canWrite={canWrite}
+                  copiedSlug={copiedSlug}
+                  onCopySlug={handleCopySlug}
+                  onEdit={() => setEditTarget(row)}
+                  onDelete={() => setDeleteTarget(row)}
+                />
+              ))}
+            </tbody>
+          </table>
         )}
-      </Surface>
+      </TableCard>
 
-      {/* Edit Modal */}
-      {editTarget && (
-        <EditBusinessTypeModal
-          typeRow={editTarget}
-          onClose={() => setEditTarget(null)}
-        />
-      )}
+      {editTarget ? (
+        <EditBusinessTypeModal typeRow={editTarget} onClose={() => setEditTarget(null)} />
+      ) : null}
 
-      {/* Delete Modal */}
-      {deleteTarget && (
-        <DeleteBusinessTypeModal
-          typeRow={deleteTarget}
-          onClose={() => setDeleteTarget(null)}
-        />
-      )}
+      {deleteTarget ? (
+        <DeleteBusinessTypeModal typeRow={deleteTarget} onClose={() => setDeleteTarget(null)} />
+      ) : null}
     </div>
   );
 }
@@ -387,86 +381,79 @@ function BusinessTypeTableRow({
   };
 
   return (
-    <tr className="hover:bg-slate-50/50 transition-colors group">
-      <td className="py-3 px-5">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-amber/10 flex items-center justify-center text-amber shrink-0 group-hover:bg-emerald-50 group-hover:text-emerald-700 transition-colors">
+    <tr className="group">
+      <td>
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-bone text-ink-3 transition-colors group-hover:bg-ink/10">
             <SparklesIcon size={15} />
-          </div>
-          <span className={`font-semibold text-sm ${row.active ? 'text-ink' : 'line-through text-ink-4'}`}>
+          </span>
+          <span className={cn('font-semibold', row.active ? 'text-ink' : 'text-ink-4 line-through')}>
             {row.name}
           </span>
         </div>
       </td>
 
-      <td className="py-3 px-4">
+      <td>
         <button
           type="button"
           onClick={() => onCopySlug(row.slug)}
-          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md font-mono text-[11px] bg-slate-100 text-ink-3 hover:bg-slate-200 transition-all border border-ink/5"
+          className="group/copy inline-flex items-center gap-1.5 rounded-md bg-ink/[0.05] px-2 py-1 font-mono text-[11px] text-ink-3 transition-colors hover:bg-ink/10"
           title="Click to copy slug"
         >
           <span>{row.slug}</span>
           {isCopied ? (
-            <CheckCheckIcon size={12} className="text-emerald-600" />
+            <CheckCheckIcon size={12} className="text-mint" />
           ) : (
-            <CopyIcon size={11} className="text-ink-4 opacity-60" />
+            <CopyIcon size={11} className="text-ink-4 opacity-60 transition-opacity group-hover/copy:opacity-100" />
           )}
         </button>
       </td>
 
-      <td className="py-3 px-4 text-center">
+      <td>
         {canWrite ? (
           <button
             type="button"
             onClick={handleToggleActive}
             disabled={update.isPending}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase transition-all ${
-              row.active
-                ? 'bg-mint/15 text-emerald-700 border border-mint/30 hover:bg-mint/25'
-                : 'bg-slate-100 text-ink-4 border border-ink/10 hover:bg-slate-200'
-            }`}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors disabled:opacity-50',
+              row.active ? 'bg-mint/10 text-mint hover:bg-mint/20' : 'bg-ink/[0.06] text-ink-3 hover:bg-ink/10',
+            )}
           >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                row.active ? 'bg-emerald-600 animate-pulse' : 'bg-ink-4'
-              }`}
-            />
+            <span className={cn('size-1.5 rounded-full', row.active ? 'bg-mint' : 'bg-ink-4')} />
             {row.active ? 'Active' : 'Inactive'}
           </button>
         ) : (
-          <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
-              row.active ? 'bg-mint/15 text-emerald-700' : 'bg-slate-100 text-ink-4'
-            }`}
-          >
+          <Pill tone={row.active ? 'success' : 'neutral'} dot>
             {row.active ? 'Active' : 'Inactive'}
-          </span>
+          </Pill>
         )}
       </td>
 
-      {canWrite && (
-        <td className="py-3 px-5 text-right whitespace-nowrap">
-          <div className="flex items-center justify-end gap-1.5">
+      {canWrite ? (
+        <td className="text-right">
+          <div className="flex items-center justify-end gap-1">
             <button
               type="button"
               onClick={onEdit}
-              className="p-1.5 rounded-md hover:bg-slate-100 text-ink-4 hover:text-ink transition-colors"
+              className="flex size-8 items-center justify-center rounded-lg text-ink-4 transition-colors hover:bg-bone hover:text-ink"
               title="Edit business type"
+              aria-label={`Edit ${row.name}`}
             >
               <Edit3Icon size={14} />
             </button>
             <button
               type="button"
               onClick={onDelete}
-              className="p-1.5 rounded-md hover:bg-rose/10 text-ink-4 hover:text-rose transition-colors"
+              className="flex size-8 items-center justify-center rounded-lg text-ink-4 transition-colors hover:bg-rose/10 hover:text-rose"
               title="Delete business type"
+              aria-label={`Delete ${row.name}`}
             >
               <Trash2Icon size={14} />
             </button>
           </div>
         </td>
-      )}
+      ) : null}
     </tr>
   );
 }
@@ -492,90 +479,76 @@ function EditBusinessTypeModal({
         active,
       });
       onClose();
-    } catch (e: any) {
-      setErr(e?.message || 'Failed to update business type');
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Failed to update business type');
     }
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-sm animate-fade-in"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl border border-ink/10 shadow-2xl max-w-md w-full overflow-hidden"
+        className="vyro-surface w-full max-w-md overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-ink/10 bg-slate-50/50 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
-              <Edit3Icon size={16} />
-            </div>
-            <div>
-              <h3 className="font-display text-base font-semibold text-ink">Edit Business Type</h3>
-              <p className="text-[11px] font-mono text-ink-4">{typeRow.slug}</p>
+        <div className="flex items-center justify-between gap-3 border-b border-ink/[0.07] bg-bone/40 px-5 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-ink/10 text-ink-2">
+              <Edit3Icon size={15} />
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold text-ink">Edit business type</h3>
+              <p className="mt-0.5 truncate font-mono text-[11px] text-ink-4">{typeRow.slug}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-md text-ink-4 hover:text-ink hover:bg-slate-100 transition"
+            aria-label="Close"
+            className="flex size-8 items-center justify-center rounded-lg text-ink-4 transition-colors hover:bg-ink/5 hover:text-ink"
           >
             <XIcon size={16} />
           </button>
         </div>
 
-        {err && (
-          <div className="p-4 border-b border-rose/20 bg-rose/5">
-            <ErrorBanner message={err} />
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 p-5 sm:p-6">
+          {err ? <Callout tone="danger">{err}</Callout> : null}
           <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-ink-4 font-semibold mb-1">
-              Type Name
-            </label>
-            <input
+            <Label htmlFor="edit-bt-name">Type name</Label>
+            <Input
+              id="edit-bt-name"
               type="text"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full h-9 px-3 text-xs bg-slate-50 border border-ink/15 rounded-lg focus:outline-none focus:border-emerald-600 focus:bg-white transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-ink-4 font-semibold mb-1">
-              Status
-            </label>
+            <Label>Status</Label>
             <button
               type="button"
               onClick={() => setActive(!active)}
-              className={`w-full h-9 px-3 text-xs font-mono font-semibold rounded-lg border flex items-center justify-center gap-2 transition-all ${
-                active
-                  ? 'bg-mint/15 text-emerald-700 border-mint/30'
-                  : 'bg-slate-100 text-ink-4 border-ink/10'
-              }`}
+              className={cn(
+                'flex h-11 w-full items-center justify-center gap-2 rounded-lg text-xs font-semibold transition-colors shadow-[inset_0_0_0_1px_rgba(12,14,11,0.14)]',
+                active ? 'bg-mint/10 text-mint' : 'bg-ink/[0.05] text-ink-4',
+              )}
             >
-              <span className={`w-2 h-2 rounded-full ${active ? 'bg-emerald-600' : 'bg-ink-4'}`} />
-              {active ? 'Active in Onboarding' : 'Inactive (Disabled)'}
+              <span className={cn('size-1.5 rounded-full', active ? 'bg-mint' : 'bg-ink-4')} />
+              {active ? 'Active in onboarding' : 'Inactive (disabled)'}
             </button>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t border-ink/10">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={update.isPending}>
+          <div className="flex justify-end gap-2 border-t border-ink/[0.07] pt-4">
+            <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={update.isPending}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              loading={update.isPending}
-              disabled={!name.trim()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              Save Changes
+            <Button type="submit" size="sm" loading={update.isPending} disabled={!name.trim()}>
+              Save changes
             </Button>
           </div>
         </form>
@@ -599,57 +572,54 @@ function DeleteBusinessTypeModal({
     try {
       await del.mutateAsync();
       onClose();
-    } catch (e: any) {
-      setErr(e?.message || 'Failed to delete business type');
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Failed to delete business type');
     }
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-sm animate-fade-in"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl border border-ink/10 shadow-2xl max-w-md w-full overflow-hidden"
+        className="vyro-surface w-full max-w-md overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-5 border-b border-ink/10 bg-rose-50/50 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-rose/15 text-rose flex items-center justify-center shrink-0">
-              <AlertTriangleIcon size={18} />
-            </div>
-            <div>
-              <h3 className="font-display text-base font-semibold text-ink">Delete Business Type</h3>
-              <p className="text-[11px] font-mono text-ink-4">{typeRow.slug}</p>
+        <div className="flex items-center justify-between gap-3 border-b border-ink/[0.07] bg-rose/[0.07] px-5 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-rose/15 text-rose">
+              <AlertTriangleIcon size={16} />
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold text-ink">Delete business type</h3>
+              <p className="mt-0.5 truncate font-mono text-[11px] text-ink-4">{typeRow.slug}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-md text-ink-4 hover:text-ink hover:bg-slate-100 transition"
+            aria-label="Close"
+            className="flex size-8 items-center justify-center rounded-lg text-ink-4 transition-colors hover:bg-ink/5 hover:text-ink"
           >
             <XIcon size={16} />
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
-          {err && <ErrorBanner message={err} />}
-          <p className="text-xs text-ink-3 leading-relaxed">
-            Are you sure you want to permanently delete the <strong>{typeRow.name}</strong> business classification?
+        <div className="space-y-4 p-5 sm:p-6">
+          {err ? <Callout tone="danger">{err}</Callout> : null}
+          <p className="text-sm leading-relaxed text-ink-3">
+            Permanently delete the <strong className="text-ink">{typeRow.name}</strong> business classification? Buyers
+            and suppliers will no longer be able to select it during registration.
           </p>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={onClose} disabled={del.isPending}>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={del.isPending}>
               Cancel
             </Button>
-            <Button
-              variant="danger"
-              loading={del.isPending}
-              onClick={handleDelete}
-            >
-              Delete Type
+            <Button variant="danger" size="sm" loading={del.isPending} onClick={() => void handleDelete()}>
+              Delete type
             </Button>
           </div>
         </div>
