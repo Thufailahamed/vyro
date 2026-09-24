@@ -99,7 +99,7 @@ export function AdminTransactionScreen() {
 
             <ChainSection kicker={`Allocations · ${c.allocations.length}`} title="Supplier allocations" icon={Wallet}>
               {c.allocations.length === 0 ? <None /> : c.allocations.map((a, i) => (
-                <Row key={i} left={a.supplierId.slice(0, 12)} mono right={formatLKR(a.netCents)} sub={`gross ${formatLKR(a.grossCents)} − commission ${formatLKR(a.commissionCents)}`} />
+                <Row key={(a as { id?: string }).id ?? `${a.supplierId}-${i}`} left={a.supplierId.slice(0, 12)} mono right={formatLKR(a.netCents)} sub={`gross ${formatLKR(a.grossCents)} − commission ${formatLKR(a.commissionCents)}`} />
               ))}
             </ChainSection>
 
@@ -119,13 +119,13 @@ export function AdminTransactionScreen() {
 
             <ChainSection kicker={`Refunds · ${c.refunds.length}`} title="Refunds" icon={RotateCcw}>
               {c.refunds.length === 0 ? <None /> : c.refunds.map((r, i) => (
-                <Row key={i} left={r.refundNumber ?? `#${i + 1}`} mono right={<View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><AcctStatus status={r.status} /><Text variant="mono">{formatLKR(r.amountCents)}</Text></View>} />
+                <Row key={(r as { id?: string }).id ?? `${r.refundNumber}-${i}`} left={r.refundNumber ?? `#${i + 1}`} mono right={<View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><AcctStatus status={r.status} /><Text variant="mono">{formatLKR(r.amountCents)}</Text></View>} />
               ))}
             </ChainSection>
 
             <ChainSection kicker={`Earnings · ${c.earnings.length}`} title="Supplier earnings" icon={ArrowRightLeft}>
               {c.earnings.length === 0 ? <None /> : c.earnings.map((e, i) => (
-                <Row key={i} left={<AcctStatus status={e.eligibility} />} right={formatLKR(e.netCents)} sub={`gross ${formatLKR(e.grossCents)} − commission ${formatLKR(e.commissionCents)}`} />
+                <Row key={(e as { id?: string }).id ?? `earning-${i}-${e.eligibility}-${e.netCents}`} left={<AcctStatus status={e.eligibility} />} right={formatLKR(e.netCents)} sub={`gross ${formatLKR(e.grossCents)} − commission ${formatLKR(e.commissionCents)}`} />
               ))}
             </ChainSection>
 
