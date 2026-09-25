@@ -16,9 +16,9 @@ const BODY = JSON.stringify({
 
 function captureGateway(responder: (url: string, init?: RequestInit) => Promise<Response>): {
   gateway: PaymentsLkGateway;
-  calls: Array<{ url: string; init?: RequestInit }>;
+  calls: Array<{ url: string; init: RequestInit | undefined }>;
 } {
-  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
   const fetchImpl: FetchLike = async (url, init) => {
     calls.push({ url, init });
     return responder(url, init);
