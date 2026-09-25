@@ -24,6 +24,7 @@ import {
 import { formatCompactLKR, formatLKR, greetingForNow } from '@/lib/format';
 import { FlowLine, FlowCanvas } from '@/components/brand/FlowLine';
 import { MetricNumber, ProductImage, Surface } from '@/components/brand/Surface';
+import { PageHero, HeroStatusPill, heroActionClass } from '@/components/brand/PageHero';
 import { FALLBACK_PRODUCT_IMAGE, resolveCatalogImage } from '@/lib/catalogImages';
 import { dedupeSuppliers } from '@/lib/dedupeSuppliers';
 import { useAddToCart } from '@/lib/useAddToCart';
@@ -567,65 +568,57 @@ export function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Executive Command Header */}
-      <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-5 border-b border-ink/10">
-        <div className="space-y-1 min-w-0">
-          <p className="text-sm text-ink-3">
-            {greetingForNow()},{' '}
-            <span className="font-semibold text-ink">{user.name || 'Purchasing Director'}</span>
-          </p>
-          <h1 className="vyro-display text-2xl sm:text-3xl lg:text-4xl text-ink leading-tight break-words" title={businessId}>
-            {businessName}
-          </h1>
-          <div className="flex flex-wrap items-center gap-2 pt-0.5">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-volt/25 text-ink text-[10px] font-mono font-bold uppercase tracking-wider border border-volt/40 rounded-md">
-              Verified
-            </span>
-            <span className="inline-flex items-center gap-1 text-[11px] text-ink-3">
-              <ShieldCheckIcon size={13} className="text-volt-deep" />
-              SVAT ready
-            </span>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <Link to="/cart">
-            <Button variant="secondary" size="sm" className="text-xs font-semibold">
-              <ShoppingCartIcon size={14} />
+      <PageHero
+        icon={Building2Icon}
+        kicker="Commercial Command Center"
+        title={businessName}
+        description={`${greetingForNow()}, ${user.name || 'Purchasing Director'} — issue POs, split carts across suppliers, and track freight to your receiving dock.`}
+        status={<HeroStatusPill label="Verified · SVAT Ready" tone="mint" />}
+        actions={
+          <>
+            <Link to="/cart" className={heroActionClass}>
+              <ShoppingCartIcon size={13} />
               {cartItemsCount > 0 ? `Cart · ${formatLKR(cartTotalCents)}` : 'Cart'}
               {cartItemsCount > 0 && (
-                <span className="ml-1 px-1.5 py-0.2 bg-volt text-ink font-mono font-bold text-[10px] rounded-full">
+                <span className="ml-1 px-1.5 py-0.5 rounded-md bg-volt text-ink font-mono font-bold text-[10px]">
                   {cartItemsCount}
                 </span>
               )}
-            </Button>
-          </Link>
-          {hasSupplier && (
-            <Link to="/supplier">
-              <Button variant="secondary" size="sm" className="text-xs font-semibold" title={supplier?.supplierId}>
-                <StoreIcon size={14} />
-                {supplier?.supplierName ?? 'Supplier console'}
-              </Button>
             </Link>
-          )}
-          {lastPo && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="text-xs font-semibold"
-              loading={reordering}
-              onClick={() => void repeatLastPo()}
+            {hasSupplier && (
+              <Link to="/supplier" className={heroActionClass} title={supplier?.supplierId}>
+                <StoreIcon size={13} />
+                {supplier?.supplierName ?? 'Supplier console'}
+              </Link>
+            )}
+            {lastPo && (
+              <button
+                type="button"
+                className={heroActionClass}
+                disabled={reordering}
+                onClick={() => void repeatLastPo()}
+              >
+                <RefreshCwIcon size={13} className={reordering ? 'animate-spin' : ''} />
+                Repeat last PO
+              </button>
+            )}
+            <Link
+              to="/search"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-volt px-3 text-xs font-bold text-ink uppercase tracking-wider transition-colors hover:bg-volt-glow"
             >
-              <RefreshCwIcon size={14} />
-              Repeat last PO
-            </Button>
-          )}
-          <Link to="/search">
-            <Button variant="primary" size="sm" className="text-xs uppercase tracking-wider font-bold">
               Start Procurement
-            </Button>
-          </Link>
-        </div>
-      </header>
+            </Link>
+          </>
+        }
+        footer={
+          <>
+            <span>Escrow-protected settlement on dockside GRN</span>
+            <span className="text-paper/40">
+              {stats.total} PO{stats.total === 1 ? '' : 's'} · {stats.inFlight} in flight · {formatCompactLKR(stats.lifetimeCents)} lifetime
+            </span>
+          </>
+        }
+      />
 
       {/* Fast-Track First Purchase Order Hero (prominent when 0 orders on record) */}
       {stats.total === 0 && (

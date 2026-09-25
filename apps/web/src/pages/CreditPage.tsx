@@ -5,8 +5,9 @@ import { cn } from '@vyro/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { usePageTitle } from '@/lib/usePageTitle';
-import { Button, EmptyState, ErrorBanner, PageHeader } from '@/components/ui';
+import { Button, EmptyState, ErrorBanner } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
+import { PageHero, HeroStatusPill } from '@/components/brand/PageHero';
 import { formatLKR } from '@/lib/format';
 import {
   CREDIT_STARTING_LIMIT_CENTS,
@@ -107,10 +108,28 @@ export function CreditPage() {
 
   return (
     <div className="max-w-6xl space-y-8">
-      <PageHeader
-        kicker="Trade terms · Verified buyers"
+      <PageHero
+        icon={ShieldCheckIcon}
+        kicker="Trade Terms · Verified Buyers"
         title="VYRO Credit"
-        sub="Pay mill-gate lots on Net 14 or Net 30 after three settled purchase orders. No interest on v1 — overdue draws simply pause new credit."
+        description="Pay mill-gate lots on Net 14 or Net 30 after three settled purchase orders. No interest on v1 — overdue draws simply pause new credit."
+        status={
+          f?.facility ? (
+            <HeroStatusPill label={`Facility ${f.facility.status}`} tone={f.eligible ? 'mint' : 'amber'} />
+          ) : (
+            <HeroStatusPill label={`${paid}/${required} orders to unlock`} tone="amber" />
+          )
+        }
+        footer={
+          <>
+            <span>Draws settle automatically on PO payment</span>
+            {f?.facility && (
+              <span className="text-paper/40">
+                {formatLKR(f.availableCents)} available of {formatLKR(f.facility.limitCents)}
+              </span>
+            )}
+          </>
+        }
       />
 
       {!f?.facility ? (

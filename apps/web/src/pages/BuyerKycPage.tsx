@@ -5,6 +5,7 @@ import { usePageTitle } from '@/lib/usePageTitle';
 import { api, ApiError } from '@/lib/api';
 import { Button, ErrorBanner, Label } from '@/components/ui';
 import { ShieldCheckIcon, ArrowLeftIcon, CheckCircleIcon } from '@/components/icons';
+import { PageHero, HeroStatusPill } from '@/components/brand/PageHero';
 
 interface BusinessDetail {
   id: string;
@@ -59,16 +60,30 @@ export function BuyerKycPage() {
         <ArrowLeftIcon className="w-3.5 h-3.5" /> Back to Checkout
       </Link>
 
-      <header className="space-y-1">
-        <span className="text-[11px] font-mono font-bold tracking-widest text-emerald-800 uppercase px-2.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 inline-block">
-          Cross-Border Verification
-        </span>
-        <h1 className="text-3xl font-bold text-ink-1 tracking-tight">Buyer KYC</h1>
-        <p className="text-sm text-ink-3 max-w-2xl">
-          Verify once to earn the Verified buyer badge suppliers see on your RFQs.
-          Submitted documents are reviewed manually within 1 business day.
-        </p>
-      </header>
+      <PageHero
+        icon={ShieldCheckIcon}
+        kicker="Cross-Border Verification"
+        title="Buyer KYC"
+        description="Verify once to earn the Verified buyer badge suppliers see on your RFQs. Submitted documents are reviewed manually within 1 business day."
+        status={
+          <HeroStatusPill
+            tone={kycLevel === 'none' ? 'amber' : 'mint'}
+            label={
+              kycLevel === 'none'
+                ? 'Unverified'
+                : `Verified · ${kycLevel === 'enhanced' ? 'Enhanced' : 'Basic'}`
+            }
+          />
+        }
+        footer={
+          <>
+            <span>Documents reviewed within 1 business day</span>
+            <span className="text-paper/40">
+              {business.data?.business?.name ?? '…'} · {country}
+            </span>
+          </>
+        }
+      />
 
       <section className="border border-ink/10 bg-paper p-5 space-y-4">
         <div className="flex items-start justify-between gap-3">

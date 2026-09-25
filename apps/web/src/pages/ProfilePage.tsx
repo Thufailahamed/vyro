@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Button, Badge, PageHeader, Input, Label } from '@/components/ui';
+import { Button, Badge, Input, Label } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { Surface } from '@/components/brand/Surface';
+import { PageHero, HeroStatusPill } from '@/components/brand/PageHero';
 import { usePageTitle } from '@/lib/usePageTitle';
 import {
   Building2Icon,
@@ -14,12 +15,8 @@ import {
   ShieldCheckIcon,
   MailIcon,
   PhoneIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  ArrowRightIcon,
   BellIcon,
   CheckIcon,
-  PackageIcon,
   Trash2Icon,
 } from '@/components/icons';
 import { ProfileForm } from './profile/ProfileForm';
@@ -176,22 +173,29 @@ export function ProfilePage() {
   return (
     <div className="space-y-8 max-w-6xl">
       {/* 1. TOP HEADER */}
-      <PageHeader
+      <PageHero
+        icon={ShieldCheckIcon}
         kicker="Operator Identity & Central Access"
         title="Account Command"
-        sub="Manage your verified operator identity, commercial purchasing businesses, wholesale supplier hubs, and security controls."
+        description="Manage your verified operator identity, commercial purchasing businesses, wholesale supplier hubs, and security controls."
+        status={<HeroStatusPill label="Session Active" tone="mint" />}
         actions={
-          <Button
-            variant="secondary"
-            size="sm"
+          <button
+            type="button"
             onClick={() => {
               void signOut().catch((e) => console.error('signOut failed', e));
             }}
-            className="text-rose hover:bg-rose/10 hover:border-rose/30 flex items-center gap-1.5 font-bold uppercase tracking-wider text-xs px-4"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose/30 bg-rose/10 px-3 text-xs font-semibold text-rose transition-colors hover:bg-rose/20 cursor-pointer"
           >
-            <LogOutIcon size={14} />
-            <span>Sign out</span>
-          </Button>
+            <LogOutIcon size={13} />
+            Sign out
+          </button>
+        }
+        footer={
+          <>
+            <span>Identity verified across buyer & supplier workspaces</span>
+            <span className="text-paper/40">{orgCount} connected org{orgCount === 1 ? '' : 's'}</span>
+          </>
         }
       />
 

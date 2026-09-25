@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Button, EmptyState, PageHeader } from '@/components/ui';
+import { Button, EmptyState } from '@/components/ui';
+import { PageHero, HeroStatusPill, heroActionClass } from '@/components/brand/PageHero';
 import {
   BellIcon,
   PackageIcon,
@@ -16,7 +17,6 @@ import {
   ArrowRightIcon,
   ShoppingCartIcon,
   SearchIcon,
-  SparklesIcon,
 } from '@/components/icons';
 
 interface Note {
@@ -184,33 +184,28 @@ export function NotificationsPage() {
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       {/* Executive Page Header */}
-      <PageHeader
-        kicker={
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="vyro-kicker text-copper">Activity Stream</span>
-            <span className="text-ink-4">/</span>
-            <span className="text-[11px] font-mono text-ink-3">Live Dispatch & Audit Signals</span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider">
-              <span className="size-1.5 rounded-full bg-mint animate-pulse" />
-              Push Gateway Connected
-            </span>
-          </div>
-        }
+      <PageHero
+        icon={BellIcon}
+        kicker="Activity Stream · Live Dispatch & Audit Signals"
         title="Notifications & Activity"
-        sub="Real-time procurement updates across order milestones, driver vehicle staging, dockside Goods Receipt (GRN) sign-offs, and digital SVAT settlements."
+        description="Real-time procurement updates across order milestones, driver vehicle staging, dockside Goods Receipt (GRN) sign-offs, and digital SVAT settlements."
+        status={<HeroStatusPill label="Push Gateway Connected" tone="mint" />}
         actions={
-          <div className="flex items-center gap-2.5">
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={unread === 0 || markAll.isPending}
-              onClick={() => markAll.mutate()}
-              className="text-xs uppercase tracking-wider font-semibold bg-paper"
-            >
-              <CheckCircleIcon size={14} className="text-mint" />
-              <span>Mark All Read</span>
-            </Button>
-          </div>
+          <button
+            type="button"
+            disabled={unread === 0 || markAll.isPending}
+            onClick={() => markAll.mutate()}
+            className={heroActionClass}
+          >
+            <CheckCircleIcon size={13} className="text-mint" />
+            Mark All Read
+          </button>
+        }
+        footer={
+          <>
+            <span>Signals arrive in real time over the push gateway</span>
+            <span className="text-paper/40">{unread} unread</span>
+          </>
         }
       />
 

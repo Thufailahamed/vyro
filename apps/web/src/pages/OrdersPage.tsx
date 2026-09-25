@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { api, ApiError } from '@/lib/api';
-import { Button, Card, EmptyState, ErrorBanner, PageHeader, StatusDots } from '@/components/ui';
+import { Button, Card, EmptyState, ErrorBanner, StatusDots } from '@/components/ui';
 import type { OrderStatus } from '@/components/ui';
+import { PageHero, HeroStatusPill, heroActionClass } from '@/components/brand/PageHero';
 import { formatLKR } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
 import {
@@ -179,49 +180,44 @@ export function OrdersPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Executive Page Header */}
-      <PageHeader
-        kicker={
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="vyro-kicker text-copper">Procurement Operations</span>
-            <span className="text-ink-4">/</span>
-            <span className="text-[11px] font-mono text-ink-3">{businessName}</span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider">
-              <span className="size-1.5 rounded-full bg-mint animate-pulse" />
-              Digital GRN Active
-            </span>
-          </div>
-        }
+      <PageHero
+        icon={PackageIcon}
+        kicker={`Procurement Operations · ${businessName}`}
         title="Purchase Orders"
-        sub="Track commercial purchase orders from supplier confirmation, driver freight dispatch, and dockside Goods Receipt (GRN) to SVAT digital invoice settlement."
+        description="Track commercial purchase orders from supplier confirmation, driver freight dispatch, and dockside Goods Receipt (GRN) to SVAT digital invoice settlement."
+        status={<HeroStatusPill label="Digital GRN Active" tone="mint" />}
         actions={
-          <div className="flex flex-wrap items-center gap-2.5">
+          <>
             {cartItemsCount > 0 ? (
-              <Link to="/cart">
-                <Button className="bg-volt text-ink hover:bg-volt-glow font-bold text-xs uppercase tracking-wider shadow-sm">
-                  <ShoppingCartIcon size={14} />
-                  <span>Open Cart ({cartItemsCount}) →</span>
-                </Button>
+              <Link
+                to="/cart"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-volt px-3 text-xs font-bold text-ink transition-colors hover:bg-volt-glow"
+              >
+                <ShoppingCartIcon size={13} />
+                Open Cart ({cartItemsCount})
               </Link>
             ) : (
-              <Link to="/search">
-                <Button variant="secondary" size="sm" className="text-xs uppercase tracking-wider font-semibold">
-                  <SearchIcon size={14} />
-                  <span>Browse Catalog</span>
-                </Button>
+              <Link to="/search" className={heroActionClass}>
+                <SearchIcon size={13} />
+                Browse Catalog
               </Link>
             )}
-            <Link to="/orders/conversational">
-              <Button variant="secondary" size="sm" className="text-xs uppercase tracking-wider font-semibold">
-                <span>WhatsApp Bot</span>
-              </Button>
+            <Link to="/orders/conversational" className={heroActionClass}>
+              WhatsApp Bot
             </Link>
-            <Link to="/ask">
-              <Button variant="secondary" size="sm" className="text-xs uppercase tracking-wider font-semibold bg-paper">
-                <SparklesIcon size={14} className="text-copper" />
-                <span>Ask AI</span>
-              </Button>
+            <Link to="/ask" className={heroActionClass}>
+              <SparklesIcon size={13} className="text-copper" />
+              Ask AI
             </Link>
-          </div>
+          </>
+        }
+        footer={
+          <>
+            <span>Every PO settles on dockside GRN sign-off</span>
+            <span className="text-paper/40">
+              {stats.total} orders · {stats.inFlight} in flight · {formatLKR(stats.totalSpendCents)} spend
+            </span>
+          </>
         }
       />
 

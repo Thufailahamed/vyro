@@ -3,7 +3,6 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import {
-  PageHeader,
   Button,
   EmptyState,
   ErrorBanner,
@@ -13,6 +12,7 @@ import {
   Badge,
 } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
+import { PageHero, HeroStatusPill, heroActionClass } from '@/components/brand/PageHero';
 import { SavedCardsPanel } from '@/components/payments/SavedCardsPanel';
 import { useToast } from '@vyro/ui';
 import { Money, StatusPill, time, useBusinessId, useConfirm } from '@/accounts/shared';
@@ -87,33 +87,28 @@ export function AccountsPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 pb-12 space-y-8">
-      <PageHeader
-        kicker={
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="vyro-kicker text-copper">Business</span>
-            <span className="size-1.5 rounded-full bg-copper animate-pulse" />
-            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-copper border border-copper/30 bg-copper/10 px-2.5 py-1 rounded-full">
-              Vyro Escrow Protected
-            </span>
-          </div>
-        }
+      <PageHero
+        icon={BanknoteIcon}
+        kicker="Business · Settlement Desk"
         title="Accounts"
-        sub="What you paid, how you paid, what's pending, and what was refunded — across every supplier PO."
+        description="What you paid, how you paid, what's pending, and what was refunded — across every supplier PO."
+        status={<HeroStatusPill label="Vyro Escrow Protected" tone="mint" />}
         actions={
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Link to="/orders">
-              <Button variant="secondary" size="sm" className="text-xs uppercase tracking-wider font-semibold">
-                <FileTextIcon size={14} />
-                <span>View orders</span>
-              </Button>
+          <>
+            <Link to="/orders" className={heroActionClass}>
+              <FileTextIcon size={13} />
+              View orders
             </Link>
-            <Link to="/ask">
-              <Button variant="secondary" size="sm" className="text-xs uppercase tracking-wider font-semibold bg-paper">
-                <SparklesIcon size={14} className="text-copper" />
-                <span>Ask finance AI</span>
-              </Button>
+            <Link to="/ask" className={heroActionClass}>
+              <SparklesIcon size={13} className="text-copper" />
+              Ask finance AI
             </Link>
-          </div>
+          </>
+        }
+        footer={
+          <>
+            <span>Funds release to suppliers only after GRN confirmation</span>
+          </>
         }
       />
 

@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { RETURN_REASON_CODES, RETURN_REASON_LABEL, type ReturnReasonCode } from '@vyro/shared';
 import { api } from '@/lib/api';
-import { Button, EmptyState, ErrorBanner, Input, Label, PageHeader, Select, Textarea } from '@/components/ui';
+import { Button, EmptyState, ErrorBanner, Input, Label, Select, Textarea } from '@/components/ui';
 import { RefreshCwIcon, CheckCircleIcon, XIcon, PackageIcon, ClockIcon, BanknoteIcon } from '@/components/icons';
 import { MetricNumber } from '@/components/brand/Surface';
+import { PageHero, HeroStatusPill, heroActionClass } from '@/components/brand/PageHero';
 import { formatLKR } from '@/lib/format';
 import {
   formatLifecycleDate,
@@ -625,16 +626,18 @@ export function ReturnsListView({
 
   return (
     <div className="space-y-6 max-w-6xl pb-12">
-      <PageHeader
+      <PageHero
+        icon={RefreshCwIcon}
         kicker={kicker}
         title={title}
-        sub={sub}
+        description={sub}
+        status={<HeroStatusPill label={filter === 'open' ? 'Open Returns' : 'All Returns'} tone={stats.awaiting > 0 ? 'amber' : 'mint'} />}
         actions={
           <>
             <div
               role="tablist"
               aria-label="Return status filter"
-              className="inline-flex items-center gap-1 rounded-full bg-ink/[0.05] p-1"
+              className="inline-flex items-center gap-1 rounded-full border border-paper/10 bg-paper/10 p-1"
             >
               {(['open', 'all'] as const).map((f) => (
                 <button
@@ -643,25 +646,33 @@ export function ReturnsListView({
                   role="tab"
                   aria-selected={filter === f}
                   onClick={() => setFilter(f)}
-                  className={`rounded-full px-3.5 py-1.5 text-xs transition-colors ${
+                  className={`rounded-full px-3.5 h-7 text-xs transition-colors cursor-pointer ${
                     filter === f
-                      ? 'bg-ink font-semibold text-paper shadow-sm'
-                      : 'font-medium text-ink-3 hover:text-ink'
+                      ? 'bg-paper font-semibold text-ink shadow-sm'
+                      : 'font-medium text-paper/60 hover:text-paper'
                   }`}
                 >
                   {f === 'open' ? 'Open' : 'All'}
                 </button>
               ))}
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
+            <button
+              type="button"
               onClick={() => void q.refetch()}
-              loading={q.isFetching && !q.isLoading}
-              icon={q.isFetching ? undefined : <RefreshCwIcon size={14} />}
+              disabled={q.isFetching}
+              className={heroActionClass}
             >
+              <RefreshCwIcon size={13} className={q.isFetching ? 'animate-spin' : ''} />
               Refresh
-            </Button>
+            </button>
+          </>
+        }
+        footer={
+          <>
+            <span>RMAs settle refunds against the original PO</span>
+            <span className="text-paper/40">
+              {stats.total} in view · {stats.awaiting} awaiting review · {formatLKR(stats.refundCents)} refunded
+            </span>
           </>
         }
       />

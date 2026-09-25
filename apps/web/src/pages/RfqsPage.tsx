@@ -7,8 +7,8 @@ import { useAuth } from '@/lib/auth';
 import {
   Button,
   EmptyState,
-  PageHeader,
 } from '@/components/ui';
+import { PageHero, HeroStatusPill, heroActionClass } from '@/components/brand/PageHero';
 import { useToast } from '@vyro/ui';
 import {
   FileTextIcon,
@@ -193,41 +193,35 @@ export function RfqsPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Executive Page Header */}
-      <PageHeader
-        kicker={
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="vyro-kicker text-copper">Bulk Procurement</span>
-            {businessName && (
-              <>
-                <span className="text-ink-4">/</span>
-                <span className="text-[11px] font-mono text-ink-3">{businessName}</span>
-              </>
-            )}
+      <PageHero
+        icon={FileTextIcon}
+        kicker={`Bulk Procurement${businessName ? ` · ${businessName}` : ''}`}
+        title="Request for Quotations"
+        description="Negotiated bulk pricing — compare suppliers on total landed cost, send counter-offers, award, and convert to a purchase order."
+        status={
+          dash.data ? <HeroStatusPill label="Negotiation Engine Active" tone="volt" /> : undefined
+        }
+        actions={
+          <>
+            <Link to="/rfqs/new" className={heroActionClass}>
+              <PlusIcon size={13} />
+              New RFQ
+            </Link>
+            <Link to="/ask" className={heroActionClass}>
+              <SparklesIcon size={13} className="text-copper" />
+              Ask AI
+            </Link>
+          </>
+        }
+        footer={
+          <>
+            <span>Awarded RFQs convert directly to purchase orders</span>
             {dash.data && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider">
-                <span className="size-1.5 rounded-full bg-volt-deep animate-pulse" />
-                Negotiation Engine Active
+              <span className="text-paper/40">
+                {dash.data.activeRfqs} active · {dash.data.quotesReceived} quotes received
               </span>
             )}
-          </div>
-        }
-        title="Request for Quotations"
-        sub="Negotiated bulk pricing — compare suppliers on total landed cost, send counter-offers, award, and convert to a purchase order."
-        actions={
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Link to="/rfqs/new">
-              <Button className="bg-ink text-paper hover:bg-charcoal px-5 py-2.5 text-xs uppercase tracking-wider font-bold">
-                <PlusIcon size={14} />
-                <span>New RFQ</span>
-              </Button>
-            </Link>
-            <Link to="/ask">
-              <Button variant="secondary" size="sm" className="text-xs uppercase tracking-wider font-semibold bg-paper">
-                <SparklesIcon size={14} className="text-copper" />
-                <span>Ask AI</span>
-              </Button>
-            </Link>
-          </div>
+          </>
         }
       />
 

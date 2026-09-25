@@ -23,6 +23,7 @@ import {
   CheckCircleIcon,
 } from '@/components/icons';
 import { FlowLine } from '@/components/brand/FlowLine';
+import { PageHero, HeroStatusPill, heroActionClass } from '@/components/brand/PageHero';
 import { MetricNumber, ProductImage, Surface } from '@/components/brand/Surface';
 import { CartHintsBanner } from '@/ai/CartHintsBanner';
 import { BulkQuoteCta } from '@/components/BulkQuoteCta';
@@ -239,39 +240,47 @@ export function CartPage() {
         >
           <ArrowLeftIcon size={14} /> Back to Wholesale Catalog
         </Link>
-        {items.length > 0 && (
-          <div className="flex items-center gap-3">
-            <Link to="/search">
-              <Button size="sm" variant="secondary">
-                Add More Lines
-              </Button>
-            </Link>
-            <button
-              type="button"
-              onClick={clearAll}
-              disabled={clearing}
-              className="text-xs text-ink-4 hover:text-rose transition-colors px-2 py-1"
-            >
-              {clearing ? 'Clearing...' : 'Clear Cart'}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Main Page Title & Flow Stepper */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="vyro-kicker">Wholesale Procurement</span>
-          <span className="text-xs text-ink-4">•</span>
-          <span className="text-xs uppercase tracking-wider text-ink-3 font-mono">
-            {supplierCount} Supplier{supplierCount === 1 ? '' : 's'} • {itemCount} Line{itemCount === 1 ? '' : 's'}
-          </span>
-        </div>
-        <h1 className="vyro-display text-4xl sm:text-5xl text-balance">Review the flow.</h1>
-        <p className="text-sm text-ink-3 max-w-2xl leading-relaxed">
-          Order lines are automatically segmented into individual vendor Purchase Orders. Checkout initiates cryptographic PO numbering and triggers supplier dispatch lead times.
-        </p>
-      </div>
+      <PageHero
+        icon={ShoppingCartIcon}
+        kicker="Wholesale Procurement"
+        title="Review the flow."
+        description="Order lines are automatically segmented into individual vendor Purchase Orders. Checkout initiates cryptographic PO numbering and triggers supplier dispatch lead times."
+        status={
+          items.length > 0 ? (
+            <HeroStatusPill label="Draft POs Ready" tone="volt" />
+          ) : (
+            <HeroStatusPill label="Cart Empty" tone="paper" />
+          )
+        }
+        actions={
+          items.length > 0 ? (
+            <>
+              <Link to="/search" className={heroActionClass}>
+                Add More Lines
+              </Link>
+              <button
+                type="button"
+                onClick={clearAll}
+                disabled={clearing}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose/30 bg-rose/10 px-3 text-xs font-semibold text-rose transition-colors hover:bg-rose/20 disabled:opacity-50 cursor-pointer"
+              >
+                {clearing ? 'Clearing…' : 'Clear Cart'}
+              </button>
+            </>
+          ) : undefined
+        }
+        footer={
+          <>
+            <span>Checkout splits lines into per-supplier POs</span>
+            <span className="text-paper/40">
+              {supplierCount} supplier{supplierCount === 1 ? '' : 's'} · {itemCount} line{itemCount === 1 ? '' : 's'}
+            </span>
+          </>
+        }
+      />
 
       <div className="max-w-xl">
         <FlowLine
