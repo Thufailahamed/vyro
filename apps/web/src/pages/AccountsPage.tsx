@@ -249,8 +249,8 @@ function Overview({ businessId }: { businessId: string }) {
           </div>
           <div className="p-6">
             {d.byMethod.length === 0 ? (
-              <EmptyState
-                icon={<CreditCardIcon size={22} />}
+              <PanelEmpty
+                icon={<CreditCardIcon size={18} />}
                 title="No payments yet"
                 description="Once you settle a PO, your payment method mix shows up here."
               />
@@ -330,8 +330,8 @@ function Overview({ businessId }: { businessId: string }) {
           </div>
           <div className="p-6">
             {d.recentPayments.length === 0 ? (
-              <EmptyState
-                icon={<CreditCardIcon size={22} />}
+              <PanelEmpty
+                icon={<CreditCardIcon size={18} />}
                 title="No payments yet"
                 description="Settled payments and escrow releases will show up here."
               />
@@ -373,27 +373,25 @@ function Overview({ businessId }: { businessId: string }) {
       </div>
 
       {/* Footer trust strip */}
-      <div className="p-4 vyro-surface flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <Surface kind="elevated" className="px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-l-4 border-l-mint">
         <div className="flex items-start sm:items-center gap-3">
           <div className="size-9 rounded-lg bg-mint/15 text-mint flex items-center justify-center shrink-0">
             <ShieldCheckIcon size={18} />
           </div>
           <div>
-            <div className="text-[10px] font-mono text-copper uppercase tracking-wider font-bold">
+            <div className="text-[10px] font-mono text-mint uppercase tracking-[0.14em] font-bold">
               Escrow-protected settlement
             </div>
-            <p className="text-xs text-ink-3 leading-relaxed">
+            <p className="text-xs text-ink-3 leading-relaxed mt-0.5">
               Every PayHere / bank transfer payment is held in licensed escrow until GRN or order completion. Refunds settle within 1–2 business days.
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-[11px] font-mono text-ink-3 shrink-0">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-mint animate-pulse" />
-            Finance API live
-          </span>
-        </div>
-      </div>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-mint/10 px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-mint shrink-0">
+          <span className="size-1.5 rounded-full bg-mint animate-pulse" />
+          Finance API live
+        </span>
+      </Surface>
     </div>
   );
 }
@@ -540,7 +538,8 @@ function Payments({ businessId }: { businessId: string }) {
         </table>
         {items.length === 0 && !q.isLoading && (
           <div className="p-6">
-            <EmptyState
+            <PanelEmpty
+              icon={<SearchIcon size={18} />}
               title="No payments match"
               description="Try adjusting the filters, or settle a PO to see payments here."
             />
@@ -655,8 +654,8 @@ function Invoices({ businessId }: { businessId: string }) {
         </table>
         {invoices.length === 0 && (
           <div className="p-6">
-            <EmptyState
-              icon={<FileTextIcon size={22} />}
+            <PanelEmpty
+              icon={<FileTextIcon size={18} />}
               title="No invoices yet"
               description="Invoices are issued automatically when payments complete."
             />
@@ -716,8 +715,8 @@ function Refunds({ businessId }: { businessId: string }) {
       </div>
 
       {refunds.length === 0 ? (
-        <EmptyState
-          icon={<RefreshCwIcon size={22} />}
+        <PanelEmpty
+          icon={<RefreshCwIcon size={18} />}
           title="No refunds"
           description="Refund requests and their outcomes will appear here."
         />
@@ -809,8 +808,8 @@ function Transactions({ businessId }: { businessId: string }) {
       </div>
 
       {transactions.length === 0 ? (
-        <EmptyState
-          icon={<BanknoteIcon size={22} />}
+        <PanelEmpty
+          icon={<BanknoteIcon size={18} />}
           title="No transactions"
           description="Your financial ledger entries will appear here."
         />
@@ -871,7 +870,7 @@ function CreditPanel({ businessId }: { businessId: string }) {
   if (q.isLoading) return <div className="h-40 vyro-surface animate-pulse" />;
   if (q.isError) return <ErrorBanner message={(q.error as ApiError).message} />;
   const f = q.data;
-  if (!f?.facility) return <EmptyState icon={<CreditCardIcon size={22} />} title="Credit not available" description={f?.reason ?? 'Complete 3 paid orders to unlock VYRO Credit.'} />;
+  if (!f?.facility) return <PanelEmpty icon={<CreditCardIcon size={18} />} title="Credit not available" description={f?.reason ?? 'Complete 3 paid orders to unlock VYRO Credit.'} />;
   const usedPct = f.facility.limitCents > 0 ? Math.min(100, (f.facility.usedCents / f.facility.limitCents) * 100) : 0;
   return (
     <div className="vyro-surface p-6 space-y-5">
@@ -978,6 +977,28 @@ export function RequestRefundButton({ paymentId, maxCents }: { paymentId: string
 }
 
 /* ---------- Local helpers ---------- */
+
+function PanelEmpty({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-ink/15 bg-ink/[0.03] px-6 py-10 text-center">
+      <div className="mx-auto size-11 rounded-xl bg-ink/[0.07] text-ink-3 flex items-center justify-center">
+        {icon}
+      </div>
+      <div className="mt-3 font-display text-sm font-semibold text-ink">{title}</div>
+      {description ? (
+        <p className="mt-1 text-xs text-ink-4 max-w-xs mx-auto leading-relaxed">{description}</p>
+      ) : null}
+    </div>
+  );
+}
 
 function RecentPaymentsTabSwitcher() {
   // Lightweight inline "see all" link that mirrors the existing nav semantics
