@@ -37,9 +37,13 @@ describe('financial state machines (backend-controlled)', () => {
   });
 
   it('methods map both directions without loss', () => {
-    expect(toCanonicalMethod('online')).toBe('PAYHERE');
+    expect(toCanonicalMethod('online')).toBe('PAYMENTS_LK');
     expect(toCanonicalMethod('cash')).toBe('COD');
     expect(toCanonicalMethod('bank_transfer')).toBe('BANK_TRANSFER');
+    // Legacy alias: historical 'PAYHERE' canonical value resolves to the
+    // current gateway method (spec: payments.lk migration).
+    expect(toCanonicalMethod('PAYHERE')).toBe('PAYMENTS_LK');
+    expect(toLegacyMethod('PAYMENTS_LK')).toBe('online');
     expect(toLegacyMethod('PAYHERE')).toBe('online');
     expect(toLegacyMethod('COD')).toBe('cash');
     expect(toLegacyMethod('BANK_TRANSFER')).toBe('bank_transfer');

@@ -71,7 +71,7 @@ export function toCanonicalMethod(method: string): CanonicalPaymentMethod {
 }
 
 export function toLegacyMethod(method: string): PaymentMethod {
-  if (method === 'PAYHERE' || method === 'COD' || method === 'BANK_TRANSFER') {
+  if (method === 'PAYMENTS_LK' || method === 'PAYHERE' || method === 'COD' || method === 'BANK_TRANSFER') {
     return CANONICAL_METHOD_TO_LEGACY[method as CanonicalPaymentMethod];
   }
   if (method === 'online' || method === 'cash' || method === 'bank_transfer') {
