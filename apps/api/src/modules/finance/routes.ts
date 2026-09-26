@@ -4,6 +4,7 @@ import type { Ctx } from '../../middleware/session';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
+import { txBatch } from '../../lib/txBatch';
 import {
   payments,
   purchaseOrders,
@@ -610,7 +611,7 @@ router.post('/payments/:id/cod/collect', async (c) => {
 async function writeCodLedger(d1: D1Database, payment: any, po: any, userId: string) {
   try {
     const db = getDb(d1);
-    await db.transaction(async (tx) => {
+    await txBatch(db, async (tx) => {
       writeLedgerEntry(tx as any, {
         accountType: 'business',
         accountId: po.businessId,

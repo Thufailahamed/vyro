@@ -1,4 +1,5 @@
 import { getDb } from '@vyro/db';
+import { txBatch } from '../../lib/txBatch';
 import {
   payments,
   purchaseOrders,
@@ -101,7 +102,7 @@ export async function ensureAllocationAndEarning(
   if (createdByUserId !== undefined) {
     try {
       const dbTx = getDb(d1);
-      await dbTx.transaction(async (tx) => {
+      await txBatch(dbTx, async (tx) => {
         const { ledgerEntries } = await import('@vyro/db/schema');
         const prior = (await tx
           .select({ id: ledgerEntries.id })

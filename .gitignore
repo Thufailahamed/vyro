@@ -9,4 +9,7 @@ dist
 coverage
 .vite
 .dev.vars
+playwright-report
+test-results
+apps/web/e2e/.auth
 .claude

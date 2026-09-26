@@ -18,6 +18,7 @@ import {
 import { assertBusinessAccess } from '../finance/access';
 import { recordAudit } from '../supplierProducts/repository';
 import { applyRepayment, assertLimitChange, availableCents, evaluateEligibility } from './service';
+import { txBatch } from '../../lib/txBatch';
 import { countOverdue, countPaidOrders, ensureAutoFacility, getFacility, listDrawdowns } from './repository';
 
 const router = new Hono<{ Bindings: Env }>();
@@ -62,7 +63,7 @@ router.post('/drawdowns/:id/repay', async (c) => {
   const dd = (await db.select().from(creditDrawdowns).where(eq(creditDrawdowns.id, c.req.param('id'))).get()) as any;
   if (!dd) throw httpError(404, 'NOT_FOUND', 'Drawdown not found');
   await assertBusinessAccess(c.env.DB, ctx, dd.businessId);
-  const out = await db.transaction(async (tx: any) => {
+  const out = await txBatch(db, async (tx: any) => {
     return applyRepayment(tx, { businessId: dd.businessId, drawdownId: dd.id, amountCents: parsed.data.amountCents, paymentId: parsed.data.paymentId, userId: ctx.userId, now: Date.now() });
   });
   return c.json(out);
@@ -78,7 +79,7 @@ router.post('/repay', async (c) => {
   let remaining = parsed.data.amountCents;
   const applied: Array<{ id: string; amount: number }> = [];
   const db = getDb(c.env.DB);
-  await db.transaction(async (tx: any) => {
+  await txBatch(db, async (tx: any) => {
     for (const dd of items as any[]) {
       if (remaining <= 0) break;
       const bal = dd.amountCents - (dd.releasedCents ?? 0) - dd.repaidCents;

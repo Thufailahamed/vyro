@@ -1,8 +1,9 @@
 import { getDb } from '@vyro/db';
 import { creditDrawdowns, creditFacilities } from '@vyro/db/schema';
 import { newId } from '@vyro/shared';
-import { and, eq, lt } from 'drizzle-orm';
+import { and, eq, lt, sql } from 'drizzle-orm';
 import { httpError } from '../../lib/errors';
+import { txBatch } from '../../lib/txBatch';
 import { writeLedgerEntry } from '../ledger/writer';
 import type { CreditTerms } from '@vyro/validation';
 
@@ -78,7 +79,7 @@ export async function createDrawdownsForCheckout(
   const total = args.poAmounts.reduce((s, p) => s + p.amountCents, 0);
   if (facility.usedCents + total > facility.limitCents) throw httpError(402, 'credit_limit_exceeded', 'Exceeds credit limit');
   tx.update(creditFacilities)
-    .set({ usedCents: facility.usedCents + total, updatedAt: args.now })
+    .set({ usedCents: sql`${creditFacilities.usedCents} + ${total}`, updatedAt: args.now })
     .where(eq(creditFacilities.businessId, args.businessId))
     .run();
 }
@@ -101,8 +102,11 @@ export async function applyRepayment(
     .run();
   const facility = await tx.select().from(creditFacilities).where(eq(creditFacilities.businessId, args.businessId)).get() as any;
   if (!facility) throw httpError(403, 'credit_not_eligible', 'No credit facility');
+  // Server-side read-modify-write: bulk repayment applies this once per
+  // drawdown inside a single atomic unit, so the new value must be computed by
+  // SQLite (under txBatch the row read above is not refreshed between writes).
   tx.update(creditFacilities)
-    .set({ usedCents: Math.max(0, facility.usedCents - args.amountCents), updatedAt: args.now })
+    .set({ usedCents: sql`MAX(0, ${creditFacilities.usedCents} - ${args.amountCents})`, updatedAt: args.now })
     .where(eq(creditFacilities.businessId, args.businessId))
     .run();
   writeLedgerEntry(tx, {
@@ -135,7 +139,7 @@ export async function releaseDrawdown(
 ): Promise<{ releasedCents: number; overpaidCents: number } | null> {
   const db = getDb(d1);
   const now = args.now ?? Date.now();
-  return db.transaction(async (tx) => {
+  return txBatch(db, async (tx) => {
     const dd = (await tx.select().from(creditDrawdowns).where(eq(creditDrawdowns.purchaseOrderId, args.poId)).get()) as
       | (typeof creditDrawdowns.$inferSelect)
       | undefined;

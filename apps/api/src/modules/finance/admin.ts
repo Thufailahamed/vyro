@@ -5,6 +5,7 @@ import { requirePermission } from '../../middleware/rbac';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
+import { txBatch } from '../../lib/txBatch';
 import {
   payments,
   purchaseOrders,
@@ -307,7 +308,7 @@ router.post('/bank-transfers/:id/verify', requirePermission('payment:verify_bank
       .where(eq(payments.id, payment.id))
       .run();
     await ensureAllocationAndEarning(c.env.DB, payment.id, ctx.userId);
-    await db.transaction(async (tx) => {
+    await txBatch(db, async (tx) => {
       writeLedgerEntry(tx as any, {
         accountType: 'business',
         accountId: (await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, payment.purchaseOrderId)).get() as any).businessId,

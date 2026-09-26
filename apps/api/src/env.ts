@@ -16,6 +16,8 @@ export interface Env {
   BETTER_AUTH_URL: string;
   VERSION?: string;
   DEPLOYED_AT?: string;
+  /** Dev-only override for the global per-user rate limit (requests/min). */
+  RATE_LIMIT_GLOBAL?: string;
   /** payments.lk REST secret key (sk_test_… / sk_live_…). */
   PAYMENTS_LK_SECRET_KEY?: string;
   /** payments.lk webhook signing secret. */

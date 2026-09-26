@@ -9,6 +9,7 @@ import {
   payoutMarkFailedSchema,
 } from '@vyro/validation/payment';
 import { getDb } from '@vyro/db';
+import { txBatch } from '../../lib/txBatch';
 import { payouts as payoutsTable } from '@vyro/db/schema';
 import { eq } from 'drizzle-orm';
 import { recordAudit } from '../supplierProducts/repository';
@@ -104,7 +105,7 @@ adminRouter.post('/:id/mark-paid', requirePermission('payout:approve'), async (c
 
   const now = Date.now();
   const db = getDb(c.env.DB);
-  await db.transaction(async (tx) => {
+  await txBatch(db, async (tx) => {
     await tx.update(payoutsTable)
       .set({
         status: 'paid',

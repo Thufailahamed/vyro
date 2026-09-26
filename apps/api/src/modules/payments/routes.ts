@@ -29,6 +29,7 @@ import {
   storeIdempotencyResponse,
 } from '../../lib/idempotency';
 import { writeLedgerEntry } from '../ledger';
+import { txBatch } from '../../lib/txBatch';
 import { generateReceiptForPayment } from '../invoices/generate';
 import { computePlatformFeeCents, getPlatformFeeBps } from './fees';
 import { resolveCommissionBps, commissionFor, categoryForPo } from '../finance/commission';
@@ -165,7 +166,7 @@ router.post('/', session(), async (c) => {
   const id = newId();
   const now = Date.now();
   const number = paymentNumber(now);
-  await db.transaction(async (tx) => {
+  await txBatch(db, async (tx) => {
     tx.insert(payments)
       .values({
         id,
@@ -332,7 +333,7 @@ router.post('/:id/confirm', session(), async (c) => {
 
   const now = Date.now();
   const db = getDb(c.env.DB);
-  await db.transaction(async (tx) => {
+  await txBatch(db, async (tx) => {
     tx.update(payments)
       .set({
         status: parsed.data.status,

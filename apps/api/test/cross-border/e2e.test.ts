@@ -28,7 +28,12 @@ function makeD1(sqlite: DatabaseSync): D1Database {
         const r = sqlite.prepare(sqlText).run(...bound) as unknown as { changes: unknown; lastInsertRowid: unknown };
         return { success: true, meta: { changes: r.changes, last_row_id: r.lastInsertRowid } };
       },
-      raw: async () => (sqlite.prepare(sqlText).all(...bound) as Record<string, unknown>[]).map((r) => Object.values(r)),
+      // Array rows like real D1 — object rows would collapse duplicate column names in joins.
+      raw: async () => {
+        const stmt = sqlite.prepare(sqlText) as unknown as { setReturnArrays(v: boolean): void; all(...a: unknown[]): unknown[] };
+        stmt.setReturnArrays(true);
+        return stmt.all(...bound);
+      },
     };
     return st as unknown as D1PreparedStatement;
   };

@@ -1,4 +1,5 @@
 import { getDb } from '@vyro/db';
+import { txBatch } from '../../lib/txBatch';
 import {
   paymentAttempts,
   paymentAllocations,
@@ -409,7 +410,7 @@ export async function createSettlement(d1: D1Database, input: {
   // Atomic: settlement header + items + eligibility flips commit together,
   // so concurrent creators cannot double-attach the same earning (the
   // settlement_items.earning unique index is the backstop).
-  await db.transaction(async (tx) => {
+  await txBatch(db, async (tx) => {
     await tx.insert(settlements).values({
       id,
       settlementNumber: input.settlementNumber,

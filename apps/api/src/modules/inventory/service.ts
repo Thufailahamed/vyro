@@ -271,7 +271,9 @@ export async function commitStockForLines(
     await db
       .update(supplierProducts)
       .set({
-        stockQty: sql`MAX(0, ${supplierProducts.stockQty} - ${line.quantity})`,
+        // Untracked offers aren't stock-managed: release the reservation but
+        // leave stockQty alone (reserve/release already bypass them).
+        stockQty: sql`CASE WHEN ${supplierProducts.trackInventory} = 1 THEN MAX(0, ${supplierProducts.stockQty} - ${line.quantity}) ELSE ${supplierProducts.stockQty} END`,
         reservedQty: sql`MAX(0, ${supplierProducts.reservedQty} - ${line.quantity})`,
         updatedAt: Date.now(),
       })
@@ -283,7 +285,7 @@ export async function commitStockForLines(
         supplierProductId: line.supplierProductId,
         supplierId: after.supplierId,
         reason: 'order_committed',
-        qtyDelta: -line.quantity,
+        qtyDelta: after.trackInventory ? -line.quantity : 0,
         reservedDelta: -line.quantity,
         stockQtyAfter: after.stockQty,
         reservedQtyAfter: after.reservedQty,
@@ -307,11 +309,14 @@ export async function restockReturnedLines(
   const db = getDb(d1);
   for (const line of lines) {
     if (line.quantity <= 0) continue;
-    await db
+    const res = await db
       .update(supplierProducts)
       .set({ stockQty: sql`${supplierProducts.stockQty} + ${line.quantity}`, updatedAt: Date.now() })
       .where(sql`${supplierProducts.id} = ${line.supplierProductId} AND ${supplierProducts.trackInventory} = 1`)
       .run();
+    // Untracked offers match zero rows — nothing was restocked, so don't
+    // fabricate a movement claiming +qty.
+    if (Number((res as { meta?: { changes?: number } }).meta?.changes ?? 0) === 0) continue;
     const after = await getOfferInventory(d1, line.supplierProductId);
     if (after) {
       await recordMovement(d1, {

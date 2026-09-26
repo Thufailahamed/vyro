@@ -5,6 +5,7 @@ import { requirePermission } from '../../middleware/rbac';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
+import { txBatch } from '../../lib/txBatch';
 import {
   supplierEarnings as earningsTable,
   payouts as payoutsTable,
@@ -159,7 +160,7 @@ for (const [action, to] of [['approve', 'approved'], ['process', 'processing'], 
       // a true serializable guarantee would require either a unique index on
       // (refId, category) or BEGIN EXCLUSIVE; tracked for whole-branch review.
       const db = getDb(c.env.DB);
-      await db.transaction(async (tx) => {
+      await txBatch(db, async (tx) => {
         const prior = (await tx
           .select({ id: ledgerEntries.id })
           .from(ledgerEntries)
@@ -308,7 +309,7 @@ for (const [action, to] of [['approve', 'approved'], ['process', 'processing'], 
     const db = getDb(c.env.DB);
     await db.update(payoutsTable).set({ ...patch, ...(to !== 'completed' ? { status: to as never } : {}), updatedAt: now }).where(eq(payoutsTable.id, payout.id)).run();
     if (to === 'completed') {
-      await db.transaction(async (tx) => {
+      await txBatch(db, async (tx) => {
         writeLedgerEntry(tx as any, {
           accountType: 'supplier',
           accountId: payout.supplierId,
@@ -408,7 +409,7 @@ router.post('/adjustments/:id/apply', requirePermission('adjustment:approve'), a
   if (adj.status !== 'approved') throw httpError(409, 'CONFLICT', `Adjustment is ${adj.status}; approve first`);
   const db = getDb(c.env.DB);
   const now = Date.now();
-  await db.transaction(async (tx) => {
+  await txBatch(db, async (tx) => {
     tx.update((await import('@vyro/db/schema')).financialAdjustments)
       .set({ status: 'applied', appliedAt: now, updatedAt: now })
       .where(eq((await import('@vyro/db/schema')).financialAdjustments.id, adj.id))

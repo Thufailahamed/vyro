@@ -1,5 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
+import { txBatch } from '../../lib/txBatch';
 import {
   carts,
   cartItems,
@@ -304,7 +305,7 @@ export const checkoutService = {
         throw httpError(402, 'credit_limit_exceeded', 'Exceeds credit limit');
       }
       try {
-        await db.transaction(async (tx: any) => {
+        await txBatch(db, async (tx: any) => {
           await createDrawdownsForCheckout(tx, { businessId: business.id, userId, terms, poAmounts, now: nowCredit });
         });
       } catch (err) {

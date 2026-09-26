@@ -102,7 +102,9 @@ app.use('*', requestId());
 app.use('*', accessLog());
 app.use('*', securityHeaders());
 app.use('*', cors());
-app.use('*', rateLimit({ key: 'global', limit: 60, window: 60 }));
+app.use('*', (c, next) =>
+  rateLimit({ key: 'global', limit: Number((c.env as Env).RATE_LIMIT_GLOBAL ?? 60) || 60, window: 60 })(c, next),
+);
 app.use('/api/auth/*', rateLimit({ key: 'auth', limit: 20, window: 60 }));
 // Route names must match the handlers in modules/auth/routes.ts (both aliases).
 app.use('/api/auth/sign-in', rateLimit({ key: 'auth-login', limit: 5, window: 60 }));

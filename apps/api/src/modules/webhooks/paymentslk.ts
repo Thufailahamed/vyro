@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
+import { txBatch } from '../../lib/txBatch';
 import {
   payments as paymentsTable,
   purchaseOrders,
@@ -251,7 +252,7 @@ export async function applyGatewayPaymentEvent(
   }
 
   if (event.type === 'payment.success') {
-    await db.transaction(async (tx) => {
+    await txBatch(db, async (tx) => {
       tx.update(paymentsTable)
         .set({ status: 'confirmed', confirmedAt: now, paidAt: now, providerTransactionId: providerPaymentId, updatedAt: now })
         .where(eq(paymentsTable.id, payment.id))
