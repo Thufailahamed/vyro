@@ -225,9 +225,17 @@ All set via `wrangler secret put` (existing pattern). No new `.env` keys.
 ### wrangler.toml additions
 
 ```toml
+# DLQ producer binding
 [[queues.producers]]
 queue = "notifications-dlq"
 binding = "NOTIFICATIONS_QUEUE_DLQ"
+
+# Existing consumer extended w/ dead_letter_queue
+[[queues.consumers]]
+queue = "notifications"
+max_batch_size = 10
+max_retries = 3
+dead_letter_queue = "notifications-dlq"
 ```
 
 ---
