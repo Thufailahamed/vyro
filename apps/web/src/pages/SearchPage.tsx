@@ -3,7 +3,8 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { api } from '@/lib/api';
-import { Button, EmptyState, PageHeader } from '@/components/ui';
+import { Button, EmptyState } from '@/components/ui';
+import { PageHero, HeroStatusPill, heroActionClass } from '@/components/brand/PageHero';
 import { formatLKR } from '@/lib/format';
 import {
   SearchIcon,
@@ -144,33 +145,25 @@ export function SearchPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Executive Marketplace Header */}
-      <PageHeader
-        kicker={
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="vyro-kicker text-copper">Wholesale Marketplace</span>
-            <span className="text-ink-4">/</span>
-            <span className="text-[11px] font-mono text-ink-3">Sri Lanka Direct Network</span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider rounded-md">
-              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live Spot Rates
-            </span>
-          </div>
-        }
+      <PageHero
+        icon={StoreIcon}
+        kicker="Wholesale Marketplace · Sri Lanka Direct Network"
         title="Direct Mill & Wholesale Catalog"
-        sub="Source commercial staples, beverages, and industrial packaging directly from audited Sri Lankan mills & authorized distributors. Transparent spot pricing with zero hidden broker markups."
+        description="Source commercial staples, beverages, and industrial packaging directly from audited Sri Lankan mills & authorized distributors. Transparent spot pricing with zero hidden broker markups."
+        status={<HeroStatusPill label="Live Spot Rates" tone="volt" />}
         actions={
-          <div className="flex items-center gap-2.5">
-            <Link to="/ask">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="bg-ink text-volt hover:bg-charcoal border-none font-bold text-xs uppercase tracking-wider shadow-sm"
-              >
-                <SparklesIcon size={14} className="text-volt" />
-                <span>Ask VYRO AI</span>
-              </Button>
-            </Link>
-          </div>
+          <Link to="/ask" className={heroActionClass}>
+            <SparklesIcon size={13} className="text-volt" />
+            Ask VYRO AI
+          </Link>
+        }
+        footer={
+          <>
+            <span>
+              {processedHits.length} wholesale lots{q ? ` matching "${q}"` : ' across 25 districts'}
+            </span>
+            <span className="text-paper/40">Zero broker markups · verified suppliers</span>
+          </>
         }
       />
 
@@ -211,7 +204,7 @@ export function SearchPage() {
         </div>
 
         {/* Category Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+        <div className="inline-flex flex-wrap items-center gap-1 p-1 bg-ink/[0.05] rounded-full">
           {CATEGORY_FILTERS.map((cat) => {
             const active =
               cat.query === 'All'
@@ -222,10 +215,10 @@ export function SearchPage() {
                 key={cat.query}
                 type="button"
                 onClick={() => handleFilterClick(cat.query)}
-                className={`h-8 px-3.5 text-xs font-mono tracking-wide transition-all cursor-pointer rounded-lg ${
+                className={`h-8 px-3.5 text-xs font-mono tracking-wide transition-all cursor-pointer rounded-full ${
                   active
-                    ? 'bg-ink text-volt font-bold shadow-sm'
-                    : 'bg-paper text-ink-3 border border-ink/15 hover:border-ink hover:text-ink hover:bg-bone'
+                    ? 'bg-ink text-paper font-bold shadow-sm'
+                    : 'text-ink-3 hover:text-ink'
                 }`}
               >
                 {cat.label}
@@ -265,7 +258,7 @@ export function SearchPage() {
           <button
             type="button"
             onClick={() => setFastDispatchOnly(!fastDispatchOnly)}
-            className={`px-3 py-1.5 text-xs font-mono border transition-colors flex items-center gap-1.5 rounded-lg ${
+            className={`h-8 px-3.5 text-xs font-mono border transition-colors flex items-center gap-1.5 rounded-full ${
               fastDispatchOnly
                 ? 'bg-ink text-volt border-ink font-semibold shadow-sm'
                 : 'bg-paper text-ink-3 border-ink/15 hover:border-ink hover:text-ink'
@@ -276,7 +269,7 @@ export function SearchPage() {
           </button>
 
           {/* Sort Dropdown */}
-          <div className="flex items-center gap-1.5 bg-paper border border-ink/15 px-2.5 py-1 text-xs rounded-lg">
+          <div className="flex items-center gap-1.5 bg-paper border border-ink/15 px-3 h-8 text-xs rounded-full">
             <span className="text-[10px] font-mono uppercase tracking-wider text-ink-4">Sort:</span>
             <select
               value={sortBy}
@@ -292,26 +285,26 @@ export function SearchPage() {
           </div>
 
           {/* View Mode Switcher */}
-          <div className="flex items-center border border-ink/15 bg-paper p-0.5 rounded-lg">
+          <div className="flex items-center bg-ink/[0.05] p-1 rounded-full">
             <button
               type="button"
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 transition-colors rounded-md ${
+              className={`p-1.5 transition-colors rounded-full ${
                 viewMode === 'grid' ? 'bg-ink text-volt shadow-sm' : 'text-ink-4 hover:text-ink'
               }`}
               title="Grid View"
             >
-              <LayoutGridIcon size={16} />
+              <LayoutGridIcon size={15} />
             </button>
             <button
               type="button"
               onClick={() => setViewMode('table')}
-              className={`p-1.5 transition-colors rounded-md ${
+              className={`p-1.5 transition-colors rounded-full ${
                 viewMode === 'table' ? 'bg-ink text-volt shadow-sm' : 'text-ink-4 hover:text-ink'
               }`}
               title="Dense Ledger View"
             >
-              <FileTextIcon size={16} />
+              <FileTextIcon size={15} />
             </button>
           </div>
         </div>
@@ -334,9 +327,9 @@ export function SearchPage() {
             .slice(0, 3)
             .map((s) => (
               <SponsoredSlot key={s.slotId} campaignId={s.campaignId} surface={s.surface} position={s.position}>
-                <Link to={`/products/${s.productId}`} className="block bg-paper border border-ink/15 rounded-xl p-4">
-                  <p className="text-sm font-medium">Sponsored product</p>
-                  <p className="text-xs text-gray-500">Slot #{s.position}</p>
+                <Link to={`/products/${s.productId}`} className="block vyro-surface rounded-xl p-4">
+                  <p className="text-sm font-medium text-ink">Sponsored product</p>
+                  <p className="text-xs text-ink-4">Slot #{s.position}</p>
                 </Link>
               </SponsoredSlot>
             ))}
@@ -364,22 +357,22 @@ export function SearchPage() {
 
                   {/* Brand Badge */}
                   {h.product.brand && (
-                    <span className="absolute top-3 left-3 px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider bg-ink text-paper shadow-md rounded-md">
+                    <span className="absolute top-3 left-3 px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider bg-ink text-paper shadow-md rounded-lg">
                       {h.product.brand}
                     </span>
                   )}
 
                   {/* Dispatch Badge */}
                   {leadTime !== undefined && (
-                    <span className="absolute bottom-3 right-3 px-2.5 py-1 text-xs font-mono font-semibold bg-void/85 text-paper backdrop-blur-sm border border-paper/15 flex items-center gap-1.5 shadow-sm rounded-md">
+                    <span className="absolute bottom-3 right-3 px-2.5 py-1 text-xs font-mono font-semibold bg-void/85 text-paper backdrop-blur-sm border border-paper/15 flex items-center gap-1.5 shadow-sm rounded-full">
                       <ClockIcon size={12} className="text-volt" />
                       <span>{leadTime === 0 ? 'Same-day dispatch' : `${leadTime}d dispatch`}</span>
                     </span>
                   )}
 
                   {/* Stock Indicator */}
-                  <span className="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 backdrop-blur-sm flex items-center gap-1 rounded-md">
-                    <span className="size-1.5 rounded-full bg-emerald-400" />
+                  <span className="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider font-bold bg-ink/85 text-mint border border-mint/30 backdrop-blur-sm flex items-center gap-1 rounded-full">
+                    <span className="size-1.5 rounded-full bg-mint animate-pulse" />
                     Live Lot
                   </span>
                 </Link>
@@ -475,10 +468,10 @@ export function SearchPage() {
 
       {/* Dense Ledger / Table View */}
       {!isLoading && viewMode === 'table' && processedHits.length > 0 && (
-        <div className="bg-paper border border-ink/15 overflow-x-auto shadow-sm rounded-xl">
+        <div className="vyro-surface rounded-xl overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-ink/15 bg-bone/70 text-[10px] font-mono uppercase tracking-wider text-ink-3">
+              <tr className="border-b border-ink/10 bg-bone/60 text-[10px] font-mono uppercase tracking-wider text-ink-3">
                 <th className="py-3 px-4">Product & Brand</th>
                 <th className="py-3 px-4">Pack & Unit</th>
                 <th className="py-3 px-4">Primary Supplier</th>
@@ -488,7 +481,7 @@ export function SearchPage() {
                 <th className="py-3 px-4 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink/10 text-sm">
+            <tbody className="divide-y divide-ink/5 text-sm">
               {processedHits.map((h) => {
                 const leadTime = h.bestOffer?.leadTimeDays;
                 return (

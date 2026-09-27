@@ -6,7 +6,6 @@ import { renderComponent, ToolTimeline } from './components';
 import { FeedbackButtons } from './components/FeedbackButtons';
 import { Button } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
-import { FlowCanvas } from '@/components/brand/FlowLine';
 import { useAuth } from '@/lib/auth';
 import { usePageTitle } from '@/lib/usePageTitle';
 import {
@@ -28,6 +27,7 @@ const CORE_SUGGESTIONS = [
     category: 'Prices',
     desc: 'Compare mill rates across districts',
     icon: TrendingUpIcon,
+    tone: 'bg-volt/20 text-ink',
   },
   {
     label: 'Build my usual order',
@@ -35,6 +35,7 @@ const CORE_SUGGESTIONS = [
     category: 'Reorder',
     desc: 'Draft a PO from what you usually buy',
     icon: PackageIcon,
+    tone: 'bg-mint/15 text-mint',
   },
   {
     label: 'What should I reorder?',
@@ -42,6 +43,7 @@ const CORE_SUGGESTIONS = [
     category: 'Stock',
     desc: 'Flag items that are due based on past deliveries',
     icon: RefreshCwIcon,
+    tone: 'bg-amber/15 text-amber',
   },
   {
     label: 'Where can I save?',
@@ -49,6 +51,7 @@ const CORE_SUGGESTIONS = [
     category: 'Savings',
     desc: 'Spot cheaper equivalent mill lots',
     icon: StoreIcon,
+    tone: 'bg-copper/15 text-copper',
   },
 ];
 
@@ -241,22 +244,19 @@ export function AskPage() {
 
       {!inConversation ? (
         <div className="space-y-6">
-          <Surface kind="ink" className="relative overflow-hidden grain p-6 sm:p-8 lg:p-10">
-            <div className="pointer-events-none absolute inset-0 opacity-30">
-              <FlowCanvas tone="paper" density="hero" />
-            </div>
+          <Surface kind="ink" className="relative overflow-hidden grain rounded-xl shadow-soft-lg p-6 sm:p-8 lg:p-10">
+            <div className="pointer-events-none absolute -top-28 -right-20 size-80 rounded-full bg-volt/15 blur-3xl" aria-hidden />
+            <div className="pointer-events-none absolute -bottom-32 -left-20 size-72 rounded-full bg-copper/25 blur-3xl" aria-hidden />
             <div className="relative z-10 space-y-6">
               <div className="max-w-2xl">
-                <div className="inline-flex items-center gap-2 rounded-md border border-paper/15 bg-paper/10 px-3 py-1">
-                  <span className="size-1.5 rounded-full bg-volt motion-safe:animate-pulse" />
-                  <p className="vyro-kicker text-volt">
-                    Ask VYRO{workspaceName ? ` · ${workspaceName}` : ''}
-                  </p>
+                <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.16em] font-semibold text-volt">
+                  <SparklesIcon size={13} />
+                  Ask VYRO{workspaceName ? ` · ${workspaceName}` : ''}
                 </div>
-                <h1 className="mt-4 vyro-display text-4xl leading-[0.92] text-paper sm:text-5xl">
+                <h1 className="mt-3 vyro-display text-3xl leading-[0.95] text-paper sm:text-4xl">
                   What do you need?
                 </h1>
-                <p className="mt-3 max-w-xl text-sm leading-relaxed text-paper/75">
+                <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-paper/60">
                   Ask in plain language. Quotes come from the live wholesale catalog — nothing is purchased until you confirm.
                 </p>
               </div>
@@ -283,7 +283,7 @@ export function AskPage() {
                         type="button"
                         onClick={() => submit(cp.payload)}
                         disabled={state.loading}
-                        className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-paper/20 bg-paper/10 px-3 text-xs text-paper hover:border-volt hover:text-volt"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-paper/15 bg-paper/5 px-3.5 text-xs font-medium text-paper/80 transition-colors hover:border-volt/50 hover:bg-paper/10 hover:text-volt"
                       >
                         <span>{cp.label}</span>
                         <ArrowRightIcon size={11} className="opacity-70" />
@@ -297,9 +297,9 @@ export function AskPage() {
                 {TRUST.map((item) => (
                   <li
                     key={item.label}
-                    className="flex items-center gap-2.5 rounded-lg border border-paper/10 bg-paper/5 px-3 py-2.5"
+                    className="flex items-center gap-2.5 rounded-xl border border-paper/10 bg-paper/5 px-3 py-2.5"
                   >
-                    <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-volt/20 text-volt">
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-volt/20 text-volt">
                       <item.icon size={13} />
                     </span>
                     <span className="text-xs font-medium text-paper/85">{item.label}</span>
@@ -321,7 +321,7 @@ export function AskPage() {
                   className="group vyro-elevated p-5 text-left transition duration-200 hover:-translate-y-0.5 motion-reduce:transform-none"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <span className="flex size-10 items-center justify-center rounded-lg bg-ink text-volt">
+                    <span className={cn('flex size-10 items-center justify-center rounded-xl', s.tone)}>
                       <Icon size={16} />
                     </span>
                     <ArrowRightIcon
