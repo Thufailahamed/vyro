@@ -18,6 +18,7 @@ import {
   ChevronRightIcon,
 } from '@/components/icons';
 import { cn } from '@vyro/ui';
+import { PageHero, HeroStatusPill, heroActionClass } from '@/components/brand/PageHero';
 
 type Kind = 'terms' | 'privacy' | 'cookies';
 
@@ -280,7 +281,7 @@ export function LegalPage({ kind }: { kind: Kind }) {
           </div>
 
           {/* Document Switcher Tab Bar */}
-          <div className="inline-flex flex-wrap p-1 bg-paper border border-line rounded-sm shadow-xs gap-1">
+          <div className="inline-flex flex-wrap p-1 bg-ink/[0.05] rounded-full gap-1">
             {(Object.keys(DOCS_CONFIG) as Kind[]).map((key) => {
               const doc = DOCS_CONFIG[key];
               const isActive = key === kind;
@@ -289,13 +290,13 @@ export function LegalPage({ kind }: { kind: Kind }) {
                   key={key}
                   to={doc.path}
                   className={cn(
-                    'px-4 py-2 text-xs sm:text-sm font-medium rounded-xs transition-all flex items-center gap-2',
+                    'h-8 px-4 text-xs font-medium rounded-full transition-all flex items-center gap-2',
                     isActive
-                      ? 'bg-ink-1 text-paper shadow-xs font-semibold'
-                      : 'text-ink-3 hover:text-ink-1 hover:bg-bone/60'
+                      ? 'bg-ink text-paper shadow-sm font-semibold'
+                      : 'text-ink-3 hover:text-ink'
                   )}
                 >
-                  <FileTextIcon size={14} className={isActive ? 'text-volt' : 'text-ink-4'} />
+                  <FileTextIcon size={13} className={isActive ? 'text-volt' : 'text-ink-4'} />
                   {doc.shortTitle}
                 </Link>
               );
@@ -304,100 +305,86 @@ export function LegalPage({ kind }: { kind: Kind }) {
         </div>
 
         {/* Hero Header */}
-        <header className="mb-10 pb-8 border-b border-line/80">
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-            <div className="max-w-3xl">
-              <div className="vyro-kicker mb-2.5 flex items-center gap-2">
-                <span className="inline-block size-2 rounded-full bg-volt-deep animate-pulse" />
-                {currentDoc.kicker}
-              </div>
-              <h1 className="vyro-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-ink-1 text-balance">
-                {currentDoc.title}
-              </h1>
-              <p className="mt-3.5 text-base sm:text-lg text-ink-3 leading-relaxed max-w-2xl text-pretty">
-                {currentDoc.summary}
-              </p>
-
-              {/* Metadata Badges */}
-              <div className="mt-5 flex flex-wrap items-center gap-2.5 text-xs">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-paper border border-line text-ink-2 font-mono">
-                  <ClockIcon size={13} className="text-copper" />
-                  Effective: {currentDoc.effectiveDate}
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-paper border border-line text-ink-2">
-                  <ScaleIcon size={13} className="text-copper" />
-                  Sri Lanka Jurisdiction
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-volt/20 border border-volt-deep/30 text-ink-1 font-mono font-medium">
-                  v1.0 Baseline
-                </span>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="print:hidden flex items-center gap-2.5 shrink-0">
+        <PageHero
+          icon={ScaleIcon}
+          kicker={currentDoc.kicker}
+          title={currentDoc.title}
+          description={currentDoc.summary}
+          status={<HeroStatusPill label="v1.0 Baseline" tone="volt" />}
+          actions={
+            <div className="print:hidden flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-xs bg-paper border border-line hover:border-ink-3 text-ink-1 hover:bg-pearl transition-all cursor-pointer shadow-xs active:scale-[0.98]"
+                className={heroActionClass}
                 title="Copy direct document link"
               >
                 {copied ? (
                   <>
-                    <CheckCheckIcon size={14} className="text-mint" />
-                    <span className="text-mint font-semibold">Copied!</span>
+                    <CheckCheckIcon size={13} className="text-mint" />
+                    <span className="text-mint">Copied!</span>
                   </>
                 ) : (
                   <>
-                    <CopyIcon size={14} className="text-ink-4" />
-                    <span>Copy Link</span>
+                    <CopyIcon size={13} />
+                    Copy Link
                   </>
                 )}
               </button>
-
               <button
                 type="button"
                 onClick={handlePrint}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-xs bg-paper border border-line hover:border-ink-3 text-ink-1 hover:bg-pearl transition-all cursor-pointer shadow-xs active:scale-[0.98]"
+                className={heroActionClass}
                 title="Print or save document as PDF"
               >
-                <PrinterIcon size={14} className="text-ink-4" />
-                <span>Print / PDF</span>
+                <PrinterIcon size={13} />
+                Print / PDF
               </button>
             </div>
-          </div>
+          }
+          footer={
+            <>
+              <span className="inline-flex items-center gap-1.5">
+                <ClockIcon size={12} className="text-copper" />
+                Effective {currentDoc.effectiveDate}
+              </span>
+              <span className="text-paper/40">
+                Sri Lanka Jurisdiction · {sections.length} sections
+              </span>
+            </>
+          }
+        />
 
-          {/* Regulatory Advisory Banner */}
-          <div className="mt-6 border border-copper/30 bg-copper/5 p-4 rounded-xs flex items-start gap-3.5">
-            <div className="p-1.5 bg-copper/10 rounded text-copper shrink-0 mt-0.5">
-              <ShieldCheckIcon size={18} />
-            </div>
-            <div className="text-xs sm:text-sm text-ink-2 leading-relaxed">
-              <span className="font-semibold text-ink-1">Commercial Draft & Legal Baseline:</span>{' '}
-              This policy constitutes the active operational framework governing procurement transactions on VYRO. Currently filed under ongoing legal bar advisory. For enterprise bilateral SLAs, distributor custom clauses, or regulatory audits, contact our legal counsel at{' '}
-              <a
-                href={`mailto:${currentDoc.contactEmail}`}
-                className="font-medium text-copper underline underline-offset-2 hover:text-ink-1 transition-colors"
-              >
-                {currentDoc.contactEmail}
-              </a>
-              .
-            </div>
+        {/* Regulatory Advisory Banner */}
+        <div className="mt-6 mb-10 rounded-xl border border-copper/25 bg-copper/[0.06] p-4 sm:p-5 flex items-start gap-3.5">
+          <div className="size-9 rounded-lg bg-copper/15 text-copper flex items-center justify-center shrink-0">
+            <ShieldCheckIcon size={18} />
           </div>
-        </header>
+          <div className="text-xs sm:text-sm text-ink-2 leading-relaxed">
+            <span className="font-semibold text-ink-1">Commercial Draft & Legal Baseline:</span>{' '}
+            This policy constitutes the active operational framework governing procurement transactions on VYRO. Currently filed under ongoing legal bar advisory. For enterprise bilateral SLAs, distributor custom clauses, or regulatory audits, contact our legal counsel at{' '}
+            <a
+              href={`mailto:${currentDoc.contactEmail}`}
+              className="font-medium text-copper underline underline-offset-2 hover:text-ink-1 transition-colors"
+            >
+              {currentDoc.contactEmail}
+            </a>
+            .
+          </div>
+        </div>
 
         {/* 2-Column Content Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
           {/* Left Column: Sticky Table of Contents & Facts (Desktop) */}
           <aside className="print:hidden hidden lg:block lg:col-span-4 sticky top-20 space-y-6">
             {/* Table of Contents Card */}
-            <div className="bg-paper border border-line rounded-xs p-5 shadow-xs">
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-line">
+            <div className="vyro-surface rounded-xl p-5">
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-ink/10">
                 <span className="text-xs font-mono uppercase tracking-wider font-semibold text-ink-3">
                   Document Contents
                 </span>
-                <span className="text-[0.6875rem] font-mono text-copper font-medium">
-                  {sections.length} Sections
+                <span className="text-[0.6875rem] font-mono font-semibold rounded-full bg-volt/15 text-ink px-2 py-0.5">
+                  {sections.length} sections
                 </span>
               </div>
 
@@ -419,9 +406,9 @@ export function LegalPage({ kind }: { kind: Kind }) {
                         }
                       }}
                       className={cn(
-                        'group flex items-center justify-between px-3 py-2 text-xs rounded-xs transition-all',
+                        'group flex items-center justify-between px-3 py-2 text-xs rounded-lg transition-all',
                         isActive
-                          ? 'bg-ink-1 text-paper font-semibold shadow-xs'
+                          ? 'bg-ink text-paper font-semibold shadow-sm'
                           : 'text-ink-3 hover:text-ink-1 hover:bg-bone/80'
                       )}
                     >
@@ -452,8 +439,8 @@ export function LegalPage({ kind }: { kind: Kind }) {
             </div>
 
             {/* Legal Entity & Jurisdiction Information */}
-            <div className="bg-paper border border-line rounded-xs p-5 shadow-xs space-y-4 text-xs">
-              <div className="flex items-center gap-2 font-mono uppercase tracking-wider font-semibold text-ink-3 pb-2 border-b border-line">
+            <div className="vyro-surface rounded-xl p-5 space-y-4 text-xs">
+              <div className="flex items-center gap-2 font-mono uppercase tracking-wider font-semibold text-ink-3 pb-2 border-b border-ink/10">
                 <Building2Icon size={14} className="text-copper" />
                 <span>Governance & Entity</span>
               </div>
@@ -491,8 +478,8 @@ export function LegalPage({ kind }: { kind: Kind }) {
             </div>
 
             {/* Cross-link to other policies */}
-            <div className="bg-bone border border-line rounded-xs p-4 space-y-2">
-              <div className="text-[0.6875rem] font-mono uppercase tracking-wider text-ink-4 font-semibold">
+            <div className="vyro-surface rounded-xl p-4 space-y-2">
+              <div className="text-[0.6875rem] font-mono uppercase tracking-wider text-ink-4 font-semibold px-1 pb-1">
                 Other Policies
               </div>
               {otherDocs.map((docKey) => {
@@ -501,7 +488,7 @@ export function LegalPage({ kind }: { kind: Kind }) {
                   <Link
                     key={docKey}
                     to={doc.path}
-                    className="flex items-center justify-between p-2 rounded bg-paper border border-line/60 hover:border-ink-3 text-xs text-ink-2 hover:text-ink-1 transition-all group"
+                    className="flex items-center justify-between p-2.5 rounded-lg bg-ink/[0.03] hover:bg-ink/[0.06] text-xs text-ink-2 hover:text-ink-1 transition-all group"
                   >
                     <span className="font-medium">{doc.shortTitle}</span>
                     <ArrowRightIcon size={12} className="text-copper group-hover:translate-x-1 transition-transform" />
@@ -512,7 +499,7 @@ export function LegalPage({ kind }: { kind: Kind }) {
           </aside>
 
           {/* Right Column: Clean Editorial Article Body */}
-          <article className="lg:col-span-8 bg-paper border border-line rounded-xs p-6 sm:p-10 lg:p-12 shadow-xs">
+          <article className="lg:col-span-8 vyro-surface rounded-xl p-6 sm:p-10 lg:p-12">
             {/* Optional Intro Paragraphs */}
             {introParagraphs.length > 0 && (
               <div className="mb-8 pb-6 border-b border-line/80 space-y-3">
@@ -567,7 +554,7 @@ export function LegalPage({ kind }: { kind: Kind }) {
 
             {/* Article Footer & Verification Notice */}
             <footer className="mt-12 pt-8 border-t border-line/80 space-y-6">
-              <div className="p-4 sm:p-5 bg-bone rounded-xs border border-line flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="p-4 sm:p-5 bg-ink/[0.03] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <div className="text-xs font-mono uppercase tracking-wider text-ink-4 font-semibold">
                     Document Version Control
@@ -582,7 +569,7 @@ export function LegalPage({ kind }: { kind: Kind }) {
 
                 <a
                   href={`mailto:${currentDoc.contactEmail}?subject=Legal%20Inquiry%20-%20${encodeURIComponent(currentDoc.title)}`}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-medium bg-ink-1 text-paper rounded-xs hover:bg-charcoal transition-colors self-start sm:self-auto cursor-pointer"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold bg-ink text-paper rounded-lg hover:bg-charcoal transition-colors self-start sm:self-auto cursor-pointer"
                 >
                   <MailIcon size={14} className="text-volt" />
                   <span>Contact Legal Counsel</span>
@@ -601,7 +588,7 @@ export function LegalPage({ kind }: { kind: Kind }) {
                       <Link
                         key={docKey}
                         to={doc.path}
-                        className="p-4 rounded-xs border border-line bg-paper hover:border-ink-2 hover:shadow-xs transition-all group flex flex-col justify-between"
+                        className="p-4 rounded-xl border border-line bg-paper hover:border-copper/40 hover:shadow-xs transition-all group flex flex-col justify-between"
                       >
                         <div>
                           <div className="text-xs font-mono text-copper font-medium uppercase tracking-wider mb-1">

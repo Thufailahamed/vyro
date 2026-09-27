@@ -36,6 +36,8 @@ export interface Env {
   LEDGER_ENCRYPTION_KEY?: string;
   /** Resend transactional email API key. Optional. */
   RESEND_API_KEY?: string;
+  /** HMAC signing secret for Resend webhook deliveries. */
+  RESEND_WEBHOOK_SECRET?: string;
   /** Default `From:` address for outbound email. */
   EMAIL_FROM?: string;
   /** Slack incoming webhook URL for observability alerts. */

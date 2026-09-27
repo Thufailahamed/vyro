@@ -65,33 +65,20 @@ export async function notifySlack(
 export async function notifyEmail(
   env: { RESEND_API_KEY?: string; OPS_EMAIL?: string; EMAIL_FROM?: string },
   ctx: AlertContext,
-  fetchImpl: typeof fetch = fetch,
 ): Promise<boolean> {
   if (!env.RESEND_API_KEY || !env.OPS_EMAIL) return false;
-  const subject = `[vyro][${ctx.severity}] ${ctx.ruleName}`;
-  const html = `<h2>${subject}</h2><table><tr><th>Component</th><td>${ctx.component}</td></tr><tr><th>Value</th><td>${ctx.value}</td></tr><tr><th>Threshold</th><td>${ctx.threshold}</td></tr><tr><th>Window</th><td>${ctx.window}</td></tr></table><p>Silence: /admin/observability/alerts</p>`;
-  const text = `${subject}\nComponent: ${ctx.component}\nValue: ${ctx.value}\nThreshold: ${ctx.threshold}\nWindow: ${ctx.window}\nSilence: /admin/observability/alerts`;
-  const body = JSON.stringify({
-    from: env.EMAIL_FROM ?? 'Vyro Ops <ops@vyro.lk>',
-    to: [env.OPS_EMAIL],
-    subject,
-    html,
-    text,
+  const { sendEmail } = await import('../lib/email/client');
+  const { renderAdminAlert } = await import('../lib/email/templates');
+  const { subject, html, text } = renderAdminAlert({
+    title: ctx.ruleName,
+    body: `Component: ${ctx.component}\nValue: ${ctx.value}\nThreshold: ${ctx.threshold}\nWindow: ${ctx.window}\nSilence: /admin/observability/alerts`,
+    link: '/admin/observability/alerts',
+    severity:
+      ctx.severity === 'critical' ? 'critical' : ctx.severity === 'warning' ? 'warning' : 'info',
   });
   for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const res = await fetchImpl('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body,
-      });
-      if (res.ok) return true;
-    } catch {
-      // retry
-    }
+    const r = await sendEmail(env as any, { to: env.OPS_EMAIL, subject, html, text });
+    if (r.ok) return true;
   }
   return false;
 }
