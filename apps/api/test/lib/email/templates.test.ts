@@ -54,13 +54,13 @@ describe('email templates', () => {
 
   it('renderAdminAlert severity maps to subject prefix', () => {
     const m = renderAdminAlert({
-      to: 'ops@vyro.lk',
       title: 'CPU spike',
       body: 'p99 > 2s',
       link: '/admin',
       severity: 'critical',
     });
-    expect(m.subject).toContain('critical');
+    expect(m.subject).toContain('CRITICAL');
     expect(m.html).toContain('CPU spike');
+    expect(m.text).toContain('CPU spike');
   });
 });

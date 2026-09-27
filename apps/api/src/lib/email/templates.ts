@@ -107,20 +107,40 @@ export function renderEmailVerification(e: EmailVerificationEmail): EmailMessage
   };
 }
 
+export type AdminAlertSeverity = 'info' | 'warning' | 'critical';
+
 export interface AdminAlertEmail {
-  to: string;
   title: string;
   body: string;
-  link: string | null;
-  severity: 'info' | 'warning' | 'critical';
+  link?: string | null;
+  severity: AdminAlertSeverity;
 }
 
-export function renderAdminAlert(e: AdminAlertEmail): EmailMessage {
-  const subject = `[vyro][${e.severity}] ${e.title}`;
-  const text = `${e.title}\n\n${e.body}${e.link ? `\n\n${e.link}` : ''}`;
-  const html =
-    `<h2 style="color:${e.severity === 'critical' ? '#c00' : '#444'}">${escapeHtml(subject)}</h2>` +
-    `<p>${escapeHtml(e.body)}</p>` +
-    (e.link ? `<p><a href="${escapeHtml(e.link)}">${escapeHtml(e.link)}</a></p>` : '');
-  return { to: e.to, subject, text, html };
+/**
+ * Styled admin alert renderer. Caller composes the full `EmailMessage` with
+ * `to:` separately — this helper returns subject + html + text only.
+ */
+export function renderAdminAlert(a: AdminAlertEmail): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const sevColor =
+    a.severity === 'critical' ? '#dc2626' : a.severity === 'warning' ? '#d97706' : '#0f766e';
+  const linkHtml = a.link
+    ? `<p style="margin-top:16px"><a href="${escapeHtml(a.link)}" style="color:#0f766e">Open in Vyro →</a></p>`
+    : '';
+  const subject = `[${a.severity.toUpperCase()}] ${a.title}`;
+  const html = `<!doctype html><html><body style="font-family:system-ui,sans-serif;color:#0f172a">
+    <div style="border-left:4px solid ${sevColor};padding:8px 12px;margin-bottom:16px">
+      <h2 style="margin:0 0 8px 0;font-size:16px">${escapeHtml(a.title)}</h2>
+      <p style="margin:0;color:#475569">${escapeHtml(a.body)}</p>
+    </div>
+    ${linkHtml}
+    <p style="color:#94a3b8;font-size:12px;margin-top:24px">
+      Vyro admin alert · manage in Settings → Notifications
+    </p>
+  </body></html>`;
+  const text = `${a.title}\n\n${a.body}${a.link ? `\n\n${a.link}` : ''}`;
+  return { subject, html, text };
 }
