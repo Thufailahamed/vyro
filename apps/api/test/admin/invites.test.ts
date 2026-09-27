@@ -109,6 +109,8 @@ const env = {
   BETTER_AUTH_SECRET: 'x'.repeat(32),
   BETTER_AUTH_URL: 'x',
   ENVIRONMENT: 'test',
+  RESEND_API_KEY: 're_test',
+  EMAIL_FROM: 'Vyro <no-reply@vyro.local>',
 } as any;
 
 function reset() {
@@ -122,11 +124,19 @@ function reset() {
   state.nextRevokeOk = true;
 }
 
-// Stub fetch so sendEmail never hits real MailChannels (flaky/timeout
-// under parallel vitest load). 500 forces fast fallback to console provider.
+// Stub the resend SDK so sendEmail returns success without hitting the network.
+// (Previous test mock forced a fetch 500 — old MailChannels/console fallback
+// chain swallowed that. New code goes through the SDK directly.)
+vi.mock('resend', () => ({
+  Resend: class {
+    emails = {
+      send: vi.fn(async () => ({ data: { id: 'msg_test' }, error: null, headers: null })),
+    };
+  },
+}));
 const realFetch = globalThis.fetch;
 beforeEach(() => {
-  globalThis.fetch = vi.fn(async () => new Response('down', { status: 500 })) as typeof fetch;
+  globalThis.fetch = vi.fn(async () => new Response('{}', { status: 200 })) as typeof fetch;
 });
 afterEach(() => {
   globalThis.fetch = realFetch;

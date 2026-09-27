@@ -37,12 +37,16 @@ export async function sendEmail(env: Env, msg: EmailMessage): Promise<SendOutcom
         to: [msg.to],
         subject: msg.subject,
         text: msg.text,
-        html: msg.html,
-        replyTo: msg.replyTo,
-        attachments: msg.attachments?.map((a) => ({
-          filename: a.filename,
-          content: a.content,
-        })),
+        ...(msg.html ? { html: msg.html } : {}),
+        ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+        ...(msg.attachments
+          ? {
+              attachments: msg.attachments.map((a) => ({
+                filename: a.filename,
+                content: a.content,
+              })),
+            }
+          : {}),
       },
       msg.idempotencyKey ? { idempotencyKey: msg.idempotencyKey } : undefined,
     );
