@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { Check, Compass, FileText, Info, LogOut, Timer, Trash2, Activity } from 'lucide-react-native';
+import { Activity, Check, ChevronRight, Compass, FileText, Info, LogOut, Phone, Timer, Trash2, UserRound } from 'lucide-react-native';
 import { Button, Card, ConfirmSheet, Field, IconTile, Input, ListRow, ListSection, Loader, Screen, Sheet, Text, ToggleRow, Touchable, useToast } from '@/ui';
 import { api, errorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { colors, radii } from '@/theme/tokens';
 import { DirtyPill, UserAvatar } from '../settings/components';
 
 interface ProfileSettings {
@@ -41,6 +41,7 @@ export function SettingsScreen() {
   const toast = useToast();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [timeoutOpen, setTimeoutOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [name, setName] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
 
@@ -52,6 +53,7 @@ export function SettingsScreen() {
     mutationFn: (patch: Partial<ProfileSettings>) => api.patch('/settings/me', patch),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['settings', 'me'] });
+      setEditOpen(false);
       toast.success('Profile saved');
     },
     onError: (e) => toast.error('Save failed', errorMessage(e)),
@@ -85,52 +87,33 @@ export function SettingsScreen() {
   const timeoutLabel = s ? (TIMEOUTS.find((t) => t.value === String(s.sessionTimeoutMin))?.label ?? `${s.sessionTimeoutMin} minutes`) : undefined;
 
   return (
-    <Screen keyboard back kicker="Workspace" title="Settings" gap={24}>
-      {/* Profile header card */}
-      <Card kind="elevated" padding={18} radius={radii['2xl']} style={{ gap: 18 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <UserAvatar name={name ?? p?.displayName ?? user?.name} uri={p?.avatarUrl} size={62} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text variant="h2" numberOfLines={1}>
-              {p?.displayName ?? user?.name ?? '—'}
-            </Text>
-            <Text variant="bodySm" color="ink4" numberOfLines={1}>
-              {user?.email}
-            </Text>
-            {org ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.volt }} />
-                <Text style={{ fontFamily: fonts.monoMedium, fontSize: 10.5, letterSpacing: 0.6, color: colors.ink3 }} numberOfLines={1}>
-                  {org.toUpperCase()}
-                </Text>
-              </View>
-            ) : null}
-          </View>
+    <Screen back title="Settings" gap={24}>
+      {/* Profile */}
+      <Card onPress={() => setEditOpen(true)} padding={16} radius={radii['2xl']} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <UserAvatar name={p?.displayName ?? user?.name} uri={p?.avatarUrl} size={60} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="h2" numberOfLines={1}>
+            {p?.displayName ?? user?.name ?? '—'}
+          </Text>
+          <Text variant="bodySm" color="ink4" numberOfLines={1}>
+            {user?.email}
+          </Text>
+          {org ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.mint }} />
+              <Text variant="caption" color="ink3" numberOfLines={1}>
+                {org}
+              </Text>
+            </View>
+          ) : null}
         </View>
-        <View style={{ height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.lineSoft }} />
-        <View style={{ gap: 14 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text variant="overline" color="ink4">
-              Profile
-            </Text>
-            <DirtyPill dirty={dirty} />
-          </View>
-          <Field label="Display name">
-            <Input value={name ?? p?.displayName ?? ''} onChangeText={setName} placeholder="Your name" />
-          </Field>
-          <Field label="Phone">
-            <Input value={phone ?? p?.phone ?? ''} onChangeText={setPhone} placeholder="+94 …" keyboardType="phone-pad" />
-          </Field>
-          <Button
-            title="Save profile"
-            variant={unchanged ? 'secondary' : 'primary'}
-            full
-            loading={patchProfile.isPending}
-            disabled={unchanged}
-            onPress={() => patchProfile.mutate({ ...(name != null ? { displayName: name } : {}), ...(phone != null ? { phone } : {}) })}
-          />
-        </View>
+        <ChevronRight size={18} color={colors.ink5} />
       </Card>
+
+      <ListSection label="Personal details">
+        <ListRow icon={UserRound} iconTone="paper" title="Display name" subtitle={p?.displayName || user?.name || 'Not set'} onPress={() => setEditOpen(true)} />
+        <ListRow icon={Phone} iconTone="paper" title="Phone" subtitle={p?.phone || 'Add a phone number'} onPress={() => setEditOpen(true)} last />
+      </ListSection>
 
       <ListSection label="Notifications">
         {n ? (
@@ -172,23 +155,61 @@ export function SettingsScreen() {
         <ListRow icon={FileText} iconTone="paper" title="Terms & privacy" onPress={() => router.push('/legal/terms')} last />
       </ListSection>
 
-      <ListSection label="Session">
-        <ListRow
-          icon={LogOut}
-          iconTone="copper"
-          title="Sign out"
-          chevron={false}
-          last
+      <View style={{ gap: 10 }}>
+        <Touchable
           onPress={async () => {
             await signOut();
             router.replace('/welcome');
           }}
-        />
-      </ListSection>
+          hapticOnPress
+          scaleTo={0.97}
+          accessibilityLabel="Sign out"
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 52, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.paper }}
+        >
+          <LogOut size={17} color={colors.ink} strokeWidth={2.1} />
+          <Text variant="body" weight="semibold">
+            Sign out
+          </Text>
+        </Touchable>
+        <Touchable onPress={() => setDeleteOpen(true)} hapticOnPress accessibilityLabel="Delete account" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44 }}>
+          <Trash2 size={15} color={colors.rose} strokeWidth={2} />
+          <Text variant="bodySm" weight="semibold" color="rose">
+            Delete account
+          </Text>
+        </Touchable>
+        <Text variant="caption" color="ink5" align="center" style={{ paddingHorizontal: 12 }}>
+          Deleting your account schedules permanent removal of your profile and settings. Active orders are not affected.
+        </Text>
+      </View>
 
-      <ListSection footer="Deleting your account schedules permanent removal of your profile and settings. Active orders are not affected.">
-        <ListRow icon={Trash2} iconTone="danger" title="Delete account" destructive chevron={false} last onPress={() => setDeleteOpen(true)} />
-      </ListSection>
+      <Sheet
+        visible={editOpen}
+        onClose={() => setEditOpen(false)}
+        title="Edit profile"
+        subtitle={user?.email}
+        footer={
+          <Button
+            title="Save changes"
+            full
+            loading={patchProfile.isPending}
+            disabled={unchanged}
+            onPress={() => patchProfile.mutate({ ...(name != null ? { displayName: name } : {}), ...(phone != null ? { phone } : {}) })}
+          />
+        }
+      >
+        <View style={{ gap: 16 }}>
+          <View style={{ alignItems: 'center', gap: 8 }}>
+            <UserAvatar name={name ?? p?.displayName ?? user?.name} uri={p?.avatarUrl} size={72} />
+            <DirtyPill dirty={dirty} />
+          </View>
+          <Field label="Display name">
+            <Input value={name ?? p?.displayName ?? ''} onChangeText={setName} placeholder="Your name" />
+          </Field>
+          <Field label="Phone">
+            <Input value={phone ?? p?.phone ?? ''} onChangeText={setPhone} placeholder="+94 …" keyboardType="phone-pad" />
+          </Field>
+        </View>
+      </Sheet>
 
       <Sheet visible={timeoutOpen} onClose={() => setTimeoutOpen(false)} title="Session timeout" subtitle="Sign out automatically after inactivity.">
         <View style={{ gap: 8 }}>

@@ -3,14 +3,16 @@ import { StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { History, Package, Store, Star } from 'lucide-react-native';
+import { History, Star } from 'lucide-react-native';
 import { api, errorMessage } from '@/lib/api';
 import { formatDateTime, humanize } from '@/lib/format';
 import { colors, radii } from '@/theme/tokens';
 import {
+  Badge,
   Button,
+  Card,
   ConfirmSheet,
-  KeyValue,
+  Kicker,
   ProductImage,
   QueryView,
   Screen,
@@ -99,38 +101,50 @@ export function AdminProductDetailScreen() {
         {(d) => (
           <>
             <Appear>
-              <Animated.View sharedTransitionTag={`admin-product-${d.product.id}`} style={{ width: '100%', height: 220, borderRadius: radii['2xl'], overflow: 'hidden' }}>
-                <ProductImage src={null} seed={d.product.id} style={{ flex: 1 }} />
-              </Animated.View>
+              <View>
+                <Animated.View sharedTransitionTag={`admin-product-${d.product.id}`} style={{ width: '100%', aspectRatio: 4 / 3, borderRadius: radii['2xl'], overflow: 'hidden', opacity: d.product.active ? 1 : 0.6 }}>
+                  <ProductImage src={null} seed={d.product.id} style={{ flex: 1 }} />
+                </Animated.View>
+                <View style={{ position: 'absolute', top: 14, left: 14, right: 14, flexDirection: 'row', gap: 6 }}>
+                  <StatusBadge status={d.product.active ? 'active' : 'inactive'} size="sm" />
+                  {d.product.featured ? <Badge label="Featured" tone="volt" icon={Star} size="sm" /> : null}
+                </View>
+              </View>
             </Appear>
             <Appear i={1}>
-              <Section kicker="Listing" title={d.product.name} icon={Package}>
-                <View style={{ flexDirection: 'row', gap: 6 }}>
-                  <StatusBadge status={d.product.active ? 'active' : 'inactive'} size="sm" />
-                  {d.product.featured ? <StatusBadge status="featured" size="sm" /> : null}
-                </View>
+              <View style={{ gap: 6, paddingHorizontal: 2 }}>
+                {d.category ? <Kicker>{d.category.name}</Kicker> : null}
+                <Text variant="displaySm">{d.product.name}</Text>
                 {d.product.description ? (
-                  <Text variant="bodySm" color="ink3">
+                  <Text variant="bodySm" color="ink3" style={{ marginTop: 2 }}>
                     {d.product.description}
                   </Text>
                 ) : null}
-                <View>
-                  <KeyValue label="Brand" value={d.product.brand ?? '—'} />
-                  <KeyValue label="Unit" value={d.product.unit} />
-                  <KeyValue label="Category" value={d.category?.name ?? d.product.categoryId} />
-                  <KeyValue label="Updated" value={formatDateTime(d.product.updatedAt)} last />
-                </View>
-                {d.product.moderationNotes ? <CodeBlock value={d.product.moderationNotes} maxLines={6} /> : null}
-              </Section>
+              </View>
             </Appear>
-            <Appear i={2}>
-              <Section kicker={`Offers · ${(d.offers ?? []).length}`} title="Supplier offers" icon={Store}>
-                <Text variant="bodySm" color="ink4">
-                  {(d.offers ?? []).length === 0
-                    ? 'No live supplier offers for this product.'
-                    : `${(d.offers ?? []).length} supplier offers live.`}
-                </Text>
-              </Section>
+            <Appear i={1}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                {[
+                  { label: 'Brand', value: d.product.brand ?? '—' },
+                  { label: 'Unit', value: d.product.unit },
+                  { label: 'Live offers', value: String((d.offers ?? []).length) },
+                  { label: 'Updated', value: formatDateTime(d.product.updatedAt) },
+                ].map((x) => (
+                  <Card key={x.label} kind="flat" padding={14} style={{ flexBasis: '47%', flexGrow: 1, gap: 4 }}>
+                    <Text variant="overline" color="ink5" style={{ fontSize: 10 }}>
+                      {x.label}
+                    </Text>
+                    <Text variant="bodySm" weight="semibold" numberOfLines={1}>
+                      {x.value}
+                    </Text>
+                  </Card>
+                ))}
+              </View>
+              {d.product.moderationNotes ? (
+                <View style={{ marginTop: 12 }}>
+                  <CodeBlock value={d.product.moderationNotes} maxLines={6} />
+                </View>
+              ) : null}
             </Appear>
             {(d.audit ?? []).length > 0 ? (
               <Appear i={3}>

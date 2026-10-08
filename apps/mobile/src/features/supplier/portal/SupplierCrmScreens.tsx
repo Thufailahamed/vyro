@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ChartBar, Flame, Repeat, ShoppingBag, ShoppingBasket, Target, TriangleAlert, TrendingUp, Trophy, Users } from 'lucide-react-native';
+import { ChartBar, Flame, Target, TrendingUp, Trophy, Users } from 'lucide-react-native';
 import { useSupplierId } from '@/lib/auth';
 import { errorMessage } from '@/lib/api';
 import { formatCompactLKR, formatDate, formatLKR, humanize } from '@/lib/format';
+import { colors, fonts, radii } from '@/theme/tokens';
 import {
   AreaChart,
   Avatar,
@@ -14,22 +15,18 @@ import {
   Donut,
   EmptyState,
   ErrorState,
-  IconTile,
-  InkHero,
   Input,
-  Kicker,
   RankBars,
   Screen,
   SearchBar,
   Segmented,
   SkeletonList,
-  Stat,
-  StatGrid,
   StatusBadge,
   Text,
+  Touchable,
   useToast,
 } from '@/ui';
-import { Enter, ItemCard, Section } from '@/features/supplier/ops/kit';
+import { Enter, ItemCard, Section, SummaryHero } from '@/features/supplier/ops/kit';
 import {
   useAddLeadNote,
   useCrmSummary,
@@ -59,6 +56,13 @@ export function SupplierCustomersScreen() {
     );
   }, [q.data, search, sort]);
 
+  const totals = useMemo(() => {
+    const all = q.data?.items ?? [];
+    const revenue = all.reduce((sum, c) => sum + c.totalCents, 0);
+    const orders = all.reduce((sum, c) => sum + c.totalOrders, 0);
+    return { count: all.length, revenue, orders, repeat: all.filter((c) => c.totalOrders > 1).length };
+  }, [q.data]);
+
   if (q.isLoading)
     return (
       <Screen back kicker="CRM" title="Customers">
@@ -73,7 +77,20 @@ export function SupplierCustomersScreen() {
     );
 
   return (
-    <Screen back onRefresh={() => q.refetch()} kicker="CRM" title="Customers" subtitle={`${list.length} commercial buyers on record.`}>
+    <Screen back onRefresh={() => q.refetch()} kicker="CRM" title="Customers" subtitle="Commercial buyers who order from your depot.">
+      <Enter>
+        <SummaryHero
+          icon={Users}
+          kicker="Lifetime revenue"
+          value={formatLKR(totals.revenue)}
+          sub={`From ${totals.count} ${totals.count === 1 ? 'buyer' : 'buyers'} across ${totals.orders} ${totals.orders === 1 ? 'order' : 'orders'}`}
+          cells={[
+            { label: 'Buyers', value: totals.count, dot: colors.volt },
+            { label: 'Repeat', value: totals.repeat, dot: colors.mint },
+            { label: 'Avg / buyer', value: formatCompactLKR(totals.count ? Math.round(totals.revenue / totals.count) : 0), dot: colors.copper },
+          ]}
+        />
+      </Enter>
       <SearchBar value={search} onChangeText={setSearch} placeholder="Search trading name…" />
       <Segmented value={sort} onChange={setSort} options={[{ value: 'spend', label: 'Spend' }, { value: 'orders', label: 'Orders' }, { value: 'recent', label: 'Recent' }]} />
       {list.length === 0 ? (
@@ -82,7 +99,16 @@ export function SupplierCustomersScreen() {
         list.map((c, i) => (
           <Enter key={c.businessId} i={i}>
             <ItemCard
-              leading={<Avatar name={c.name} size={44} tone={i < 3 && sort === 'spend' ? 'volt' : 'ink'} />}
+              leading={
+                <View>
+                  <Avatar name={c.name} size={44} tone={i < 3 && sort === 'spend' && !search ? 'volt' : 'ink'} />
+                  {i < 3 && sort === 'spend' && !search ? (
+                    <View style={{ position: 'absolute', right: -4, bottom: -4, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.ink, borderWidth: 2, borderColor: colors.paper, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontFamily: fonts.sansBold, fontSize: 10, lineHeight: 12, color: colors.volt }}>{i + 1}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              }
               title={c.name}
               subtitle={`${c.totalOrders} ${c.totalOrders === 1 ? 'order' : 'orders'}`}
               meta={c.lastOrderAt ? `Last order ${formatDate(c.lastOrderAt)}` : undefined}
@@ -114,6 +140,7 @@ export function SupplierLeadsScreen() {
   const summary = useCrmSummary(supplierId);
 
   const leads = useMemo(() => (q.data ? q.data.pages.flatMap((p) => p.leads) : []), [q.data]);
+  const toggle = (f: LeadFilter) => setFilter((cur) => (cur === f ? 'all' : f));
   const nextCursor = q.data ? q.data.pages.at(-1)?.nextCursor ?? null : null;
 
   const counts = useMemo(() => {
@@ -144,24 +171,36 @@ export function SupplierLeadsScreen() {
   return (
     <Screen
       back
-      onRefresh={() => q.refetch()}
+      onRefresh={() => Promise.all([q.refetch(), summary.refetch()])}
       kicker="CRM"
       title="Leads"
       subtitle="Buyer RFQ pipeline and conversion stages."
     >
-      <ChipRow<LeadFilter>
-        value={filter}
-        onChange={setFilter}
-        options={[
-          { value: 'all', label: 'All', count: counts?.all ?? leads.length },
-          { value: 'hot', label: 'Hot', count: counts?.hot ?? 0 },
-          { value: 'warm', label: 'Warm', count: counts?.warm ?? 0 },
-          { value: 'cold', label: 'Cold', count: counts?.cold ?? 0 },
-          { value: 'converted', label: 'Converted', count: counts?.converted ?? 0 },
-        ]}
-      />
+      <Enter>
+        <SummaryHero
+          icon={Target}
+          kicker={filter === 'all' ? 'Lead pipeline' : `Showing ${filter === 'converted' ? 'won' : filter} leads`}
+          value={`${counts?.all ?? leads.length} ${(counts?.all ?? leads.length) === 1 ? 'lead' : 'leads'}`}
+          sub={
+            counts?.all
+              ? `${Math.round(((counts.converted ?? 0) / counts.all) * 100)}% converted to orders · tap a stage to filter`
+              : 'Invited RFQs and buyer inquiries land here.'
+          }
+          cells={[
+            { label: 'Hot', value: counts?.hot ?? 0, dot: colors.rose, active: filter === 'hot', onPress: () => toggle('hot') },
+            { label: 'Warm', value: counts?.warm ?? 0, dot: colors.amber, active: filter === 'warm', onPress: () => toggle('warm') },
+            { label: 'Cold', value: counts?.cold ?? 0, dot: colors.paperFaint, active: filter === 'cold', onPress: () => toggle('cold') },
+            { label: 'Won', value: counts?.converted ?? 0, dot: colors.volt, active: filter === 'converted', onPress: () => toggle('converted') },
+          ]}
+        />
+      </Enter>
       {leads.length === 0 ? (
-        <EmptyState icon={Target} title="No leads" message="Invited RFQs and buyer inquiries land here." />
+        <EmptyState
+          icon={Target}
+          title={filter === 'all' ? 'No leads yet' : 'No leads in this stage'}
+          message={filter === 'all' ? 'Invited RFQs and buyer inquiries land here.' : 'Tap the stage again to see every lead.'}
+          action={filter === 'all' ? undefined : { label: 'Show all leads', onPress: () => setFilter('all') }}
+        />
       ) : (
         leads.map((l, i) => {
           const tag = l.tag;
@@ -237,20 +276,16 @@ export function SupplierLeadDetailScreen() {
       subtitle={`RFQ #${lead.rfqId}`}
     >
       <Enter>
-        <ItemCard
+        <SummaryHero
           icon={lead.conversionStatus === 'won' ? Trophy : lead.tag === 'hot' ? Flame : Target}
-          iconTone={
-            lead.conversionStatus === 'won' ? 'success' : lead.tag === 'hot' ? 'danger' : lead.tag === 'warm' ? 'warning' : 'paper'
-          }
-          title={lead.buyerName}
-          subtitle={`${humanize(lead.status)} · ${lead.buyerVerified ? 'Verified buyer' : 'Unverified buyer'}`}
-          meta={
-            lead.quotedAt
-              ? `Quoted ${formatDate(lead.quotedAt)}`
-              : `Invited ${formatDate(lead.invitedAt)}`
-          }
-          amount={lead.orderValueCents ? formatLKR(lead.orderValueCents) : undefined}
-          amountSub="Order value"
+          kicker={lead.buyerVerified ? 'Verified buyer' : 'Unverified buyer'}
+          value={lead.orderValueCents ? formatLKR(lead.orderValueCents) : humanize(lead.conversionStatus ?? lead.status)}
+          sub={`${lead.orderValueCents ? 'Order value · ' : ''}${lead.quotedAt ? `Quoted ${formatDate(lead.quotedAt)}` : `Invited ${formatDate(lead.invitedAt)}`}`}
+          cells={[
+            { label: 'Stage', value: humanize(lead.conversionStatus ?? 'new'), dot: lead.conversionStatus === 'won' ? colors.volt : colors.copper },
+            { label: 'Temperature', value: lead.tag ? humanize(lead.tag) : '—', dot: lead.tag === 'hot' ? colors.rose : lead.tag === 'warm' ? colors.amber : colors.paperFaint },
+            { label: 'RFQ status', value: humanize(lead.status), dot: colors.paperFaint },
+          ]}
         />
       </Enter>
 
@@ -340,32 +375,39 @@ export function SupplierAnalyticsScreen() {
 
   return (
     <Screen back onRefresh={() => q.refetch()} kicker="Intelligence" title="Analytics" subtitle="Revenue, demand and catalog performance.">
-      <Segmented value={range} onChange={setRange} options={[{ value: '7d', label: '7 days' }, { value: '30d', label: '30 days' }, { value: '90d', label: '90 days' }]} />
       <Enter>
-        <InkHero seed={`analytics-${range}`}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <IconTile icon={TrendingUp} tone="glass" size={40} />
-            <Text variant="caption" color="paperMuted">
-              Last {range.replace('d', ' days')}
-            </Text>
-          </View>
-          <View style={{ marginTop: 18, gap: 6 }}>
-            <Kicker color="volt">Revenue</Kicker>
-            <Text variant="metric" color="paper" numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 38, lineHeight: 42 }}>
-              {formatCompactLKR(d.metrics.revenueCents)}
-            </Text>
-            <Text variant="caption" color="paperMuted">
-              {d.metrics.ordersCount} orders in this period
-            </Text>
-          </View>
-        </InkHero>
+        <SummaryHero
+          icon={TrendingUp}
+          kicker="Revenue"
+          value={formatCompactLKR(d.metrics.revenueCents)}
+          sub={`${d.metrics.ordersCount} ${d.metrics.ordersCount === 1 ? 'order' : 'orders'} in the last ${range.replace('d', ' days')} · ${d.metrics.avgLeadTimeDays}d avg lead time`}
+          right={
+            <View style={{ flexDirection: 'row', gap: 4, padding: 3, borderRadius: radii.pill, backgroundColor: 'rgba(250,247,240,0.07)' }}>
+              {(['7d', '30d', '90d'] as const).map((r) => (
+                <Touchable
+                  key={r}
+                  onPress={() => setRange(r)}
+                  hapticOnPress
+                  accessibilityLabel={`Last ${r}`}
+                  accessibilityState={{ selected: range === r }}
+                  style={{ paddingHorizontal: 10, height: 26, borderRadius: 13, justifyContent: 'center', backgroundColor: range === r ? colors.volt : 'transparent' }}
+                >
+                  <Text variant="caption" weight="semibold" style={{ color: range === r ? colors.ink : colors.paperMuted }}>
+                    {r.toUpperCase()}
+                  </Text>
+                </Touchable>
+              ))}
+            </View>
+          }
+          cells={[
+            { label: 'Orders', value: d.metrics.ordersCount, dot: colors.volt },
+            { label: 'Avg order value', value: formatCompactLKR(d.metrics.avgOrderValueCents), dot: colors.copper },
+            { label: 'Repeat buyers', value: `${Math.round(d.metrics.repeatCustomerRate)}%`, dot: colors.mint },
+            { label: 'Low stock', value: d.metrics.lowStockCount, dot: d.metrics.lowStockCount ? colors.rose : colors.paperFaint },
+          ]}
+          grid
+        />
       </Enter>
-      <StatGrid>
-        <Stat label="Orders" value={d.metrics.ordersCount} hint="In this period" icon={ShoppingBag} accent />
-        <Stat label="Avg order" value={formatCompactLKR(d.metrics.avgOrderValueCents)} hint="Basket size" icon={ShoppingBasket} />
-        <Stat label="Repeat rate" value={`${Math.round(d.metrics.repeatCustomerRate)}%`} hint="Returning buyers" icon={Repeat} />
-        <Stat label="Low stock" value={d.metrics.lowStockCount} hint={`${d.metrics.avgLeadTimeDays}d lead`} icon={TriangleAlert} />
-      </StatGrid>
       <Section icon={TrendingUp} kicker="Trend" title="Revenue trend">
         <AreaChart data={d.revenueTrend.map((p) => ({ label: p.day.slice(5), value: p.cents / 100 }))} formatValue={(v) => `Rs. ${Math.round(v).toLocaleString()}`} />
       </Section>

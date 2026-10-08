@@ -81,7 +81,7 @@ export function QuickEditSheet({
       <View style={{ gap: 16 }}>
         {err ? <Banner tone="danger" message={err} /> : null}
         <Field label={`Wholesale rate (LKR / ${unit})`} hint={cents ? `${formatLKR(cents)} per ${unit}` : 'Net price before volume tiers'}>
-          <Input value={price} onChangeText={setPrice} keyboardType="decimal-pad" prefix="Rs." suffix={`/ ${unit}`} style={{ fontFamily: 'IBMPlexMono_500Medium' }} />
+          <Input value={price} onChangeText={setPrice} keyboardType="decimal-pad" prefix="Rs." suffix={`/ ${unit}`} style={{ fontFamily: 'Sans-Semi' }} />
         </Field>
         <Field label="Availability">
           <AvailabilityToggle value={avail} onChange={setAvail} />

@@ -21,7 +21,6 @@ import {
   ShieldCheck,
   Sparkles,
   Star,
-  Store,
 } from 'lucide-react-native';
 import {
   Badge,
@@ -31,9 +30,12 @@ import {
   EmptyState,
   ErrorState,
   IconButton,
+  IconTile,
   Input,
   KeyValue,
   ListRow,
+  ProductPlaceholder,
+  ProgressBar,
   QuickAction,
   QuickActions,
   Screen,
@@ -202,20 +204,14 @@ export function OrderDetailScreen() {
         onSupplier={supplier.data?.supplier ? () => openStorefront(supplier.data!.supplier) : undefined}
       />
 
-      <QuickActions style={{ paddingHorizontal: 4 }}>
-        <QuickAction
-          icon={Copy}
-          label="Copy PO"
-          onPress={() => {
-            void copyToClipboard(order.poNumber).then((ok) => ok && toast.success('PO number copied'));
-          }}
-        />
-        {supplier.data?.supplier ? <QuickAction icon={Store} label="Supplier" onPress={() => openStorefront(supplier.data!.supplier)} /> : null}
-        {['delivered', 'completed', 'ready_for_pickup'].includes(status) ? (
-          <QuickAction icon={RefreshCw} label="Reorder" tone="volt" onPress={() => reorder.mutate(order.id)} />
-        ) : null}
-        {order.rfqId ? <QuickAction icon={FileText} label="Linked RFQ" onPress={() => go(`/buyer/rfqs/${order.rfqId}`)} /> : null}
-      </QuickActions>
+      {['delivered', 'completed', 'ready_for_pickup'].includes(status) || order.rfqId ? (
+        <QuickActions style={{ paddingHorizontal: 4 }}>
+          {['delivered', 'completed', 'ready_for_pickup'].includes(status) ? (
+            <QuickAction icon={RefreshCw} label="Reorder" tone="volt" onPress={() => reorder.mutate(order.id)} />
+          ) : null}
+          {order.rfqId ? <QuickAction icon={FileText} label="Linked RFQ" onPress={() => go(`/buyer/rfqs/${order.rfqId}`)} /> : null}
+        </QuickActions>
+      ) : null}
 
       {order.rejectionReason ? <Banner tone="danger" title="Rejected" message={order.rejectionReason} /> : null}
       {order.cancelledReason ? (
@@ -245,11 +241,11 @@ export function OrderDetailScreen() {
         />
       ) : null}
       {status === 'pending' && lifecycle?.autoCancelAt ? (
-        <Banner tone="info" message={`If the supplier doesn't respond by ${formatDateTime(lifecycle.autoCancelAt)}, this order is cancelled automatically.`} />
+        <ResponseWindowCard startsAt={order.createdAt} endsAt={lifecycle.autoCancelAt} now={now} />
       ) : null}
 
       {/* ── Line items ─────────────────────────────────── */}
-      <Section step={1} kicker="Items" title={`Line items (${items.length})`} sub={`${totalQty.toLocaleString()} units on this purchase order`} icon={Package}>
+      <Section kicker="Items" title="Line items" sub={`${items.length} line${items.length === 1 ? '' : 's'} · ${totalQty.toLocaleString()} units`} icon={Package}>
         {items.length === 0 ? (
           <Text variant="bodySm" color="ink4">
             No line items on this order.
@@ -261,19 +257,21 @@ export function OrderDetailScreen() {
                 key={it.id}
                 style={{
                   flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                  paddingVertical: 12,
+                  alignItems: 'flex-start',
+                  gap: 14,
+                  paddingTop: i === 0 ? 2 : 14,
+                  paddingBottom: 14,
                   borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth * 2,
                   borderTopColor: colors.lineSoft,
                 }}
               >
-                <View style={{ width: 40, height: 40, borderRadius: 13, borderCurve: 'continuous', backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12.5, color: colors.ink3 }}>{String(i + 1).padStart(2, '0')}</Text>
-                </View>
-                <View style={{ flex: 1, gap: 3 }}>
-                  <Text variant="bodySm" weight="semibold" numberOfLines={2}>
+                <ProductPlaceholder seed={it.productNameSnapshot} style={{ width: 48, height: 48, borderRadius: 14, borderCurve: 'continuous' }} />
+                <View style={{ flex: 1, gap: 5 }}>
+                  <Text variant="body" weight="semibold" numberOfLines={2}>
                     {it.productNameSnapshot}
+                  </Text>
+                  <Text style={{ fontFamily: fonts.mono, fontSize: 11.5, color: colors.ink4 }}>
+                    {it.quantity.toLocaleString()} × {formatLKR(it.unitPriceCents)}
                   </Text>
                   {(it.discountPctSnapshot ?? 0) > 0 ? <MonoTag label={`−${it.discountPctSnapshot}% volume`} tone="mint" /> : null}
                   {it.fulfilmentStatus === 'unavailable' ? (
@@ -287,30 +285,33 @@ export function OrderDetailScreen() {
                     </Text>
                   ) : null}
                 </View>
-                <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                  <Text style={{ fontFamily: fonts.monoMedium, fontSize: 13, color: colors.ink }}>{formatLKR(it.lineTotalCents)}</Text>
-                  <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.ink5 }}>
-                    {it.quantity} × {formatLKR(it.unitPriceCents)}
-                  </Text>
-                </View>
+                <Text style={{ fontFamily: fonts.monoMedium, fontSize: 14, color: colors.ink, alignSelf: 'flex-start', marginTop: 1 }}>{formatLKR(it.lineTotalCents)}</Text>
               </View>
             ))}
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: 14,
-                marginTop: 6,
-                borderRadius: radii.lg,
-                borderCurve: 'continuous',
-                backgroundColor: colors.pearl,
-              }}
-            >
-              <Text variant="overline" color="ink4">
-                {totalDiscount > 0 ? 'Subtotal after discounts' : 'Order total'}
-              </Text>
-              <Text variant="metricSm">{formatLKR(order.totalCents)}</Text>
+            <View style={{ marginTop: 6, padding: 16, gap: 10, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
+              {totalDiscount > 0 ? (
+                <>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text variant="bodySm" color="ink4">
+                      List price
+                    </Text>
+                    <Text style={{ fontFamily: fonts.mono, fontSize: 13, color: colors.ink3 }}>{formatLKR(order.totalCents + totalDiscount)}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text variant="bodySm" color="mint">
+                      Volume savings
+                    </Text>
+                    <Text style={{ fontFamily: fonts.monoMedium, fontSize: 13, color: colors.mint }}>−{formatLKR(totalDiscount)}</Text>
+                  </View>
+                  <View style={{ height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.line }} />
+                </>
+              ) : null}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text variant="overline" color="ink4">
+                  Order total
+                </Text>
+                <Text variant="metricSm">{formatLKR(order.totalCents)}</Text>
+              </View>
             </View>
           </View>
         )}
@@ -477,6 +478,39 @@ export function OrderDetailScreen() {
       <RefundSheet payment={refundFor} onClose={() => setRefundFor(null)} />
       <ReviewSheet orderId={order.id} visible={reviewOpen} onClose={() => setReviewOpen(false)} />
     </Screen>
+  );
+}
+
+/* --------------------------- response window ---------------------------- */
+
+/** Supplier's acceptance deadline: countdown, absolute time and a draining bar. */
+function ResponseWindowCard({ startsAt, endsAt, now }: { startsAt: number; endsAt: number; now: number }) {
+  const total = Math.max(1, endsAt - startsAt);
+  const left = Math.max(0, endsAt - now);
+  const urgent = left < 6 * 3_600_000;
+  const h = Math.floor(left / 3_600_000);
+  const remaining = left <= 0 ? 'Overdue' : h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h left` : h > 0 ? `${h}h ${Math.floor((left % 3_600_000) / 60_000)}m left` : `${Math.ceil(left / 60_000)}m left`;
+  return (
+    <View style={[{ backgroundColor: colors.paper, borderRadius: radii['2xl'], borderCurve: 'continuous', padding: 16, gap: 14 }, shadow.card]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <IconTile icon={Clock} tone={urgent ? 'danger' : 'warning'} size={40} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="h3">Waiting for supplier</Text>
+          <Text variant="caption" color="ink4">
+            Respond by {formatDateTime(endsAt)}
+          </Text>
+        </View>
+        <View style={{ paddingHorizontal: 10, height: 26, justifyContent: 'center', borderRadius: radii.pill, backgroundColor: urgent ? colors.roseSoft : colors.amberSoft }}>
+          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11, color: urgent ? colors.rose : colors.amber }}>{remaining}</Text>
+        </View>
+      </View>
+      <ProgressBar value={left} max={total} tone={urgent ? 'danger' : 'warning'} height={4} />
+      <Text variant="caption" color="ink5">
+        {left > 0
+          ? "No response by then and this order is cancelled automatically — you won't be charged."
+          : "The response window has passed. This order will be cancelled automatically — you won't be charged."}
+      </Text>
+    </View>
   );
 }
 

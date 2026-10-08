@@ -17,12 +17,11 @@ import {
   Kicker,
   ListHeader,
   ListScreen,
-  ScreenHeader,
   SearchBar,
   SkeletonList,
   Text,
 } from '@/ui';
-import { Enter, HeroMetric, NotificationsBell, RfqPill } from '@/features/supplier/ops/kit';
+import { Enter, NotificationsBell, RfqPill } from '@/features/supplier/ops/kit';
 import { useSupplierRfqDashboard, useSupplierRfqs, type RfqInvite } from './api';
 
 type Filter = 'all' | 'new' | 'open' | 'quoted' | 'expiring' | 'closed';
@@ -31,6 +30,30 @@ const OPEN_STATUSES = ['open', 'invited', 'negotiating', 'quoting', 'quotes_rece
 const CLOSED_STATUSES = ['cancelled', 'expired', 'closed', 'awarded', 'converted_to_order', 'rejected', 'withdrawn'];
 const isOpen = (s: string) => OPEN_STATUSES.includes(s.toLowerCase());
 const isClosed = (s: string) => CLOSED_STATUSES.includes(s.toLowerCase());
+const isNewInvite = (r: RfqInvite) => r.inviteStatus === 'invited' && r.myQuotes === 0 && !isClosed(r.rfq.status);
+
+/** One funnel stage: label, count and a proportional bar. */
+function FunnelRow({ label, value, max, sub, color }: { label: string; value: number; max: number; sub: string; color: string }) {
+  return (
+    <View style={{ gap: 6 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <Text variant="caption" color="paperMuted">
+          {label}
+        </Text>
+        <Text variant="caption" color="paperFaint">
+          <Text variant="bodySm" weight="bold" color="paper" tabular>
+            {value}
+          </Text>
+          {'  '}
+          {sub}
+        </Text>
+      </View>
+      <View style={{ height: 8, borderRadius: 4, backgroundColor: 'rgba(250,247,240,0.08)', overflow: 'hidden' }}>
+        <View style={{ width: `${max ? Math.max(value ? 4 : 0, (value / max) * 100) : 0}%`, height: '100%', borderRadius: 4, backgroundColor: color }} />
+      </View>
+    </View>
+  );
+}
 
 export function SupplierQuotesScreen() {
   const supplierId = useSupplierId();
@@ -43,7 +66,7 @@ export function SupplierQuotesScreen() {
   const counts = useMemo(
     () => ({
       all: all.length,
-      new: all.filter((r) => r.inviteStatus === 'invited' && r.myQuotes === 0).length,
+      new: all.filter(isNewInvite).length,
       open: all.filter((r) => isOpen(r.rfq.status)).length,
       quoted: all.filter((r) => r.myQuotes > 0).length,
       expiring: all.filter((r) => r.expiringSoon).length,
@@ -54,7 +77,7 @@ export function SupplierQuotesScreen() {
 
   const shown = useMemo(() => {
     let list = all;
-    if (filter === 'new') list = list.filter((r) => r.inviteStatus === 'invited' && r.myQuotes === 0);
+    if (filter === 'new') list = list.filter(isNewInvite);
     if (filter === 'open') list = list.filter((r) => isOpen(r.rfq.status));
     if (filter === 'quoted') list = list.filter((r) => r.myQuotes > 0);
     if (filter === 'expiring') list = list.filter((r) => r.expiringSoon);
@@ -66,8 +89,8 @@ export function SupplierQuotesScreen() {
       const ea = a.expiringSoon ? 0 : 1;
       const eb = b.expiringSoon ? 0 : 1;
       if (ea !== eb) return ea - eb;
-      const na = a.inviteStatus === 'invited' && a.myQuotes === 0 ? 0 : 1;
-      const nb = b.inviteStatus === 'invited' && b.myQuotes === 0 ? 0 : 1;
+      const na = isNewInvite(a) ? 0 : 1;
+      const nb = isNewInvite(b) ? 0 : 1;
       if (na !== nb) return na - nb;
       return (a.rfq.deadline ?? Number.MAX_SAFE_INTEGER) - (b.rfq.deadline ?? Number.MAX_SAFE_INTEGER);
     });
@@ -77,24 +100,40 @@ export function SupplierQuotesScreen() {
 
   const header = (
     <ListHeader>
-      <ScreenHeader
-        kicker="Quotations"
-        title="Quote requests"
-        subtitle="Buyer RFQs routed to your depot. Quote fast to win the order."
-        right={<NotificationsBell />}
-      />
+      <Gutter style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 8 }}>
+        <View style={{ flexShrink: 1, gap: 2 }}>
+          <Text variant="overline" color="copper">
+            Supplier
+          </Text>
+          <Text variant="displayMd">Quotes</Text>
+        </View>
+        <NotificationsBell />
+      </Gutter>
       <Gutter style={{ gap: 12 }}>
         {d ? (
           <Enter>
-            <InkHero seed="rfq-pipeline">
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <IconTile icon={Trophy} tone="glass" size={36} />
-                <Kicker color="volt">Win pipeline</Kicker>
+            <InkHero seed="rfq-pipeline" style={{ padding: 18, gap: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <IconTile icon={Trophy} tone="glass" size={40} />
+                <View style={{ flex: 1, gap: 1 }}>
+                  <Kicker color="volt">Win pipeline</Kicker>
+                  <Text variant="caption" color="paperMuted">
+                    Respond quickly to win more orders
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text variant="displaySm" color="paper" tabular>
+                    {Math.round(d.winRate * 100)}%
+                  </Text>
+                  <Text variant="caption" color="paperFaint">
+                    win rate
+                  </Text>
+                </View>
               </View>
-              <View style={{ flexDirection: 'row', gap: 14, marginTop: 18 }}>
-                <HeroMetric label="Received" value={String(d.rfqsReceived)} sub="invites" style={{ flex: 1 }} />
-                <HeroMetric label="Quoted" value={String(d.quotesSubmitted)} sub={`${Math.round(d.responseRate * 100)}% response`} style={{ flex: 1 }} />
-                <HeroMetric label="Won" value={String(d.won)} sub={`${Math.round(d.winRate * 100)}% win rate`} tone="mint" style={{ flex: 1 }} />
+              <View style={{ gap: 12 }}>
+                <FunnelRow label="Invites received" value={d.rfqsReceived} max={d.rfqsReceived} sub="RFQs" color="rgba(250,247,240,0.55)" />
+                <FunnelRow label="Quotes submitted" value={d.quotesSubmitted} max={d.rfqsReceived} sub={`${Math.round(d.responseRate * 100)}% response`} color={colors.copper} />
+                <FunnelRow label="Orders won" value={d.won} max={d.rfqsReceived} sub="awarded" color={colors.volt} />
               </View>
             </InkHero>
           </Enter>
@@ -158,7 +197,7 @@ function Meta({ icon: Icon, text, color }: { icon: typeof Clock; text: string; c
 }
 
 function QuoteCard({ invite: r }: { invite: RfqInvite }) {
-  const isNew = r.inviteStatus === 'invited' && r.myQuotes === 0;
+  const isNew = isNewInvite(r);
   const closed = isClosed(r.rfq.status);
   const quoted = r.myQuotes > 0;
   return (
@@ -178,7 +217,7 @@ function QuoteCard({ invite: r }: { invite: RfqInvite }) {
                 </View>
               ) : null}
             </View>
-            <Text variant="h3" numberOfLines={2}>
+            <Text variant="h3" numberOfLines={2} color={closed ? 'ink3' : 'ink'}>
               {r.rfq.title}
             </Text>
           </View>
@@ -213,7 +252,7 @@ function QuoteCard({ invite: r }: { invite: RfqInvite }) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: quoted ? colors.mint : closed ? colors.ink5 : colors.amber }} />
           <Text variant="caption" weight="semibold" color={quoted ? 'mint' : closed ? 'ink4' : 'amber'}>
-            {quoted ? `${r.myQuotes} quote${r.myQuotes === 1 ? '' : 's'} submitted` : isNew ? 'Awaiting your quote' : 'Not quoted yet'}
+            {quoted ? `${r.myQuotes} quote${r.myQuotes === 1 ? '' : 's'} submitted` : closed ? 'Closed · not quoted' : isNew ? 'Awaiting your quote' : 'Not quoted yet'}
           </Text>
         </View>
         <View

@@ -93,7 +93,7 @@ function CompactBar({ info, scrollY, backRef }: { info: ChromeInfo; scrollY: Sha
           <IconButton icon={ChevronLeft} accessibilityLabel="Go back" onPress={() => backRef.current?.()} variant={dark ? 'glass' : 'surface'} />
         ) : null}
         <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: 72, right: 72, alignItems: 'center' }, title]}>
-          <Text variant="h3" color={dark ? 'paper' : 'ink'} numberOfLines={1} style={{ fontFamily: 'Syne_700Bold', letterSpacing: -0.3 }}>
+          <Text variant="h3" color={dark ? 'paper' : 'ink'} numberOfLines={1} style={{ fontFamily: 'Display-Bold', letterSpacing: -0.3 }}>
             {info.title}
           </Text>
         </Animated.View>
@@ -115,7 +115,7 @@ export interface ScreenHeaderProps {
   large?: boolean;
 }
 
-/** Large-title header: back chevron, overline kicker, Syne title, actions. */
+/** Large-title header: back chevron, overline kicker, display title, actions. */
 export function ScreenHeader({ title, kicker, subtitle, back, right, dark, large = true }: ScreenHeaderProps) {
   const chrome = useContext(ChromeCtx);
   const onBack = typeof back === 'function' ? back : () => (router.canGoBack() ? router.back() : router.replace('/'));

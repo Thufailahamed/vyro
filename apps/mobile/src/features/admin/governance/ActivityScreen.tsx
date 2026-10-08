@@ -4,7 +4,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { CalendarClock, Download, Filter, History, Trash2 } from 'lucide-react-native';
 import { colors } from '@/theme/tokens';
 import { api, errorMessage, qs } from '@/lib/api';
-import { formatDateTime, humanize, timeAgo } from '@/lib/format';
+import { formatDate, formatDateTime, humanize } from '@/lib/format';
 import {
   Button,
   Card,
@@ -14,15 +14,13 @@ import {
   Field,
   IconTile,
   Input,
-  ListCard,
-  ListRow,
   Screen,
   SkeletonList,
   Text,
   useToast,
 } from '@/ui';
 import { LoadMore } from '@/features/admin/ops/kit';
-import { Appear, CodeBlock } from '@/features/admin/platform/kit';
+import { Appear } from '@/features/admin/platform/kit';
 import { usePermission } from '@/features/admin/common/permissions';
 import { ExportButton } from '@/features/admin/money/accounts/shared';
 
@@ -96,26 +94,49 @@ export function ActivityScreen() {
         <EmptyState icon={History} title="No audit entries" message="Try clearing the filters." />
       ) : (
         <View style={{ gap: 10 }}>
-          <Appear>
-            <ListCard>
-              {rows.map((e, i) => (
-                <ListRow
-                  key={e.id}
-                  title={humanize(e.action)}
-                  subtitle={`${e.actorEmail ?? e.actorId.slice(0, 8)} · ${humanize(e.targetType)} ${e.targetId.slice(0, 8)}`}
-                  meta={formatDateTime(e.createdAt)}
-                  icon={History}
-                  iconTone={i % 3 === 0 ? 'ink' : 'paper'}
-                  trailing={
-                    <Text variant="caption" color="ink5">
-                      {timeAgo(e.createdAt)}
-                    </Text>
-                  }
-                  last={i === rows.length - 1}
-                />
-              ))}
-            </ListCard>
-          </Appear>
+          <Text variant="caption" weight="semibold" color="ink4" style={{ marginLeft: 4 }}>
+            Showing {rows.length} entr{rows.length === 1 ? 'y' : 'ies'}
+            {applied.action || applied.targetType ? ' · filtered' : ''}
+          </Text>
+          {groupByDay(rows).map((g, gi) => (
+            <Appear key={g.label} i={gi}>
+              <View style={{ gap: 8 }}>
+                <Text variant="overline" color="copper" style={{ marginLeft: 4, marginTop: gi ? 8 : 0 }}>
+                  {g.label}
+                </Text>
+                <Card kind="flat" padding={16} style={{ gap: 0 }}>
+                  {g.items.map((e, i) => (
+                    <View key={e.id} style={{ flexDirection: 'row', gap: 12 }}>
+                      <View style={{ alignItems: 'center', width: 14 }}>
+                        <View style={{ width: 10, height: 10, borderRadius: 5, marginTop: 5, backgroundColor: i === 0 && gi === 0 ? colors.volt : colors.paper, borderWidth: 2, borderColor: i === 0 && gi === 0 ? colors.voltDeep : colors.ink6 }} />
+                        {i < g.items.length - 1 ? <View style={{ flex: 1, width: 2, borderRadius: 1, backgroundColor: colors.lineSoft, marginVertical: 3 }} /> : null}
+                      </View>
+                      <View style={{ flex: 1, gap: 2, paddingBottom: i < g.items.length - 1 ? 16 : 0 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text variant="bodySm" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
+                            {humanize(e.action)}
+                          </Text>
+                          <Text variant="caption" color="ink5">
+                            {formatTime(e.createdAt)}
+                          </Text>
+                        </View>
+                        <Text variant="caption" color="ink4" numberOfLines={1}>
+                          {e.actorEmail ?? e.actorId.slice(0, 8)}
+                        </Text>
+                        <View style={{ flexDirection: 'row', marginTop: 4 }}>
+                          <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: colors.pearl }}>
+                            <Text variant="caption" color="ink3" style={{ fontSize: 10.5 }}>
+                              {humanize(e.targetType)} · {e.targetId.slice(0, 8)}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+                </Card>
+              </View>
+            </Appear>
+          ))}
           <LoadMore
             hasMore={!!q.hasNextPage}
             loading={q.isFetchingNextPage}
@@ -124,12 +145,30 @@ export function ActivityScreen() {
           {q.isFetchingNextPage ? <ActivityIndicator color={colors.ink} /> : null}
         </View>
       )}
-      {rows.length > 0 ? (
-        <CodeBlock value={{ showing: rows.length, filters: applied }} maxLines={6} />
-      ) : null}
       {canExport ? <ExportSchedulesSection /> : null}
     </Screen>
   );
+}
+
+function formatTime(ts: number) {
+  const d = new Date(ts < 10_000_000_000 ? ts * 1000 : ts);
+  return d.toLocaleTimeString('en-LK', { hour: 'numeric', minute: '2-digit' });
+}
+
+/** Buckets audit entries into Today / Yesterday / dated groups, preserving order. */
+function groupByDay<T extends { createdAt: number }>(rows: T[]) {
+  const out: { label: string; items: T[] }[] = [];
+  const today = new Date();
+  const yesterday = new Date(Date.now() - 86_400_000);
+  const same = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  for (const r of rows) {
+    const d = new Date(r.createdAt < 10_000_000_000 ? r.createdAt * 1000 : r.createdAt);
+    const label = same(d, today) ? 'Today' : same(d, yesterday) ? 'Yesterday' : formatDate(d.getTime());
+    const last = out[out.length - 1];
+    if (last && last.label === label) last.items.push(r);
+    else out.push({ label, items: [r] });
+  }
+  return out;
 }
 
 /** Mirrors the web AdminActivityPage scheduled-exports block (/admin/audit/exports). */

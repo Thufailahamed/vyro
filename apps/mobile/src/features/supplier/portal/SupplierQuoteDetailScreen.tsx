@@ -106,6 +106,8 @@ export function SupplierQuoteDetailScreen() {
       : 'This RFQ has no line items to price.';
   const allPriced = items.every((it) => Number(prices[it.id] ?? 0) > 0);
   const pricedCount = items.filter((it) => Number(prices[it.id] ?? 0) > 0).length;
+  const quoteTotal = items.reduce((sum, it) => sum + Math.round(Number(prices[it.id] ?? 0) * 100) * it.quantity, 0);
+  const daysLeft = rfq.deadline != null ? Math.ceil((rfq.deadline - now) / 86_400_000) : null;
 
   return (
     <Screen
@@ -117,14 +119,24 @@ export function SupplierQuoteDetailScreen() {
       keyboard
       footer={
         quotable ? (
-          <Button
-            title={submit.isPending ? 'Submitting…' : 'Submit quote'}
-            icon={Send}
-            full
-            loading={submit.isPending}
-            disabled={!allPriced}
-            onPress={() => submit.mutate()}
-          />
+          <>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 }}>
+              <Text variant="caption" color="ink4">
+                Quote total · {pricedCount}/{items.length} priced
+              </Text>
+              <Text variant="h2" tabular>
+                {formatLKR(quoteTotal)}
+              </Text>
+            </View>
+            <Button
+              title={submit.isPending ? 'Submitting…' : 'Submit quote'}
+              icon={Send}
+              full
+              loading={submit.isPending}
+              disabled={!allPriced}
+              onPress={() => submit.mutate()}
+            />
+          </>
         ) : undefined
       }
     >
@@ -138,9 +150,9 @@ export function SupplierQuoteDetailScreen() {
             <HeroMetric label="Line items" value={String(items.length)} sub={rfq.rfqNumber} tone="volt" style={{ flex: 1 }} />
             <HeroMetric
               label="Deadline"
-              value={rfq.deadline ? formatDate(rfq.deadline) : 'Open'}
-              sub={deadlinePassed ? 'Passed' : quotable ? 'Accepting quotes' : 'Closed'}
-              tone={deadlinePassed ? 'rose' : 'paper'}
+              value={daysLeft == null ? 'Open' : deadlinePassed ? 'Passed' : daysLeft <= 1 ? 'Today' : `${daysLeft} days`}
+              sub={rfq.deadline ? formatDate(rfq.deadline) : quotable ? 'Accepting quotes' : 'Closed'}
+              tone={deadlinePassed ? 'rose' : daysLeft != null && daysLeft <= 2 ? 'volt' : 'paper'}
               style={{ flex: 1 }}
             />
             <HeroMetric label="My quotes" value={String(myQuotes.length)} sub={myQuotes.length ? 'Submitted' : 'None yet'} tone={myQuotes.length ? 'mint' : 'paper'} style={{ flex: 1 }} />
@@ -148,11 +160,14 @@ export function SupplierQuoteDetailScreen() {
         </InkHero>
       </Enter>
       {!quotable ? (
-        <Card kind="flat" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <IconTile icon={CircleAlert} tone="warning" size={38} />
-          <Text variant="bodySm" weight="medium" color="ink2" style={{ flex: 1 }}>
-            {closedReason}
-          </Text>
+        <Card kind="bone" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <IconTile icon={CircleAlert} tone="warning" size={40} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="h3">Quoting closed</Text>
+            <Text variant="bodySm" color="ink4">
+              {closedReason}
+            </Text>
+          </View>
         </Card>
       ) : null}
       {myQuotes.length ? (
@@ -164,49 +179,77 @@ export function SupplierQuoteDetailScreen() {
           </View>
         </Section>
       ) : null}
-      <Section
-        icon={ListChecks}
-        kicker="Step 1 · Pricing"
-        title="Line items"
-        right={
-          quotable ? (
-            <Badge label={allPriced ? 'Ready' : `${pricedCount}/${items.length}`} tone={allPriced ? 'success' : 'neutral'} dot size="sm" />
-          ) : null
-        }
-        sub={quotable ? (allPriced ? 'Ready to submit' : 'Price every line to submit') : undefined}
-      >
-        {items.map((it, i) => (
-          <View key={it.id} style={{ gap: 10, padding: 14, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
-            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-              <View style={{ width: 28, height: 28, borderRadius: 10, borderCurve: 'continuous', backgroundColor: Number(prices[it.id] ?? 0) > 0 ? colors.volt : colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11.5, lineHeight: 14, color: Number(prices[it.id] ?? 0) > 0 ? colors.ink : colors.volt }}>{i + 1}</Text>
-              </View>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text variant="body" weight="medium">
-                  {it.description}
-                </Text>
-                <Text variant="caption" color="ink4">
-                  Qty {it.quantity} {it.unit}
-                  {it.targetPriceCents ? ` · Target ${formatLKR(it.targetPriceCents)}` : ''}
-                </Text>
-              </View>
-            </View>
-            <Field label={`Unit price (LKR) — ${it.unit}`}>
-              <Input
-                value={prices[it.id] ?? ''}
-                onChangeText={(v) => setPrices((p) => ({ ...p, [it.id]: v }))}
-                placeholder="0.00"
-                keyboardType="decimal-pad"
-              />
+      {quotable ? (
+        <>
+          <Section
+            icon={ListChecks}
+            kicker="Step 1 · Pricing"
+            title="Line items"
+            right={<Badge label={allPriced ? 'Ready' : `${pricedCount}/${items.length}`} tone={allPriced ? 'success' : 'neutral'} dot size="sm" />}
+            sub={allPriced ? 'Ready to submit' : 'Price every line to submit'}
+          >
+            {items.map((it, i) => {
+              const priced = Number(prices[it.id] ?? 0) > 0;
+              const line = Math.round(Number(prices[it.id] ?? 0) * 100) * it.quantity;
+              return (
+                <View
+                  key={it.id}
+                  style={{
+                    gap: 12,
+                    padding: 14,
+                    borderRadius: radii.xl,
+                    borderCurve: 'continuous',
+                    backgroundColor: colors.pearl,
+                    borderWidth: 1,
+                    borderColor: priced ? 'rgba(122,143,34,0.28)' : 'transparent',
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+                    <View style={{ width: 28, height: 28, borderRadius: 10, borderCurve: 'continuous', backgroundColor: priced ? colors.volt : colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11.5, lineHeight: 14, color: priced ? colors.ink : colors.volt }}>{i + 1}</Text>
+                    </View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text variant="body" weight="medium">
+                        {it.description}
+                      </Text>
+                      <Text variant="caption" color="ink4">
+                        Qty {it.quantity} {it.unit}
+                        {it.targetPriceCents ? ` · Target ${formatLKR(it.targetPriceCents)}` : ''}
+                      </Text>
+                    </View>
+                    {priced ? (
+                      <Text variant="bodySm" weight="semibold" tabular>
+                        {formatLKR(line)}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Field label={`Unit price (LKR) per ${it.unit}`}>
+                    <Input value={prices[it.id] ?? ''} onChangeText={(v) => setPrices((p) => ({ ...p, [it.id]: v }))} placeholder="0.00" keyboardType="decimal-pad" />
+                  </Field>
+                </View>
+              );
+            })}
+          </Section>
+          <Section icon={MessageSquare} kicker="Step 2 · Terms" title="Message to buyer">
+            <Field label="Message to buyer (optional)">
+              <Input value={msg} onChangeText={setMsg} placeholder="Lead time, packaging, delivery…" multiline />
             </Field>
+          </Section>
+        </>
+      ) : items.length ? (
+        <Section icon={ListChecks} kicker="Requested" title="Line items" sub={`${items.length} ${items.length === 1 ? 'line' : 'lines'}`}>
+          <View style={{ marginTop: -8 }}>
+            {items.map((it, i) => (
+              <KeyValue
+                key={it.id}
+                label={it.description}
+                value={`${it.quantity} ${it.unit}${it.targetPriceCents ? ` · ${formatLKR(it.targetPriceCents)}` : ''}`}
+                last={i === items.length - 1}
+              />
+            ))}
           </View>
-        ))}
-      </Section>
-      <Section icon={MessageSquare} kicker="Step 2 · Terms" title="Message to buyer">
-        <Field label="Message to buyer (optional)">
-          <Input value={msg} onChangeText={setMsg} placeholder="Lead time, packaging, delivery…" multiline />
-        </Field>
-      </Section>
+        </Section>
+      ) : null}
     </Screen>
   );
 }

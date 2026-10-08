@@ -1,10 +1,10 @@
 import { type ReactNode } from 'react';
-import { View, type StyleProp, type ViewStyle } from 'react-native';
+import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { router, type Href } from 'expo-router';
 import type { LucideIcon } from 'lucide-react-native';
-import { Card, IconTile, Text } from '@/ui';
-import { colors, fonts, radii } from '@/theme/tokens';
-import { formatLKR } from '@/lib/format';
+import { Card, IconTile, Text, Touchable } from '@/ui';
+import { GUTTER, colors, fonts, radii } from '@/theme/tokens';
+import { formatCompactLKR, formatLKR, formatRs } from '@/lib/format';
 
 /** Typed-routes escape hatch for paths built at runtime. */
 export function go(path: string) {
@@ -247,4 +247,178 @@ export function monthlySeries<T>(rows: T[], ts: (r: T) => number, value: (r: T) 
     if (i !== undefined) buckets[i].value += value(r);
   }
   return buckets.map(({ label, value: v }) => ({ label, value: v }));
+}
+
+/* ------------------------------ Mobile pieces ------------------------------ */
+
+/** Underlined text tabs that scroll horizontally — bleeds to the screen edges. */
+export function TabStrip<T extends string>({ tabs, value, onChange }: { tabs: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
+  return (
+    <View style={{ marginHorizontal: -GUTTER, borderBottomWidth: StyleSheet.hairlineWidth * 2, borderBottomColor: colors.line }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: GUTTER, gap: 22 }}>
+        {tabs.map((t) => {
+          const on = t.value === value;
+          return (
+            <Touchable key={t.value} onPress={() => onChange(t.value)} hapticOnPress accessibilityRole="tab" accessibilityState={{ selected: on }} style={{ paddingTop: 6, paddingBottom: 12 }}>
+              <Text variant="body" weight={on ? 'semibold' : 'medium'} color={on ? 'ink' : 'ink4'}>
+                {t.label}
+              </Text>
+              {on ? <View style={{ position: 'absolute', left: 0, right: 0, bottom: -1, height: 3, borderRadius: 2, backgroundColor: colors.ink }} /> : null}
+            </Touchable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+/** One headline figure with up to three supporting stats beneath it. */
+export function SummaryCard({
+  label,
+  cents,
+  value,
+  caption,
+  stats,
+  right,
+}: {
+  label: string;
+  cents?: number;
+  value?: string;
+  caption?: string;
+  stats: { label: string; value: string; color?: string }[];
+  right?: ReactNode;
+}) {
+  return (
+    <Card padding={0} radius={radii['2xl']}>
+      <View style={{ padding: 18, gap: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <Text variant="bodySm" color="ink4">
+            {label}
+          </Text>
+          {right}
+        </View>
+        <Text variant="metric" numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 32, lineHeight: 38 }}>
+          {value ?? formatRs(cents ?? 0)}
+        </Text>
+        {caption ? (
+          <Text variant="caption" color="ink5">
+            {caption}
+          </Text>
+        ) : null}
+      </View>
+      {stats.length ? (
+        <View style={{ flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft }}>
+          {stats.map((st, i) => (
+            <View key={st.label} style={{ flex: 1, flexDirection: 'row' }}>
+              {i ? <View style={{ width: StyleSheet.hairlineWidth * 2, backgroundColor: colors.lineSoft, marginVertical: 12 }} /> : null}
+              <View style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 12, gap: 2 }}>
+                <Text variant="caption" color="ink4" numberOfLines={1}>
+                  {st.label}
+                </Text>
+                <Text variant="h3" numberOfLines={1} adjustsFontSizeToFit tabular style={st.color ? { color: st.color } : null}>
+                  {st.value}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </Card>
+  );
+}
+
+/** A banking-style row: tinted icon disc, title/subtitle, amount + meta on the right. */
+export function MoneyRow({
+  icon: Icon,
+  tint = colors.ink,
+  tintBg = colors.bone,
+  title,
+  subtitle,
+  amount,
+  amountColor,
+  meta,
+  onPress,
+  last,
+}: {
+  icon: LucideIcon;
+  tint?: string;
+  tintBg?: string;
+  title: string;
+  subtitle?: string;
+  amount: string;
+  amountColor?: string;
+  meta?: ReactNode;
+  onPress?: () => void;
+  last?: boolean;
+}) {
+  const body = (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13 }}>
+      <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: tintBg, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon size={18} color={tint} strokeWidth={2} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text variant="body" weight="semibold" numberOfLines={1}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text variant="caption" color="ink4" numberOfLines={1}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      <View style={{ alignItems: 'flex-end', gap: 4, maxWidth: '45%' }}>
+        <Text variant="body" weight="semibold" tabular numberOfLines={1} style={amountColor ? { color: amountColor } : null}>
+          {amount}
+        </Text>
+        {meta}
+      </View>
+      {!last ? <View style={{ position: 'absolute', left: 54, right: 0, bottom: 0, height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.lineSoft }} /> : null}
+    </View>
+  );
+  return onPress ? (
+    <Touchable onPress={onPress} hapticOnPress scaleTo={0.985} accessibilityLabel={title}>
+      {body}
+    </Touchable>
+  ) : (
+    body
+  );
+}
+
+/** Rows grouped under month headings, each group in one inset card. */
+export function MonthGroups<T>({ items, ts, render }: { items: T[]; ts: (r: T) => number; render: (r: T, last: boolean) => ReactNode }) {
+  const groups: { label: string; rows: T[] }[] = [];
+  for (const r of items) {
+    const d = new Date(ts(r));
+    const label = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    const g = groups[groups.length - 1];
+    if (g && g.label === label) g.rows.push(r);
+    else groups.push({ label, rows: [r] });
+  }
+  return (
+    <View style={{ gap: 18 }}>
+      {groups.map((g) => (
+        <View key={g.label} style={{ gap: 8 }}>
+          <Text variant="overline" color="ink4" style={{ marginLeft: 6 }}>
+            {g.label}
+          </Text>
+          <Card padding={0} radius={radii['2xl']} style={{ paddingHorizontal: 14 }}>
+            {g.rows.map((r, i) => render(r, i === g.rows.length - 1))}
+          </Card>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** Short money for tight cells: whole rupees under Rs. 1,000, compact above. */
+export function formatShort(cents: number): string {
+  return Math.abs(cents) < 100_000 ? formatRs(cents) : formatCompactLKR(cents);
+}
+
+/** Soft tint pair for a payment status. */
+export function statusTint(status: string): { fg: string; bg: string } {
+  if (['confirmed', 'paid', 'completed', 'collected', 'verified', 'settled'].includes(status)) return { fg: colors.mint, bg: colors.mintSoft };
+  if (['failed', 'cancelled', 'rejected'].includes(status)) return { fg: colors.rose, bg: colors.roseSoft };
+  if (status === 'refunded') return { fg: colors.copperDeep, bg: colors.copperSoft };
+  return { fg: colors.amber, bg: colors.amberSoft };
 }

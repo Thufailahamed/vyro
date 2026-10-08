@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { interpolateColor, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withSpring, withTiming, Easing } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertTriangle, CheckCircle2, Info, XCircle, type LucideIcon } from 'lucide-react-native';
+import { AlertTriangle, CheckCircle2, Inbox, Info, XCircle, type LucideIcon } from 'lucide-react-native';
 import { colors, radii, shadow, tones, type Tone } from '@/theme/tokens';
 import { humanize } from '@/lib/format';
 import { toneForStatus } from '@/lib/status';
@@ -72,7 +72,7 @@ export function Badge({
       <AnimatedText
         style={[
           {
-            fontFamily: 'IBMPlexSans_600SemiBold',
+            fontFamily: 'Sans-Semi',
             fontSize: size === 'sm' ? 10.5 : 11.5,
             lineHeight: size === 'sm' ? 14 : 16,
             letterSpacing: 0.2,
@@ -172,7 +172,7 @@ export function EmptyState({
       style={[
         {
           alignItems: 'center',
-          paddingVertical: compact ? 30 : 48,
+          paddingVertical: compact ? 24 : 48,
           paddingHorizontal: 24,
           borderRadius: radii['2xl'],
           borderCurve: 'continuous',
@@ -184,18 +184,25 @@ export function EmptyState({
         shadow.card,
       ]}
     >
-      {Icon ? (
+      {compact ? (
+        <View style={{ width: 46, height: 46, borderRadius: 16, borderCurve: 'continuous', backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+          {(() => {
+            const I = Icon ?? Inbox;
+            return <I size={20} color={colors.ink4} strokeWidth={1.8} />;
+          })()}
+        </View>
+      ) : Icon ? (
         <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: 'rgba(198,220,74,0.16)', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
           <View style={[{ width: 60, height: 60, borderRadius: 30, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }, shadow.ink]}>
             <Icon size={25} color={colors.volt} strokeWidth={1.6} />
           </View>
         </View>
       ) : null}
-      <Text variant="h2" align="center">
+      <Text variant={compact ? 'h3' : 'h2'} align="center" style={compact ? { fontFamily: 'Display-Bold' } : undefined}>
         {title}
       </Text>
       {message ? (
-        <Text variant="bodySm" color="ink4" align="center" style={{ marginTop: 6, maxWidth: 280 }}>
+        <Text variant="bodySm" color="ink4" align="center" style={{ marginTop: compact ? 4 : 6, maxWidth: 280 }}>
           {message}
         </Text>
       ) : null}

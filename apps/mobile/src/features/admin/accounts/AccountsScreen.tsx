@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  ArrowLeftRight,
   Building2,
   CheckCircle2,
   CircleDollarSign,
@@ -10,11 +11,13 @@ import {
   Landmark,
   RefreshCw,
   Scale,
+  Send,
+  Undo2,
+  Wallet,
 } from 'lucide-react-native';
 import {
   Button,
   Card,
-  ChipRow,
   EmptyState,
   ErrorState,
   Field,
@@ -32,17 +35,18 @@ import { formatLKR, timeAgo } from '@/lib/format';
 import { colors, fonts } from '@/theme/tokens';
 import { Section } from '../../buyer/orders/kit';
 import { go } from '@/features/admin/platform/kit';
+import { TileTabs } from '@/features/admin/ops/kit';
 import { usePermission } from '@/features/admin/common/permissions';
 import { ExportButton } from '@/features/admin/money/accounts/shared';
 
 type Tab = 'payments' | 'refunds' | 'bank' | 'settlements' | 'payouts' | 'recon';
-const TABS: { value: Tab; label: string }[] = [
-  { value: 'payments', label: 'Payments' },
-  { value: 'refunds', label: 'Refunds' },
-  { value: 'bank', label: 'Bank' },
-  { value: 'settlements', label: 'Settlements' },
-  { value: 'payouts', label: 'Payouts' },
-  { value: 'recon', label: 'Recon' },
+const TABS = [
+  { value: 'payments' as Tab, label: 'Payments', hint: 'Records', icon: Wallet },
+  { value: 'refunds' as Tab, label: 'Refunds', hint: 'Reversals', icon: Undo2 },
+  { value: 'bank' as Tab, label: 'Bank', hint: 'Transfers', icon: Landmark },
+  { value: 'settlements' as Tab, label: 'Settle', hint: 'Supplier', icon: ArrowLeftRight },
+  { value: 'payouts' as Tab, label: 'Payouts', hint: 'Batches', icon: Send },
+  { value: 'recon' as Tab, label: 'Recon', hint: 'Matching', icon: Scale },
 ];
 
 /** /admin/accounts — condensed financial operations console (web AdminAccountsPage). */
@@ -58,7 +62,7 @@ export function AdminAccountsScreen() {
       gap={14}
     >
       <View style={{ gap: 14 }}>
-        <ChipRow options={TABS} value={tab} onChange={setTab} />
+        <TileTabs options={TABS} value={tab} onChange={setTab} />
         {tab === 'payments' ? <PaymentsTab /> : null}
         {tab === 'refunds' ? <RefundsTab /> : null}
         {tab === 'bank' ? <BankTab /> : null}
@@ -108,9 +112,9 @@ function Row({
   return (
     <Card kind="flat" padding={16} onPress={onPress} style={{ gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <IconTile icon={CircleDollarSign} tone="paper" size={40} />
+        <IconTile icon={CircleDollarSign} tone="paper" size={42} />
         <View style={{ flex: 1, gap: 3 }}>
-          <Text variant="body" weight="semibold" numberOfLines={1}>
+          <Text variant="h3" numberOfLines={1} style={{ fontFamily: fonts.displayBold, letterSpacing: -0.3 }}>
             {title}
           </Text>
           {sub ? (
@@ -119,20 +123,11 @@ function Row({
             </Text>
           ) : null}
         </View>
-        <View style={{ alignItems: 'flex-end', gap: 5 }}>
-          {amount != null ? (
-            <Text
-              style={{
-                fontFamily: fonts.monoMedium,
-                fontSize: 14.5,
-                letterSpacing: -0.3,
-                color: colors.ink,
-              }}
-            >
-              {formatLKR(amount)}
-            </Text>
-          ) : null}
+        <View style={{ alignItems: 'flex-end', gap: 6 }}>
           {status ? <StatusBadge status={status} size="sm" /> : null}
+          {amount != null ? (
+            <Text style={{ fontFamily: fonts.displayBold, fontSize: 15.5, lineHeight: 20, letterSpacing: -0.4, color: colors.ink }}>{formatLKR(amount)}</Text>
+          ) : null}
         </View>
       </View>
       {right ? (

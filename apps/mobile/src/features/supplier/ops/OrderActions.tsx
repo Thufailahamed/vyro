@@ -108,7 +108,7 @@ export function OrderActions({
 
   return (
     <>
-      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flex: full ? 1 : undefined }}>
+      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', alignSelf: full ? 'stretch' : undefined }}>
         {next ? (
           <Button
             title={gated ? 'Awaiting payment' : NEXT_LABEL[next] ?? humanize(next)}

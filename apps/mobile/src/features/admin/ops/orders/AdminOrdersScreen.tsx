@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowDownUp, ArrowRight, Download, Globe2, MapPin, Package } from 'lucide-react-native';
+import { ArrowDown, Download, Globe2, MapPin, Package, SlidersHorizontal, X } from 'lucide-react-native';
 import {
-  Button,
+  Avatar,
   Card,
   ChipRow,
   EmptyState,
@@ -15,19 +15,20 @@ import {
   ListHeader,
   ListScreen,
   RadioCards,
-  ScreenHeader,
   SearchBar,
+  Segmented,
   Sheet,
   SkeletonList,
   StatusBadge,
   Text,
+  Touchable,
   useToast,
 } from '@/ui';
-import { colors } from '@/theme/tokens';
+import { colors, radii, shadow } from '@/theme/tokens';
 import { errorMessage } from '@/lib/api';
 import { formatCompactLKR, formatDate, formatLKR, humanize, timeAgo } from '@/lib/format';
 
-import { AdminHeaderActions, HeroMetric, Pill, Reveal, shareCsv, useDebounced } from '../kit';
+import { AdminTabHeader, HeroPipeline, Pill, Reveal, shareCsv, useDebounced } from '../kit';
 import { ORDER_STATUS_TABS, useAdminOrders, type AdminOrder, type OrderDirection } from './api';
 
 type SortOption = 'newest' | 'oldest' | 'amount-high' | 'amount-low';
@@ -108,41 +109,51 @@ export function AdminOrdersScreen() {
 
   const header = (
     <ListHeader>
-      <ScreenHeader
+      <AdminTabHeader
         kicker="Operations · Fulfilment"
-        title="Orders control"
-        subtitle="Cross-tenant purchase orders, lifecycle audit and delivery tracking."
-        right={
-          <>
-            <IconButton icon={Download} accessibilityLabel="Export CSV" variant="surface" onPress={exportCsv} />
-            <AdminHeaderActions />
-          </>
-        }
+        title="Orders"
+        extra={<IconButton icon={Download} accessibilityLabel="Export CSV" variant="surface" onPress={exportCsv} />}
       />
       <Gutter>
-        <InkHero seed="admin-orders">
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text variant="overline" color="volt">
-              Order registry
-            </Text>
+        <InkHero seed="admin-orders" style={{ padding: 18 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <IconTile icon={Package} tone="glass" size={30} />
+              <Text variant="overline" color="paperMuted">
+                Gross volume{dir ? ` · ${humanize(dir)}` : ''}
+              </Text>
+            </View>
             <Pill label={`${metrics.counts.all ?? 0} tracked`} tone="ink" />
           </View>
-          <Text variant="metric" color="paper" style={{ marginTop: 10 }} numberOfLines={1} adjustsFontSizeToFit>
+          <Text style={{ fontFamily: 'Display-Black', fontSize: 40, lineHeight: 46, letterSpacing: -1.6, color: colors.paper, marginTop: 16 }} numberOfLines={1} adjustsFontSizeToFit>
             {formatCompactLKR(metrics.total)}
           </Text>
-          <Text variant="caption" color="paperMuted">
-            Gross volume in scope{dir ? ` · ${humanize(dir)}` : ''}
+          <Text variant="bodySm" color="paperMuted" style={{ marginTop: 2 }}>
+            Purchase orders across every tenant
           </Text>
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 20, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.paperLine }}>
-            <HeroMetric label="Pending" value={String(metrics.pending)} tone={metrics.pending ? 'volt' : 'paper'} />
-            <HeroMetric label="In flight" value={String(metrics.fulfil)} />
-            <HeroMetric label="Delivered" value={String(metrics.delivered)} />
-            <HeroMetric label="Holds" value={String(metrics.holds)} tone={metrics.holds ? 'rose' : 'paper'} />
-          </View>
+          <HeroPipeline
+            segments={[
+              { label: 'Pending', value: metrics.pending, color: colors.volt },
+              { label: 'In flight', value: metrics.fulfil, color: colors.copper },
+              { label: 'Delivered', value: metrics.delivered, color: colors.mint },
+              { label: 'Holds', value: metrics.holds, color: colors.rose },
+            ]}
+          />
         </InkHero>
       </Gutter>
-      <Gutter style={{ gap: 10 }}>
-        <SearchBar value={search} onChangeText={setSearch} placeholder="PO#, buyer, supplier, city…" />
+      <Gutter style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+        <View style={{ flex: 1 }}>
+          <SearchBar value={search} onChangeText={setSearch} placeholder="PO#, buyer, supplier, city…" />
+        </View>
+        <Touchable
+          onPress={() => setSortOpen(true)}
+          hapticOnPress
+          scaleTo={0.94}
+          accessibilityLabel="Sort and filter"
+          style={[{ width: 48, height: 48, borderRadius: 16, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center', backgroundColor: direction !== 'all' || sort !== 'newest' ? colors.ink : colors.paper }, shadow.sm]}
+        >
+          <SlidersHorizontal size={19} color={direction !== 'all' || sort !== 'newest' ? colors.volt : colors.ink} strokeWidth={1.9} />
+        </Touchable>
       </Gutter>
       <ChipRow
         style={{ paddingHorizontal: 20 }}
@@ -150,13 +161,25 @@ export function AdminOrdersScreen() {
         value={status}
         onChange={setStatus}
       />
-      <ChipRow style={{ paddingHorizontal: 20 }} options={DIRECTIONS} value={direction} onChange={setDirection} />
       <Gutter>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text variant="overline" color="ink4">
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <Text variant="caption" weight="semibold" color="ink4" style={{ flex: 1 }}>
             {list.isLoading ? 'Loading…' : `${orders.length} ${orders.length === 1 ? 'order' : 'orders'} · ${formatCompactLKR(filteredValue)}`}
           </Text>
-          <Button title={SORTS.find((s) => s.value === sort)!.label} icon={ArrowDownUp} size="sm" variant="paper" onPress={() => setSortOpen(true)} />
+          {direction !== 'all' ? (
+            <Touchable onPress={() => setDirection('all')} hapticOnPress style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 26, paddingLeft: 10, paddingRight: 7, borderRadius: radii.pill, backgroundColor: colors.copperSoft }}>
+              <Text variant="caption" weight="semibold" color="copperDeep">
+                {humanize(direction)}
+              </Text>
+              <X size={12} color={colors.copperDeep} strokeWidth={2.4} />
+            </Touchable>
+          ) : null}
+          <Touchable onPress={() => setSortOpen(true)} hapticOnPress style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 26, paddingHorizontal: 10, borderRadius: radii.pill, backgroundColor: colors.mist }}>
+            <ArrowDown size={12} color={colors.ink3} strokeWidth={2.2} />
+            <Text variant="caption" weight="semibold" color="ink3">
+              {SORTS.find((x) => x.value === sort)!.label}
+            </Text>
+          </Touchable>
         </View>
       </Gutter>
     </ListHeader>
@@ -201,7 +224,14 @@ export function AdminOrdersScreen() {
           )
         }
       />
-      <Sheet visible={sortOpen} onClose={() => setSortOpen(false)} title="Sort orders">
+      <Sheet visible={sortOpen} onClose={() => setSortOpen(false)} title="Sort & filter" subtitle="Narrow the registry by trade route and order.">
+        <Text variant="overline" color="ink4" style={{ marginBottom: 8, marginLeft: 4 }}>
+          Trade route
+        </Text>
+        <Segmented options={DIRECTIONS.map((d) => ({ value: d.value, label: d.value === 'all' ? 'All' : d.label }))} value={direction} onChange={setDirection} style={{ marginBottom: 20 }} />
+        <Text variant="overline" color="ink4" style={{ marginBottom: 8, marginLeft: 4 }}>
+          Sort by
+        </Text>
         <RadioCards
           options={SORTS}
           value={sort}
@@ -218,38 +248,44 @@ export function AdminOrdersScreen() {
 export function OrderCard({ order: o, compact }: { order: AdminOrder; compact?: boolean }) {
   const cross = o.direction && o.direction !== 'domestic';
   return (
-    <Card onPress={() => router.push(`/admin/order/${o.id}` as never)} padding={16} style={{ gap: 12 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <IconTile icon={cross ? Globe2 : Package} tone={cross ? 'copper' : 'ink'} size={44} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="h3" numberOfLines={1}>
-            {o.businessName ?? 'Direct buyer'}
+    <Card onPress={() => router.push(`/admin/order/${o.id}` as never)} padding={0}>
+      <View style={{ padding: 16, gap: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text variant="mono" style={{ fontFamily: 'Sans-Semi', fontSize: 12, color: colors.ink3, letterSpacing: 0.2 }} numberOfLines={1}>
+            {o.poNumber ?? `#${o.id.slice(0, 8)}`}
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            <ArrowRight size={12} color={colors.copper} strokeWidth={2} />
-            <Text variant="bodySm" color="ink4" numberOfLines={1} style={{ flex: 1 }}>
-              {o.supplierName ?? 'Direct supplier'}
+          {cross ? <Pill label={`${o.direction}${o.incoterms ? ` · ${o.incoterms}` : ''}`.toUpperCase()} tone={o.direction === 'export' ? 'volt' : 'copper'} icon={Globe2} /> : null}
+          <View style={{ flex: 1 }} />
+          <StatusBadge status={o.status} size="sm" />
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ width: 44, height: 44 }}>
+            <Avatar name={o.businessName ?? 'Buyer'} size={36} tone="ink" />
+            <View style={{ position: 'absolute', right: 0, bottom: 0, borderRadius: 14, borderWidth: 2, borderColor: colors.paper }}>
+              <Avatar name={o.supplierName ?? 'Supplier'} size={24} tone="copper" />
+            </View>
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="h3" numberOfLines={1}>
+              {o.businessName ?? 'Direct buyer'}
+            </Text>
+            <Text variant="bodySm" color="ink4" numberOfLines={1}>
+              from {o.supplierName ?? 'direct supplier'}
               {o.supplierCity ? ` · ${o.supplierCity}` : ''}
             </Text>
           </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={{ fontFamily: 'Display-Bold', fontSize: 17, lineHeight: 22, letterSpacing: -0.4, color: colors.ink }} numberOfLines={1}>
+              {formatLKR(o.totalCents ?? 0)}
+            </Text>
+            <Text variant="caption" color="ink5" style={{ fontSize: 11 }}>
+              {o.currency ?? 'LKR'}
+            </Text>
+          </View>
         </View>
-        <View style={{ alignItems: 'flex-end', gap: 4 }}>
-          <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 15, letterSpacing: -0.3, color: colors.ink }} numberOfLines={1}>
-            {formatLKR(o.totalCents ?? 0)}
-          </Text>
-          <StatusBadge status={o.status} size="sm" />
-        </View>
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        <Pill label={o.poNumber ?? o.id.slice(0, 8)} />
-        {cross ? <Pill label={`${o.direction}${o.incoterms ? ` · ${o.incoterms}` : ''}`.toUpperCase()} tone={o.direction === 'export' ? 'volt' : 'copper'} icon={Globe2} /> : null}
-        <View style={{ flex: 1 }} />
-        <Text variant="caption" color="ink5">
-          {o.currency ?? 'LKR'}
-        </Text>
       </View>
       {!compact ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft, paddingTop: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: colors.pearl, borderBottomLeftRadius: radii.xl, borderBottomRightRadius: radii.xl, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft }}>
           <MapPin size={12} color={colors.ink5} />
           <Text variant="caption" color="ink4" numberOfLines={1} style={{ flex: 1 }}>
             {[o.deliveryCity, o.deliveryDistrict].filter(Boolean).join(', ') || 'No destination'}

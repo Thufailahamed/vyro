@@ -6,6 +6,7 @@ import { ArrowRight, BookOpenCheck, FileText, Landmark, ReceiptText, RotateCcw, 
 import { api, errorMessage } from '@/lib/api';
 import { formatDateTime, formatLKR, humanize } from '@/lib/format';
 import {
+  Avatar,
   Banner,
   Button,
   Card,
@@ -24,7 +25,7 @@ import {
 } from '@/ui';
 import { useAdminPaymentDetail } from '../api';
 import { Appear, Can, CodeBlock, go, rupeesToCents } from '@/features/admin/platform/kit';
-import { Section } from '@/features/admin/ops/kit';
+import { GlassStats, HeroFigure, HeroTopline, Section } from '@/features/admin/ops/kit';
 
 /**
  * Admin payment detail — mirrors apps/web/src/admin/PaymentDetailPage.tsx
@@ -99,19 +100,37 @@ export function PaymentDetailScreen() {
           return (
             <>
               <Appear>
-                <InkHero seed="payment-detail" style={{ gap: 10 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <StatusBadge status={p.status} />
-                    <Text variant="caption" color="paperMuted">
-                      {humanize(p.method)} · {formatDateTime(p.createdAt)}
-                    </Text>
+                <InkHero seed="payment-detail" style={{ padding: 18 }}>
+                  <HeroTopline
+                    icon={ReceiptText}
+                    label={`${humanize(p.method)} · ${p.currency}`}
+                    status={humanize(p.status)}
+                    statusTone={p.status === 'confirmed' ? 'ok' : p.status === 'pending' || p.status === 'refunded' ? 'warn' : 'danger'}
+                  />
+                  <HeroFigure value={formatLKR(p.amountCents)} caption={formatDateTime(p.createdAt)} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 18 }}>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Avatar name={p.businessName} size={30} tone="volt" />
+                      <Text variant="caption" weight="semibold" color="paper" numberOfLines={1} style={{ flex: 1 }}>
+                        {p.businessName}
+                      </Text>
+                    </View>
+                    <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(250,247,240,0.08)', alignItems: 'center', justifyContent: 'center' }}>
+                      <ArrowRight size={14} color={colors.volt} strokeWidth={2.2} />
+                    </View>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+                      <Text variant="caption" weight="semibold" color="paper" numberOfLines={1} style={{ flexShrink: 1, textAlign: 'right' }}>
+                        {p.supplierName}
+                      </Text>
+                      <Avatar name={p.supplierName} size={30} tone="copper" />
+                    </View>
                   </View>
-                  <Text variant="metric" color="paper" numberOfLines={1} adjustsFontSizeToFit>
-                    {formatLKR(p.amountCents)}
-                  </Text>
-                  <Text variant="caption" color="paperFaint">
-                    Fee {formatLKR(p.feeCents)} · net {formatLKR(p.netCents)} · {p.currency}
-                  </Text>
+                  <GlassStats
+                    items={[
+                      { label: 'Platform fee', value: formatLKR(p.feeCents) },
+                      { label: 'Net to supplier', value: formatLKR(p.netCents) },
+                    ]}
+                  />
                 </InkHero>
               </Appear>
 
@@ -197,7 +216,7 @@ export function PaymentDetailScreen() {
                             </Text>
                           </View>
                           <StatusBadge status={r.status} size="sm" />
-                          <Text variant="mono" style={{ fontFamily: 'IBMPlexMono_500Medium', color: colors.rose }}>
+                          <Text variant="mono" style={{ fontFamily: 'Sans-Semi', color: colors.rose }}>
                             {formatLKR(r.amountCents)}
                           </Text>
                         </View>
@@ -236,7 +255,7 @@ export function PaymentDetailScreen() {
                               {l.accountType} · {l.direction} · {formatDateTime(l.createdAt)}
                             </Text>
                           </View>
-                          <Text variant="mono" style={{ fontFamily: 'IBMPlexMono_500Medium' }}>
+                          <Text variant="mono" style={{ fontFamily: 'Sans-Semi' }}>
                             {formatLKR(l.amountCents)}
                           </Text>
                         </View>

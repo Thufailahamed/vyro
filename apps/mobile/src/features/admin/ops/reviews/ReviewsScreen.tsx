@@ -10,13 +10,14 @@ import {
   ConfirmSheet,
   EmptyState,
   ErrorState,
+  InkHero,
   Screen,
   SkeletonList,
   StatusBadge,
   useToast,
 } from '@/ui';
 import { Appear, Can } from '@/features/admin/platform/kit';
-import { RecordCard } from '@/features/admin/ops/kit';
+import { GlassStats, HeroFigure, HeroTopline, RecordCard } from '@/features/admin/ops/kit';
 
 interface ReviewFlag {
   id: string;
@@ -51,6 +52,7 @@ export function ReviewsScreen() {
 
   const rows: ReviewFlag[] = Array.isArray(flags.data) ? flags.data : (flags.data?.flags ?? flags.data?.items ?? []);
   const bursts = burst.data?.items ?? [];
+  const open = rows.filter((f) => f.status === 'open' || f.status === 'pending').length;
 
   const resolve = async () => {
     if (!target) return;
@@ -69,6 +71,20 @@ export function ReviewsScreen() {
 
   return (
     <Screen back kicker="Operations" title="Reviews" subtitle="Flagged supplier reviews awaiting moderation." onRefresh={() => Promise.all([flags.refetch(), burst.refetch()])}>
+      {!flags.isLoading && !flags.isError ? (
+        <Appear>
+          <InkHero seed="admin-reviews" style={{ padding: 18 }}>
+            <HeroTopline icon={Flag} label="Moderation queue" status={bursts.length ? `${bursts.length} flag burst${bursts.length === 1 ? '' : 's'}` : 'No bursts'} statusTone={bursts.length ? 'danger' : 'ok'} />
+            <HeroFigure value={open || rows.length} caption={open ? 'Flags waiting for a decision' : 'Flags on record'} />
+            <GlassStats
+              items={[
+                { label: 'Flags', value: rows.length, hint: 'Last 50' },
+                { label: 'Burst suppliers', value: bursts.length, hint: '≥3 flags in 24h', warn: bursts.length > 0 },
+              ]}
+            />
+          </InkHero>
+        </Appear>
+      ) : null}
       {bursts.length > 0 ? (
         <Appear>
           <Banner
@@ -92,14 +108,14 @@ export function ReviewsScreen() {
               <RecordCard
                 icon={Flag}
                 tone="copper"
-                title={f.reason}
+                title={humanize(f.reason)}
                 subtitle={f.supplierName ?? f.supplierId?.slice(0, 8) ?? 'Supplier'}
                 meta={formatDateTime(f.createdAt)}
                 status={<StatusBadge status={f.status} size="sm" />}
                 actions={
                   <Can perm="product:moderate">
                     <View style={{ flexDirection: 'row', gap: 8, flex: 1 }}>
-                      <Button title="Keep review" icon={Check} size="sm" variant="paper" onPress={() => setTarget({ flag: f, action: 'keep' })} style={{ flex: 1 }} />
+                      <Button title="Keep review" icon={Check} size="sm" variant="secondary" onPress={() => setTarget({ flag: f, action: 'keep' })} style={{ flex: 1 }} />
                       <Button title="Remove" icon={Trash2} size="sm" variant="danger" onPress={() => setTarget({ flag: f, action: 'remove' })} style={{ flex: 1 }} />
                     </View>
                   </Can>

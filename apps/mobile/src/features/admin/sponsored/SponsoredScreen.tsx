@@ -9,7 +9,6 @@ import {
   ErrorState,
   IconTile,
   Screen,
-  Segmented,
   SkeletonList,
   StatusBadge,
   Text,
@@ -19,15 +18,15 @@ import { api, errorMessage } from '@/lib/api';
 import { formatLKR, timeAgo } from '@/lib/format';
 import { colors, fonts } from '@/theme/tokens';
 import { MonoTag, Section, go } from '../../buyer/orders/kit';
-import { RecordCard } from '@/features/admin/ops/kit';
+import { RecordCard, TileTabs } from '@/features/admin/ops/kit';
 
 type Tab = 'approvals' | 'campaigns' | 'plans' | 'slots' | 'analytics';
-const TABS: { value: Tab; label: string }[] = [
-  { value: 'approvals', label: 'Approvals' },
-  { value: 'campaigns', label: 'Campaigns' },
-  { value: 'plans', label: 'Plans' },
-  { value: 'slots', label: 'Slots' },
-  { value: 'analytics', label: 'Analytics' },
+const TABS = [
+  { value: 'approvals' as Tab, label: 'Approvals', hint: 'Review queue', icon: CheckCircle2 },
+  { value: 'campaigns' as Tab, label: 'Campaigns', hint: 'Live & past', icon: Megaphone },
+  { value: 'plans' as Tab, label: 'Plans', hint: 'Subscriptions', icon: Crown },
+  { value: 'slots' as Tab, label: 'Slots', hint: 'Inventory', icon: LayoutGrid },
+  { value: 'analytics' as Tab, label: 'Analytics', hint: 'Performance', icon: BarChart3 },
 ];
 
 type Campaign = {
@@ -46,10 +45,11 @@ type Slot = { id: string; surface: string; position: number; categoryId: string 
 /** /admin/sponsored — approvals queue, campaigns, plans and slot inventory. */
 export function AdminSponsoredScreen() {
   const [tab, setTab] = useState<Tab>('approvals');
+  const pending = useCampaigns('pending');
   return (
     <Screen scroll back kicker="Paid placement" title="Sponsored" subtitle="Approval queue, live campaigns, subscription plans and slot inventory." gap={14}>
       <View style={{ gap: 14 }}>
-        <Segmented options={TABS} value={tab} onChange={setTab} />
+        <TileTabs options={TABS.map((t) => (t.value === 'approvals' ? { ...t, badge: pending.data?.length } : t))} value={tab} onChange={setTab} />
         {tab === 'approvals' ? <ApprovalsTab /> : null}
         {tab === 'campaigns' ? <CampaignsTab /> : null}
         {tab === 'plans' ? <PlansTab /> : null}

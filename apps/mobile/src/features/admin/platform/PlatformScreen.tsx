@@ -12,7 +12,6 @@ import {
   IconButton,
   Input,
   Screen,
-  Segmented,
   Sheet,
   SkeletonList,
   StatusBadge,
@@ -24,7 +23,7 @@ import { api, errorMessage } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { colors, fonts } from '@/theme/tokens';
 import { MonoTag, Section } from '../../buyer/orders/kit';
-import { Inset } from '@/features/admin/ops/kit';
+import { Inset, TileTabs } from '@/features/admin/ops/kit';
 
 type Tab = 'flags' | 'webhooks' | 'emails';
 type WebhookRow = { id: string; name: string; url: string; eventTypes: string[]; active: boolean; createdAt: number };
@@ -36,11 +35,11 @@ export function PlatformScreen() {
   return (
     <Screen back kicker="Platform control" title="Platform" subtitle="Runtime flags, outbound webhooks and email templates." gap={14}>
       <View style={{ gap: 14 }}>
-        <Segmented<Tab>
+        <TileTabs<Tab>
           options={[
-            { value: 'flags', label: 'Flags' },
-            { value: 'webhooks', label: 'Webhooks' },
-            { value: 'emails', label: 'Emails' },
+            { value: 'flags', label: 'Flags', hint: 'Runtime toggles', icon: Flag },
+            { value: 'webhooks', label: 'Webhooks', hint: 'Outbound', icon: Webhook },
+            { value: 'emails', label: 'Emails', hint: 'Templates', icon: Mail },
           ]}
           value={tab}
           onChange={setTab}
@@ -87,13 +86,21 @@ function JsonConfigSection({ section, icon, title }: { section: 'feature-flags' 
               value={current}
               onChangeText={setDraft}
               multiline
+              dark
               numberOfLines={12}
               autoCapitalize="none"
               autoCorrect={false}
-              style={{ minHeight: 220, textAlignVertical: 'top', fontFamily: fonts.mono, fontSize: 12 }}
+              containerStyle={{ backgroundColor: colors.ink, borderColor: dirty ? colors.volt : 'rgba(250,247,240,0.08)' }}
+              style={{ minHeight: 240, textAlignVertical: 'top', fontFamily: fonts.mono, fontSize: 12, lineHeight: 18, color: colors.voltGlow }}
             />
           </Field>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: dirty ? colors.amber : colors.mint }} />
+              <Text variant="caption" color="ink4">
+                {dirty ? 'Unsaved changes' : `Saved · v${q.data.version}`}
+              </Text>
+            </View>
             <Button title="Reset" variant="ghost" size="sm" disabled={!dirty} onPress={() => setDraft(null)} />
             <Button
               title="Save"

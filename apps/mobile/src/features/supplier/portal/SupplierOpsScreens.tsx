@@ -2,37 +2,31 @@ import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Clock, Landmark, PackageCheck, Plus, Trash2, TriangleAlert, Truck, Wallet } from 'lucide-react-native';
+import { CheckCircle2, Landmark, PackageCheck, Plus, Trash2, TriangleAlert, Truck, Wallet } from 'lucide-react-native';
 import { colors } from '@/theme/tokens';
 import { api, errorMessage, qs } from '@/lib/api';
 import { useSupplierId } from '@/lib/auth';
-import { formatDate, formatDateTime, formatLKR, humanize } from '@/lib/format';
+import { formatCompactLKR, formatDate, formatDateTime, formatLKR, humanize } from '@/lib/format';
 import {
   Badge,
-  Banner,
   Button,
-  Card,
-  ChipRow,
   ConfirmSheet,
   EmptyState,
   ErrorState,
   Field,
   IconButton,
   Input,
-  KeyValue,
   ListRow,
   ListSection,
   Screen,
   SearchBar,
   Segmented,
   SkeletonList,
-  Stat,
-  StatGrid,
   StatusBadge,
   Text,
   useToast,
 } from '@/ui';
-import { Enter, FooterLink, ItemCard, LedgerPill, Section } from '@/features/supplier/ops/kit';
+import { Enter, FooterLink, ItemCard, LedgerPill, LivePill, Section, SummaryHero } from '@/features/supplier/ops/kit';
 import { settledRevenue, useSupplierBalance, useSupplierDeliveries, useSupplierPayments, useSupplierPayouts } from './api';
 import { usePurchaseOrders } from '@/features/supplier/ops/api';
 
@@ -61,6 +55,8 @@ export function SupplierDeliveriesScreen() {
   const pending = all.filter((d) => d.status === 'pending').length;
   const active = all.filter((d) => ['assigned', 'picked_up', 'in_transit'].includes(d.status)).length;
   const done = all.filter((d) => d.status === 'delivered').length;
+  const failed = all.filter((d) => d.status === 'failed').length;
+  const toggle = (f: DFilter) => setFilter((cur) => (cur === f ? 'all' : f));
 
   if (q.isLoading)
     return (
@@ -77,25 +73,29 @@ export function SupplierDeliveriesScreen() {
 
   return (
     <Screen back onRefresh={() => q.refetch()} kicker="Fulfilment" title="Deliveries" subtitle="Fleet tracking and proof of delivery.">
-      <StatGrid>
-        <Stat label="Pending" value={pending} hint="Awaiting driver" icon={Clock} />
-        <Stat label="In transit" value={active} hint="En route" icon={Truck} accent={active > 0} />
-        <Stat label="Delivered" value={done} hint="eGRN signed" icon={PackageCheck} />
-      </StatGrid>
+      <Enter>
+        <SummaryHero
+          icon={Truck}
+          kicker="Fleet overview"
+          value={`${all.length} ${all.length === 1 ? 'delivery' : 'deliveries'}`}
+          sub={all.length ? `${Math.round((done / all.length) * 100)}% delivered with signed eGRN` : 'Dispatch an accepted order to start tracking.'}
+          right={active ? <LivePill label={`${active} on the road`} dark /> : undefined}
+          cells={[
+            { label: 'Pending', value: pending, dot: colors.amber, active: filter === 'pending', onPress: () => toggle('pending') },
+            { label: 'Transit', value: active, dot: colors.mint, active: filter === 'active', onPress: () => toggle('active') },
+            { label: 'Done', value: done, dot: colors.paperFaint, active: filter === 'delivered', onPress: () => toggle('delivered') },
+            { label: 'Failed', value: failed, dot: colors.rose, active: filter === 'failed', onPress: () => toggle('failed') },
+          ]}
+        />
+      </Enter>
       <SearchBar value={search} onChangeText={setSearch} placeholder="Search delivery, PO or driver…" />
-      <ChipRow<DFilter>
-        value={filter}
-        onChange={setFilter}
-        options={[
-          { value: 'all', label: 'All', count: all.length },
-          { value: 'pending', label: 'Pending', count: pending },
-          { value: 'active', label: 'In transit', count: active },
-          { value: 'delivered', label: 'Delivered', count: done },
-          { value: 'failed', label: 'Failed', count: all.filter((d) => d.status === 'failed').length },
-        ]}
-      />
       {shown.length === 0 ? (
-        <EmptyState icon={Truck} title="No deliveries" message="Delivery records appear once orders are dispatched." />
+        <EmptyState
+          icon={Truck}
+          title={all.length ? 'No matching deliveries' : 'No deliveries yet'}
+          message={all.length ? 'Try another search or clear the stage filter.' : 'Delivery records appear once orders are dispatched.'}
+          action={all.length ? { label: 'Clear filters', onPress: () => { setSearch(''); setFilter('all'); } } : undefined}
+        />
       ) : (
         shown.map((d, i) => (
           <Enter key={d.id} i={i}>
@@ -134,6 +134,7 @@ export function SupplierPaymentsScreen() {
 
   const list = payments.data?.items ?? [];
   const revenue = settledRevenue(list);
+  const awaiting = list.filter((p) => ['pending', 'authorized', 'processing'].includes(p.status)).length;
 
   const confirm = useMutation({
     mutationFn: (id: string) => api.post(`/payments/${id}/confirm`, { status: 'confirmed' }),
@@ -161,10 +162,19 @@ export function SupplierPaymentsScreen() {
 
   return (
     <Screen back onRefresh={refresh} kicker="Money" title="Payments" subtitle="Escrow settlements and bank payouts.">
-      <StatGrid>
-        <Stat label="Settled revenue" value={formatLKR(revenue)} hint={`${list.length} payments`} icon={Wallet} accent />
-        <Stat label="Ledger balance" value={formatLKR(balance.data?.balanceCents ?? 0)} hint="Supplier account" icon={Landmark} />
-      </StatGrid>
+      <Enter>
+        <SummaryHero
+          icon={Wallet}
+          kicker="Settled revenue"
+          value={formatLKR(revenue)}
+          sub={`Across ${list.length} ${list.length === 1 ? 'payment' : 'payments'} · funds held in escrow until delivery`}
+          cells={[
+            { label: 'Ledger balance', value: formatCompactLKR(balance.data?.balanceCents ?? 0), dot: colors.volt },
+            { label: 'To confirm', value: awaiting, dot: colors.amber },
+            { label: 'Fees', value: formatCompactLKR(list.reduce((sum, p) => sum + (p.feeCents ?? 0), 0)), dot: colors.paperFaint },
+          ]}
+        />
+      </Enter>
       <Segmented value={tab} onChange={setTab} options={[{ value: 'payments', label: 'Payments' }, { value: 'payouts', label: 'Payouts' }]} />
       {tab === 'payments' ? (
         list.length === 0 ? (
@@ -275,11 +285,19 @@ export function SupplierAccountsScreen() {
 
   return (
     <Screen back onRefresh={refresh} kicker="Money" title="Accounts" subtitle="Settlement ledger and payout destinations.">
-      <StatGrid>
-        <Stat label="Balance" value={formatLKR(overview.data?.balanceCents ?? 0)} icon={Landmark} accent />
-        <Stat label="Pending" value={formatLKR(overview.data?.pendingCents ?? 0)} icon={Wallet} />
-      </StatGrid>
-      <Banner tone="info" title="Payouts go to a verified bank account" message="Add your commercial settlement account below." />
+      <Enter>
+        <SummaryHero
+          icon={Landmark}
+          kicker="Ledger balance"
+          value={formatLKR(overview.data?.balanceCents ?? 0)}
+          sub="Payouts are sent only to verified commercial bank accounts."
+          cells={[
+            { label: 'Pending', value: formatCompactLKR(overview.data?.pendingCents ?? 0), dot: colors.amber },
+            { label: 'Accounts', value: list.length, dot: colors.volt },
+            { label: 'Open orders', value: orders.data?.orders.length ?? 0, dot: colors.paperFaint },
+          ]}
+        />
+      </Enter>
       {list.length === 0 ? (
         <EmptyState icon={Landmark} title="No bank accounts" message="Link a settlement account to receive payouts." />
       ) : (
@@ -318,9 +336,6 @@ export function SupplierAccountsScreen() {
         </Field>
         <Button title="Add account" icon={Plus} full loading={add.isPending} onPress={() => add.mutate()} />
       </Section>
-      <Card kind="flat" padding={0} style={{ paddingHorizontal: 16, paddingVertical: 2 }}>
-        <KeyValue label="Open orders" value={String(orders.data?.orders.length ?? 0)} mono last />
-      </Card>
       <ConfirmSheet
         visible={!!pendingDelete}
         onClose={() => setPendingDelete(null)}

@@ -1,12 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, CheckCircle2, Layers, ListOrdered, Package, Search, ShoppingBag, Store, Truck, UserPlus, Wallet } from 'lucide-react-native';
-import { colors, radii } from '@/theme/tokens';
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, CheckCircle2, ChevronRight, Layers, ListOrdered, Package, Search, ShoppingBag, Store, Truck, UserPlus, Wallet, type LucideIcon } from 'lucide-react-native';
+import { colors, fonts, radii } from '@/theme/tokens';
 import { formatCompactLKR, formatNumber, formatPercent, humanize, timeAgo } from '@/lib/format';
 import {
   AreaChart,
   Button,
+  Card,
   EmptyState,
   IconButton,
   IconTile,
@@ -20,16 +21,15 @@ import {
   Screen,
   SectionHeader,
   Skeleton,
+  Sparkline,
   CountUp,
-  Stat,
-  StatGrid,
   StatusBadge,
   Text,
+  Touchable,
 } from '@/ui';
 import { useAdminGet } from '@/features/admin/common/api';
-import { AdminHeaderActions, Section } from '@/features/admin/ops/kit';
-import { Appear, HeroGrid, HeroMetric, go } from '@/features/admin/platform/kit';
-import { PortalSwitcher } from '@/features/common/PortalSwitcher';
+import { AdminTabHeader, GlassStats, Section } from '@/features/admin/ops/kit';
+import { Appear, go } from '@/features/admin/platform/kit';
 
 interface CommandCenter {
   needsAction: { stuckPayments: number; payoutFailures: number; slaBreaches: number; openDisputes: number };
@@ -57,10 +57,10 @@ interface QueuesHealth {
 }
 
 /* Dashboard sections the operator can pin/reorder (persisted per device). */
-const SECTION_KEYS = ['stats', 'triage', 'gmv', 'queues', 'events', 'categories'] as const;
+const SECTION_KEYS = ['triage', 'stats', 'gmv', 'queues', 'events', 'categories'] as const;
 type SectionKey = (typeof SECTION_KEYS)[number];
 const SECTION_META: Record<SectionKey, { title: string; kicker: string }> = {
-  stats: { title: 'KPI grid', kicker: 'Stats' },
+  stats: { title: 'Marketplace', kicker: 'Active · 7d' },
   triage: { title: 'Triage queues', kicker: 'Needs action' },
   gmv: { title: 'GMV by day', kicker: 'Volume' },
   queues: { title: 'Workers', kicker: 'Queues' },
@@ -68,6 +68,57 @@ const SECTION_META: Record<SectionKey, { title: string; kicker: string }> = {
   categories: { title: 'Top categories', kicker: 'Mix' },
 };
 const ORDER_KEY = 'admin-overview-order';
+
+/** Triage tile — calm when clear, tinted and loud when work is waiting. */
+function TriageTile({ label, value, icon: Icon, onPress }: { label: string; value: number; icon: LucideIcon; onPress: () => void }) {
+  const hot = value > 0;
+  return (
+    <Touchable
+      onPress={onPress}
+      hapticOnPress
+      scaleTo={0.97}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${value}`}
+      style={[
+        {
+          flexBasis: '47%',
+          flexGrow: 1,
+          padding: 14,
+          gap: 14,
+          borderRadius: radii.xl,
+          borderCurve: 'continuous',
+          backgroundColor: hot ? colors.roseSoft : colors.paper,
+          borderWidth: StyleSheet.hairlineWidth * 2,
+          borderColor: hot ? 'rgba(196,90,74,0.22)' : 'rgba(12,14,11,0.05)',
+        },
+        hot ? null : { boxShadow: '0px 1px 2px rgba(12,14,11,0.04), 0px 8px 22px rgba(12,14,11,0.06)' },
+      ]}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <IconTile icon={Icon} tone={hot ? 'danger' : 'paper'} size={34} style={hot ? { backgroundColor: colors.paper } : undefined} />
+        {hot ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, height: 22, borderRadius: radii.pill, backgroundColor: colors.paper }}>
+            <Pulse color={colors.rose} size={5} />
+            <Text variant="caption" weight="semibold" style={{ fontSize: 10.5, color: '#9A3B2E' }}>
+              Open
+            </Text>
+          </View>
+        ) : (
+          <CheckCircle2 size={16} color={colors.mint} strokeWidth={2} />
+        )}
+      </View>
+      <View style={{ gap: 1 }}>
+        <Text style={{ fontFamily: fonts.displayBold, fontSize: 26, lineHeight: 31, letterSpacing: -0.8, color: hot ? '#9A3B2E' : colors.ink5 }}>{value}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+          <Text variant="caption" weight="semibold" color={hot ? 'ink2' : 'ink4'} numberOfLines={1} style={{ flexShrink: 1 }}>
+            {label}
+          </Text>
+          <ChevronRight size={13} color={hot ? colors.rose : colors.ink5} strokeWidth={2.2} />
+        </View>
+      </View>
+    </Touchable>
+  );
+}
 
 /**
  * Admin command centre — mirrors the web HomePage + CommandCenter:
@@ -118,36 +169,39 @@ export function AdminOverviewScreen() {
 
   const SECTION_BODY: Record<SectionKey, ReactNode | null> = {
     stats: (
-      <StatGrid>
-        <Stat icon={ShoppingBag} label="Buyers" value={m?.activeBuyers ?? 0} format={formatNumber} hint="Active · 7d" />
-        <Stat icon={Store} label="Suppliers" value={m?.activeSuppliers ?? 0} format={formatNumber} hint="Active · 7d" />
-        <Stat icon={CheckCircle2} label="Completion" value={m?.completionRate ?? 0} format={formatPercent} hint="Delivered share" />
-        <Stat icon={UserPlus} label="Signups" value={m?.newSignups ?? 0} format={formatNumber} hint="New accounts" accent />
-      </StatGrid>
+      <Card kind="flat" padding={0} style={{ flexDirection: 'row' }}>
+        {[
+          { icon: ShoppingBag, label: 'Buyers', value: m?.activeBuyers ?? 0, fmt: formatNumber },
+          { icon: Store, label: 'Suppliers', value: m?.activeSuppliers ?? 0, fmt: formatNumber },
+          { icon: UserPlus, label: 'Signups', value: m?.newSignups ?? 0, fmt: formatNumber },
+        ].map((c, i) => (
+          <View key={c.label} style={{ flex: 1, paddingVertical: 16, paddingHorizontal: 14, gap: 10, borderLeftWidth: i ? StyleSheet.hairlineWidth * 2 : 0, borderLeftColor: colors.lineSoft }}>
+            <IconTile icon={c.icon} tone={i === 2 ? 'volt' : 'paper'} size={30} />
+            <View style={{ gap: 1 }}>
+              <CountUp value={c.value} format={c.fmt} style={{ fontFamily: fonts.displayBold, fontSize: 22, lineHeight: 27, letterSpacing: -0.7, color: colors.ink }} />
+              <Text variant="caption" color="ink4" numberOfLines={1}>
+                {c.label}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </Card>
     ),
     triage: (
       <View>
-        <SectionHeader kicker="Needs action" title="Triage queues" action={{ label: cc.isLoading ? 'Alerts' : `${totalAlerts} open`, onPress: () => go('/admin/observability/alerts') }} />
+        <SectionHeader kicker="Needs action" title="Triage" action={{ label: cc.isLoading ? 'Alerts' : totalAlerts ? `${totalAlerts} open` : 'Alerts', onPress: () => go('/admin/observability/alerts') }} />
         {cc.isLoading ? (
-          <Skeleton height={240} radius={radii.xl} />
-        ) : (
-          <ListCard>
-            {alerts.map((a, i) => (
-              <ListRow
-                key={a.label}
-                title={a.label}
-                subtitle={a.value ? `${a.value} waiting` : 'Clear'}
-                leading={<IconTile icon={a.icon} tone={a.value ? 'danger' : 'success'} size={38} />}
-                trailing={
-                  <Text variant="metricSm" style={{ fontSize: 20, color: a.value ? colors.rose : colors.ink5 }}>
-                    {a.value}
-                  </Text>
-                }
-                last={i === alerts.length - 1}
-                onPress={() => go(a.href)}
-              />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+            {alerts.map((a) => (
+              <Skeleton key={a.label} height={118} radius={radii.xl} style={{ flexBasis: '47%', flexGrow: 1 }} />
             ))}
-          </ListCard>
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+            {alerts.map((a) => (
+              <TriageTile key={a.label} label={a.label} value={a.value} icon={a.icon} onPress={() => go(a.href)} />
+            ))}
+          </View>
         )}
       </View>
     ),
@@ -169,7 +223,7 @@ export function AdminOverviewScreen() {
         {queues.isLoading ? (
           <Skeleton height={140} radius={radii.xl} />
         ) : queueRows.length === 0 ? (
-          <EmptyState compact title="No queue telemetry" message="Workers report here once jobs flow." />
+          <EmptyState compact icon={Layers} title="No queue telemetry" message="Workers report here once jobs flow." />
         ) : (
           <ListCard>
             {queueRows.map((q, i) => (
@@ -194,7 +248,7 @@ export function AdminOverviewScreen() {
         {cc.isLoading ? (
           <Skeleton height={120} radius={radii.xl} />
         ) : (cc.data?.recentEvents ?? []).length === 0 ? (
-          <EmptyState compact title="No recent events" message="Admin actions will appear here." />
+          <EmptyState compact icon={Activity} title="No recent events" message="Admin actions will appear here." />
         ) : (
           <ListCard>
             {(cc.data?.recentEvents ?? []).slice(0, 5).map((e, i, arr) => (
@@ -202,8 +256,8 @@ export function AdminOverviewScreen() {
                 key={e.id}
                 title={humanize(e.action)}
                 leading={
-                  <View style={{ width: 38, height: 38, borderRadius: 12, borderCurve: 'continuous', backgroundColor: colors.voltSoft, alignItems: 'center', justifyContent: 'center' }}>
-                    <Pulse size={6} color={colors.voltDeep} />
+                  <View style={{ width: 38, height: 38, borderRadius: 12, borderCurve: 'continuous', backgroundColor: i === 0 ? colors.voltSoft : colors.bone, alignItems: 'center', justifyContent: 'center' }}>
+                    {i === 0 ? <Pulse size={6} color={colors.voltDeep} /> : <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.ink5 }} />}
                   </View>
                 }
                 trailing={
@@ -228,73 +282,95 @@ export function AdminOverviewScreen() {
     ) : null,
   };
 
+  const gmvSeries = (analytics.data?.gmvByDay ?? []).map((d) => d.cents / 100);
+
   return (
     <Screen
       tabBar
-      kicker="Command"
-      title="Overview"
-      subtitle="Gross volume, action queues and platform health at a glance."
-      right={
-        <>
-          <IconButton
-            icon={ListOrdered}
-            variant="surface"
-            accessibilityLabel="Arrange sections"
-            onPress={() => setArranging((a) => !a)}
-            style={arranging ? { backgroundColor: colors.volt } : undefined}
-          />
-          <AdminHeaderActions />
-          <PortalSwitcher current="admin" />
-        </>
+      header={
+        <AdminTabHeader
+          kicker={new Date().toLocaleDateString('en-LK', { weekday: 'long', day: 'numeric', month: 'short' })}
+          title="Command centre"
+        />
       }
       onRefresh={refresh}
     >
       <Appear>
-        <InkHero seed="admin-command">
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text variant="overline" color="volt">
-              GMV · last 7 days
-            </Text>
+        <InkHero seed="admin-command" style={{ padding: 18 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
+              <IconTile icon={BarChart3} tone="glass" size={30} />
+              <Text variant="overline" color="paperMuted" numberOfLines={1}>
+                GMV · 7 days
+              </Text>
+            </View>
             <View
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                gap: 4,
-                paddingLeft: 4,
-                paddingRight: 10,
+                gap: 6,
+                paddingHorizontal: 10,
                 height: 26,
                 borderRadius: radii.pill,
-                backgroundColor: totalAlerts ? 'rgba(196,132,58,0.16)' : 'rgba(198,220,74,0.12)',
+                backgroundColor: totalAlerts ? 'rgba(196,132,58,0.18)' : 'rgba(198,220,74,0.12)',
+                borderWidth: StyleSheet.hairlineWidth * 2,
+                borderColor: totalAlerts ? 'rgba(196,132,58,0.35)' : 'rgba(198,220,74,0.25)',
               }}
             >
               <Pulse color={totalAlerts ? colors.amber : colors.volt} size={6} />
-              <Text variant="caption" weight="semibold" color={totalAlerts ? 'amberSoft' : 'voltGlow'}>
+              <Text variant="caption" weight="semibold" color={totalAlerts ? 'amberSoft' : 'voltGlow'} style={{ fontSize: 11.5 }}>
                 {cc.isLoading ? 'Checking…' : totalAlerts ? `${totalAlerts} need action` : 'All clear'}
               </Text>
             </View>
           </View>
+
           {analytics.isLoading ? (
-            <Skeleton height={44} style={{ marginTop: 14, opacity: 0.25 }} />
+            <Skeleton height={48} style={{ marginTop: 18, opacity: 0.25 }} />
           ) : (
-            <View style={{ marginTop: 14 }}>
-              <CountUp value={m?.gmvCents ?? 0} format={formatCompactLKR} style={{ fontSize: 40, lineHeight: 44, letterSpacing: -1.4, color: colors.paper }} />
+            <View style={{ marginTop: 18 }}>
+              <CountUp value={m?.gmvCents ?? 0} format={formatCompactLKR} style={{ fontFamily: fonts.display, fontSize: 44, lineHeight: 50, letterSpacing: -1.8, color: colors.paper }} />
             </View>
           )}
-          <Text variant="caption" color="paperFaint" style={{ marginTop: 4 }}>
-            {m ? `${formatNumber(m.activeBuyers)} buyers · ${formatNumber(m.activeSuppliers)} suppliers · take ${formatCompactLKR(m.takeRateCents)}` : 'Platform-wide settled volume'}
-          </Text>
-          <HeroGrid>
-            <HeroMetric label="Completion" value={m?.completionRate ?? 0} format={formatPercent} hint="Orders delivered" />
-            <HeroMetric label="Dispute rate" value={m?.disputeRate ?? 0} format={formatPercent} hint="Of fulfilled orders" accent={(m?.disputeRate ?? 0) > 2} />
-            <HeroMetric label="New signups" value={m?.newSignups ?? 0} format={formatNumber} hint="Last 7 days" />
-            <HeroMetric label="Queue depth" value={queueDepth} format={formatNumber} hint="Jobs waiting" accent={queueDepth > 0} />
-          </HeroGrid>
-          <View style={{ height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.paperLine, marginTop: 20, marginBottom: 18 }} />
-          <QuickActions>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+            <Text variant="bodySm" color="paperMuted">
+              Platform-wide settled volume
+            </Text>
+            {m ? (
+              <View style={{ paddingHorizontal: 8, height: 22, borderRadius: radii.pill, backgroundColor: 'rgba(198,220,74,0.14)', justifyContent: 'center' }}>
+                <Text variant="caption" weight="semibold" color="volt" style={{ fontSize: 11 }}>
+                  Take {formatCompactLKR(m.takeRateCents)}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={{ marginTop: 18, marginHorizontal: -4 }}>
+            {gmvSeries.some((v) => v > 0) ? (
+              <Sparkline values={gmvSeries} height={56} color={colors.volt} />
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 4 }}>
+                <View style={{ flex: 1, height: 1.5, borderRadius: 1, backgroundColor: 'rgba(198,220,74,0.3)' }} />
+                <Text variant="caption" color="paperFaint" style={{ fontSize: 11 }}>
+                  No settled volume yet
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <GlassStats
+            items={[
+              { label: 'Completion', value: m?.completionRate ?? 0, format: formatPercent, hint: 'Orders delivered' },
+              { label: 'Dispute rate', value: m?.disputeRate ?? 0, format: formatPercent, hint: 'Of fulfilled', warn: (m?.disputeRate ?? 0) > 2 },
+              { label: 'New signups', value: m?.newSignups ?? 0, format: formatNumber, hint: 'Last 7 days' },
+              { label: 'Queue depth', value: queueDepth, format: formatNumber, hint: 'Jobs waiting', warn: queueDepth > 0 },
+            ]}
+          />
+
+          <QuickActions style={{ marginTop: 20 }}>
             <QuickAction icon={Package} label="Orders" tone="glass" onPress={() => go('/admin/orders')} />
             <QuickAction icon={Truck} label="Deliveries" tone="glass" onPress={() => go('/admin/deliveries')} />
             <QuickAction icon={AlertTriangle} label="Disputes" tone="glass" badge={n?.openDisputes || undefined} onPress={() => go('/admin/disputes')} />
-            <QuickAction icon={Search} label="Search" tone="volt" onPress={() => go('/admin/search')} />
+            <QuickAction icon={Search} label="Search" tone="volt" dark onPress={() => go('/admin/search')} />
           </QuickActions>
         </InkHero>
       </Appear>
@@ -332,6 +408,19 @@ export function AdminOverviewScreen() {
           ) : null;
         })
       )}
+
+      {!arranging ? (
+        <Touchable
+          onPress={() => setArranging(true)}
+          hapticOnPress
+          style={{ flexDirection: 'row', alignSelf: 'center', alignItems: 'center', gap: 8, height: 38, paddingHorizontal: 16, marginTop: 4, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.line, borderStyle: 'dashed' }}
+        >
+          <ListOrdered size={15} color={colors.ink4} strokeWidth={2} />
+          <Text variant="caption" weight="semibold" color="ink4">
+            Customize dashboard
+          </Text>
+        </Touchable>
+      ) : null}
     </Screen>
   );
 }

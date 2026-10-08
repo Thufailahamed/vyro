@@ -2,11 +2,11 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { Activity, Cpu, Sparkles, Timer } from 'lucide-react-native';
-import { Card, EmptyState, ErrorState, Gutter, IconTile, InkHero, ListHeader, ListScreen, ScreenHeader, Segmented, SkeletonList, Text } from '@/ui';
+import { Card, EmptyState, ErrorState, Gutter, IconTile, InkHero, ListHeader, ListScreen, RankBars, ScreenHeader, Segmented, SkeletonList, Text } from '@/ui';
 import { api, errorMessage } from '@/lib/api';
 import { colors, fonts } from '@/theme/tokens';
 import { MonoTag, Section } from '../../buyer/orders/kit';
-import { HeroMetric } from '@/features/admin/ops/kit';
+import { GlassStats, HeroFigure, HeroTopline } from '@/features/admin/ops/kit';
 
 type UsageRow = { intent?: string; requests?: number; tokens?: number; costUsd?: number };
 type ProviderRow = { provider?: string; requests?: number; share?: number };
@@ -48,9 +48,7 @@ export function AiUsageScreen() {
   const d = q.data;
   const totalTokens = useMemo(() => (d ? (d.tokensIn ?? 0) + (d.tokensOut ?? 0) : 0), [d]);
 
-  const stat = (label: string, value: string, warn = false) => <HeroMetric key={label} label={label} value={value} tone={warn ? 'rose' : 'paper'} />;
-
-  return (
+    return (
     <ListScreen
       data={d?.byIntent ?? []}
       keyExtractor={(r, i) => `${r.intent ?? 'intent'}-${i}`}
@@ -66,35 +64,26 @@ export function AiUsageScreen() {
               <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} />
             ) : d ? (
               <>
-                <InkHero seed={`ai-usage-${days}`}>
-                  <Text variant="overline" color="volt">
-                    Estimated spend
-                  </Text>
-                  <Text variant="metric" color="paper" style={{ marginTop: 12 }} numberOfLines={1} adjustsFontSizeToFit>
-                    ${(d.costEstimateUsd ?? 0).toFixed(2)}
-                  </Text>
-                  <Text variant="caption" color="paperFaint">
-                    {totalTokens.toLocaleString()} tokens across {d.totalRequests ?? 0} requests
-                  </Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 16, columnGap: 14, marginTop: 18, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.paperLine }}>
-                    {stat('Requests', String(d.totalRequests ?? 0))}
-                    {stat('Failure rate', `${((d.failureRate ?? 0) * 100).toFixed(1)}%`, (d.failureRate ?? 0) > 0.05)}
-                    {stat('Avg latency', `${Math.round(d.avgLatencyMs ?? 0)}ms`)}
-                    {stat('Tokens', totalTokens.toLocaleString())}
-                  </View>
+                <InkHero seed={`ai-usage-${days}`} style={{ padding: 18 }}>
+                  <HeroTopline
+                    icon={Sparkles}
+                    label="Estimated spend"
+                    status={(d.failureRate ?? 0) > 0.05 ? `${((d.failureRate ?? 0) * 100).toFixed(1)}% failing` : 'Healthy'}
+                    statusTone={(d.failureRate ?? 0) > 0.05 ? 'danger' : 'ok'}
+                  />
+                  <HeroFigure value={`$${(d.costEstimateUsd ?? 0).toFixed(2)}`} caption={`${totalTokens.toLocaleString()} tokens across ${d.totalRequests ?? 0} requests`} />
+                  <GlassStats
+                    items={[
+                      { label: 'Requests', value: d.totalRequests ?? 0, hint: `${d.failedRequests ?? 0} failed` },
+                      { label: 'Failure rate', value: `${((d.failureRate ?? 0) * 100).toFixed(1)}%`, warn: (d.failureRate ?? 0) > 0.05 },
+                      { label: 'Avg latency', value: `${Math.round(d.avgLatencyMs ?? 0)}ms`, hint: d.p95LatencyMs ? `p95 ${Math.round(d.p95LatencyMs)}ms` : undefined },
+                      { label: 'Tokens', value: totalTokens.toLocaleString(), hint: `${(d.tokensIn ?? 0).toLocaleString()} in` },
+                    ]}
+                  />
                 </InkHero>
                 {d.byProvider?.length ? (
                   <Section kicker="Routing" title="Providers" icon={Sparkles}>
-                    {d.byProvider.map((p, i) => (
-                      <View key={p.provider ?? `provider-${i}`} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: i ? 10 : 0, borderTopWidth: i ? StyleSheet.hairlineWidth * 2 : 0, borderTopColor: colors.lineSoft }}>
-                        <Text variant="bodySm" weight="medium">
-                          {p.provider ?? '—'}
-                        </Text>
-                        <Text variant="caption" color="ink4">
-                          {p.requests ?? 0} req{p.share != null ? ` · ${Math.round(p.share * 100)}%` : ''}
-                        </Text>
-                      </View>
-                    ))}
+                    <RankBars data={d.byProvider.map((p) => ({ label: p.provider ?? '—', value: p.requests ?? 0 }))} formatValue={(v) => `${Math.round(v)} req`} />
                   </Section>
                 ) : null}
                 {d.byError?.length ? (
@@ -122,9 +111,9 @@ export function AiUsageScreen() {
       ListEmptyComponent={q.isLoading ? null : <EmptyState icon={Sparkles} title="No usage" message="No AI calls recorded in this window." />}
       renderItem={({ item: r }) => (
         <Card padding={16} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <IconTile icon={Cpu} tone="ink" size={40} />
+          <IconTile icon={Cpu} tone="ink" size={42} />
           <View style={{ flex: 1, gap: 2 }}>
-            <Text variant="body" weight="semibold" numberOfLines={1}>
+            <Text variant="h3" numberOfLines={1} style={{ fontFamily: fonts.displayBold }}>
               {r.intent ?? '—'}
             </Text>
             <Text variant="caption" color="ink4" style={{ fontFamily: fonts.mono }}>

@@ -10,6 +10,7 @@ import {
   ErrorState,
   Field,
   IconTile,
+  InkHero,
   Input,
   Screen,
   SkeletonList,
@@ -20,7 +21,7 @@ import {
 import { api, errorMessage } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { Section } from '../../buyer/orders/kit';
-import { Inset } from '@/features/admin/ops/kit';
+import { GlassStats, HeroFigure, HeroTopline, Inset } from '@/features/admin/ops/kit';
 import { Can } from '@/features/admin/platform/kit';
 import { openDocument } from '@/lib/files';
 
@@ -91,10 +92,21 @@ export function AdminSecurityScreen() {
   const active = impersonation.data?.active;
   const exp = exportStatus.data;
   const rows = (sessions.data ?? []).slice(0, 50);
+  const liveSessions = rows.filter((r) => !r.revokedAt && (r.expiresAt < 10_000_000_000 ? r.expiresAt * 1000 : r.expiresAt) > Date.now()).length;
 
   return (
     <Screen back kicker="Access control" title="Security" subtitle="Live sessions, support impersonation and GDPR export." gap={14}>
       <View style={{ gap: 14 }}>
+        <InkHero seed="admin-security" style={{ padding: 18 }}>
+          <HeroTopline icon={ShieldCheck} label="Live sessions" status={active ? 'Impersonating' : 'No impersonation'} statusTone={active ? 'warn' : 'ok'} />
+          <HeroFigure value={liveSessions} caption="Admin sessions currently valid" />
+          <GlassStats
+            items={[
+              { label: 'Revoked', value: rows.length - liveSessions, hint: 'In the last 50' },
+              { label: 'Operators', value: new Set(rows.filter((r) => !r.revokedAt).map((r) => r.userId)).size, hint: 'Signed in now' },
+            ]}
+          />
+        </InkHero>
         {active ? (
           <Banner
             tone="warning"

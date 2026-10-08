@@ -3,9 +3,11 @@ import { Linking, Share, StyleSheet, View, type StyleProp, type ViewStyle } from
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Bell, Check, CheckCircle2, Search, X, XCircle, type LucideIcon } from 'lucide-react-native';
-import { Badge, Button, Card, ConfirmSheet, ConfettiBurst, Field, IconButton, IconTile, Input, Kicker, ListRow, Sheet, SuccessCheck, Text, Touchable, type ButtonVariant } from '@/ui';
-import { colors, radii, shadow } from '@/theme/tokens';
+import { Bell, Check, CheckCircle2, ChevronDown, Mail, MapPin, Phone, Search, X, XCircle, type LucideIcon } from 'lucide-react-native';
+import { Avatar, Badge, Button, Card, ConfirmSheet, ConfettiBurst, CountUp, Field, IconButton, IconTile, Input, Kicker, ListRow, ScreenHeader, Sheet, SuccessCheck, Text, Touchable, type ButtonVariant } from '@/ui';
+import { colors, GUTTER, radii, shadow } from '@/theme/tokens';
+import { useAuth } from '@/lib/auth';
+import { PortalSwitcher } from '@/features/common/PortalSwitcher';
 import { TAB_BAR_SPACE } from '@/ui';
 import { usePermission } from '@/features/admin/common/permissions';
 import { useAdminUnreadCount, type BulkResult } from './hooks';
@@ -88,6 +90,375 @@ export function AdminHeaderActions({ dark }: { dark?: boolean }) {
   );
 }
 
+function greeting(d = new Date()) {
+  const h = d.getHours();
+  return h < 5 ? 'Working late' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+}
+
+/**
+ * Header for the admin tab roots: operator identity (opens the workspace
+ * switcher) on the left, search + notifications on the right, then the large
+ * editorial title. `extra` slots more icon buttons before search.
+ */
+export function AdminTabHeader({ kicker, title, subtitle, extra }: { kicker?: string; title: string; subtitle?: string; extra?: ReactNode }) {
+  const { user } = useAuth();
+  const first = (user?.name ?? '').trim().split(/\s+/)[0] || 'Operator';
+  return (
+    <View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: GUTTER, paddingTop: 6, minHeight: 46 }}>
+        <PortalSwitcher
+          current="admin"
+          trigger={({ open }) => (
+            <Touchable onPress={open} hapticOnPress scaleTo={0.96} accessibilityLabel="Switch workspace" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 }}>
+              <View>
+                <Avatar name={user?.name ?? 'VYRO'} size={40} tone="volt" />
+                <View style={{ position: 'absolute', right: -1, bottom: -1, width: 13, height: 13, borderRadius: 7, backgroundColor: colors.mint, borderWidth: 2.5, borderColor: colors.bone }} />
+              </View>
+              <View style={{ flexShrink: 1 }}>
+                <Text variant="caption" color="ink4" numberOfLines={1}>
+                  {greeting()}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <Text variant="h3" numberOfLines={1} style={{ fontFamily: 'Display-Bold', flexShrink: 1 }}>
+                    {first}
+                  </Text>
+                  <ChevronDown size={15} color={colors.ink4} strokeWidth={2.2} />
+                </View>
+              </View>
+            </Touchable>
+          )}
+        />
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {extra}
+          <AdminHeaderActions />
+        </View>
+      </View>
+      <View style={{ height: 12 }} />
+      <ScreenHeader kicker={kicker} title={title} subtitle={subtitle} />
+    </View>
+  );
+}
+
+/**
+ * Proportional pipeline for ink heroes: a segmented bar plus a legend row of
+ * counts. Zero-value segments keep their legend slot but leave the bar.
+ */
+export function HeroPipeline({ segments, style }: { segments: { label: string; value: number; color: string }[]; style?: StyleProp<ViewStyle> }) {
+  const total = segments.reduce((s, x) => s + x.value, 0);
+  return (
+    <View style={[{ marginTop: 20, gap: 14 }, style]}>
+      <View style={{ flexDirection: 'row', height: 8, gap: 3 }}>
+        {total ? (
+          segments
+            .filter((x) => x.value > 0)
+            .map((x) => <View key={x.label} style={{ flex: x.value, minWidth: 8, borderRadius: 4, backgroundColor: x.color }} />)
+        ) : (
+          <View style={{ flex: 1, borderRadius: 4, backgroundColor: 'rgba(250,247,240,0.1)' }} />
+        )}
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {segments.map((x) => (
+          <View key={x.label} style={{ flex: 1, gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <View style={{ width: 7, height: 7, borderRadius: 2, backgroundColor: x.color }} />
+              <Text variant="caption" color="paperMuted" numberOfLines={1} style={{ fontSize: 11, flexShrink: 1 }}>
+                {x.label}
+              </Text>
+            </View>
+            <Text style={{ fontFamily: 'Display-Bold', fontSize: 20, lineHeight: 24, letterSpacing: -0.6, color: x.value ? colors.paper : colors.paperFaint }} numberOfLines={1}>
+              {x.value}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+export interface GlassStat {
+  label: string;
+  value: number | string;
+  hint?: string;
+  /** Number → display string when `value` is numeric. */
+  format?: (n: number) => string;
+  /** Amber dot + warm figure — something here wants attention. */
+  warn?: boolean;
+}
+
+/** Two-column glass panel of KPIs for ink heroes, with hairline cell dividers. */
+export function GlassStats({ items, style }: { items: GlassStat[]; style?: StyleProp<ViewStyle> }) {
+  const rows = Math.ceil(items.length / 2);
+  return (
+    <View
+      style={[
+        {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          marginTop: 18,
+          borderRadius: radii.xl,
+          borderCurve: 'continuous',
+          backgroundColor: 'rgba(250,247,240,0.045)',
+          borderWidth: StyleSheet.hairlineWidth * 2,
+          borderColor: colors.paperLine,
+          overflow: 'hidden',
+        },
+        style,
+      ]}
+    >
+      {items.map((it, i) => {
+        const right = i % 2 === 1;
+        const bottom = Math.floor(i / 2) === rows - 1;
+        const fig = { fontFamily: 'Display-Bold', fontSize: 21, lineHeight: 26, letterSpacing: -0.7, color: it.warn ? colors.amberSoft : colors.paper };
+        return (
+          <View
+            key={it.label}
+            style={{
+              width: '50%',
+              padding: 14,
+              gap: 4,
+              borderColor: colors.paperLine,
+              borderRightWidth: right ? 0 : StyleSheet.hairlineWidth * 2,
+              borderBottomWidth: bottom ? 0 : StyleSheet.hairlineWidth * 2,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {it.warn ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.amber }} /> : null}
+              <Text variant="overline" color="paperMuted" numberOfLines={1} style={{ fontSize: 10, letterSpacing: 0.8, flexShrink: 1 }}>
+                {it.label}
+              </Text>
+            </View>
+            {typeof it.value === 'number' ? (
+              <CountUp value={it.value} format={it.format} style={fig} />
+            ) : (
+              <Text style={fig} numberOfLines={1} adjustsFontSizeToFit>
+                {it.value}
+              </Text>
+            )}
+            {it.hint ? (
+              <Text variant="caption" color="paperFaint" numberOfLines={1} style={{ fontSize: 11 }}>
+                {it.hint}
+              </Text>
+            ) : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+/** Ink-hero top line: glass icon tile + overline on the left, status pill on the right. */
+export function HeroTopline({ icon, label, status, statusTone = 'ok' }: { icon: LucideIcon; label: string; status?: string; statusTone?: 'ok' | 'warn' | 'danger' }) {
+  const tint = statusTone === 'danger' ? colors.rose : statusTone === 'warn' ? colors.amber : colors.volt;
+  const bg = statusTone === 'danger' ? 'rgba(196,90,74,0.18)' : statusTone === 'warn' ? 'rgba(196,132,58,0.18)' : 'rgba(198,220,74,0.12)';
+  const border = statusTone === 'danger' ? 'rgba(196,90,74,0.4)' : statusTone === 'warn' ? 'rgba(196,132,58,0.35)' : 'rgba(198,220,74,0.25)';
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
+        <IconTile icon={icon} tone="glass" size={30} />
+        <Text variant="overline" color="paperMuted" numberOfLines={1} style={{ flexShrink: 1 }}>
+          {label}
+        </Text>
+      </View>
+      {status ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, height: 26, borderRadius: radii.pill, backgroundColor: bg, borderWidth: StyleSheet.hairlineWidth * 2, borderColor: border }}>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: tint }} />
+          <Text variant="caption" weight="semibold" style={{ fontSize: 11.5, color: statusTone === 'ok' ? colors.voltGlow : statusTone === 'warn' ? colors.amberSoft : colors.roseSoft }} numberOfLines={1}>
+            {status}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/** Display-weight hero figure (big money / count) with an optional caption under it. */
+export function HeroFigure({ value, caption, format }: { value: number | string; caption?: string; format?: (n: number) => string }) {
+  const style = { fontFamily: 'Display-Black', fontSize: 42, lineHeight: 48, letterSpacing: -1.7, color: colors.paper };
+  return (
+    <View style={{ marginTop: 16, gap: 2 }}>
+      {typeof value === 'number' ? <CountUp value={value} format={format} style={style} /> : <Text style={style} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>}
+      {caption ? (
+        <Text variant="bodySm" color="paperMuted">
+          {caption}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** Paper shortcut card — icon, label, hint and an arrow. Lay out 2–3 per row. */
+export function LinkTile({ icon: Icon, label, hint, onPress, badge }: { icon: LucideIcon; label: string; hint?: string; onPress: () => void; badge?: number }) {
+  return (
+    <Touchable
+      onPress={onPress}
+      hapticOnPress
+      scaleTo={0.96}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={[{ flex: 1, minWidth: 100, padding: 14, gap: 14, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.paper, borderWidth: StyleSheet.hairlineWidth * 2, borderColor: 'rgba(12,14,11,0.05)' }, shadow.sm]}
+    >
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <IconTile icon={Icon} tone="ink" size={36} />
+        {badge ? (
+          <View style={{ minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10, backgroundColor: colors.copper, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontFamily: 'Sans-Semi', fontSize: 10.5, lineHeight: 13, color: colors.paper }}>{badge > 99 ? '99+' : badge}</Text>
+          </View>
+        ) : null}
+      </View>
+      <View style={{ gap: 1 }}>
+        <Text variant="bodySm" weight="semibold" numberOfLines={1}>
+          {label}
+        </Text>
+        {hint ? (
+          <Text variant="caption" color="ink5" numberOfLines={1} style={{ fontSize: 11 }}>
+            {hint}
+          </Text>
+        ) : null}
+      </View>
+    </Touchable>
+  );
+}
+
+/**
+ * Grid of tappable tab tiles (icon + label + hint); the active one flips to ink.
+ * `columns` controls how many sit per row.
+ */
+export function TileTabs<T extends string>({
+  options,
+  value,
+  onChange,
+  columns = 3,
+}: {
+  options: { value: T; label: string; hint?: string; icon: LucideIcon; badge?: number }[];
+  value: T;
+  onChange: (v: T) => void;
+  columns?: number;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+      {options.map((o) => {
+        const on = o.value === value;
+        const Icon = o.icon;
+        return (
+          <Touchable
+            key={o.value}
+            onPress={() => !on && onChange(o.value)}
+            hapticOnPress
+            scaleTo={0.95}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            style={[
+              {
+                width: `${100 / columns - 4}%`,
+                flexGrow: 1,
+                padding: 12,
+                gap: 12,
+                borderRadius: radii.xl,
+                borderCurve: 'continuous',
+                backgroundColor: on ? colors.ink : colors.paper,
+                borderWidth: 1,
+                borderColor: on ? 'rgba(250,247,240,0.07)' : 'rgba(12,14,11,0.05)',
+              },
+              on ? shadow.ink : shadow.sm,
+            ]}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <View style={{ width: 32, height: 32, borderRadius: 10, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center', backgroundColor: on ? colors.volt : colors.bone }}>
+                <Icon size={16} color={colors.ink} strokeWidth={1.9} />
+              </View>
+              {o.badge ? (
+                <View style={{ minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10, backgroundColor: on ? colors.volt : colors.copper, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: 'Sans-Semi', fontSize: 10.5, lineHeight: 13, color: on ? colors.ink : colors.paper }}>{o.badge > 99 ? '99+' : o.badge}</Text>
+                </View>
+              ) : null}
+            </View>
+            <View style={{ gap: 1 }}>
+              <Text variant="bodySm" weight="semibold" color={on ? 'paper' : 'ink'} numberOfLines={1}>
+                {o.label}
+              </Text>
+              {o.hint ? (
+                <Text variant="caption" color={on ? 'paperMuted' : 'ink5'} numberOfLines={1} style={{ fontSize: 11 }}>
+                  {o.hint}
+                </Text>
+              ) : null}
+            </View>
+          </Touchable>
+        );
+      })}
+    </View>
+  );
+}
+
+/**
+ * Ink identity hero for directory records: large avatar, name, type overline,
+ * status chips and one-tap call / email / map actions.
+ */
+export function ProfileHero({
+  name,
+  kind,
+  tone = 'volt',
+  badges,
+  joined,
+  phone,
+  email,
+  place,
+}: {
+  name: string;
+  kind: string;
+  tone?: 'volt' | 'copper' | 'ink';
+  badges?: ReactNode;
+  joined?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  place?: string | null;
+}) {
+  const acts = [
+    phone ? { icon: Phone, label: 'Call', href: `tel:${phone}` } : null,
+    email ? { icon: Mail, label: 'Email', href: `mailto:${email}` } : null,
+    place ? { icon: MapPin, label: 'Map', href: `https://maps.google.com/?q=${encodeURIComponent(place)}` } : null,
+  ].filter(Boolean) as { icon: LucideIcon; label: string; href: string }[];
+  return (
+    <View style={[{ backgroundColor: colors.ink, borderRadius: radii['2xl'], borderCurve: 'continuous', padding: 20, alignItems: 'center', gap: 6, borderWidth: 1, borderColor: 'rgba(250,247,240,0.07)' }, shadow.ink]}>
+      <View style={{ padding: 4, borderRadius: 48, borderWidth: 1.5, borderColor: 'rgba(198,220,74,0.35)', marginBottom: 8 }}>
+        <Avatar name={name} size={76} tone={tone} />
+      </View>
+      <Text variant="overline" color="volt">
+        {kind}
+      </Text>
+      <Text variant="displaySm" color="paper" align="center" numberOfLines={2}>
+        {name}
+      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+        {badges}
+        {joined ? (
+          <Text variant="caption" color="paperFaint">
+            Joined {joined}
+          </Text>
+        ) : null}
+      </View>
+      {acts.length ? (
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 14, alignSelf: 'stretch' }}>
+          {acts.map((a) => (
+            <Touchable
+              key={a.label}
+              onPress={() => Linking.openURL(a.href).catch(() => {})}
+              hapticOnPress
+              scaleTo={0.94}
+              accessibilityLabel={a.label}
+              style={{ flex: 1, height: 52, borderRadius: 16, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center', gap: 3, backgroundColor: 'rgba(250,247,240,0.07)', borderWidth: 1, borderColor: colors.paperLine }}
+            >
+              <a.icon size={17} color={colors.volt} strokeWidth={1.9} />
+              <Text variant="caption" weight="semibold" color="paperMuted" style={{ fontSize: 11 }}>
+                {a.label}
+              </Text>
+            </Touchable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 /** Paper section with kicker/title header and an optional right action. */
 export function Section({
   kicker,
@@ -136,7 +507,7 @@ export function Pill({ label, tone = 'mist', icon: Icon }: { label: string; tone
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: bg, borderRadius: radii.pill, paddingHorizontal: 8, paddingVertical: 3 }}>
       {Icon ? <Icon size={11} color={fg} strokeWidth={2} /> : null}
-      <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 10.5, lineHeight: 14, color: fg }} numberOfLines={1}>
+      <Text style={{ fontFamily: 'Sans-Semi', fontSize: 10.5, lineHeight: 14, color: fg }} numberOfLines={1}>
         {label}
       </Text>
     </View>
@@ -266,7 +637,7 @@ export function SelectionBar({
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <View style={{ backgroundColor: colors.volt, borderRadius: radii.pill, minWidth: 32, height: 28, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 13, lineHeight: 16, color: colors.ink }}>{count}</Text>
+          <Text style={{ fontFamily: 'Sans-Semi', fontSize: 13, lineHeight: 16, color: colors.ink }}>{count}</Text>
         </View>
         <Text variant="bodySm" weight="semibold" color="paper" style={{ flex: 1 }}>
           selected{count > cap ? ` · cap ${cap}` : ''}
@@ -506,41 +877,43 @@ export function RecordCard({
   style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <Card kind="flat" padding={16} onPress={onPress} style={[{ gap: 12 }, style]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        {leading ?? (icon ? <IconTile icon={icon} tone={tone} size={44} /> : null)}
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text
-            variant={titleMono ? 'mono' : 'h3'}
-            style={titleMono ? { fontFamily: 'IBMPlexMono_500Medium', fontSize: 14.5, color: colors.ink } : undefined}
-            numberOfLines={1}
-          >
-            {title}
-          </Text>
-          {subtitle ? (
-            <Text variant="bodySm" color="ink4" numberOfLines={2}>
-              {subtitle}
+    <Card kind="flat" padding={0} onPress={onPress} style={style}>
+      <View style={{ padding: 16, gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+          {leading ?? (icon ? <IconTile icon={icon} tone={tone} size={44} /> : null)}
+          <View style={{ flex: 1, gap: 3, paddingTop: 1 }}>
+            <Text
+              variant={titleMono ? 'mono' : 'h3'}
+              style={titleMono ? { fontFamily: 'Sans-Semi', fontSize: 14.5, color: colors.ink } : { fontFamily: 'Display-Bold', letterSpacing: -0.3 }}
+              numberOfLines={1}
+            >
+              {title}
             </Text>
-          ) : null}
-          {meta ? (
-            <Text variant="caption" color="ink5" numberOfLines={1}>
-              {meta}
-            </Text>
-          ) : null}
-        </View>
-        {status || amount ? (
-          <View style={{ alignItems: 'flex-end', gap: 5, maxWidth: '42%' }}>
-            {amount ? (
-              <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 14.5, letterSpacing: -0.3, color: colors.ink }} numberOfLines={1} adjustsFontSizeToFit>
-                {amount}
+            {subtitle ? (
+              <Text variant="bodySm" color="ink4" numberOfLines={2}>
+                {subtitle}
               </Text>
             ) : null}
-            {status}
+            {meta ? (
+              <Text variant="caption" color="ink5" numberOfLines={1}>
+                {meta}
+              </Text>
+            ) : null}
           </View>
-        ) : null}
+          {status || amount ? (
+            <View style={{ alignItems: 'flex-end', gap: 6, maxWidth: '42%' }}>
+              {status}
+              {amount ? (
+                <Text style={{ fontFamily: 'Display-Bold', fontSize: 16, lineHeight: 21, letterSpacing: -0.4, color: colors.ink }} numberOfLines={1} adjustsFontSizeToFit>
+                  {amount}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+        {chips ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{chips}</View> : null}
+        {children}
       </View>
-      {chips ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{chips}</View> : null}
-      {children}
       {actions ? (
         <View
           style={{
@@ -548,7 +921,11 @@ export function RecordCard({
             flexWrap: 'wrap',
             alignItems: 'center',
             gap: 8,
-            paddingTop: 12,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            backgroundColor: colors.pearl,
+            borderBottomLeftRadius: radii.xl,
+            borderBottomRightRadius: radii.xl,
             borderTopWidth: StyleSheet.hairlineWidth * 2,
             borderTopColor: colors.lineSoft,
           }}

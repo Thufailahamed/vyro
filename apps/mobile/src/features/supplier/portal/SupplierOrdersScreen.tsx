@@ -2,35 +2,21 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import {
-  Calendar,
-  ChevronRight,
-  Clock,
-  Copy,
-  MapPin,
-  Package,
-  RotateCcw,
-  ShieldCheck,
-  Sparkles,
-  Truck,
-  type LucideIcon,
-} from 'lucide-react-native';
+import { Calendar, ChevronRight, Copy, MapPin, Package, RotateCcw, ShieldCheck } from 'lucide-react-native';
 import { useSupplierId } from '@/lib/auth';
 import { errorMessage } from '@/lib/api';
-import { formatDate, formatLKR, formatCompactLKR, humanize } from '@/lib/format';
+import { formatDate, formatCompactLKR, formatRs, humanize } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
-import { colors, fonts, radii, shadow, tones, type ColorName } from '@/theme/tokens';
+import { colors, radii, shadow } from '@/theme/tokens';
 import {
   Card,
   ChipRow,
+  InkHero,
   EmptyState,
   ErrorState,
   Gutter,
-  IconButton,
-  IconTile,
   ListHeader,
   ListScreen,
-  ScreenHeader,
   SearchBar,
   SkeletonList,
   StatusBadge,
@@ -62,58 +48,38 @@ function bucket(status: string): Filter | null {
   return null;
 }
 
-/** Interactive quick-stat card used in the top operations deck. */
-function StatCard({
-  label,
-  value,
-  sub,
-  active,
-  onPress,
-  accent,
-  icon: Icon,
-}: {
-  label: string;
-  value: string | number;
-  sub: string;
-  active?: boolean;
-  onPress: () => void;
-  accent?: 'amber' | 'mint' | 'ink';
-  icon?: LucideIcon;
-}) {
-  const bg = active ? colors.ink : colors.paper;
-  const fg: ColorName = active ? 'paper' : 'ink';
-  const tile = active ? 'glass' : accent === 'amber' ? 'warning' : accent === 'mint' ? 'success' : 'copper';
-
+/** One stage of the ink pipeline hero — tapping filters the list. */
+function StageCell({ label, value, dot, active, onPress }: { label: string; value: number; dot: string; active?: boolean; onPress: () => void }) {
   return (
     <Touchable
       onPress={() => {
         haptic.tap();
         onPress();
       }}
-      scaleTo={0.96}
+      scaleTo={0.95}
+      accessibilityLabel={label}
+      accessibilityState={{ selected: !!active }}
       style={{
         flex: 1,
-        minWidth: 100,
-        backgroundColor: bg,
-        borderRadius: radii.xl,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        gap: 4,
+        borderRadius: radii.lg,
         borderCurve: 'continuous',
-        padding: 14,
-        gap: 10,
-        ...(active ? shadow.ink : shadow.card),
+        backgroundColor: active ? 'rgba(198,220,74,0.16)' : 'rgba(250,247,240,0.06)',
+        borderWidth: 1,
+        borderColor: active ? 'rgba(198,220,74,0.45)' : 'transparent',
       }}
     >
-      {Icon ? <IconTile icon={Icon} tone={tile} size={30} /> : null}
-      <View style={{ gap: 2 }}>
-        <Text variant="metricSm" color={fg} numberOfLines={1} adjustsFontSizeToFit>
-          {value}
-        </Text>
-        <Text variant="caption" weight="semibold" color={active ? 'paperMuted' : 'ink3'} numberOfLines={1}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: dot }} />
+        <Text variant="caption" color={active ? 'volt' : 'paperMuted'} numberOfLines={1}>
           {label}
         </Text>
-        <Text variant="caption" color={active ? 'paperFaint' : 'ink5'} numberOfLines={1} style={{ fontSize: 10.5 }}>
-          {sub}
-        </Text>
       </View>
+      <Text variant="h1" color="paper" tabular>
+        {value}
+      </Text>
     </Touchable>
   );
 }
@@ -135,19 +101,19 @@ function OrderPipelineBar({ status }: { status: string }) {
   }
 
   let activeStep = 1;
-  let statusText = '1. Awaiting response';
+  let statusText = 'Awaiting your response';
   if (['accepted'].includes(s)) {
     activeStep = 2;
-    statusText = '2. Order accepted';
+    statusText = 'Order accepted';
   } else if (['preparing', 'ready_for_pickup'].includes(s)) {
     activeStep = 3;
-    statusText = '3. Packing & preparing';
+    statusText = 'Packing & preparing';
   } else if (['out_for_delivery', 'dispatched', 'shipped'].includes(s)) {
     activeStep = 3;
-    statusText = '3. In transit to buyer';
+    statusText = 'In transit to buyer';
   } else if (['delivered', 'received', 'completed'].includes(s)) {
     activeStep = 4;
-    statusText = '4. Delivered to dock';
+    statusText = 'Delivered to dock';
   }
 
   const steps = [1, 2, 3, 4];
@@ -176,28 +142,27 @@ function OrderPipelineBar({ status }: { status: string }) {
         })}
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text variant="caption" color={activeStep === 1 ? 'copper' : 'ink4'}>
+        <Text variant="caption" weight="semibold" color={activeStep === 1 ? 'copper' : 'ink3'}>
           {statusText}
         </Text>
-        <Text variant="caption" color="ink5">
-          Step {activeStep} of 4
+        <Text variant="caption" color="ink5" tabular>
+          {activeStep}/4
         </Text>
       </View>
     </View>
   );
 }
 
-/** Upgraded B2B Order Card. */
+/** Supplier order card: identity, logistics, progress, value and next action. */
 function OrderCard({ item }: { item: Po }) {
   const toast = useToast();
   const isPending = item.status.toLowerCase() === 'pending';
   const hasActions = Boolean(NEXT[item.status]);
 
   const copyPoNumber = async () => {
-    const textToCopy = item.poNumber || item.id;
-    await Clipboard.setStringAsync(textToCopy);
+    await Clipboard.setStringAsync(item.poNumber || item.id);
     haptic.tap();
-    toast.success('PO number copied to clipboard');
+    toast.success('PO number copied');
   };
 
   return (
@@ -206,178 +171,92 @@ function OrderCard({ item }: { item: Po }) {
       onPress={() => router.push(`/supplier/order/${item.id}` as never)}
       padding={0}
       radius={radii['2xl']}
-      style={{ overflow: 'hidden' }}
+      style={[{ overflow: 'hidden' }, isPending ? { borderWidth: 1.5, borderColor: 'rgba(196,132,58,0.45)' } : null]}
     >
-      {/* Top Urgent Alert Bar for Pending Orders */}
-      {isPending ? (
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            backgroundColor: colors.amberSoft,
-            paddingHorizontal: 16,
-            paddingVertical: 7,
-          }}
-        >
-          <Sparkles size={13} color={tones.warning.fg} />
-          <Text
-            style={{
-              fontFamily: fonts.sansSemi,
-              fontSize: 11,
-              color: tones.warning.fg,
-              letterSpacing: 0.3,
-              textTransform: 'uppercase',
-            }}
-          >
-            Action Required · Awaiting depot response
-          </Text>
-        </View>
-      ) : null}
-
-      {/* Main Body */}
       <View style={{ padding: 16, gap: 14 }}>
-        {/* Header: PO Number + Status Badge */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <IconTile icon={Package} tone={isPending ? 'warning' : 'ink'} size={40} />
-            <View style={{ gap: 2 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text variant="mono" weight="semibold" color="ink" style={{ fontSize: 13.5 }}>
-                  {item.poNumber || item.id.slice(0, 12)}
-                </Text>
-                <Touchable
-                  onPress={(e) => {
-                    e.stopPropagation?.();
-                    void copyPoNumber();
-                  }}
-                  hitSlop={8}
-                  scaleTo={0.88}
-                  accessibilityLabel="Copy purchase order number"
-                  style={{ width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bone }}
-                >
-                  <Copy size={11} color={colors.ink4} />
-                </Touchable>
-              </View>
-              <Text variant="caption" color="ink5">
-                Depot purchase order
+        {/* Identity + value */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 14, borderCurve: 'continuous', backgroundColor: isPending ? colors.amberSoft : colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+            <Package size={19} color={isPending ? colors.amber : colors.volt} strokeWidth={2} />
+          </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text variant="body" weight="semibold" numberOfLines={1} ellipsizeMode="middle" style={{ flexShrink: 1 }}>
+                {item.poNumber || item.id.slice(0, 12)}
+              </Text>
+              <Touchable
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  void copyPoNumber();
+                }}
+                hitSlop={8}
+                scaleTo={0.88}
+                accessibilityLabel="Copy purchase order number"
+              >
+                <Copy size={13} color={colors.ink5} />
+              </Touchable>
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              <StatusBadge status={item.status} size="sm" />
+              {item.paymentState ? <StatusBadge status={item.paymentState} label={PAYMENT_STATE_LABEL[item.paymentState]} size="sm" /> : null}
+            </View>
+          </View>
+          <View style={{ alignItems: 'flex-end', gap: 2 }}>
+            <Text variant="h2" tabular numberOfLines={1}>
+              {formatCompactLKR(item.totalCents)}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <ShieldCheck size={11} color={colors.mint} strokeWidth={2.2} />
+              <Text variant="caption" color="mint">
+                Escrow
               </Text>
             </View>
           </View>
-          <View style={{ alignItems: 'flex-end', gap: 4 }}>
-            <StatusBadge status={item.status} size="sm" />
-            {item.paymentState ? <StatusBadge status={item.paymentState} label={PAYMENT_STATE_LABEL[item.paymentState]} size="sm" /> : null}
-          </View>
         </View>
 
-        {/* Logistics Information Deck */}
-        <View
-          style={{
-            backgroundColor: colors.pearl,
-            borderRadius: radii.lg,
-            borderCurve: 'continuous',
-            padding: 12,
-            gap: 8,
-          }}
-        >
+        {/* Logistics */}
+        <View style={{ gap: 7 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <MapPin size={14} color={colors.copper} strokeWidth={2} />
-            <Text variant="bodySm" weight="medium" color="ink" numberOfLines={1} style={{ flex: 1 }}>
+            <Text variant="bodySm" color="ink2" numberOfLines={1} style={{ flex: 1 }}>
               {destination(item)}
             </Text>
           </View>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              borderTopWidth: StyleSheet.hairlineWidth * 2,
-              borderTopColor: colors.lineSoft,
-              paddingTop: 8,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Calendar size={13} color={colors.ink4} />
-              <Text variant="caption" color="ink4">
-                Ordered {formatDate(item.createdAt)}
-              </Text>
-            </View>
-            {item.deliveryPromisedAt ? (
-              <Text variant="caption" color="copper" weight="medium">
-                Due {formatDate(item.deliveryPromisedAt)}
-              </Text>
-            ) : (
-              <Text variant="caption" color="ink5">
-                Standard dock delivery
-              </Text>
-            )}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Calendar size={14} color={colors.ink5} strokeWidth={2} />
+            <Text variant="bodySm" color="ink4" style={{ flex: 1 }} numberOfLines={1}>
+              Ordered {formatDate(item.createdAt)}
+              {item.deliveryPromisedAt ? (
+                <Text variant="bodySm" weight="semibold" color="copper">
+                  {'  ·  '}Due {formatDate(item.deliveryPromisedAt)}
+                </Text>
+              ) : null}
+            </Text>
           </View>
           {item.notes ? (
-            <View style={{ borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft, paddingTop: 6 }}>
-              <Text variant="caption" color="ink4" numberOfLines={2}>
-                <Text variant="caption" weight="semibold" color="ink3">
-                  Note:{' '}
-                </Text>
-                {item.notes}
-              </Text>
-            </View>
+            <Text variant="caption" color="ink4" numberOfLines={2} style={{ marginLeft: 22 }}>
+              “{item.notes}”
+            </Text>
           ) : null}
         </View>
 
-        {/* Mini Fulfillment Pipeline */}
         <OrderPipelineBar status={item.status} />
-
-        {/* Financial Readout & Escrow Protection */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingTop: 2 }}>
-          <View style={{ gap: 2 }}>
-            <Text variant="overline" color="ink4">
-              TOTAL ORDER VALUE
-            </Text>
-            <Text variant="metricSm" color="ink">
-              {formatLKR(item.totalCents)}
-            </Text>
-          </View>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 5,
-              paddingHorizontal: 9,
-              paddingVertical: 5,
-              borderRadius: radii.pill,
-              backgroundColor: colors.mintSoft,
-            }}
-          >
-            <ShieldCheck size={12} color={colors.mint} strokeWidth={2} />
-            <Text style={{ fontFamily: fonts.sansMedium, fontSize: 11, color: colors.mint }}>
-              Escrow Secured
-            </Text>
-          </View>
-        </View>
       </View>
 
-      {/* Action Footer */}
-      <View
-        style={{
-          borderTopWidth: StyleSheet.hairlineWidth * 2,
-          borderTopColor: colors.lineSoft,
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          backgroundColor: colors.pearl,
-        }}
-      >
+      {/* Next action */}
+      <View style={{ borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: colors.pearl }}>
         {hasActions ? (
           <OrderActions poId={item.id} poNumber={item.poNumber} status={item.status} size="sm" full />
         ) : (
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text variant="bodySm" color="ink4">
-              {item.status.toLowerCase() === 'delivered' ? 'Completed & settled' : 'Order finalized'}
+              {item.status.toLowerCase() === 'delivered' ? 'Completed & settled' : 'Order finalised'}
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
               <Text variant="bodySm" weight="semibold" color="copper">
-                View details
+                Details
               </Text>
-              <ChevronRight size={14} color={colors.copper} />
+              <ChevronRight size={15} color={colors.copper} />
             </View>
           </View>
         )}
@@ -425,97 +304,100 @@ export function SupplierOrdersScreen() {
 
   const header = (
     <ListHeader>
-      <ScreenHeader
-        kicker="Operations Console"
-        title="Orders"
-        subtitle={`${all.length} purchase orders routed to your depot.`}
-        right={<IconButton icon={RotateCcw} variant="surface" accessibilityLabel="Returns" onPress={() => router.push('/supplier/returns' as never)} />}
+      {/* Title bar */}
+      <Gutter style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 8 }}>
+        <View style={{ flexShrink: 1, gap: 2 }}>
+          <Text variant="overline" color="copper">
+            Supplier
+          </Text>
+          <Text variant="displayMd">Orders</Text>
+        </View>
+        <Touchable
+          onPress={() => router.push('/supplier/returns' as never)}
+          hapticOnPress
+          scaleTo={0.95}
+          accessibilityLabel="Returns"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, height: 40, borderRadius: radii.pill, backgroundColor: colors.paper, ...shadow.sm }}
+        >
+          <RotateCcw size={15} color={colors.ink2} strokeWidth={2.1} />
+          <Text variant="bodySm" weight="semibold">
+            Returns
+          </Text>
+        </Touchable>
+      </Gutter>
+
+      <Gutter style={{ gap: 12 }}>
+        {/* Pipeline hero — each stage filters the list */}
+        <InkHero style={{ padding: 16, gap: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+            <View style={{ flexShrink: 1, gap: 2 }}>
+              <Text variant="caption" color="paperMuted">
+                Order value · {all.length} PO{all.length === 1 ? '' : 's'}
+              </Text>
+              <Text variant="displayMd" color="paper" tabular numberOfLines={1} adjustsFontSizeToFit>
+                {formatRs(pipelineValue)}
+              </Text>
+            </View>
+            {counts.attention ? (
+              <Touchable onPress={() => setFilter(filter === 'attention' ? 'all' : 'attention')} hapticOnPress style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: 'rgba(196,90,74,0.22)' }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.rose }} />
+                <Text variant="caption" weight="semibold" style={{ color: colors.roseSoft }}>
+                  {counts.attention} need attention
+                </Text>
+              </Touchable>
+            ) : null}
+          </View>
+          {all.length ? (
+            <View style={{ flexDirection: 'row', gap: 3, height: 6, borderRadius: 3, overflow: 'hidden' }}>
+              {(
+                [
+                  [counts.pending, colors.amber],
+                  [counts.transit, colors.mint],
+                  [counts.done, colors.paperFaint],
+                  [counts.attention, colors.rose],
+                ] as const
+              ).map(([n, c], i) => (n ? <View key={i} style={{ flex: n, backgroundColor: c }} /> : null))}
+            </View>
+          ) : null}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <StageCell label="To accept" value={counts.pending} dot={colors.amber} active={filter === 'pending'} onPress={() => setFilter(filter === 'pending' ? 'all' : 'pending')} />
+            <StageCell label="In transit" value={counts.transit} dot={colors.mint} active={filter === 'transit'} onPress={() => setFilter(filter === 'transit' ? 'all' : 'transit')} />
+            <StageCell label="Delivered" value={counts.done} dot={colors.paperFaint} active={filter === 'done'} onPress={() => setFilter(filter === 'done' ? 'all' : 'done')} />
+          </View>
+        </InkHero>
+
+        <SearchBar value={search} onChangeText={setSearch} placeholder="Search PO, city or address…" />
+      </Gutter>
+
+      <ChipRow<Filter>
+        value={filter}
+        onChange={setFilter}
+        style={{ paddingHorizontal: 20 }}
+        options={OPTIONS.map((o) => ({ ...o, count: counts[o.value] }))}
       />
 
-      {/* Operational KPI Deck */}
-      <Gutter style={{ gap: 12 }}>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <StatCard
-            label="Pending"
-            value={counts.pending}
-            sub={counts.pending === 1 ? '1 needs action' : `${counts.pending} need action`}
-            accent="amber"
-            icon={Clock}
-            active={filter === 'pending'}
-            onPress={() => setFilter(filter === 'pending' ? 'all' : 'pending')}
-          />
-          <StatCard
-            label="In Transit"
-            value={counts.transit}
-            sub={counts.transit === 1 ? '1 dispatched' : `${counts.transit} dispatched`}
-            accent="mint"
-            icon={Truck}
-            active={filter === 'transit'}
-            onPress={() => setFilter(filter === 'transit' ? 'all' : 'transit')}
-          />
-          <StatCard
-            label="Depot Value"
-            value={formatCompactLKR(pipelineValue)}
-            sub={`${all.length} total orders`}
-            accent="ink"
-            icon={Package}
-            active={filter === 'all' && !search}
+      {search.trim() || filter !== 'all' ? (
+        <Gutter style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text variant="caption" color="ink4">
+            Showing{' '}
+            <Text variant="caption" weight="semibold" color="ink">
+              {shown.length}
+            </Text>{' '}
+            of {all.length}
+          </Text>
+          <Touchable
             onPress={() => {
-              setFilter('all');
               setSearch('');
+              setFilter('all');
             }}
-          />
-        </View>
-
-        {/* Search Bar */}
-        <SearchBar
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search PO number, city or address…"
-        />
-
-        {/* Filter Chips */}
-        <ChipRow<Filter>
-          value={filter}
-          onChange={setFilter}
-          options={OPTIONS.map((o) => ({
-            ...o,
-            count: counts[o.value],
-          }))}
-        />
-
-        {/* Active Filter & Results indicator */}
-        {search.trim() || filter !== 'all' ? (
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingTop: 2,
-              paddingHorizontal: 2,
-            }}
+            hitSlop={8}
           >
-            <Text variant="caption" color="ink4">
-              Showing{' '}
-              <Text variant="caption" weight="semibold" color="ink">
-                {shown.length}
-              </Text>{' '}
-              of {all.length} purchase orders
+            <Text variant="caption" weight="semibold" color="copper">
+              Reset
             </Text>
-            <Touchable
-              onPress={() => {
-                setSearch('');
-                setFilter('all');
-              }}
-              hitSlop={8}
-            >
-              <Text variant="caption" weight="semibold" color="copper">
-                Reset filters
-              </Text>
-            </Touchable>
-          </View>
-        ) : null}
-      </Gutter>
+          </Touchable>
+        </Gutter>
+      ) : null}
     </ListHeader>
   );
 

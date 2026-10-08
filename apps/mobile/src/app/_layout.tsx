@@ -6,15 +6,13 @@ import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Syne_600SemiBold } from '@expo-google-fonts/syne/600SemiBold';
-import { Syne_700Bold } from '@expo-google-fonts/syne/700Bold';
-import { Syne_800ExtraBold } from '@expo-google-fonts/syne/800ExtraBold';
-import { IBMPlexSans_400Regular } from '@expo-google-fonts/ibm-plex-sans/400Regular';
-import { IBMPlexSans_500Medium } from '@expo-google-fonts/ibm-plex-sans/500Medium';
-import { IBMPlexSans_600SemiBold } from '@expo-google-fonts/ibm-plex-sans/600SemiBold';
-import { IBMPlexSans_700Bold } from '@expo-google-fonts/ibm-plex-sans/700Bold';
-import { IBMPlexMono_400Regular } from '@expo-google-fonts/ibm-plex-mono/400Regular';
-import { IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono/500Medium';
+import { PlusJakartaSans_600SemiBold } from '@expo-google-fonts/plus-jakarta-sans/600SemiBold';
+import { PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans/700Bold';
+import { PlusJakartaSans_800ExtraBold } from '@expo-google-fonts/plus-jakarta-sans/800ExtraBold';
+import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
+import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
+import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
+import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { AuthProvider } from '@/lib/auth';
 import { ApiError } from '@/lib/api';
 import { ToastProvider } from '@/ui';
@@ -37,15 +35,15 @@ const queryClient = new QueryClient({
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    Syne_600SemiBold,
-    Syne_700Bold,
-    Syne_800ExtraBold,
-    IBMPlexSans_400Regular,
-    IBMPlexSans_500Medium,
-    IBMPlexSans_600SemiBold,
-    IBMPlexSans_700Bold,
-    IBMPlexMono_400Regular,
-    IBMPlexMono_500Medium,
+    // Registered under semantic names (see theme/tokens `fonts`) so the
+    // typefaces can change without touching call sites.
+    'Display-Semi': PlusJakartaSans_600SemiBold,
+    'Display-Bold': PlusJakartaSans_700Bold,
+    'Display-Black': PlusJakartaSans_800ExtraBold,
+    'Sans-Regular': Inter_400Regular,
+    'Sans-Medium': Inter_500Medium,
+    'Sans-Semi': Inter_600SemiBold,
+    'Sans-Bold': Inter_700Bold,
   });
 
   const ready = fontsLoaded || !!fontError;

@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, PackageCheck, RotateCcw, X } from 'lucide-react-native';
+import { ArrowLeftRight, Check, PackageCheck, RotateCcw, X } from 'lucide-react-native';
 import { api, errorMessage, qs } from '@/lib/api';
 import { lifecycleErrorMessage, OPEN_RETURN_STATUSES, type OrderReturn } from '@/lib/orderLifecycle';
-import { Button, ChipRow, EmptyState, ErrorState, Field, Input, Screen, Sheet, SkeletonList, Touchable, useToast } from '@/ui';
+import { Button, ChipRow, EmptyState, ErrorState, Field, InkHero, Input, Screen, Sheet, SkeletonList, Text, Touchable, useToast } from '@/ui';
+import { colors } from '@/theme/tokens';
+import { HeroFigure, HeroPipeline, HeroTopline } from '@/features/admin/ops/kit';
 import { ReturnCard } from '@/features/common/orderLifecycle';
 import { Appear, go } from '@/features/admin/platform/kit';
 import { SwipeableRow, type SwipeAction } from '@/features/admin/ops/kit/components';
@@ -31,6 +33,7 @@ export function AdminReturnsScreen() {
   });
   const all = useMemo(() => q.data?.returns ?? [], [q.data]);
   const openCount = all.filter((r) => OPEN_RETURN_STATUSES.includes(r.status)).length;
+  const by = (st: string) => all.filter((r) => r.status === st).length;
   const shown = filter === 'open' ? all.filter((r) => OPEN_RETURN_STATUSES.includes(r.status)) : all;
 
   const act = useMutation({
@@ -74,9 +77,23 @@ export function AdminReturnsScreen() {
       back
       kicker="Operations · Returns"
       title="Returns queue"
-      subtitle="Return requests (RMAs) across the marketplace. Open returns hold the supplier's settlement."
+      subtitle="RMAs across the marketplace. Open returns hold the supplier's settlement."
       onRefresh={() => q.refetch()}
     >
+      <Appear>
+        <InkHero seed="admin-returns" style={{ padding: 18 }}>
+          <HeroTopline icon={RotateCcw} label="Open returns" status={openCount ? 'Settlements held' : 'Nothing held'} statusTone={openCount ? 'warn' : 'ok'} />
+          <HeroFigure value={openCount} caption={`of ${all.length} return${all.length === 1 ? '' : 's'} on record`} />
+          <HeroPipeline
+            segments={[
+              { label: 'Requested', value: by('requested'), color: colors.volt },
+              { label: 'Approved', value: by('approved'), color: colors.copper },
+              { label: 'Received', value: by('received'), color: colors.mint },
+              { label: 'Rejected', value: by('rejected'), color: colors.rose },
+            ]}
+          />
+        </InkHero>
+      </Appear>
       <View style={{ marginHorizontal: -20 }}>
         <ChipRow<Filter>
           options={[
@@ -100,6 +117,14 @@ export function AdminReturnsScreen() {
         />
       ) : (
         <View style={{ gap: 10 }}>
+          {shown.some((r) => r.status === 'requested' || r.status === 'approved') ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4 }}>
+              <ArrowLeftRight size={13} color={colors.ink5} strokeWidth={2} />
+              <Text variant="caption" color="ink5">
+                Swipe a return to approve, reject or mark received
+              </Text>
+            </View>
+          ) : null}
           {shown.map((r, i) => {
             const { right, left } = actionsFor(r);
             return (

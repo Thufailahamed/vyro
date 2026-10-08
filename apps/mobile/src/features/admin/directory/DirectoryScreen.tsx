@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import {
+  BadgeCheck,
   Building2,
   ChevronRight,
   Clock,
@@ -27,17 +28,16 @@ import {
   Gutter,
   ListHeader,
   ListScreen,
-  ScreenHeader,
   SearchBar,
-  Segmented,
   SkeletonList,
   StatusBadge,
   Text,
   useToast,
 } from '@/ui';
 import {
-  AdminHeaderActions,
+  AdminTabHeader,
   BulkConfirmSheet,
+  TileTabs,
   BulkResultSheet,
   LoadMore,
   SelectDot,
@@ -53,10 +53,10 @@ import { useAdminList } from '@/features/admin/ops/kit/hooks';
 
 type Segment = 'suppliers' | 'businesses' | 'users';
 
-const SEGMENTS: { value: Segment; label: string }[] = [
-  { value: 'suppliers', label: 'Suppliers' },
-  { value: 'businesses', label: 'Businesses' },
-  { value: 'users', label: 'Users' },
+const SEGMENTS: { value: Segment; label: string; hint: string; icon: LucideIcon }[] = [
+  { value: 'suppliers', label: 'Suppliers', hint: 'Sellers', icon: Store },
+  { value: 'businesses', label: 'Businesses', hint: 'Buyers', icon: Building2 },
+  { value: 'users', label: 'Users', hint: 'People', icon: Users },
 ];
 
 /** Server-side status/role filter chips per segment. */
@@ -141,20 +141,15 @@ export function DirectoryScreen() {
         renderItem={null}
         header={
           <ListHeader>
-            <ScreenHeader
-              kicker="Registry"
-              title="Directory"
-              subtitle="Suppliers, buyer businesses and platform users."
-              right={<AdminHeaderActions />}
-            />
+            <AdminTabHeader kicker="Registry" title="Directory" subtitle="Suppliers, buyer businesses and platform users." />
             <Gutter>
-              <Segmented<Segment>
+              <TileTabs
+                options={SEGMENTS}
                 value={segment}
                 onChange={(s) => {
                   setSegment(s);
                   sel.stop();
                 }}
-                options={SEGMENTS}
               />
             </Gutter>
           </ListHeader>
@@ -257,25 +252,39 @@ function DirectoryCard({
   const badge = rowBadge(r, kind);
   const meta = rowMeta(r, kind);
   const joined = r.createdAt ? formatDate(r.createdAt) : null;
+  const verified = kind === 'suppliers' && (r.verificationStatus === 'verified' || r.verificationStatus === 'approved');
   return (
     <Appear i={i % 10}>
-      <Card padding={14} onPress={onPress} style={{ gap: 10 }}>
+      <Card padding={14} onPress={onPress} style={[{ gap: 12 }, selected ? { borderWidth: 1.5, borderColor: colors.ink } : null]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           {selecting ? <SelectDot on={selected} /> : null}
-          <Avatar name={r.name} size={44} tone={kind === 'suppliers' ? 'ink' : kind === 'businesses' ? 'copper' : 'volt'} />
-          <View style={{ flex: 1, gap: 3 }}>
-            <Text variant="body" weight="semibold" numberOfLines={1}>
+          <View>
+            <Avatar name={r.name} size={46} tone={kind === 'suppliers' ? 'ink' : kind === 'businesses' ? 'copper' : 'volt'} />
+            {verified ? (
+              <View style={{ position: 'absolute', right: -3, bottom: -3, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' }}>
+                <BadgeCheck size={16} color={colors.mint} strokeWidth={2.2} />
+              </View>
+            ) : null}
+          </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text variant="h3" numberOfLines={1}>
               {r.name}
             </Text>
-            <Text variant="caption" color="ink4" numberOfLines={1}>
-              {kind === 'users' ? `Platform user${joined ? ` · joined ${joined}` : ''}` : `${humanize(kind === 'suppliers' ? 'supplier' : 'buyer business')}${joined ? ` · joined ${joined}` : ''}`}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {badge ? <StatusBadge status={badge} size="sm" /> : null}
+              <Text variant="caption" color="ink5" numberOfLines={1} style={{ flexShrink: 1 }}>
+                {joined ? `Joined ${joined}` : kind === 'users' ? 'Platform user' : humanize(kind === 'suppliers' ? 'supplier' : 'buyer business')}
+              </Text>
+            </View>
           </View>
-          {badge ? <StatusBadge status={badge} size="sm" /> : null}
-          {!selecting ? <ChevronRight size={16} color={colors.ink5} /> : null}
+          {!selecting ? (
+            <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center' }}>
+              <ChevronRight size={15} color={colors.ink4} strokeWidth={2} />
+            </View>
+          ) : null}
         </View>
         {meta.length ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingLeft: 56 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
             {meta.map((m) => (
               <MetaChip key={m.label} {...m} />
             ))}
@@ -326,16 +335,14 @@ function SegmentList<T extends Row>({
       ) : (
         <>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6, marginTop: 4 }}>
-            <Text variant="overline" color="ink4">
-              {humanize(kind)}
+            <Text variant="caption" weight="semibold" color="ink4">
+              {t.rows.length}
+              {t.hasMore ? '+' : ''} {kind}
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               {selecting && sel ? (
                 <Button title="All" size="sm" variant="ghost" onPress={() => sel.setAll(t.rows.map((r) => r.id))} />
               ) : null}
-              <Text variant="caption" color="ink5">
-                {t.rows.length} loaded{t.hasMore ? '+' : ''}
-              </Text>
               {sel ? (
                 <Button
                   title={selecting ? 'Done' : 'Select'}

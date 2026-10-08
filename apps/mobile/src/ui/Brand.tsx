@@ -40,7 +40,7 @@ export function Wordmark({
         <Text
           variant="h1"
           color={tone === 'paper' ? 'paper' : 'ink'}
-          style={{ fontFamily: 'Syne_800ExtraBold', fontSize: size, lineHeight: size + 2, letterSpacing: -0.8 }}
+          style={{ fontFamily: 'Display-Black', fontSize: size, lineHeight: size + 2, letterSpacing: -0.8 }}
         >
           VYRO
         </Text>

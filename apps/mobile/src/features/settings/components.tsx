@@ -53,7 +53,7 @@ export function UserAvatar({
             transition={200}
           />
         ) : (
-          <Text style={{ fontFamily: fonts.displayBold, fontSize: size * 0.36, color: colors.volt, letterSpacing: -0.5 }}>{initials(name)}</Text>
+          <Text style={{ fontFamily: fonts.displayBold, fontSize: size * 0.36, lineHeight: Math.round(size * 0.48), color: colors.volt, letterSpacing: -0.5 }}>{initials(name)}</Text>
         )}
       </View>
       {online ? (

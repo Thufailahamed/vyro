@@ -8,6 +8,7 @@ import { api, errorMessage, qs } from '@/lib/api';
 import { useSupplierId } from '@/lib/auth';
 import { formatDate, formatLKR } from '@/lib/format';
 import {
+  Badge,
   Button,
   Card,
   ConfirmSheet,
@@ -15,12 +16,8 @@ import {
   ErrorState,
   Field,
   IconTile,
-  InkHero,
-  Kicker,
-  MenuGrid,
-  MenuTile,
-  QuickAction,
-  QuickActions,
+  ListRow,
+  ListSection,
   Screen,
   Segmented,
   Select,
@@ -38,7 +35,7 @@ import {
   useSponsorSubscription,
 } from './api';
 import { useCatalog } from '@/features/supplier/catalog/api';
-import { Enter, HeroMetric, ItemCard, Section } from '@/features/supplier/ops/kit';
+import { Enter, go, ItemCard, Section, SummaryHero } from '@/features/supplier/ops/kit';
 
 /* ---------------------------------- Hub ---------------------------------- */
 
@@ -51,30 +48,38 @@ export function SupplierSponsoredHubScreen() {
 
   return (
     <Screen back onRefresh={() => Promise.all([campaigns.refetch(), invoices.refetch()])} kicker="Growth" title="Sponsored" subtitle="Boost listings across search and category surfaces.">
-      <InkHero seed="sponsored-hub">
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <IconTile icon={Megaphone} tone="glass" size={40} />
-          <Kicker color="volt">Boost performance</Kicker>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 14, marginTop: 18 }}>
-          <HeroMetric label="Live campaigns" value={String(active)} sub="Running now" tone="volt" style={{ flex: 1 }} />
-          <HeroMetric label="Pending invoices" value={String(pendingInvoices)} sub={pendingInvoices ? 'Awaiting payment' : 'All settled'} tone={pendingInvoices ? 'amber' : 'paper'} style={{ flex: 1 }} />
-        </View>
-        <View style={{ height: 1, backgroundColor: colors.paperLine, marginVertical: 18 }} />
-        <QuickActions>
-          <QuickAction icon={Plus} label="New" tone="volt" onPress={() => router.push('/supplier/sponsored/campaigns/new' as never)} />
-          <QuickAction icon={Rocket} label="Campaigns" tone="glass" onPress={() => router.push('/supplier/sponsored/campaigns' as never)} />
-          <QuickAction icon={Receipt} label="Invoices" tone="glass" badge={pendingInvoices} onPress={() => router.push('/supplier/sponsored/invoices' as never)} />
-        </QuickActions>
-      </InkHero>
-      <MenuGrid>
-        <MenuTile icon={Layers} label="Plans" hint="Slot credit bundles" onPress={() => router.push('/supplier/sponsored/plans' as never)} />
-        <MenuTile icon={BadgeCheck} label="Subscription" hint="Current plan" onPress={() => router.push('/supplier/sponsored/subscriptions' as never)} />
-        <MenuTile icon={LayoutGrid} label="Slots" hint="Browse surfaces" onPress={() => router.push('/supplier/sponsored/slots' as never)} />
-        <MenuTile icon={Rocket} label="Campaigns" hint="My promotions" onPress={() => router.push('/supplier/sponsored/campaigns' as never)} />
-        <MenuTile icon={Receipt} label="Invoices" hint="Billing" badge={pendingInvoices} onPress={() => router.push('/supplier/sponsored/invoices' as never)} />
-      </MenuGrid>
-      <Button title="New campaign" icon={Plus} full onPress={() => router.push('/supplier/sponsored/campaigns/new' as never)} />
+      <Enter>
+        <SummaryHero
+          icon={Megaphone}
+          kicker="Boost performance"
+          value={active ? `${active} live ${active === 1 ? 'campaign' : 'campaigns'}` : 'No live campaigns'}
+          sub="Sponsored listings appear first in buyer search and category pages."
+          cells={[
+            { label: 'Campaigns', value: (campaigns.data ?? []).length, dot: colors.volt },
+            { label: 'Live', value: active, dot: colors.mint },
+            { label: 'Unpaid', value: pendingInvoices, dot: pendingInvoices ? colors.amber : colors.paperFaint },
+          ]}
+        >
+          <Button title="New campaign" icon={Plus} variant="volt" full onPress={() => go('/supplier/sponsored/campaigns/new')} />
+        </SummaryHero>
+      </Enter>
+      <ListSection label="Promote">
+        <ListRow icon={Rocket} iconTone="volt" title="Campaigns" subtitle="Create, pause and track promotions" onPress={() => go('/supplier/sponsored/campaigns')} />
+        <ListRow icon={LayoutGrid} iconTone="volt" title="Slots" subtitle="Browse search and category surfaces" onPress={() => go('/supplier/sponsored/slots')} last />
+      </ListSection>
+      <ListSection label="Billing">
+        <ListRow icon={Layers} iconTone="ink" title="Plans" subtitle="Monthly slot credit bundles" onPress={() => go('/supplier/sponsored/plans')} />
+        <ListRow icon={BadgeCheck} iconTone="ink" title="Subscription" subtitle="Your current plan and credits" onPress={() => go('/supplier/sponsored/subscriptions')} />
+        <ListRow
+          icon={Receipt}
+          iconTone="ink"
+          title="Invoices"
+          subtitle={pendingInvoices ? `${pendingInvoices} awaiting payment` : 'All settled'}
+          trailing={pendingInvoices ? <Badge label={String(pendingInvoices)} tone="warning" size="sm" /> : undefined}
+          onPress={() => go('/supplier/sponsored/invoices')}
+          last
+        />
+      </ListSection>
     </Screen>
   );
 }
@@ -184,15 +189,20 @@ export function SupplierSponsoredSubscriptionsScreen() {
       {!s ? (
         <EmptyState icon={Megaphone} title="No subscription" message="Pick a plan to start boosting listings." action={{ label: 'View plans', onPress: () => router.push('/supplier/sponsored/plans' as never) }} />
       ) : (
-        <ItemCard
-          icon={BadgeCheck}
-          iconTone="volt"
-          title={`Plan ${s.planId ?? s.id.slice(0, 8)}`}
-          subtitle={s.currentPeriodEnd ? `Renews ${formatDate(s.currentPeriodEnd)}` : 'Active'}
-          badge={<StatusBadge status={s.status} size="sm" />}
-        >
-          <Button title="Cancel subscription" icon={XCircle} variant="secondary" size="sm" full onPress={() => setConfirm(true)} />
-        </ItemCard>
+        <>
+          <Enter>
+            <SummaryHero
+              icon={BadgeCheck}
+              kicker="Sponsored membership"
+              value={`Plan ${s.planId ?? s.id.slice(0, 8)}`}
+              sub={s.currentPeriodEnd ? `Renews ${formatDate(s.currentPeriodEnd)}` : 'Active — boosts run while your plan is current.'}
+              right={<StatusBadge status={s.status} size="sm" />}
+            >
+              <Button title="Browse slots" icon={LayoutGrid} variant="volt" full onPress={() => go('/supplier/sponsored/slots')} />
+            </SummaryHero>
+          </Enter>
+          <Button title="Cancel subscription" icon={XCircle} variant="ghost" full onPress={() => setConfirm(true)} />
+        </>
       )}
       <ConfirmSheet
         visible={confirm}
@@ -344,8 +354,29 @@ export function SupplierSponsoredCampaignFormScreen() {
     onError: (e) => toast.error('Could not create', errorMessage(e)),
   });
 
+  const slot = (slots.data ?? []).find((x) => x.id === slotId);
+  const estimate = slot ? slot.dailyRateCents * days : 0;
+
   return (
-    <Screen back kicker="Sponsored" title="New campaign" subtitle="Request a boosted placement." footer={<Button title={create.isPending ? 'Requesting…' : 'Request campaign'} full loading={create.isPending} disabled={!slotId} onPress={() => create.mutate()} />}>
+    <Screen
+      back
+      kicker="Sponsored"
+      title="New campaign"
+      subtitle="Request a boosted placement."
+      footer={
+        <>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 }}>
+            <Text variant="caption" color="ink4">
+              {slot ? `${formatLKR(slot.dailyRateCents)}/day × ${days} ${days === 1 ? 'day' : 'days'}` : 'Pick a slot to see the cost'}
+            </Text>
+            <Text variant="h2" tabular>
+              {slot ? formatLKR(estimate) : '—'}
+            </Text>
+          </View>
+          <Button title={create.isPending ? 'Requesting…' : 'Request campaign'} full loading={create.isPending} disabled={!slotId} onPress={() => create.mutate()} />
+        </>
+      }
+    >
       {slots.isLoading ? (
         <SkeletonList rows={3} />
       ) : slots.isError ? (
@@ -401,6 +432,21 @@ export function SupplierSponsoredInvoicesScreen() {
 
   return (
     <Screen back onRefresh={() => q.refetch()} kicker="Sponsored" title="Invoices" subtitle="Billing for boosted placements.">
+      {(q.data ?? []).length ? (
+        <Enter>
+          <SummaryHero
+            icon={Receipt}
+            kicker="Outstanding"
+            value={formatLKR((q.data ?? []).filter((i) => i.status === 'pending').reduce((sum, i) => sum + i.amountCents, 0))}
+            sub="Total of pending sponsored-placement invoices."
+            cells={[
+              { label: 'Invoices', value: (q.data ?? []).length, dot: colors.paperFaint },
+              { label: 'Unpaid', value: (q.data ?? []).filter((i) => i.status === 'pending').length, dot: colors.amber },
+              { label: 'Paid', value: (q.data ?? []).filter((i) => i.status === 'paid').length, dot: colors.mint },
+            ]}
+          />
+        </Enter>
+      ) : null}
       {(q.data ?? []).length === 0 ? (
         <EmptyState icon={Megaphone} title="No invoices" message="Campaign billing appears here." />
       ) : (

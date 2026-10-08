@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Banknote, CalendarClock, Check, Clock, Package, ShieldCheck, ShoppingBag } from 'lucide-react-native';
+import { ArrowRight, Banknote, CalendarClock, Check, Clock, Package, PauseCircle, Receipt, ShieldCheck, ShoppingBag, Wallet } from 'lucide-react-native';
 import {
   Badge,
   Banner,
@@ -13,6 +14,8 @@ import {
   IconTile,
   InkHero,
   Kicker,
+  ListRow,
+  ListSection,
   ProgressBar,
   Row,
   Screen,
@@ -24,7 +27,7 @@ import {
 import { Gate } from '@/features/common/Gate';
 import { api, errorMessage, qs } from '@/lib/api';
 import { useBusinessId } from '@/lib/auth';
-import { formatCompactLKR, formatDate, formatLKR } from '@/lib/format';
+import { formatCompactLKR, formatDate, formatLKR, formatRs } from '@/lib/format';
 import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import {
   CREDIT_STARTING_LIMIT_CENTS,
@@ -84,9 +87,8 @@ function CreditInner() {
 
   const header = {
     back: true as const,
-    kicker: 'Trade terms · Verified buyers',
     title: 'VYRO Credit',
-    subtitle: 'Pay mill-gate lots on Net 14 or Net 30 after three settled purchase orders. No interest on v1 — overdue draws simply pause new credit.',
+    subtitle: 'Buy now, settle on Net 14 or Net 30 — interest-free.',
   };
 
   if (facility.isLoading) {
@@ -170,59 +172,84 @@ function ActiveFacility({
   const shown = filter === 'all' ? drawdowns : drawdowns.filter((d) => d.status === filter);
   const count = (s: DdFilter) => (s === 'all' ? drawdowns.length : drawdowns.filter((d) => d.status === s).length);
 
+  const pct = Math.round(used * 100);
   return (
-    <View style={{ gap: 16 }}>
+    <View style={{ gap: 20 }}>
       {overdueCount > 0 ? (
         <Banner tone="danger" title="Credit paused" message={`${overdueCount} drawdown${overdueCount === 1 ? '' : 's'} overdue. Repay open POs to unlock new credit draws.`} />
       ) : null}
       {facility.status !== 'active' ? <Banner tone="warning" message={`Facility is ${facility.status}. Contact VYRO support to restore terms.`} /> : null}
 
+      {/* Credit card */}
       <Animated.View entering={enter(0)}>
-        <InkHero seed={`credit-${seed}`} style={{ paddingBottom: 22 }}>
-          <Row justify="space-between">
-            <Kicker color="volt">Credit line</Kicker>
-            <Badge label={paused ? 'Paused' : 'Active'} tone={paused ? (danger ? 'danger' : 'warning') : 'volt'} dot size="sm" />
-          </Row>
-          <View style={{ alignItems: 'center', marginTop: 6 }}>
-            <UtilisationArc value={used} label="Limit used" caption={danger ? 'Overdue — repay to resume' : `${formatCompactLKR(facility.usedCents)} drawn`} danger={danger} />
+        <View style={[{ borderRadius: 28, borderCurve: 'continuous', backgroundColor: colors.ink, overflow: 'hidden' }, shadow.ink]}>
+          <LinearGradient
+            pointerEvents="none"
+            colors={['#2F3524', '#171A13', colors.ink]}
+            locations={[0, 0.55, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <LinearGradient
+            pointerEvents="none"
+            colors={[danger ? 'rgba(196,90,74,0.22)' : 'rgba(198,220,74,0.16)', 'rgba(198,220,74,0)']}
+            start={{ x: 1, y: 0 }}
+            end={{ x: 0.35, y: 0.6 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={{ padding: 22, gap: 18 }}>
+            <Row justify="space-between">
+              <Row gap={8}>
+                <Wallet size={16} color={colors.volt} strokeWidth={2} />
+                <Text variant="bodySm" weight="medium" color="paperMuted">
+                  Available credit
+                </Text>
+              </Row>
+              <Badge label={paused ? 'Paused' : 'Active'} tone={paused ? (danger ? 'danger' : 'warning') : 'volt'} dot size="sm" />
+            </Row>
+
+            <View style={{ gap: 2 }}>
+              <Text style={{ fontFamily: fonts.displayBold, fontSize: 40, lineHeight: 48, letterSpacing: -1.3, color: paused ? colors.paperMuted : colors.paper, fontVariant: ['tabular-nums'] }} numberOfLines={1} adjustsFontSizeToFit>
+                {formatRs(availableCents)}
+              </Text>
+              <Text variant="bodySm" color="paperFaint">
+                {paused ? 'New draws paused' : eligible ? `${termsLabel(facility.defaultTerms)} by default · interest-free` : 'Not eligible right now'}
+              </Text>
+            </View>
+
+            {/* Utilisation meter */}
+            <View style={{ gap: 8 }}>
+              <View style={{ height: 8, borderRadius: 4, backgroundColor: 'rgba(250,247,240,0.1)', overflow: 'hidden' }}>
+                <View style={{ width: `${Math.max(used * 100, used > 0 ? 3 : 0)}%`, height: '100%', borderRadius: 4, backgroundColor: danger ? colors.rose : colors.volt }} />
+              </View>
+              <Row justify="space-between">
+                <Text variant="caption" color="paperMuted">
+                  {formatRs(facility.usedCents)} used · {pct}%
+                </Text>
+                <Text variant="caption" color="paperMuted">
+                  Limit {formatRs(facility.limitCents)}
+                </Text>
+              </Row>
+            </View>
           </View>
-          <View style={{ alignItems: 'center', marginTop: -8, gap: 2 }}>
-            <Text variant="overline" color="paperMuted">
-              Available now
-            </Text>
-            <Text variant="metric" color="volt" numberOfLines={1} adjustsFontSizeToFit>
-              {formatLKR(availableCents)}
-            </Text>
-            <Text variant="caption" color="paperMuted">
-              {paused ? 'Paused' : eligible ? `${termsLabel(facility.defaultTerms)} default terms` : 'Not eligible'}
-            </Text>
+
+          <View style={{ flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.paperLine }}>
+            <HeroCell label="Terms" value={termsLabel(facility.defaultTerms)} />
+            <View style={{ width: StyleSheet.hairlineWidth, backgroundColor: colors.paperLine, marginVertical: 14 }} />
+            <HeroCell label="Outstanding" value={outstanding < 100_000 ? formatRs(outstanding) : formatCompactLKR(outstanding)} />
+            <View style={{ width: StyleSheet.hairlineWidth, backgroundColor: colors.paperLine, marginVertical: 14 }} />
+            <HeroCell label="Open draws" value={String(schedule.length)} />
           </View>
-          <Row gap={10} style={{ marginTop: 18 }}>
-            <HeroCell label="Credit limit" value={formatLKR(facility.limitCents)} />
-            <HeroCell label="Drawn" value={formatLKR(facility.usedCents)} />
-          </Row>
-        </InkHero>
+        </View>
       </Animated.View>
 
+      {/* Actions */}
       <Animated.View entering={enter(1)}>
-        <Card style={{ gap: 12 }}>
-          <Row justify="space-between">
-            <Text variant="overline" color="ink4">
-              Limit used
-            </Text>
-            <Text variant="mono" style={{ fontFamily: fonts.monoMedium }}>
-              {Math.round(used * 100)}%
-            </Text>
-          </Row>
-          <ProgressBar value={used} max={1} tone={danger ? 'danger' : 'ink'} height={8} track={colors.bone} />
-          <Text variant="bodySm" color="ink3">
-            Default terms {termsLabel(facility.defaultTerms)}. Choose Net 14 or Net 30 when you check out on credit.
-          </Text>
-          <Row gap={10}>
-            <Button title="Shop on terms" icon={ShoppingBag} size="sm" disabled={paused} onPress={() => go('/buyer/catalog')} style={{ flex: 1 }} />
-            <Button title="Purchase orders" variant="secondary" size="sm" onPress={() => go('/buyer/orders')} style={{ flex: 1 }} />
-          </Row>
-        </Card>
+        <Row gap={10}>
+          <Button title="Shop on terms" icon={ShoppingBag} disabled={paused} onPress={() => go('/buyer/catalog')} style={{ flex: 1 }} />
+          <Button title="Orders" icon={Receipt} variant="secondary" onPress={() => go('/buyer/orders')} style={{ flex: 1 }} />
+        </Row>
       </Animated.View>
 
       {next ? (
@@ -233,7 +260,7 @@ function ActiveFacility({
 
       {schedule.length > 1 ? (
         <Animated.View entering={enter(3)}>
-          <SectionHeader kicker="Repayment schedule" title="What's due, in order" />
+          <SectionHeader title="Repayment schedule" />
           <Card>
             {schedule.map((d, i) => (
               <ScheduleRow key={d.id} d={d} last={i === schedule.length - 1} />
@@ -243,7 +270,7 @@ function ActiveFacility({
       ) : null}
 
       <View style={{ gap: 12 }}>
-        <SectionHeader kicker="Drawdowns" title="Open and settled draws" style={{ marginBottom: 0 }} />
+        <SectionHeader title="Drawdowns" style={{ marginBottom: 0, marginTop: 8 }} />
         {drawdowns.length > 0 ? (
           <View style={{ marginHorizontal: -20 }}>
             <ChipRow
@@ -264,9 +291,13 @@ function ActiveFacility({
         ) : drawdownsError ? (
           <ErrorState message={drawdownsError} onRetry={retryDrawdowns} />
         ) : drawdowns.length === 0 ? (
-          <Card>
-            <Text variant="bodySm" color="ink3">
-              No credit draws yet. At checkout, choose Pay on terms to draw against this facility.
+          <Card padding={22} radius={radii['2xl']} style={{ alignItems: 'center', gap: 10 }}>
+            <IconTile icon={Banknote} tone="paper" size={48} />
+            <Text variant="h3" align="center">
+              No credit draws yet
+            </Text>
+            <Text variant="bodySm" color="ink4" align="center">
+              At checkout, choose Pay on terms to draw against this facility.
             </Text>
           </Card>
         ) : shown.length === 0 ? (
@@ -283,6 +314,12 @@ function ActiveFacility({
           ))
         )}
       </View>
+
+      <ListSection label="How terms work">
+        <ListRow icon={CalendarClock} iconTone="paper" title="Net 14 or Net 30" subtitle="Pick your terms at checkout" />
+        <ListRow icon={ShieldCheck} iconTone="paper" title="Interest-free" subtitle="Settle the PO by its due date" />
+        <ListRow icon={PauseCircle} iconTone="paper" title="Overdue pauses credit" subtitle="Repay to resume new draws" last />
+      </ListSection>
     </View>
   );
 }
@@ -409,11 +446,11 @@ function MoneyMono({ cents }: { cents: number }) {
 
 function HeroCell({ label, value }: { label: string; value: string }) {
   return (
-    <View style={{ flex: 1, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: 'rgba(250,247,240,0.07)', gap: 4 }}>
-      <Text variant="overline" color="paperMuted">
+    <View style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 14, gap: 3 }}>
+      <Text variant="caption" color="paperFaint" numberOfLines={1}>
         {label}
       </Text>
-      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 14, color: colors.paper }} numberOfLines={1} adjustsFontSizeToFit>
+      <Text variant="h3" color="paper" numberOfLines={1} adjustsFontSizeToFit tabular>
         {value}
       </Text>
     </View>
@@ -527,7 +564,7 @@ function UnlockCredit({ paid, required }: { paid: number; required: number }) {
       </Animated.View>
 
       <Animated.View entering={enter(2)} style={{ gap: 12 }}>
-        <SectionHeader kicker="How it works" title="Trade credit, not a loan form" style={{ marginBottom: 0 }} />
+        <SectionHeader title="How it works" style={{ marginBottom: 0 }} />
         {[
           { icon: Package, title: 'Buy as usual', body: 'Place mill-gate POs from the catalog. The first three must be paid in full — not on terms.' },
           { icon: ShieldCheck, title: 'Facility unlocks', body: `After three settled orders, VYRO grants a ${formatLKR(CREDIT_STARTING_LIMIT_CENTS)} limit on this workspace automatically.` },

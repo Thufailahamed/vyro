@@ -149,7 +149,7 @@ export function RfqCreateScreen() {
             <Enter key={c.id} i={i}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
                 <View style={{ width: 36, height: 36, borderRadius: 12, borderCurve: 'continuous', backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 12, color: colors.volt }}>{String(i + 1).padStart(2, '0')}</Text>
+                  <Text style={{ fontFamily: 'Sans-Semi', fontSize: 12, color: colors.volt }}>{String(i + 1).padStart(2, '0')}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text variant="bodySm" weight="semibold" numberOfLines={1}>{c.product.name}</Text>

@@ -11,6 +11,7 @@ import {
   EmptyState,
   ErrorState,
   Field,
+  InkHero,
   KeyValue,
   Screen,
   SearchBar,
@@ -21,7 +22,7 @@ import {
   StatusBadge,
   useToast,
 } from '@/ui';
-import { AdminHeaderActions, Pill, ReasonSheet, RecordCard } from '@/features/admin/ops/kit';
+import { AdminHeaderActions, HeroFigure, HeroPipeline, HeroTopline, Pill, ReasonSheet, RecordCard } from '@/features/admin/ops/kit';
 import { Appear, go } from '@/features/admin/platform/kit';
 import { useDebounced } from '@/features/admin/ops/kit/hooks';
 
@@ -63,6 +64,25 @@ export function DeliveriesScreen() {
       ),
   });
   const rows = q.data?.deliveries ?? [];
+  // Unfiltered scope powers the hero board (deduped with `q` when status is 'all').
+  const scope = useQuery({
+    queryKey: ['admin-deliveries', 'all', debounced],
+    queryFn: () => api.get<{ deliveries: AdminDelivery[] }>('/admin/deliveries' + qs({ q: debounced || undefined, limit: 100 })),
+  });
+  const board = (scope.data?.deliveries ?? []).reduce(
+    (acc, d) => {
+      if (d.status === 'pending' || d.status === 'assigned') acc.queued++;
+      else if (d.status === 'picked_up' || d.status === 'in_transit') acc.moving++;
+      else if (d.status === 'delivered') acc.delivered++;
+      else if (d.status === 'failed') acc.failed++;
+      return acc;
+    },
+    { queued: 0, moving: 0, delivered: 0, failed: 0 },
+  );
+  const counts = (scope.data?.deliveries ?? []).reduce<Record<string, number>>((acc, d) => {
+    acc[d.status] = (acc[d.status] ?? 0) + 1;
+    return acc;
+  }, {});
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['admin-deliveries'] });
@@ -76,13 +96,32 @@ export function DeliveriesScreen() {
       title="Deliveries"
       subtitle="Dispatch, tracking and proof of delivery."
       right={<AdminHeaderActions />}
-      onRefresh={() => q.refetch()}
+      onRefresh={() => Promise.all([q.refetch(), scope.refetch()])}
     >
+      <Appear>
+        <InkHero seed="admin-deliveries" style={{ padding: 18 }}>
+          <HeroTopline
+            icon={Truck}
+            label="Dispatch board"
+            status={board.failed ? `${board.failed} failed` : board.moving ? `${board.moving} on the road` : 'Quiet'}
+            statusTone={board.failed ? 'danger' : 'ok'}
+          />
+          <HeroFigure value={board.queued + board.moving} caption="Active consignments awaiting proof of delivery" />
+          <HeroPipeline
+            segments={[
+              { label: 'Queued', value: board.queued, color: colors.volt },
+              { label: 'Moving', value: board.moving, color: colors.copper },
+              { label: 'Delivered', value: board.delivered, color: colors.mint },
+              { label: 'Failed', value: board.failed, color: colors.rose },
+            ]}
+          />
+        </InkHero>
+      </Appear>
       <SearchBar value={search} onChangeText={setSearch} placeholder="PO#, driver, city…" />
       <ChipRow
         value={status}
         onChange={setStatus}
-        options={STATUSES.map((s) => ({ value: s, label: s === 'all' ? 'All' : humanize(s) }))}
+        options={STATUSES.map((s) => ({ value: s, label: s === 'all' ? 'All' : humanize(s), count: scope.data ? (s === 'all' ? scope.data.deliveries.length : (counts[s] ?? 0)) : undefined }))}
       />
       {q.isLoading ? (
         <SkeletonList rows={5} height={120} />
@@ -110,7 +149,7 @@ export function DeliveriesScreen() {
                 chips={<Pill label={d.poNumber ?? d.purchaseOrderId.slice(0, 10)} />}
                 actions={
                   <>
-                    <Button title="Order" icon={ArrowUpRight} size="sm" variant="paper" onPress={() => go(`/admin/order/${d.purchaseOrderId}`)} />
+                    <Button title="Order" icon={ArrowUpRight} size="sm" variant="ghost" onPress={() => go(`/admin/order/${d.purchaseOrderId}`)} />
                     <View style={{ flex: 1 }} />
                     <Button
                       title="Advance"

@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Banknote, CreditCard, Landmark, Search, type LucideIcon } from 'lucide-react-native';
-import { colors, radii } from '@/theme/tokens';
+import { CreditCard, Landmark, Search, Wallet, type LucideIcon } from 'lucide-react-native';
 import { formatCompactLKR, formatNumber } from '@/lib/format';
 import { hasPermission, useAdminRole } from '@/features/admin/common/permissions';
-import { PortalSwitcher } from '@/features/common/PortalSwitcher';
-import { ChipRow, IconButton, IconTile, InkHero, Pulse, QuickAction, QuickActions, Screen, Text } from '@/ui';
-import { Appear, HeroGrid, HeroMetric, go } from '@/features/admin/platform/kit';
+import { ChipRow, InkHero, Screen, SectionHeader } from '@/ui';
+import { Appear, go } from '@/features/admin/platform/kit';
+import { AdminTabHeader, GlassStats, HeroFigure, HeroTopline, LinkTile } from '@/features/admin/ops/kit';
 import { useLedgerSummary, useOpenChargebacks, usePayoutBatchQueue, useRefundQueue } from './api';
 import { ChargebacksSection, CreditSection, LedgerSection, PayoutsSection, RefundsSection } from './MoneySections';
 
@@ -45,78 +44,43 @@ export function MoneyScreen() {
   return (
     <Screen
       tabBar
-      kicker="Treasury"
-      title="Money"
-      subtitle="Refunds, payout batches, the double-entry ledger, chargebacks and trade credit."
-      right={
-        <>
-          {can('payment:read') ? <IconButton icon={Search} variant="surface" accessibilityLabel="Search payments" onPress={() => go('/admin/payments')} /> : null}
-          <PortalSwitcher current="admin" />
-        </>
-      }
+      header={<AdminTabHeader kicker="Treasury" title="Money" subtitle="Refunds, payouts, ledger, chargebacks and trade credit." />}
       onRefresh={() => qc.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith('admin') })}
     >
       <Appear>
-        <InkHero seed="money-in-flight">
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text variant="overline" color="volt">
-              Money in flight
-            </Text>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 4,
-                paddingLeft: 4,
-                paddingRight: 10,
-                height: 26,
-                borderRadius: radii.pill,
-                backgroundColor: needsAction ? 'rgba(196,132,58,0.16)' : 'rgba(198,220,74,0.12)',
-              }}
-            >
-              <Pulse color={needsAction ? colors.amber : colors.volt} size={6} />
-              <Text variant="caption" weight="semibold" color={needsAction ? 'amberSoft' : 'voltGlow'}>
-                {needsAction ? `${needsAction} awaiting action` : 'All clear'}
-              </Text>
-            </View>
-          </View>
-          <Text variant="metric" color="paper" style={{ marginTop: 14, fontSize: 40, lineHeight: 44 }} numberOfLines={1} adjustsFontSizeToFit>
-            {formatCompactLKR(inFlight)}
-          </Text>
-          <Text variant="caption" color="paperFaint">
-            Pending refunds + unreleased payout batches
-          </Text>
-          <HeroGrid>
-            <HeroMetric label="Pending refunds" value={formatCompactLKR(pendingRefundCents)} hint={`${formatNumber(pendingRefunds.length)} requests`} />
-            <HeroMetric label="Pending batches" value={formatCompactLKR(pendingBatchCents)} hint={`${formatNumber(pendingBatches.length)} unreleased`} />
-            <HeroMetric label="Open chargebacks" value={formatNumber(openCb)} hint="Disputed transactions" accent={openCb > 0} />
-            <HeroMetric label="Ledger net" value={formatCompactLKR(ledger.data?.netCents ?? 0)} hint="Platform settled capital" />
-          </HeroGrid>
-          {links.length ? (
-            <>
-              <View style={{ height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.paperLine, marginTop: 20, marginBottom: 18 }} />
-              <QuickActions style={{ justifyContent: 'flex-start' }}>
-                {links.map((l, i) => (
-                  <QuickAction key={l.href} icon={l.icon} label={l.label} tone={i === 0 ? 'volt' : 'glass'} onPress={() => go(l.href)} />
-                ))}
-              </QuickActions>
-            </>
-          ) : null}
+        <InkHero seed="money-in-flight" style={{ padding: 18 }}>
+          <HeroTopline icon={Wallet} label="Money in flight" status={needsAction ? `${needsAction} awaiting action` : 'All clear'} statusTone={needsAction ? 'warn' : 'ok'} />
+          <HeroFigure value={formatCompactLKR(inFlight)} caption="Pending refunds + unreleased payout batches" />
+          <GlassStats
+            items={[
+              { label: 'Pending refunds', value: formatCompactLKR(pendingRefundCents), hint: `${formatNumber(pendingRefunds.length)} requests`, warn: pendingRefunds.length > 0 },
+              { label: 'Payout batches', value: formatCompactLKR(pendingBatchCents), hint: `${formatNumber(pendingBatches.length)} unreleased` },
+              { label: 'Chargebacks', value: formatNumber(openCb), hint: 'Open disputes', warn: openCb > 0 },
+              { label: 'Ledger net', value: formatCompactLKR(ledger.data?.netCents ?? 0), hint: 'Settled capital' },
+            ]}
+          />
         </InkHero>
       </Appear>
 
-      <Appear i={2}>
-        <View style={{ gap: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 2 }}>
-            <IconTile icon={Banknote} tone="copper" size={30} />
-            <Text variant="h2">Control desk</Text>
+      {links.length ? (
+        <Appear i={1}>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {links.map((l) => (
+              <LinkTile key={l.href} icon={l.icon} label={l.label} hint={l.hint} onPress={() => go(l.href)} />
+            ))}
           </View>
+        </Appear>
+      ) : null}
+
+      <Appear i={2}>
+        <View>
+          <SectionHeader kicker="Control desk" title="Work the queues" style={{ marginBottom: 10 }} />
           <ChipRow<Tab>
             value={tab}
             onChange={setTab}
             options={[
               { value: 'refunds', label: 'Refunds', count: pendingRefunds.length || undefined },
-              { value: 'payouts', label: 'Payout batches', count: pendingBatches.length || undefined },
+              { value: 'payouts', label: 'Payouts', count: pendingBatches.length || undefined },
               { value: 'ledger', label: 'Ledger' },
               { value: 'chargebacks', label: 'Chargebacks', count: openCb || undefined },
               { value: 'credit', label: 'Credit' },

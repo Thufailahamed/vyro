@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, ShieldCheck, ShoppingCart, Store, Trash2, Truck } from 'lucide-react-native';
+import { ArrowRight, BadgeCheck, Boxes, Layers, ShieldCheck, ShoppingCart, Sparkles, Store, Trash2, Truck } from 'lucide-react-native';
 import {
   Banner,
   Button,
@@ -20,6 +21,7 @@ import {
   SkeletonList,
   StatusBadge,
   Stepper,
+  TAB_BAR_SPACE,
   Text,
   Touchable,
   useToast,
@@ -40,6 +42,9 @@ export function CartScreen() {
   const cart = useCart(businessId);
   const [clearOpen, setClearOpen] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
+  /** Distance from screen bottom to the dock's top edge, measured on layout. */
+  const [dockTop, setDockTop] = useState(240);
 
   const lineHints = useQuery({
     queryKey: ['cart-line-hints', businessId],
@@ -111,22 +116,46 @@ export function CartScreen() {
           subtitle="Check your quantities before moving to checkout. Each supplier gets a separate purchase order."
         />
         {items.length > 0 ? (
-          <View style={{ position: 'absolute', right: 20, top: 2 }}>
-            <IconButton icon={Trash2} variant="surface" accessibilityLabel="Clear cart" onPress={() => setClearOpen(true)} />
+          <View style={{ position: 'absolute', right: 20, top: 0 }}>
+            <IconButton icon={Trash2} variant="surface" size={40} accessibilityLabel="Clear cart" onPress={() => setClearOpen(true)} />
           </View>
         ) : null}
       </View>
       {items.length > 0 ? (
         <Gutter>
-          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.paper, borderRadius: radii.lg, paddingVertical: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.lineSoft }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
             {[
-              { value: supplierCount, label: supplierCount === 1 ? 'SUPPLIER' : 'SUPPLIERS' },
-              { value: items.length, label: items.length === 1 ? 'LINE ITEM' : 'LINE ITEMS' },
-              { value: totalUnits.toLocaleString(), label: 'TOTAL UNITS' },
-            ].map((stat, i) => (
-              <View key={stat.label} style={{ flex: 1, alignItems: 'center', gap: 2, borderLeftWidth: i ? StyleSheet.hairlineWidth : 0, borderLeftColor: colors.line }}>
-                <Text style={{ fontFamily: fonts.monoMedium, fontSize: 17, color: colors.ink }}>{stat.value}</Text>
-                <Text style={{ fontFamily: fonts.sansSemi, fontSize: 9, letterSpacing: 1, color: colors.ink4 }}>{stat.label}</Text>
+              { icon: Store, value: supplierCount, label: supplierCount === 1 ? 'Supplier' : 'Suppliers' },
+              { icon: Layers, value: items.length, label: items.length === 1 ? 'Line item' : 'Line items' },
+              { icon: Boxes, value: totalUnits.toLocaleString(), label: 'Units' },
+            ].map(({ icon: Icon, value, label }) => (
+              <View
+                key={label}
+                style={[
+                  {
+                    flex: 1,
+                    gap: 10,
+                    padding: 12,
+                    borderRadius: radii.lg + 2,
+                    borderCurve: 'continuous',
+                    backgroundColor: colors.paper,
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: colors.lineSoft,
+                  },
+                  shadow.sm,
+                ]}
+              >
+                <View style={{ width: 26, height: 26, borderRadius: 9, borderCurve: 'continuous', backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon size={14} color={colors.ink3} strokeWidth={2} />
+                </View>
+                <View style={{ gap: 1 }}>
+                  <Text style={{ fontFamily: fonts.monoMedium, fontSize: 20, lineHeight: 24, letterSpacing: -0.8, color: colors.ink }} numberOfLines={1} adjustsFontSizeToFit>
+                    {value}
+                  </Text>
+                  <Text variant="caption" color="ink4" numberOfLines={1}>
+                    {label}
+                  </Text>
+                </View>
               </View>
             ))}
           </View>
@@ -166,7 +195,7 @@ export function CartScreen() {
             />
           )
         }
-        ListFooterComponent={items.length > 0 ? <View style={{ height: 180 }} /> : null}
+        ListFooterComponent={items.length > 0 ? <View style={{ height: Math.max(0, dockTop + 4 - TAB_BAR_SPACE - insets.bottom) }} /> : null}
         renderItem={({ item: [supplierName, group], index }) => (
           <SupplierGroup
             index={index}
@@ -187,6 +216,7 @@ export function CartScreen() {
           discount={discountTotal}
           total={total}
           blocked={blocked.length > 0}
+          onHeight={setDockTop}
         />
       ) : null}
       <ConfirmSheet
@@ -229,31 +259,41 @@ function SupplierGroup({
   const supplierDiscount = group.lines.reduce((a, b) => a + (b.discountCents || 0), 0);
 
   return (
-    <Card padding={16} radius={radii['2xl']} style={{ gap: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.lineSoft }}>
+    <Card padding={0} radius={radii['2xl']} style={[{ backgroundColor: colors.paper, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.lineSoft }, shadow.card]}>
       {/* Supplier PO header */}
-      <View style={{ gap: 14 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text variant="overline" color="copper">SUPPLIER {String(index + 1).padStart(2, '0')}</Text>
-          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 10, color: colors.ink4 }}>DRAFT PO</Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <View style={{ padding: 16, paddingBottom: 14, gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
           <IconTile icon={Store} tone="ink" size={44} />
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text variant="h2" numberOfLines={2}>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text variant="h3" style={{ fontFamily: fonts.displayBold, letterSpacing: -0.3 }} numberOfLines={2}>
               {supplierName}
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Truck size={12} color={colors.ink4} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Truck size={12} color={colors.ink4} strokeWidth={2} />
               <Text variant="caption" color="ink4" numberOfLines={1} style={{ flexShrink: 1 }}>
-                {maxLead}d lead · {[group.supplier.city, group.supplier.district].filter(Boolean).join(', ') || 'Sri Lanka'}
+                {maxLead}d lead · {[...new Set([group.supplier.city, group.supplier.district].filter(Boolean))].join(', ') || 'Sri Lanka'}
               </Text>
+            </View>
+          </View>
+          <View style={{ alignItems: 'flex-end', gap: 2 }}>
+            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 10, letterSpacing: 1, color: colors.copper }}>PO·{String(index + 1).padStart(2, '0')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: colors.amber }} />
+              <Text variant="caption" color="ink4">Draft</Text>
             </View>
           </View>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {group.supplier.verificationStatus === 'verified' ? <MonoTag label="Verified mill" tone="mint" /> : null}
+          {group.supplier.verificationStatus === 'verified' ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.mintSoft, borderRadius: radii.pill, paddingLeft: 6, paddingRight: 9, paddingVertical: 3 }}>
+              <BadgeCheck size={12} color={colors.mint} strokeWidth={2.2} />
+              <Text style={{ fontFamily: fonts.sansSemi, fontSize: 11, color: colors.mint }}>Verified mill</Text>
+            </View>
+          ) : null}
           {repeatOffer ? <MonoTag label={`Repeat −${repeatOffer.percent}%`} tone="volt" /> : null}
-          <MonoTag label={`${group.lines.length} ${group.lines.length === 1 ? 'product' : 'products'}`} tone="ink" />
+          <Text variant="caption" color="ink5" style={{ marginLeft: 2 }}>
+            {group.lines.length} {group.lines.length === 1 ? 'product' : 'products'}
+          </Text>
         </View>
       </View>
 
@@ -270,40 +310,35 @@ function SupplierGroup({
         />
       ))}
 
-      {supplierDiscount > 0 ? (
-        <View
-          style={{
-            backgroundColor: colors.mintSoft,
-            borderRadius: radii.pill,
-            paddingHorizontal: 14,
-            height: 34,
-            alignItems: 'center',
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Text variant="caption" style={{ color: colors.mint }}>
-            Wholesale volume discount applied
-          </Text>
-          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11.5, color: colors.mint }}>−{formatLKR(supplierDiscount)}</Text>
-        </View>
-      ) : null}
-
       {/* PO subtotal */}
       <View
         style={{
-          flexDirection: 'row',
-          alignItems: 'baseline',
-          justifyContent: 'space-between',
+          gap: 8,
+          paddingHorizontal: 16,
+          paddingVertical: 14,
+          backgroundColor: colors.pearl,
           borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.lineSoft,
-          paddingTop: 12,
+          borderTopColor: colors.line,
+          borderBottomLeftRadius: radii['2xl'],
+          borderBottomRightRadius: radii['2xl'],
+          borderCurve: 'continuous',
         }}
       >
-        <Text variant="overline" color="ink5">
-          PO subtotal
-        </Text>
-        <Text style={{ fontFamily: fonts.monoMedium, fontSize: 17, letterSpacing: -0.4, color: colors.ink }}>{formatLKR(sub)}</Text>
+        {supplierDiscount > 0 ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Sparkles size={12} color={colors.mint} strokeWidth={2} />
+              <Text variant="caption" style={{ color: colors.mint }}>Volume discount</Text>
+            </View>
+            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: colors.mint }}>−{formatLKR(supplierDiscount)}</Text>
+          </View>
+        ) : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text variant="overline" color="ink4">
+            PO subtotal
+          </Text>
+          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 17, lineHeight: 22, letterSpacing: -0.5, color: colors.ink }}>{formatLKR(sub)}</Text>
+        </View>
       </View>
     </Card>
   );
@@ -329,25 +364,27 @@ function CartLine({
   const avail = availabilityLabel(it.offer.availabilityStatus);
 
   return (
-    <View style={{ padding: 12, gap: 14, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.pearl, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.lineSoft, opacity: updating ? 0.6 : 1 }}>
-      <View style={{ flexDirection: 'row', gap: 12 }}>
+    <View style={{ paddingHorizontal: 16, paddingVertical: 16, gap: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.lineSoft, opacity: updating ? 0.55 : 1 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
         <Touchable onPress={() => go(productHref(it.product.id))} accessibilityLabel={it.product.name} scaleTo={0.95} style={[{ borderRadius: radii.lg }, shadow.sm]}>
           <ProductImage src={it.product.imageUrl} seed={it.product.id} style={{ width: 68, height: 68, borderRadius: radii.lg, borderCurve: 'continuous' }} />
         </Touchable>
         <View style={{ flex: 1, gap: 4 }}>
-          <Text variant="body" weight="semibold" numberOfLines={2} onPress={() => go(productHref(it.product.id))}>
+          <Text variant="body" weight="semibold" numberOfLines={2} onPress={() => go(productHref(it.product.id))} style={{ lineHeight: 20 }}>
             {it.product.name}
           </Text>
           <Text variant="caption" color="ink4" numberOfLines={1}>
-            {[it.product.brand, `${formatLKR(it.priceCents)} / ${it.product.unit || 'unit'}`].filter(Boolean).join(' · ')}
+            {it.product.brand ? `${it.product.brand} · ` : ''}
+            <Text style={{ fontFamily: fonts.mono, fontSize: 11.5, color: colors.ink3 }}>{formatLKR(it.priceCents)}</Text>
+            {` / ${it.product.unit || 'unit'}`}
           </Text>
-          <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 3 }}>
+            <StatusBadge status={it.offer.availabilityStatus} size="sm" label={avail.label} />
             {it.bestTier ? <MonoTag label={`−${it.bestTier.discountPct}% volume`} tone="volt" /> : null}
             {it.nextTier ? <MonoTag label={`+${it.nextTier.minQty - it.quantity} for −${it.nextTier.discountPct}%`} tone="copper" /> : null}
-            <StatusBadge status={it.offer.availabilityStatus} size="sm" label={avail.label} />
           </View>
         </View>
-        <IconButton icon={Trash2} variant="ghost" color={colors.rose} size={32} accessibilityLabel={`Remove ${it.product.name}`} onPress={onRemove} />
+        <IconButton icon={Trash2} variant="ghost" color={colors.ink5} size={32} style={{ marginTop: -6, marginRight: -8 }} accessibilityLabel={`Remove ${it.product.name}`} onPress={onRemove} />
       </View>
 
       {belowMoq ? (
@@ -364,14 +401,16 @@ function CartLine({
         />
       ) : null}
 
-      <View style={{ gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.lineSoft, paddingTop: 12 }}>
+      <View style={{ gap: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <Stepper value={it.quantity} min={0} onChange={(v) => (v < it.offer.minOrderQty ? onSet(it.offer.minOrderQty) : onSet(v))} size="sm" />
           <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
             {it.discountCents > 0 ? (
               <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: colors.ink5, textDecorationLine: 'line-through' }}>{formatLKR(gross)}</Text>
-            ) : null}
-            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 17, letterSpacing: -0.4, color: colors.ink }} numberOfLines={1} adjustsFontSizeToFit>
+            ) : (
+              <Text variant="overline" color="ink5" style={{ fontSize: 9.5 }}>Line total</Text>
+            )}
+            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 18, lineHeight: 22, letterSpacing: -0.6, color: colors.ink }} numberOfLines={1} adjustsFontSizeToFit>
               {formatLKR(it.lineTotalCents)}
             </Text>
             {it.discountCents > 0 ? (
@@ -379,79 +418,95 @@ function CartLine({
             ) : null}
           </View>
         </View>
-        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-          <PresetChip label={`MOQ ${it.offer.minOrderQty}`} onPress={() => onSet(it.offer.minOrderQty)} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <PresetChip label={`MOQ ${it.offer.minOrderQty}`} active={it.quantity === it.offer.minOrderQty} onPress={() => onSet(it.offer.minOrderQty)} />
           <PresetChip label="+10" onPress={() => onStep(10)} />
           <PresetChip label="+25" onPress={() => onStep(25)} />
+          <PresetChip label="+50" onPress={() => onStep(50)} />
         </View>
       </View>
     </View>
   );
 }
 
-function PresetChip({ label, onPress }: { label: string; onPress: () => void }) {
+function PresetChip({ label, active, onPress }: { label: string; active?: boolean; onPress: () => void }) {
   return (
     <Touchable
       onPress={onPress}
       hapticOnPress
       scaleTo={0.94}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={`Quick set ${label}`}
+      accessibilityState={{ selected: !!active }}
       style={{
-        height: 28,
-        paddingHorizontal: 12,
-        borderRadius: radii.pill,
-        backgroundColor: colors.bone,
+        flex: 1,
+        height: 32,
+        borderRadius: radii.md,
+        borderCurve: 'continuous',
+        backgroundColor: active ? colors.ink : colors.pearl,
         borderWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.line,
+        borderColor: active ? colors.ink : colors.lineSoft,
+        alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11, color: colors.ink3 }}>{label}</Text>
+      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11.5, color: active ? colors.volt : colors.ink3 }} numberOfLines={1}>
+        {label}
+      </Text>
     </Touchable>
   );
 }
+
+/** Floating tab bar geometry (see ui/TabBar.tsx) — the dock floats just above it. */
+const TAB_BAR_H = 68;
 
 function SummaryBar({
   supplierCount,
   discount,
   total,
   blocked,
+  onHeight,
 }: {
   supplierCount: number;
   discount: number;
   total: number;
   blocked: boolean;
+  onHeight: (h: number) => void;
 }) {
+  const insets = useSafeAreaInsets();
+  const bottom = Math.max(insets.bottom - 4, 12) + TAB_BAR_H + 10;
   return (
-    <View style={{ position: 'absolute', left: 16, right: 16, bottom: 100 }}>
-      <InkHero seed="cart-summary" style={[{ padding: 16, gap: 12 }, shadow.lg]}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-          <View style={{ gap: 3, flexShrink: 1 }}>
-            <Text variant="overline" color="paperMuted">ORDER TOTAL</Text>
-            <Text variant="caption" color="paperMuted">
-              {supplierCount} supplier PO{supplierCount === 1 ? '' : 's'}
+    <View style={{ position: 'absolute', left: 16, right: 16, bottom }} onLayout={(e) => onHeight(bottom + Math.ceil(e.nativeEvent.layout.height))}>
+      <InkHero seed="cart-summary" style={[{ paddingVertical: 10, paddingLeft: 18, paddingRight: 10, borderRadius: radii['3xl'] }, shadow.lg]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="overline" color="paperMuted" numberOfLines={1} style={{ fontSize: 9.5 }}>
+              Total · {supplierCount} PO{supplierCount === 1 ? '' : 's'}
             </Text>
-          </View>
-          <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
-            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 23, letterSpacing: -0.8, color: colors.volt }} numberOfLines={1} adjustsFontSizeToFit>
+            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 20, lineHeight: 24, letterSpacing: -0.8, color: colors.volt }} numberOfLines={1} adjustsFontSizeToFit>
               {formatLKR(total)}
             </Text>
-            {discount > 0 ? <Text variant="caption" color="voltGlow">Includes {formatLKR(discount)} savings</Text> : null}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <ShieldCheck size={11} color={colors.paperFaint} strokeWidth={2} />
+              <Text style={{ fontFamily: fonts.sansMedium, fontSize: 10.5, color: colors.paperFaint }} numberOfLines={1}>
+                {discount > 0 ? (
+                  <>
+                    Escrow ·<Text style={{ fontFamily: fonts.sansMedium, fontSize: 10.5, color: colors.voltGlow }}>{` save ${formatLKR(discount)}`}</Text>
+                  </>
+                ) : (
+                  'Escrow protected'
+                )}
+              </Text>
+            </View>
           </View>
-        </View>
-        <Button
-          title={blocked ? 'Resolve order issues' : 'Continue to checkout'}
-          iconRight={ArrowRight}
-          variant="volt"
-          full
-          size="md"
-          disabled={blocked}
-          onPress={() => go('/buyer/checkout')}
-        />
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-          <ShieldCheck size={13} color={colors.paperMuted} />
-          <Text variant="caption" color="paperMuted">Escrow protection at checkout</Text>
+          <Button
+            title={blocked ? 'Resolve' : 'Checkout'}
+            iconRight={ArrowRight}
+            variant="volt"
+            size="md"
+            disabled={blocked}
+            onPress={() => go('/buyer/checkout')}
+          />
         </View>
       </InkHero>
     </View>

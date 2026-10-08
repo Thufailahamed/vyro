@@ -15,7 +15,6 @@ import {
   Input,
   KeyValue,
   Screen,
-  Segmented,
   Select,
   Sheet,
   SkeletonList,
@@ -24,7 +23,7 @@ import {
   useToast,
 } from '@/ui';
 import { Appear, Can } from '@/features/admin/platform/kit';
-import { Inset, Pill, RecordCard } from '@/features/admin/ops/kit';
+import { Inset, Pill, RecordCard, TileTabs } from '@/features/admin/ops/kit';
 import { shareApiFile } from '@/features/admin/money/accounts/shared';
 
 interface AbuseReport {
@@ -77,12 +76,10 @@ export function TrustSafetyScreen() {
       api.get<{ items: AbuseReport[] }>(
         '/admin/abuse-reports' + qs({ status: reportStatus === 'all' ? undefined : reportStatus }),
       ),
-    enabled: tab === 'reports',
   });
   const kyc = useQuery({
     queryKey: ['admin-kyc', 'pending'],
     queryFn: () => api.get<{ items: KycReview[] }>('/admin/kyc' + qs({ status: 'pending' })),
-    enabled: tab === 'kyc',
   });
 
   const [resolveTarget, setResolveTarget] = useState<{
@@ -153,12 +150,13 @@ export function TrustSafetyScreen() {
       subtitle="Abuse reports, KYC reviews and takedowns."
       onRefresh={() => (tab === 'reports' ? reports.refetch() : kyc.refetch())}
     >
-      <Segmented<Tab>
+      <TileTabs<Tab>
         value={tab}
         onChange={setTab}
+        columns={2}
         options={[
-          { value: 'reports', label: 'Abuse reports' },
-          { value: 'kyc', label: 'KYC queue' },
+          { value: 'reports', label: 'Abuse reports', hint: 'Flags & takedowns', icon: FileWarning, badge: reportStatus === 'open' ? (reports.data?.items ?? []).length : undefined },
+          { value: 'kyc', label: 'KYC queue', hint: 'Identity reviews', icon: ShieldCheck, badge: (kyc.data?.items ?? []).length },
         ]}
       />
 

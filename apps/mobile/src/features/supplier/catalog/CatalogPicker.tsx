@@ -46,7 +46,7 @@ export function CatalogPicker({
       <Card kind="flat" padding={16} style={{ gap: 12 }}>
         <Row gap={12} align="flex-start">
           <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 12, color: colors.volt }}>1</Text>
+            <Text style={{ fontFamily: 'Sans-Semi', fontSize: 12, color: colors.volt }}>1</Text>
           </View>
           <View style={{ flex: 1, gap: 3 }}>
             <Kicker>Catalog</Kicker>

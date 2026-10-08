@@ -145,7 +145,7 @@ export function Button({
           {well && full ? <View style={{ width: sz.h - 12 }} /> : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
             {Icon ? <Icon size={sz.icon} color={v.fg} strokeWidth={1.9} /> : null}
-            <Text style={{ fontFamily: 'Syne_700Bold', fontSize: sz.font, letterSpacing: -0.3, color: v.fg }} numberOfLines={1}>
+            <Text style={{ fontFamily: 'Sans-Semi', fontSize: sz.font, letterSpacing: -0.2, color: v.fg }} numberOfLines={1}>
               {title}
             </Text>
             {IconRight && !well ? <IconRight size={sz.icon} color={v.fg} strokeWidth={1.9} /> : null}
@@ -243,7 +243,7 @@ export function IconButton({
           }}
         >
           {typeof badge === 'number' ? (
-            <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 9.5, lineHeight: 12, color: colors.ink }}>
+            <Text style={{ fontFamily: 'Sans-Semi', fontSize: 9.5, lineHeight: 12, color: colors.ink }}>
               {badge > 99 ? '99+' : badge}
             </Text>
           ) : null}

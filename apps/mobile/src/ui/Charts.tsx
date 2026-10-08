@@ -127,10 +127,17 @@ export function AreaChart({
   const fadeProps = useAnimatedProps(() => ({ opacity: t.value }));
   if (!data.length) {
     return (
-      <View style={{ height, alignItems: 'center', justifyContent: 'center' }}>
-        <Text variant="caption" color={dark ? 'paperFaint' : 'ink5'}>
-          No data for this period yet
-        </Text>
+      <View style={{ height: Math.min(height, 128), justifyContent: 'space-between', paddingVertical: 8 }}>
+        {[0, 1, 2, 3].map((i) => (
+          <View key={i} style={{ height: 1, borderRadius: 1, backgroundColor: dark ? colors.paperLine : colors.lineSoft }} />
+        ))}
+        <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ paddingHorizontal: 12, height: 28, borderRadius: 14, justifyContent: 'center', backgroundColor: dark ? colors.ink2 : colors.bone }}>
+            <Text variant="caption" weight="semibold" color={dark ? 'paperMuted' : 'ink4'}>
+              No data for this period yet
+            </Text>
+          </View>
+        </View>
       </View>
     );
   }

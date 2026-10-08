@@ -10,11 +10,12 @@ import {
   ErrorState,
   Field,
   Gutter,
-  IconTile,
+  InkHero,
   Input,
   ListHeader,
   ListScreen,
   ScreenHeader,
+  SectionHeader,
   Select,
   Sheet,
   SkeletonList,
@@ -25,8 +26,8 @@ import {
 import { api, errorMessage } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { colors, fonts } from '@/theme/tokens';
-import { MonoTag, Section } from '../../buyer/orders/kit';
-import { Inset, RecordCard } from '@/features/admin/ops/kit';
+import { MonoTag } from '../../buyer/orders/kit';
+import { HeroFigure, HeroTopline, Inset, RecordCard } from '@/features/admin/ops/kit';
 
 type QueueName = 'audit' | 'notifications' | 'invoices';
 type QueueHealth = { queue: QueueName; backlog: number; ackLast1h: number; errLast1h: number; p50Ms: number; p95Ms: number };
@@ -47,6 +48,11 @@ export function QueuesScreen() {
     queryKey: ['admin', 'queues', 'events'],
     queryFn: () => api.get<{ events: QueueEvent[] }>('/admin/queues/events?limit=50'),
   });
+
+  const qs = health.data?.queues ?? [];
+  const backlog = qs.reduce((n, x) => n + x.backlog, 0);
+  const errs = qs.reduce((n, x) => n + x.errLast1h, 0);
+  const acks = qs.reduce((n, x) => n + x.ackLast1h, 0);
 
   const retry = useMutation({
     mutationFn: (id: string) => api.post(`/admin/queues/retry/${id}`, {}),
@@ -72,32 +78,44 @@ export function QueuesScreen() {
               right={<Button title="Enqueue" icon={Plus} variant="paper" size="sm" onPress={() => setEnqueueOpen(true)} />}
             />
             <Gutter style={{ gap: 14 }}>
+              <InkHero seed="admin-queues" style={{ padding: 18 }}>
+                <HeroTopline icon={Inbox} label="Total backlog" status={errs ? `${errs} errors · 1h` : 'Flowing'} statusTone={errs ? 'danger' : 'ok'} />
+                <HeroFigure value={backlog} caption={`${acks.toLocaleString()} messages acknowledged in the last hour`} />
+              </InkHero>
               {health.isLoading ? (
                 <SkeletonList rows={3} height={80} />
               ) : (
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {(health.data?.queues ?? []).map((qh) => (
-                    <Card key={qh.queue} padding={14} style={{ flex: 1, gap: 4 }}>
-                      <IconTile icon={Inbox} tone={qh.backlog > 50 || qh.errLast1h > 0 ? 'danger' : 'ink'} size={32} style={{ marginBottom: 6 }} />
-                      <Text variant="overline" color="copper" numberOfLines={1}>
-                        {qh.queue}
-                      </Text>
-                      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 22, letterSpacing: -0.6, color: qh.backlog > 50 || qh.errLast1h > 0 ? colors.rose : colors.ink }}>{qh.backlog}</Text>
-                      <Text variant="caption" color="ink4">
-                        backlog
-                      </Text>
-                      <Text variant="caption" color="ink4">
-                        ✓{qh.ackLast1h} ✗{qh.errLast1h} · p95 {qh.p95Ms}ms
-                      </Text>
-                    </Card>
-                  ))}
+                  {(health.data?.queues ?? []).map((qh) => {
+                    const hot = qh.backlog > 50 || qh.errLast1h > 0;
+                    return (
+                      <Card key={qh.queue} padding={14} style={[{ flex: 1, gap: 10 }, hot ? { backgroundColor: colors.roseSoft } : null]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: hot ? colors.rose : colors.mint }} />
+                          <Text variant="caption" weight="semibold" color="ink3" numberOfLines={1} style={{ textTransform: 'capitalize' }}>
+                            {qh.queue}
+                          </Text>
+                        </View>
+                        <View>
+                          <Text style={{ fontFamily: fonts.displayBold, fontSize: 24, lineHeight: 29, letterSpacing: -0.7, color: hot ? '#9A3B2E' : colors.ink }}>{qh.backlog}</Text>
+                          <Text variant="caption" color="ink5" style={{ fontSize: 11 }}>
+                            waiting
+                          </Text>
+                        </View>
+                        <Text variant="caption" color="ink4" style={{ fontSize: 11 }} numberOfLines={1}>
+                          ✓{qh.ackLast1h} · ✗{qh.errLast1h} · {qh.p95Ms}ms
+                        </Text>
+                      </Card>
+                    );
+                  })}
                 </View>
               )}
-              <Section kicker="Dead letter & retries" title="Queue events" icon={ListTree}>
-                <Text variant="caption" color="ink4">
+              <View style={{ marginTop: 6 }}>
+                <SectionHeader kicker="Dead letter & retries" title="Queue events" style={{ marginBottom: 4 }} />
+                <Text variant="caption" color="ink4" style={{ paddingHorizontal: 2 }}>
                   Failed or manually injected messages. Retry re-delivers the same payload.
                 </Text>
-              </Section>
+              </View>
             </Gutter>
           </ListHeader>
         }

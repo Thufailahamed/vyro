@@ -612,7 +612,7 @@ export function CreditSection() {
         }
       >
         <Field label="New limit" hint={limitFor ? `Drawn today: ${formatCompactLKR(limitFor.usedCents)}` : undefined} error={limitErr}>
-          <Input value={limit} onChangeText={setLimit} prefix="Rs." keyboardType="decimal-pad" placeholder="0.00" style={{ fontFamily: 'IBMPlexMono_500Medium' }} />
+          <Input value={limit} onChangeText={setLimit} prefix="Rs." keyboardType="decimal-pad" placeholder="0.00" style={{ fontFamily: 'Sans-Semi' }} />
         </Field>
         <View style={{ marginTop: 12, padding: 12, borderRadius: radii.lg, backgroundColor: colors.pearl }}>
           <Text variant="caption" color="ink4">

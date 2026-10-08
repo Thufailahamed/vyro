@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { Building2, Check, ChevronsUpDown, LogOut, ShieldCheck, Store, type LucideIcon } from 'lucide-react-native';
@@ -28,9 +28,18 @@ function ActiveMark() {
 
 /**
  * Header chip showing the active org; opens a sheet to switch portal,
- * switch business / supplier org, or sign out.
+ * switch business / supplier org, or sign out. Pass `trigger` to render a
+ * custom opener (e.g. an app-bar identity block) instead of the chip.
  */
-export function PortalSwitcher({ current, dark }: { current: Portal; dark?: boolean }) {
+export function PortalSwitcher({
+  current,
+  dark,
+  trigger,
+}: {
+  current: Portal;
+  dark?: boolean;
+  trigger?: (args: { open: () => void; orgName: string }) => ReactNode;
+}) {
   const { user, business, supplier, availablePortals, setPortal, setBusinessId, setSupplierId, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   if (!user) return null;
@@ -39,47 +48,51 @@ export function PortalSwitcher({ current, dark }: { current: Portal; dark?: bool
 
   return (
     <>
-      <Touchable
-        onPress={() => setOpen(true)}
-        hapticOnPress
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 8,
-          paddingLeft: 4,
-          paddingRight: 10,
-          height: 40,
-          borderRadius: radii.pill,
-          backgroundColor: dark ? 'rgba(250,247,240,0.09)' : colors.paper,
-          borderWidth: dark ? StyleSheet.hairlineWidth : 0,
-          borderColor: colors.paperLine,
-          maxWidth: 220,
-          ...(dark ? null : shadow.sm),
-        }}
-        accessibilityLabel="Switch workspace"
-      >
-        <Avatar name={orgName} size={32} tone={current === 'supplier' ? 'copper' : current === 'admin' ? 'volt' : 'ink'} />
-        <View style={{ flexShrink: 1 }}>
-          <Text variant="caption" color={dark ? 'paperMuted' : 'ink4'} style={{ fontSize: 9.5, lineHeight: 11, letterSpacing: 1 }}>
-            {PORTAL_META[current].label.toUpperCase()}
-          </Text>
-          <Text variant="bodySm" weight="semibold" color={dark ? 'paper' : 'ink'} numberOfLines={1}>
-            {orgName}
-          </Text>
-        </View>
-        <View
+      {trigger ? (
+        trigger({ open: () => setOpen(true), orgName })
+      ) : (
+        <Touchable
+          onPress={() => setOpen(true)}
+          hapticOnPress
           style={{
-            width: 22,
-            height: 22,
-            borderRadius: 11,
+            flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: dark ? 'rgba(250,247,240,0.08)' : colors.bone,
+            gap: 8,
+            paddingLeft: 4,
+            paddingRight: 10,
+            height: 40,
+            borderRadius: radii.pill,
+            backgroundColor: dark ? 'rgba(250,247,240,0.09)' : colors.paper,
+            borderWidth: dark ? StyleSheet.hairlineWidth : 0,
+            borderColor: colors.paperLine,
+            maxWidth: 220,
+            ...(dark ? null : shadow.sm),
           }}
+          accessibilityLabel="Switch workspace"
         >
-          <ChevronsUpDown size={12} color={dark ? colors.paperMuted : colors.ink4} strokeWidth={2} />
-        </View>
-      </Touchable>
+          <Avatar name={orgName} size={32} tone={current === 'supplier' ? 'copper' : current === 'admin' ? 'volt' : 'ink'} />
+          <View style={{ flexShrink: 1 }}>
+            <Text variant="caption" color={dark ? 'paperMuted' : 'ink4'} style={{ fontSize: 9.5, lineHeight: 11, letterSpacing: 1 }}>
+              {PORTAL_META[current].label.toUpperCase()}
+            </Text>
+            <Text variant="bodySm" weight="semibold" color={dark ? 'paper' : 'ink'} numberOfLines={1}>
+              {orgName}
+            </Text>
+          </View>
+          <View
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 11,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: dark ? 'rgba(250,247,240,0.08)' : colors.bone,
+            }}
+          >
+            <ChevronsUpDown size={12} color={dark ? colors.paperMuted : colors.ink4} strokeWidth={2} />
+          </View>
+        </Touchable>
+      )}
 
       <Sheet visible={open} onClose={() => setOpen(false)} title="Workspaces" subtitle={user.email} scroll>
         <View style={{ gap: 22 }}>

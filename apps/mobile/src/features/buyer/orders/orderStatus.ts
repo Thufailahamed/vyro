@@ -61,6 +61,12 @@ export function journeyIndex(status: string): number {
   return JOURNEY_INDEX[status] ?? 0;
 }
 
+/** Current journey node as `{ step, total, label }` for compact progress labels. */
+export function journeyStage(status: string): { step: number; total: number; label: string } {
+  const i = status === 'completed' ? JOURNEY_NODES.length - 1 : journeyIndex(status);
+  return { step: i + 1, total: JOURNEY_NODES.length, label: JOURNEY_NODES[i].label };
+}
+
 /** Timeline steps; hints are enriched with actual timestamps when present. */
 export function journeySteps(status: string, stamps: (string | null | undefined)[] = []): TimelineStep[] {
   if (TERMINAL.includes(status)) {

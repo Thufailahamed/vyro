@@ -1,19 +1,16 @@
 import { useState, type ReactNode } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, ChevronRight, FileText, Package, RotateCcw } from 'lucide-react-native';
+import { Check, ChevronRight, CreditCard, FileText, Package, RefreshCw, RotateCcw, X, type LucideIcon } from 'lucide-react-native';
 import {
   Banner,
   Button,
+  Card,
   ErrorState,
   Field,
-  InkHero,
   Input,
-  Kicker,
-  QuickAction,
-  QuickActions,
   Row,
   Screen,
   Sheet,
@@ -26,8 +23,8 @@ import {
 import { Gate } from '@/features/common/Gate';
 import { api, errorMessage } from '@/lib/api';
 import { formatDateTime, formatLKR, humanize, shortId } from '@/lib/format';
-import { colors, fonts, radii, shadow } from '@/theme/tokens';
-import { go, methodLabel, MoneyText } from './shared';
+import { colors, fonts, radii } from '@/theme/tokens';
+import { go, methodLabel, MoneyText, statusTint } from './shared';
 
 type Chain = {
   order: { id: string; poNumber: string; status: string; totalCents: number } | null;
@@ -78,7 +75,7 @@ function Inner() {
 
   if (q.isLoading) {
     return (
-      <Screen back kicker="Accounts / Transaction" title="Payment">
+      <Screen back title="Payment">
         <Skeleton height={190} radius={16} />
         <Skeleton height={90} radius={12} />
         <Skeleton height={90} radius={12} />
@@ -87,7 +84,7 @@ function Inner() {
   }
   if (q.isError || !q.data) {
     return (
-      <Screen back kicker="Accounts / Transaction" title="Payment">
+      <Screen back title="Payment">
         <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} />
         <Button title="Back to accounts" variant="secondary" onPress={() => go('/buyer/accounts')} style={{ alignSelf: 'center' }} />
       </Screen>
@@ -96,6 +93,8 @@ function Inner() {
 
   const c = q.data;
   const p = c.payment;
+  const tint = statusTint(p.status);
+  const StatusIcon: LucideIcon = p.status === 'refunded' ? RefreshCw : p.status === 'failed' || p.status === 'cancelled' ? X : p.status === 'confirmed' ? Check : CreditCard;
   let step = 0;
   const S = (title: string, done: boolean, children: ReactNode, last?: boolean) => (
     <StepCard key={title} index={step++} title={title} done={done} last={last}>
@@ -106,45 +105,65 @@ function Inner() {
   return (
     <Screen
       back
-      kicker="Accounts / Transaction"
-      title={p.paymentNumber ?? 'Payment'}
-      subtitle={`Order ${c.order?.poNumber ?? '—'} · ${humanize(p.method)} via ${p.provider}`}
+      title="Payment"
       onRefresh={() => q.refetch()}
+      gap={20}
       footer={<Button title="Request refund" icon={RotateCcw} variant="secondary" size="lg" full onPress={() => setRefundOpen(true)} />}
     >
+      {/* Receipt */}
       <Animated.View entering={FadeInDown.duration(380)}>
-        <InkHero seed={`payment-${p.id}`}>
-          <Row justify="space-between">
-            <Kicker color="volt">{methodLabel(p.method)}</Kicker>
-            <StatusBadge status={p.status} size="sm" />
-          </Row>
-          <Text variant="metric" color="paper" style={{ marginTop: 12 }} numberOfLines={1} adjustsFontSizeToFit>
-            {formatLKR(p.amountCents)}
-          </Text>
-          <Text variant="caption" color="paperMuted" style={{ marginTop: 4, fontFamily: fonts.mono }}>
-            {formatDateTime(p.paidAt ?? p.createdAt)} · {p.currency}
-          </Text>
-          <Row gap={10} style={{ marginTop: 18 }}>
-            <HeroCell label="Fee" value={formatLKR(p.feeCents)} />
-            <HeroCell label="Net" value={formatLKR(p.netCents)} accent />
-          </Row>
-          {p.providerReference || p.transactionReference ? (
-            <Text variant="caption" color="paperFaint" style={{ marginTop: 12, fontFamily: fonts.mono }} numberOfLines={1}>
-              Ref {p.transactionReference ?? p.providerReference}
+        <Card padding={0} radius={radii['2xl']}>
+          <View style={{ alignItems: 'center', paddingTop: 26, paddingHorizontal: 20, paddingBottom: 20, gap: 8 }}>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: tint.bg, alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+              <StatusIcon size={24} color={tint.fg} strokeWidth={2.2} />
+            </View>
+            <Text variant="metric" align="center" numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 34 }}>
+              {formatLKR(p.amountCents)}
             </Text>
-          ) : null}
-        </InkHero>
+            <StatusBadge status={p.status} size="sm" />
+            <Text variant="bodySm" color="ink4" align="center">
+              {methodLabel(p.method)} · {formatDateTime(p.paidAt ?? p.createdAt)}
+            </Text>
+          </View>
+          <View style={{ height: 0, borderTopWidth: 1.5, borderStyle: 'dashed', borderColor: colors.line, marginHorizontal: 18 }} />
+          <View style={{ paddingHorizontal: 18, paddingVertical: 8 }}>
+            <Detail label="Reference" value={p.paymentNumber ?? shortId(p.id)} mono />
+            <Detail label="Order" value={c.order?.poNumber ?? '—'} mono />
+            <Detail label="Provider" value={humanize(p.provider)} />
+            <Detail label="Fee" value={formatLKR(p.feeCents)} />
+            <Detail label="Net" value={formatLKR(p.netCents)} strong last={!(p.transactionReference || p.providerReference)} />
+            {p.transactionReference || p.providerReference ? <Detail label="Provider ref" value={(p.transactionReference ?? p.providerReference)!} mono last /> : null}
+          </View>
+        </Card>
       </Animated.View>
 
-      <QuickActions style={{ paddingHorizontal: 4 }}>
-        {c.order ? <QuickAction icon={Package} label="View order" onPress={() => go(`/buyer/order/${c.order!.id}`)} /> : null}
-        {c.order && c.invoices[0] ? (
-          <QuickAction icon={FileText} label="Invoice" onPress={() => go(`/buyer/order/${c.order!.id}/invoice/${c.invoices[0].id}`)} />
-        ) : null}
-        <QuickAction icon={RotateCcw} label="Refund" onPress={() => setRefundOpen(true)} />
-      </QuickActions>
+      {/* Shortcuts */}
+      <Card padding={0} radius={radii['2xl']} style={{ flexDirection: 'row' }}>
+        {[
+          c.order ? { icon: Package, label: 'View order', onPress: () => go(`/buyer/order/${c.order!.id}`) } : null,
+          c.order && c.invoices[0] ? { icon: FileText, label: 'Invoice', onPress: () => go(`/buyer/order/${c.order!.id}/invoice/${c.invoices[0].id}`) } : null,
+          { icon: RotateCcw, label: 'Refund', onPress: () => setRefundOpen(true) },
+        ]
+          .filter((a): a is { icon: LucideIcon; label: string; onPress: () => void } => !!a)
+          .map((a, i) => (
+            <View key={a.label} style={{ flex: 1, flexDirection: 'row' }}>
+              {i ? <View style={{ width: StyleSheet.hairlineWidth * 2, backgroundColor: colors.lineSoft, marginVertical: 16 }} /> : null}
+              <Touchable onPress={a.onPress} hapticOnPress scaleTo={0.94} accessibilityLabel={a.label} style={{ flex: 1, alignItems: 'center', gap: 8, paddingVertical: 16 }}>
+                <View style={{ width: 42, height: 42, borderRadius: 14, borderCurve: 'continuous', backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center' }}>
+                  <a.icon size={19} color={colors.ink} strokeWidth={1.9} />
+                </View>
+                <Text variant="caption" weight="semibold" color="ink3">
+                  {a.label}
+                </Text>
+              </Touchable>
+            </View>
+          ))}
+      </Card>
 
-      <View style={{ gap: 0 }}>
+      <Text variant="h2" style={{ marginTop: 6, marginBottom: -6, paddingHorizontal: 2 }}>
+        Money trail
+      </Text>
+      <Card padding={18} radius={radii['2xl']}>
         {S(
           'Order',
           !!c.order,
@@ -322,20 +341,30 @@ function Inner() {
           ),
           true,
         )}
-      </View>
+      </Card>
 
       <RefundSheet visible={refundOpen} onClose={() => setRefundOpen(false)} paymentId={p.id} maxCents={p.amountCents} status={p.status} />
     </Screen>
   );
 }
 
-function HeroCell({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function Detail({ label, value, mono, strong, last }: { label: string; value: string; mono?: boolean; strong?: boolean; last?: boolean }) {
   return (
-    <View style={{ flex: 1, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: 'rgba(250,247,240,0.07)', gap: 4 }}>
-      <Text variant="overline" color="paperMuted">
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 16,
+        paddingVertical: 11,
+        borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth * 2,
+        borderBottomColor: colors.lineSoft,
+      }}
+    >
+      <Text variant="bodySm" color="ink4">
         {label}
       </Text>
-      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 15, color: accent ? colors.volt : colors.paper }} numberOfLines={1} adjustsFontSizeToFit>
+      <Text variant="bodySm" weight={strong ? 'semibold' : 'medium'} tabular numberOfLines={1} style={[{ flexShrink: 1, textAlign: 'right' }, mono ? { fontFamily: fonts.mono } : null]}>
         {value}
       </Text>
     </View>
@@ -366,17 +395,16 @@ function Line({ left, sub, children }: { left: ReactNode; sub?: string; children
   );
 }
 
-/** One node of the money-flow chain — the web's Step, drawn as a flow line. */
+/** One node of the money trail — dot + rail on the left, content on the right. */
 function StepCard({ title, done, children, index, last }: { title: string; done: boolean; children: ReactNode; index: number; last?: boolean }) {
   return (
-    <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 55).duration(380)} style={{ flexDirection: 'row', gap: 12 }}>
-      <View style={{ alignItems: 'center', width: 20 }}>
+    <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 55).duration(380)} style={{ flexDirection: 'row', gap: 14 }}>
+      <View style={{ alignItems: 'center', width: 22 }}>
         <View
           style={{
             width: 22,
             height: 22,
             borderRadius: 11,
-            marginTop: 16,
             backgroundColor: done ? colors.ink : colors.paper,
             borderWidth: done ? 0 : 1.5,
             borderColor: colors.lineStrong,
@@ -386,15 +414,13 @@ function StepCard({ title, done, children, index, last }: { title: string; done:
         >
           {done ? <Check size={11} color={colors.volt} strokeWidth={3} /> : null}
         </View>
-        {!last ? <View style={{ flex: 1, width: 1.5, backgroundColor: done ? colors.ink : colors.line, marginTop: 2 }} /> : null}
+        {!last ? <View style={{ flex: 1, width: 1.5, backgroundColor: done ? colors.ink : colors.line, marginVertical: 3 }} /> : null}
       </View>
-      <View style={{ flex: 1, paddingBottom: 12 }}>
-        <View style={[{ backgroundColor: colors.paper, borderRadius: radii.xl, borderCurve: 'continuous', padding: 16, gap: 8 }, shadow.card]}>
-          <Text variant="overline" color="ink3">
-            {title}
-          </Text>
-          {children}
-        </View>
+      <View style={{ flex: 1, paddingBottom: last ? 0 : 18, gap: 6 }}>
+        <Text variant="body" weight="semibold" style={{ lineHeight: 22 }}>
+          {title}
+        </Text>
+        {children}
       </View>
     </Animated.View>
   );

@@ -4,10 +4,10 @@ import { useLocalSearchParams } from 'expo-router';
 import { FileText, Mail, MapPin, Phone, UserRound } from 'lucide-react-native';
 import { api, errorMessage } from '@/lib/api';
 import { formatDate, humanize } from '@/lib/format';
-import { Avatar, Button, ConfirmSheet, InkHero, KeyValue, QueryView, Screen, StatusBadge, Text, useToast } from '@/ui';
+import { Button, ConfirmSheet, KeyValue, QueryView, Screen, StatusBadge, useToast } from '@/ui';
 import { useAdminGet } from '@/features/admin/common/api';
 import { Can } from '@/features/admin/platform/kit';
-import { ContactLine, Section } from '@/features/admin/ops/kit';
+import { ContactLine, ProfileHero, Section } from '@/features/admin/ops/kit';
 
 interface BusinessDetail {
   id: string;
@@ -73,27 +73,21 @@ export function BusinessDetailScreen() {
           const v = d.business;
           return (
             <>
-              <InkHero seed={`business-${v.id}`}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                  <Avatar name={v.name} size={56} tone="copper" />
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <Text variant="overline" color="volt">
-                      Buyer business
-                    </Text>
-                    <Text variant="h1" color="paper" numberOfLines={2}>
-                      {v.name}
-                    </Text>
-                  </View>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-                  {v.status ? <StatusBadge status={v.status} size="sm" /> : null}
-                  {v.createdAt ? (
-                    <Text variant="caption" color="paperFaint">
-                      Joined {formatDate(v.createdAt)}
-                    </Text>
-                  ) : null}
-                </View>
-              </InkHero>
+              <ProfileHero
+                name={v.name}
+                kind="Buyer business"
+                tone="copper"
+                joined={v.createdAt ? formatDate(v.createdAt) : null}
+                phone={v.phone}
+                email={v.email}
+                place={[v.address, v.city, v.district].filter(Boolean).join(', ') || null}
+                badges={
+                  <>
+                    {v.status ? <StatusBadge status={v.status} size="sm" /> : null}
+                    
+                  </>
+                }
+              />
               <Section kicker="Contact" title={v.contactPerson ?? 'Reach the buyer'} icon={UserRound}>
                 <View style={{ gap: 4 }}>
                   <ContactLine icon={Phone} value={v.phone} href={v.phone ? `tel:${v.phone}` : undefined} />

@@ -53,17 +53,22 @@ export const colors = {
 
 export type ColorName = keyof typeof colors;
 
-/** Font family names registered in app/_layout.tsx via @expo-google-fonts. */
+/**
+ * Font family names registered in app/_layout.tsx. Plus Jakarta Sans carries
+ * display/headings, Inter carries body copy and figures (tabular) — both are
+ * screen-first faces that read like a native app rather than an editorial page.
+ * `mono*` keep their names for call sites but render Inter's tabular figures.
+ */
 export const fonts = {
-  display: 'Syne_800ExtraBold',
-  displayBold: 'Syne_700Bold',
-  displaySemi: 'Syne_600SemiBold',
-  sans: 'IBMPlexSans_400Regular',
-  sansMedium: 'IBMPlexSans_500Medium',
-  sansSemi: 'IBMPlexSans_600SemiBold',
-  sansBold: 'IBMPlexSans_700Bold',
-  mono: 'IBMPlexMono_400Regular',
-  monoMedium: 'IBMPlexMono_500Medium',
+  display: 'Display-Black',
+  displayBold: 'Display-Bold',
+  displaySemi: 'Display-Semi',
+  sans: 'Sans-Regular',
+  sansMedium: 'Sans-Medium',
+  sansSemi: 'Sans-Semi',
+  sansBold: 'Sans-Bold',
+  mono: 'Sans-Medium',
+  monoMedium: 'Sans-Semi',
 } as const;
 
 /** Native-app radii: soft, continuous corners rather than the web's tight 8–12px. */
@@ -101,23 +106,25 @@ export const space = {
 export const GUTTER = 20;
 
 /** Type scale mirrored from the web's fontSize extension, tuned for phones. */
+const TABULAR = { fontVariant: ['tabular-nums' as const] };
+
 export const type = {
-  displayXl: { fontFamily: fonts.display, fontSize: 44, lineHeight: 44, letterSpacing: -1.8 },
-  displayLg: { fontFamily: fonts.display, fontSize: 36, lineHeight: 37, letterSpacing: -1.3 },
-  displayMd: { fontFamily: fonts.displayBold, fontSize: 30, lineHeight: 32, letterSpacing: -0.9 },
-  displaySm: { fontFamily: fonts.displayBold, fontSize: 24, lineHeight: 27, letterSpacing: -0.6 },
-  h1: { fontFamily: fonts.displayBold, fontSize: 21, lineHeight: 26, letterSpacing: -0.4 },
-  h2: { fontFamily: fonts.displayBold, fontSize: 18, lineHeight: 23, letterSpacing: -0.3 },
-  h3: { fontFamily: fonts.sansSemi, fontSize: 16, lineHeight: 21 },
-  bodyLg: { fontFamily: fonts.sans, fontSize: 16.5, lineHeight: 25 },
-  body: { fontFamily: fonts.sans, fontSize: 15, lineHeight: 22 },
-  bodySm: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 19 },
-  caption: { fontFamily: fonts.sansMedium, fontSize: 11.5, lineHeight: 16, letterSpacing: 0.3 },
-  overline: { fontFamily: fonts.sansSemi, fontSize: 10.5, lineHeight: 14, letterSpacing: 1.7, textTransform: 'uppercase' as const },
-  metric: { fontFamily: fonts.monoMedium, fontSize: 34, lineHeight: 36, letterSpacing: -1.4 },
-  metricSm: { fontFamily: fonts.monoMedium, fontSize: 22, lineHeight: 26, letterSpacing: -0.8 },
-  mono: { fontFamily: fonts.mono, fontSize: 13, lineHeight: 18, letterSpacing: -0.2 },
-  button: { fontFamily: fonts.displayBold, fontSize: 15, lineHeight: 19, letterSpacing: -0.3 },
+  displayXl: { fontFamily: fonts.display, fontSize: 38, lineHeight: 44, letterSpacing: -1.2 },
+  displayLg: { fontFamily: fonts.display, fontSize: 32, lineHeight: 38, letterSpacing: -0.9 },
+  displayMd: { fontFamily: fonts.displayBold, fontSize: 27, lineHeight: 33, letterSpacing: -0.7 },
+  displaySm: { fontFamily: fonts.displayBold, fontSize: 22, lineHeight: 28, letterSpacing: -0.45 },
+  h1: { fontFamily: fonts.displayBold, fontSize: 20, lineHeight: 26, letterSpacing: -0.35 },
+  h2: { fontFamily: fonts.displayBold, fontSize: 17, lineHeight: 22, letterSpacing: -0.25 },
+  h3: { fontFamily: fonts.sansSemi, fontSize: 16, lineHeight: 21, letterSpacing: -0.2 },
+  bodyLg: { fontFamily: fonts.sans, fontSize: 16.5, lineHeight: 24, letterSpacing: -0.2 },
+  body: { fontFamily: fonts.sans, fontSize: 15, lineHeight: 21, letterSpacing: -0.15 },
+  bodySm: { fontFamily: fonts.sans, fontSize: 13.5, lineHeight: 19, letterSpacing: -0.08 },
+  caption: { fontFamily: fonts.sansMedium, fontSize: 12, lineHeight: 16, letterSpacing: 0 },
+  overline: { fontFamily: fonts.sansSemi, fontSize: 11, lineHeight: 14, letterSpacing: 0.9, textTransform: 'uppercase' as const },
+  metric: { fontFamily: fonts.displayBold, fontSize: 34, lineHeight: 40, letterSpacing: -1.1, ...TABULAR },
+  metricSm: { fontFamily: fonts.displayBold, fontSize: 22, lineHeight: 28, letterSpacing: -0.6, ...TABULAR },
+  mono: { fontFamily: fonts.mono, fontSize: 13, lineHeight: 18, letterSpacing: -0.1, ...TABULAR },
+  button: { fontFamily: fonts.sansSemi, fontSize: 15, lineHeight: 20, letterSpacing: -0.2 },
 } as const;
 
 export type TypeVariant = keyof typeof type;

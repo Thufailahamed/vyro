@@ -1,22 +1,20 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, FileText, Landmark, ListChecks, ShieldCheck, Sparkles, Upload, Warehouse } from 'lucide-react-native';
-import { colors, radii } from '@/theme/tokens';
+import { Building2, Check, FileText, Landmark, ShieldCheck, Sparkles, Upload, Warehouse } from 'lucide-react-native';
+import { colors, fonts } from '@/theme/tokens';
 import { api, errorMessage, qs } from '@/lib/api';
 import { useSupplierId } from '@/lib/auth';
 import {
   Banner,
   Button,
+  Card,
   Checkbox,
   EmptyState,
   ErrorState,
   Field,
   IconTile,
-  InkHero,
   Input,
-  KeyValue,
-  Kicker,
   ListRow,
   Screen,
   Select,
@@ -24,12 +22,11 @@ import {
   StatusBadge,
   Stepper,
   Text,
-  Timeline,
   useToast,
 } from '@/ui';
 import { appendFile, pickDocument } from '@/lib/files';
 import { humanize } from '@/lib/format';
-import { Section } from '@/features/supplier/ops/kit';
+import { Section, SummaryHero } from '@/features/supplier/ops/kit';
 
 /* -------------------------------- Settings -------------------------------- */
 
@@ -70,6 +67,10 @@ export function SupplierSettingsScreen() {
   });
 
   const set = (patch: Partial<Settings>) => setForm((f) => ({ ...(f ?? {}), ...patch }));
+  const cash = s.payoutMethod === 'cash';
+  const required: (keyof Settings)[] = ['warehouseAddress', 'warehouseCity', 'warehouseDistrict', 'payoutMethod', ...(cash ? [] : (['bankName', 'bankAccountNo', 'bankAccountHolder'] as const))];
+  const filled = required.filter((k) => s[k] != null && String(s[k]).trim() !== '').length;
+  const pct = Math.round((filled / required.length) * 100);
 
   if (q.isLoading)
     return (
@@ -92,18 +93,48 @@ export function SupplierSettingsScreen() {
       title="Settings"
       subtitle="Depot, lead times and settlement payouts."
       keyboard
-      footer={<Button title={save.isPending ? 'Saving…' : 'Save settings'} full loading={save.isPending} disabled={!form} onPress={() => save.mutate()} />}
+      footer={
+        <>
+          {form ? (
+            <Text variant="caption" color="copper" align="center">
+              You have unsaved changes
+            </Text>
+          ) : null}
+          <Button title={save.isPending ? 'Saving…' : 'Save settings'} full loading={save.isPending} disabled={!form} onPress={() => save.mutate()} />
+        </>
+      }
     >
+      <SummaryHero
+        icon={Warehouse}
+        kicker="Facility profile"
+        value={`${pct}% complete`}
+        sub={pct === 100 ? 'Depot and payouts are fully set up.' : 'Complete your depot and payout details so buyers can order and you get paid.'}
+        cells={[
+          { label: 'Depot', value: s.warehouseCity || '—', dot: s.warehouseCity ? colors.volt : colors.paperFaint },
+          { label: 'Payout', value: s.payoutMethod ? humanize(s.payoutMethod) : '—', dot: s.payoutMethod ? colors.volt : colors.paperFaint },
+          { label: 'Lead time', value: `${s.defaultLeadTimeDays ?? 1}d`, dot: colors.copper },
+        ]}
+      >
+        <View style={{ height: 6, borderRadius: 3, backgroundColor: 'rgba(250,247,240,0.1)', overflow: 'hidden' }}>
+          <View style={{ width: `${pct}%`, height: '100%', borderRadius: 3, backgroundColor: colors.volt }} />
+        </View>
+      </SummaryHero>
       <Section icon={Warehouse} kicker="Step 1" title="Depot" sub="Where buyers' orders are picked and packed.">
         <Field label="Warehouse address">
           <Input value={s.warehouseAddress ?? ''} onChangeText={(v) => set({ warehouseAddress: v })} placeholder="No. 12, Depot Road" />
         </Field>
-        <Field label="City">
-          <Input value={s.warehouseCity ?? ''} onChangeText={(v) => set({ warehouseCity: v })} placeholder="Colombo" />
-        </Field>
-        <Field label="District">
-          <Input value={s.warehouseDistrict ?? ''} onChangeText={(v) => set({ warehouseDistrict: v })} placeholder="Colombo" />
-        </Field>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Field label="City">
+              <Input value={s.warehouseCity ?? ''} onChangeText={(v) => set({ warehouseCity: v })} placeholder="Colombo" />
+            </Field>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Field label="District">
+              <Input value={s.warehouseDistrict ?? ''} onChangeText={(v) => set({ warehouseDistrict: v })} placeholder="Colombo" />
+            </Field>
+          </View>
+        </View>
         <Field label="Default lead time (days)">
           <Stepper value={s.defaultLeadTimeDays ?? 1} onChange={(v) => set({ defaultLeadTimeDays: v })} min={0} max={30} />
         </Field>
@@ -112,18 +143,32 @@ export function SupplierSettingsScreen() {
         <Field label="Payout method">
           <Select value={s.payoutMethod ?? null} options={[{ value: 'bank', label: 'Bank transfer' }, { value: 'cash', label: 'Cash' }]} onChange={(v) => set({ payoutMethod: v })} placeholder="Select method…" />
         </Field>
-        <Field label="Bank name">
-          <Input value={s.bankName ?? ''} onChangeText={(v) => set({ bankName: v })} placeholder="Bank of Ceylon" />
-        </Field>
-        <Field label="Account number">
-          <Input value={s.bankAccountNo ?? ''} onChangeText={(v) => set({ bankAccountNo: v })} placeholder="1234567890" keyboardType="number-pad" />
-        </Field>
-        <Field label="Branch">
-          <Input value={s.bankBranch ?? ''} onChangeText={(v) => set({ bankBranch: v })} placeholder="Colombo 03" />
-        </Field>
-        <Field label="Account holder">
-          <Input value={s.bankAccountHolder ?? ''} onChangeText={(v) => set({ bankAccountHolder: v })} placeholder="Company (Pvt) Ltd" />
-        </Field>
+        {cash ? (
+          <Text variant="caption" color="ink4">
+            Cash payouts are collected at the depot — no bank details needed.
+          </Text>
+        ) : (
+          <>
+            <Field label="Bank name">
+              <Input value={s.bankName ?? ''} onChangeText={(v) => set({ bankName: v })} placeholder="Bank of Ceylon" />
+            </Field>
+            <Field label="Account number">
+              <Input value={s.bankAccountNo ?? ''} onChangeText={(v) => set({ bankAccountNo: v })} placeholder="1234567890" keyboardType="number-pad" />
+            </Field>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Field label="Branch">
+                  <Input value={s.bankBranch ?? ''} onChangeText={(v) => set({ bankBranch: v })} placeholder="Colombo 03" />
+                </Field>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Field label="Account holder">
+                  <Input value={s.bankAccountHolder ?? ''} onChangeText={(v) => set({ bankAccountHolder: v })} placeholder="Company Ltd" />
+                </Field>
+              </View>
+            </View>
+          </>
+        )}
       </Section>
       <BuyLeadsSection supplierId={supplierId} />
     </Screen>
@@ -250,6 +295,7 @@ export function SupplierVerificationScreen() {
   });
 
   const status = kyc.data?.kyc?.status ?? null;
+  const approved = status === 'approved';
   const notes = kyc.data?.kyc?.reviewNotes ?? null;
 
   const steps = ['Business registration', 'Tax & compliance', 'Settlement bank', 'Admin review'].map((label, i) => ({
@@ -265,28 +311,59 @@ export function SupplierVerificationScreen() {
         <ErrorState message={errorMessage(kyc.error)} onRetry={() => kyc.refetch()} />
       ) : (
         <>
-          <InkHero seed={`kyc-${status ?? 'none'}`}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <IconTile icon={ShieldCheck} tone={status === 'approved' ? 'volt' : 'glass'} size={44} />
-              <StatusBadge status={status ?? 'not_submitted'} />
+          <SummaryHero
+            icon={ShieldCheck}
+            kicker="Facility KYC"
+            value={status ? humanize(status) : 'Not submitted'}
+            sub={approved ? 'Your trust seal is live on your storefront.' : 'Verified facilities earn the trust seal on their storefront. Reviews take 24–48 hours.'}
+            right={<StatusBadge status={status ?? 'not_submitted'} size="sm" />}
+          >
+            <View style={{ gap: 10 }}>
+              {steps.map((st, i) => (
+                <View key={st.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 11,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: st.state === 'done' ? colors.volt : st.state === 'active' ? 'rgba(198,220,74,0.18)' : 'rgba(250,247,240,0.08)',
+                      borderWidth: st.state === 'active' ? 1.5 : 0,
+                      borderColor: colors.volt,
+                    }}
+                  >
+                    {st.state === 'done' ? (
+                      <Check size={12} color={colors.ink} strokeWidth={3} />
+                    ) : (
+                      <Text style={{ fontFamily: fonts.sansSemi, fontSize: 10.5, lineHeight: 13, color: st.state === 'active' ? colors.volt : colors.paperFaint }}>{i + 1}</Text>
+                    )}
+                  </View>
+                  <Text variant="bodySm" weight={st.state === 'idle' ? 'regular' : 'semibold'} color={st.state === 'idle' ? 'paperFaint' : 'paper'} style={{ flex: 1 }}>
+                    {st.label}
+                  </Text>
+                  {st.state === 'active' ? (
+                    <Text variant="caption" color="volt">
+                      {status ? 'In review' : 'Next'}
+                    </Text>
+                  ) : null}
+                </View>
+              ))}
             </View>
-            <View style={{ marginTop: 18, gap: 4 }}>
-              <Kicker color="volt">Facility KYC</Kicker>
-              <Text variant="displaySm" color="paper">
-                {status ? humanize(status) : 'Not submitted'}
-              </Text>
-              <Text variant="caption" color="paperMuted">
-                Verified facilities earn the trust seal on their storefront.
-              </Text>
-            </View>
-          </InkHero>
+          </SummaryHero>
           {notes ? <Banner tone="warning" title="Reviewer notes" message={notes} /> : null}
-          <Section icon={ListChecks} kicker="Progress" title="Review steps">
-            <Timeline steps={steps} />
-            <View style={{ marginTop: -4 }}>
-              <KeyValue label="Status" value={status ? humanize(status) : 'Not submitted'} last />
-            </View>
-          </Section>
+          {approved ? (
+            <Card kind="bone" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <IconTile icon={ShieldCheck} tone="success" size={42} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text variant="h3">You're verified</Text>
+                <Text variant="bodySm" color="ink4">
+                  Contact support if your registration or bank details change.
+                </Text>
+              </View>
+            </Card>
+          ) : (
+          <>
           <Section icon={FileText} kicker="Step 1" title="Documents" sub="Registration, tax and bank proofs.">
             {files.length === 0 ? (
               <EmptyState compact icon={Building2} title="No uploads yet" message="Attach registration, tax and bank proofs." />
@@ -321,12 +398,6 @@ export function SupplierVerificationScreen() {
             <Field label="Notes">
               <Input value={form.notes} onChangeText={(v) => setForm((f) => ({ ...f, notes: v }))} placeholder="Anything the reviewer should know…" multiline />
             </Field>
-            <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
-              <ShieldCheck size={16} color={colors.copperDeep} />
-              <Text variant="caption" color="ink4" style={{ flex: 1 }}>
-                Most reviews complete within 24–48 hours.
-              </Text>
-            </View>
             <Button
               title={submit.isPending ? 'Submitting…' : 'Submit KYC'}
               full
@@ -334,6 +405,8 @@ export function SupplierVerificationScreen() {
               onPress={() => submit.mutate({ ...form })}
             />
           </Section>
+          </>
+          )}
         </>
       )}
     </Screen>

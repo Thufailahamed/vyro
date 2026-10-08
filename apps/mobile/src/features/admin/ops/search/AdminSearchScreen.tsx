@@ -3,7 +3,8 @@ import { View } from 'react-native';
 import { Building2, FileText, Package, Search, SearchX, ShieldAlert, Store, Truck, UserRound } from 'lucide-react-native';
 import { errorMessage, qs } from '@/lib/api';
 import { humanize } from '@/lib/format';
-import { Card, IconTile, ListRow, ListSection, QueryView, Screen, SearchBar, Text } from '@/ui';
+import { IconTile, InkHero, ListRow, ListSection, QueryView, Screen, SearchBar, Text } from '@/ui';
+import { colors, radii } from '@/theme/tokens';
 import { useAdminGet } from '@/features/admin/common/api';
 import { Appear, go } from '@/features/admin/platform/kit';
 import { useDebounced } from '@/features/admin/ops/kit/hooks';
@@ -73,20 +74,32 @@ export function AdminSearchScreen() {
     <Screen back kicker="Command" title="Search" subtitle="One query across every registry." onRefresh={() => q.refetch()}>
       <SearchBar value={text} onChangeText={setText} placeholder="PO#, name, email, product…" autoFocus />
       {debounced.length < 2 ? (
-        <Card kind="flat" padding={20} style={{ alignItems: 'center', gap: 12 }}>
-          <IconTile icon={Search} tone="ink" size={52} />
-          <Text variant="h3" align="center">
-            Search every registry
+        <View style={{ gap: 14 }}>
+          <InkHero seed="admin-search" style={{ padding: 20, alignItems: 'flex-start', gap: 6 }}>
+            <IconTile icon={Search} tone="volt" size={44} style={{ marginBottom: 8 }} />
+            <Text variant="h1" color="paper">
+              Search every registry
+            </Text>
+            <Text variant="bodySm" color="paperMuted">
+              Type at least 2 characters. Try a PO number, a business name or an email.
+            </Text>
+          </InkHero>
+          <Text variant="overline" color="ink4" style={{ marginLeft: 6 }}>
+            Searches across
           </Text>
-          <Text variant="bodySm" color="ink4" align="center" style={{ maxWidth: 300 }}>
-            Type at least 2 characters to search suppliers, businesses, users, orders, products, deliveries and abuse reports.
-          </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 4 }}>
-            {[Store, Building2, UserRound, Package, FileText, Truck, ShieldAlert].map((I, i) => (
-              <IconTile key={i} icon={I} tone="paper" size={34} />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {groups.map((g) => (
+              <View key={g.title} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingLeft: 6, paddingRight: 14, borderRadius: radii.pill, backgroundColor: colors.paper, borderWidth: 1, borderColor: 'rgba(12,14,11,0.06)' }}>
+                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center' }}>
+                  <g.icon size={14} color={colors.ink} strokeWidth={1.9} />
+                </View>
+                <Text variant="bodySm" weight="medium">
+                  {g.title}
+                </Text>
+              </View>
             ))}
           </View>
-        </Card>
+        </View>
       ) : (
         <QueryView
           query={{ ...q, isLoading: q.isLoading || q.isFetching } as typeof q}
@@ -97,6 +110,9 @@ export function AdminSearchScreen() {
         >
           {() => (
             <View style={{ gap: 16 }}>
+              <Text variant="caption" weight="semibold" color="ink4" style={{ marginLeft: 6 }}>
+                {total} result{total === 1 ? '' : 's'} across {shown.length} registr{shown.length === 1 ? 'y' : 'ies'}
+              </Text>
               {shown.map((g, gi) => (
                 <Appear key={g.title} i={gi}>
                   <ListSection label={`${g.title} · ${g.rows.length}`}>

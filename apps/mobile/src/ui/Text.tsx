@@ -11,19 +11,19 @@ export interface TextProps extends RNTextProps {
 }
 
 const SANS_WEIGHT: Record<NonNullable<TextProps['weight']>, string> = {
-  regular: 'IBMPlexSans_400Regular',
-  medium: 'IBMPlexSans_500Medium',
-  semibold: 'IBMPlexSans_600SemiBold',
-  bold: 'IBMPlexSans_700Bold',
+  regular: 'Sans-Regular',
+  medium: 'Sans-Medium',
+  semibold: 'Sans-Semi',
+  bold: 'Sans-Bold',
 };
 
 /**
  * All copy goes through this. Variants map to the web type scale:
- * display* / h1 / h2 use Syne, body uses IBM Plex Sans, metric/mono use Plex Mono.
+ * display* / h1 / h2 use Plus Jakarta Sans, body and figures use Inter (tabular).
  */
 export function Text({ variant = 'body', color = 'ink', align, weight, tabular, style, ...rest }: TextProps) {
   const base = typeScale[variant] as TextStyle;
-  const isSans = base.fontFamily?.startsWith('IBMPlexSans');
+  const isSans = base.fontFamily?.startsWith('Sans-');
   return (
     <RNText
       {...rest}

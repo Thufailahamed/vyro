@@ -1,8 +1,10 @@
 import { router } from 'expo-router';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import Constants from 'expo-constants';
 import {
+  ArrowRight,
   Bell,
-  Building2,
+  ChevronDown,
   CreditCard,
   FileText,
   HelpCircle,
@@ -10,52 +12,54 @@ import {
   LogOut,
   Package,
   Receipt,
+  Repeat,
   Settings,
   ShieldCheck,
   Store,
+  type LucideIcon,
 } from 'lucide-react-native';
-import { Avatar, Button, InkHero, ListRow, ListSection, QuickAction, QuickActions, Screen, Text, useToast } from '@/ui';
+import { Avatar, Card, IconButton, ListRow, ListSection, Screen, Text, Touchable, useToast } from '@/ui';
 import { useAuth } from '@/lib/auth';
 import { errorMessage } from '@/lib/api';
-import { colors } from '@/theme/tokens';
+import { colors, radii, shadow } from '@/theme/tokens';
 import { PortalSwitcher } from '../common/PortalSwitcher';
 import { Enter, go } from './orders/kit';
 
-type Link = { icon: typeof Package; label: string; hint: string; to: string; tone?: 'ink' | 'volt' | 'copper' | 'paper' };
+type Link = { icon: LucideIcon; label: string; to: string; tone?: 'ink' | 'volt' | 'copper' | 'paper' };
+
+/** Most-used modules — surfaced as a shortcut strip under the profile. */
+const SHORTCUTS: { icon: LucideIcon; label: string; to: string }[] = [
+  { icon: Package, label: 'Orders', to: '/buyer/orders' },
+  { icon: FileText, label: 'RFQs', to: '/buyer/rfqs' },
+  { icon: Receipt, label: 'Invoices', to: '/buyer/invoices' },
+  { icon: CreditCard, label: 'Credit', to: '/buyer/credit' },
+];
 
 const GROUPS: { label: string; links: Link[] }[] = [
   {
-    label: 'Procurement',
+    label: 'Finance',
     links: [
-      { icon: Package, label: 'Orders', hint: 'Purchase orders & tracking', to: '/buyer/orders' },
-      { icon: FileText, label: 'RFQs', hint: 'Quote requests & compare', to: '/buyer/rfqs' },
-      { icon: Receipt, label: 'Invoices', hint: 'Billing & statements', to: '/buyer/invoices', tone: 'copper' },
-    ],
-  },
-  {
-    label: 'Money',
-    links: [
-      { icon: CreditCard, label: 'VYRO Credit', hint: 'Net-terms facility', to: '/buyer/credit', tone: 'volt' },
-      { icon: Landmark, label: 'Accounts', hint: 'Ledger & payments', to: '/buyer/accounts' },
+      { icon: CreditCard, label: 'VYRO Credit', to: '/buyer/credit', tone: 'volt' },
+      { icon: Landmark, label: 'Accounts & ledger', to: '/buyer/accounts' },
     ],
   },
   {
     label: 'Business',
     links: [
-      { icon: ShieldCheck, label: 'KYC', hint: 'Business verification', to: '/buyer/kyc', tone: 'copper' },
-      { icon: Bell, label: 'Notifications', hint: 'Alerts & updates', to: '/notifications' },
+      { icon: ShieldCheck, label: 'Verification (KYC)', to: '/buyer/kyc', tone: 'copper' },
+      { icon: Bell, label: 'Notifications', to: '/notifications' },
     ],
   },
   {
-    label: 'Help & preferences',
+    label: 'Support',
     links: [
-      { icon: HelpCircle, label: 'How it works', hint: 'Procurement guide', to: '/how-it-works', tone: 'paper' },
-      { icon: Settings, label: 'Settings', hint: 'Profile & preferences', to: '/settings', tone: 'paper' },
+      { icon: HelpCircle, label: 'How it works', to: '/how-it-works', tone: 'paper' },
+      { icon: Settings, label: 'Settings', to: '/settings', tone: 'paper' },
     ],
   },
 ];
 
-/** Buyer account tab — profile, module hub, portal switching, sign out. */
+/** Buyer account tab — profile, shortcuts, module hub, workspace switching, sign out. */
 export function BuyerAccountScreen() {
   const { user, business, signOut } = useAuth();
   const toast = useToast();
@@ -70,91 +74,138 @@ export function BuyerAccountScreen() {
   };
 
   return (
-    <Screen tabBar kicker="Buyer account" title="Your workspace" gap={22}>
-      {/* Profile hero */}
-      <Enter>
-        <InkHero seed={user?.email ?? 'account'} style={{ gap: 20 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-            <View style={{ padding: 3, borderRadius: 34, backgroundColor: 'rgba(198,220,74,0.22)' }}>
-              <Avatar name={user?.name} uri={user?.image} size={58} tone="volt" />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text variant="h1" color="paper" numberOfLines={1}>
-                {user?.name ?? 'Buyer'}
-              </Text>
-              <Text variant="caption" color="paperMuted" numberOfLines={1}>
-                {user?.email}
-              </Text>
-            </View>
-          </View>
-          {business ? (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 10,
-                padding: 12,
-                borderRadius: 16,
-                backgroundColor: 'rgba(250,247,240,0.06)',
-                borderWidth: 1,
-                borderColor: colors.paperLine,
-              }}
-            >
-              <Building2 size={16} color={colors.volt} />
-              <Text variant="bodySm" weight="semibold" color="paper" numberOfLines={1} style={{ flex: 1 }}>
-                {business.businessName}
-              </Text>
-              <View style={{ paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10, backgroundColor: 'rgba(198,220,74,0.16)' }}>
-                <Text variant="caption" weight="semibold" color="volt">
-                  {business.role}
+    <Screen tabBar gap={24}>
+      {/* Title bar */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8 }}>
+        <Text variant="displayMd">Account</Text>
+        <IconButton icon={Settings} variant="surface" size={44} accessibilityLabel="Settings" onPress={() => go('/settings')} />
+      </View>
+
+      {/* Profile */}
+      <Enter style={{ alignItems: 'center', gap: 14 }}>
+        <View style={[{ padding: 4, borderRadius: 52, backgroundColor: colors.paper, borderWidth: 2, borderColor: colors.volt }, shadow.md]}>
+          <Avatar name={user?.name} uri={user?.image} size={88} tone="ink" />
+        </View>
+        <View style={{ alignItems: 'center', gap: 2 }}>
+          <Text variant="displaySm" align="center" numberOfLines={1}>
+            {user?.name ?? 'Buyer'}
+          </Text>
+          <Text variant="bodySm" color="ink4" align="center" numberOfLines={1}>
+            {user?.email}
+          </Text>
+        </View>
+
+        {business ? (
+          <PortalSwitcher
+            current="buyer"
+            trigger={({ open }) => (
+              <Touchable
+                onPress={open}
+                hapticOnPress
+                scaleTo={0.96}
+                accessibilityLabel="Switch workspace"
+                style={[
+                  { flexDirection: 'row', alignItems: 'center', gap: 8, height: 38, paddingLeft: 6, paddingRight: 12, borderRadius: radii.pill, backgroundColor: colors.paper, maxWidth: '100%' },
+                  shadow.sm,
+                ]}
+              >
+                <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+                  <Store size={13} color={colors.volt} strokeWidth={2} />
+                </View>
+                <Text variant="bodySm" weight="semibold" numberOfLines={1} style={{ flexShrink: 1 }}>
+                  {business.businessName}
                 </Text>
-              </View>
-            </View>
-          ) : (
-            <View style={{ gap: 10 }}>
-              <Text variant="bodySm" color="paperMuted">
-                No business profile yet — set one up to unlock ordering.
+                <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: colors.voltSoft }}>
+                  <Text variant="caption" weight="semibold" color="voltDeep" style={{ textTransform: 'capitalize' }}>
+                    {business.role}
+                  </Text>
+                </View>
+                <ChevronDown size={15} color={colors.ink4} strokeWidth={2.2} />
+              </Touchable>
+            )}
+          />
+        ) : null}
+      </Enter>
+
+      {/* No business yet → setup prompt */}
+      {!business ? (
+        <Enter i={1}>
+          <Card kind="ink" padding={18} radius={radii['2xl']} style={{ gap: 14 }}>
+            <View style={{ gap: 4 }}>
+              <Text variant="h2" color="paper">
+                Set up your business
               </Text>
-              <Button title="Set up business" size="sm" variant="volt" icon={Store} onPress={() => go('/onboarding/business')} />
+              <Text variant="bodySm" color="paperMuted">
+                Add your business profile to unlock ordering, credit and invoices.
+              </Text>
             </View>
-          )}
-          <QuickActions>
-            <QuickAction icon={Package} label="Orders" tone="glass" onPress={() => go('/buyer/orders')} />
-            <QuickAction icon={FileText} label="RFQs" tone="glass" onPress={() => go('/buyer/rfqs')} />
-            <QuickAction icon={CreditCard} label="Credit" tone="glass" onPress={() => go('/buyer/credit')} />
-            <QuickAction icon={Settings} label="Settings" tone="glass" onPress={() => go('/settings')} />
-          </QuickActions>
-        </InkHero>
+            <Touchable
+              onPress={() => go('/onboarding/business')}
+              hapticOnPress
+              style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, height: 40, borderRadius: 20, backgroundColor: colors.volt }}
+            >
+              <Text variant="bodySm" weight="semibold">
+                Get started
+              </Text>
+              <ArrowRight size={15} color={colors.ink} />
+            </Touchable>
+          </Card>
+        </Enter>
+      ) : null}
+
+      {/* Shortcuts */}
+      <Enter i={1}>
+        <Card padding={0} radius={radii['2xl']} style={{ flexDirection: 'row' }}>
+          {SHORTCUTS.map((s, i) => (
+            <View key={s.to} style={{ flex: 1, flexDirection: 'row' }}>
+              {i ? <View style={{ width: StyleSheet.hairlineWidth * 2, backgroundColor: colors.lineSoft, marginVertical: 18 }} /> : null}
+              <Touchable onPress={() => go(s.to)} hapticOnPress scaleTo={0.94} accessibilityLabel={s.label} style={{ flex: 1, alignItems: 'center', gap: 8, paddingVertical: 16 }}>
+                <View style={{ width: 44, height: 44, borderRadius: 15, borderCurve: 'continuous', backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center' }}>
+                  <s.icon size={20} color={colors.ink} strokeWidth={1.9} />
+                </View>
+                <Text variant="caption" weight="semibold" color="ink3">
+                  {s.label}
+                </Text>
+              </Touchable>
+            </View>
+          ))}
+        </Card>
       </Enter>
 
       {/* Module groups */}
       {GROUPS.map((g, gi) => (
-        <Enter key={g.label} i={gi + 1}>
+        <Enter key={g.label} i={gi + 2}>
           <ListSection label={g.label}>
             {g.links.map((l, i) => (
-              <ListRow key={l.to} icon={l.icon} iconTone={l.tone ?? 'ink'} title={l.label} subtitle={l.hint} onPress={() => go(l.to)} last={i === g.links.length - 1} />
+              <ListRow key={l.to} icon={l.icon} iconTone={l.tone ?? 'ink'} title={l.label} onPress={() => go(l.to)} last={i === g.links.length - 1 && g.label !== 'Business'} />
             ))}
+            {g.label === 'Business' ? (
+              <PortalSwitcher
+                current="buyer"
+                trigger={({ open }) => <ListRow icon={Repeat} iconTone="paper" title="Switch workspace" onPress={open} last />}
+              />
+            ) : null}
           </ListSection>
         </Enter>
       ))}
 
-      {/* Portal switching */}
-      <Enter i={GROUPS.length + 1}>
-        <View style={{ gap: 8 }}>
-          <Text variant="overline" color="ink4" style={{ marginLeft: 6 }}>
-            Workspace
-          </Text>
-          <View style={{ alignSelf: 'flex-start' }}>
-            <PortalSwitcher current="buyer" />
-          </View>
-        </View>
-      </Enter>
-
       {/* Sign out */}
-      <Enter i={GROUPS.length + 2}>
-        <ListSection>
-          <ListRow icon={LogOut} iconTone="danger" title="Sign out" destructive chevron={false} onPress={out} last />
-        </ListSection>
+      <Enter i={GROUPS.length + 2} style={{ gap: 16 }}>
+        <Touchable
+          onPress={out}
+          hapticOnPress
+          scaleTo={0.97}
+          accessibilityLabel="Sign out"
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 52, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.roseSoft }}
+        >
+          <LogOut size={17} color={colors.rose} strokeWidth={2.1} />
+          <Text variant="body" weight="semibold" color="rose">
+            Sign out
+          </Text>
+        </Touchable>
+        <Text variant="caption" color="ink5" align="center">
+          VYRO{Constants.expoConfig?.version ? ` · v${Constants.expoConfig.version}` : ''}
+        </Text>
       </Enter>
     </Screen>
   );

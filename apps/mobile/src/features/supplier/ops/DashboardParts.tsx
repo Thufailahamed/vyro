@@ -43,8 +43,8 @@ export function RepeatOfferTile({ supplierId, dark }: { supplierId: string; dark
         <Text variant="caption" weight="semibold" color={dark ? 'paperMuted' : 'ink3'} numberOfLines={1}>
           Repeat offers (30d)
         </Text>
-        <Text variant="caption" color={dark ? 'paperFaint' : 'ink5'}>
-          orders with discount · {formatCompactLKR(q.data.totalSavingsCents)} savings extended
+        <Text variant="caption" color={dark ? 'paperFaint' : 'ink5'} numberOfLines={1}>
+          {formatCompactLKR(q.data.totalSavingsCents)} saved for buyers
         </Text>
       </View>
     </Card>

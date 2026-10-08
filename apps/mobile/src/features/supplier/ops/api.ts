@@ -180,6 +180,11 @@ export const PENDING_SET = ['pending', 'confirmed', 'accepted', 'preparing', 're
 export const TRANSIT_SET = ['dispatched', 'out_for_delivery', 'shipped'];
 export const DONE_SET = ['delivered', 'received', 'completed'];
 
+const titleCase = (t: string) => t.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+
 export function destination(o: Pick<Po, 'deliveryCity' | 'deliveryDistrict'>) {
-  return o.deliveryCity ? `${o.deliveryCity}${o.deliveryDistrict ? `, ${o.deliveryDistrict}` : ''}` : 'Commercial dock delivery';
+  if (!o.deliveryCity) return 'Commercial dock delivery';
+  const city = titleCase(o.deliveryCity);
+  const district = o.deliveryDistrict ? titleCase(o.deliveryDistrict) : '';
+  return district && district.toLowerCase() !== city.toLowerCase() ? `${city}, ${district}` : city;
 }

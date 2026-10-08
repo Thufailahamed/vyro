@@ -1,15 +1,12 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Award, CheckCircle2, ClipboardList, FileText, Hourglass, Timer } from 'lucide-react-native';
+import { ClipboardList, FileText, Timer } from 'lucide-react-native';
 import { api, errorMessage } from '@/lib/api';
 import { formatDate, formatLKR, humanize, timeAgo } from '@/lib/format';
 import {
-  BarChart,
   Button,
   ChipRow,
-  QuickAction,
-  QuickActions,
   ConfirmSheet,
   EmptyState,
   ErrorState,
@@ -17,15 +14,13 @@ import {
   Screen,
   SearchBar,
   SkeletonList,
-  Stat,
-  StatGrid,
   StatusBadge,
-  Text,
   useToast,
 } from '@/ui';
-import { Appear, HeroGrid, HeroMetric } from '@/features/admin/platform/kit';
+import { Appear } from '@/features/admin/platform/kit';
+import { colors } from '@/theme/tokens';
 import { useDebounced } from '@/features/admin/ops/kit/hooks';
-import { Pill, RecordCard, Section } from '@/features/admin/ops/kit';
+import { HeroFigure, HeroPipeline, HeroTopline, Pill, RecordCard } from '@/features/admin/ops/kit';
 
 interface AdminRfqRow {
   id: string;
@@ -107,40 +102,23 @@ export function RfqsScreen() {
       kicker="Operations"
       title="RFQs"
       subtitle="Quote requests awaiting supplier bids."
-      right={<Button title="Sweep" icon={Timer} size="sm" variant="paper" onPress={() => setSweepOpen(true)} />}
+      right={<Button title="Expiry sweep" icon={Timer} size="sm" variant="paper" onPress={() => setSweepOpen(true)} />}
       onRefresh={() => Promise.all([list.refetch(), thresholds.refetch()])}
     >
       <Appear>
-        <InkHero seed="admin-rfqs">
-          <Text variant="overline" color="volt">
-            Open pipeline
-          </Text>
-          <Text variant="metric" color="paper" style={{ marginTop: 12, fontSize: 44, lineHeight: 46 }}>
-            {counts.open}
-          </Text>
-          <Text variant="caption" color="paperFaint">
-            Awaiting quotes · bulk threshold {thresholds.data ? formatLKR(thresholds.data.valueThresholdCents) : '…'}
-          </Text>
-          <HeroGrid>
-            <HeroMetric label="Under review" value={String(counts.review)} />
-            <HeroMetric label="Awarded" value={String(counts.awarded)} />
-            <HeroMetric label="Closed" value={String(counts.closed)} />
-          </HeroGrid>
-          <QuickActions style={{ marginTop: 20 }}>
-            <QuickAction icon={Timer} label="Run sweep" tone="volt" onPress={() => setSweepOpen(true)} />
-            <QuickAction icon={ClipboardList} label="Open" tone="glass" badge={counts.open || undefined} onPress={() => setGroup('open')} />
-            <QuickAction icon={Hourglass} label="Review" tone="glass" badge={counts.review || undefined} onPress={() => setGroup('review')} />
-            <QuickAction icon={Award} label="Awarded" tone="glass" onPress={() => setGroup('awarded')} />
-          </QuickActions>
+        <InkHero seed="admin-rfqs" style={{ padding: 18 }}>
+          <HeroTopline icon={ClipboardList} label="Open pipeline" status={`Bulk ≥ ${thresholds.data ? formatLKR(thresholds.data.valueThresholdCents) : '…'}`} />
+          <HeroFigure value={counts.open} caption="RFQs awaiting supplier quotes" />
+          <HeroPipeline
+            segments={[
+              { label: 'Open', value: counts.open, color: colors.volt },
+              { label: 'Review', value: counts.review, color: colors.copper },
+              { label: 'Awarded', value: counts.awarded, color: colors.mint },
+              { label: 'Closed', value: counts.closed, color: colors.ink4 },
+            ]}
+          />
         </InkHero>
       </Appear>
-
-      <StatGrid>
-        <Stat icon={ClipboardList} label="Open" value={counts.open} hint="Live RFQs" accent />
-        <Stat icon={Hourglass} label="Review" value={counts.review} hint="Quotes in" />
-        <Stat icon={Award} label="Awarded" value={counts.awarded} hint="Converted" />
-        <Stat icon={CheckCircle2} label="Closed" value={counts.closed} hint="Expired etc." />
-      </StatGrid>
 
       <SearchBar value={search} onChangeText={setSearch} placeholder="Title, RFQ#, business…" />
       <ChipRow<Group>
@@ -172,16 +150,6 @@ export function RfqsScreen() {
           ))}
         </View>
       )}
-
-      {all.length > 0 ? (
-        <Appear i={8}>
-          <Section kicker="Pipeline mix" title="RFQs by stage" icon={ClipboardList}>
-            <BarChart
-              data={(Object.keys(counts) as Group[]).filter((g) => g !== 'all').map((g) => ({ label: humanize(g), value: counts[g] }))}
-            />
-          </Section>
-        </Appear>
-      ) : null}
 
       <ConfirmSheet
         visible={sweepOpen}

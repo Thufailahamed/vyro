@@ -136,7 +136,7 @@ export function Stat({
             }}
           >
             {up ? <TrendingUp size={11} color={dark ? colors.voltGlow : colors.mint} /> : <TrendingDown size={11} color={colors.rose} />}
-            <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 10.5, color: up ? (dark ? colors.voltGlow : colors.mint) : colors.rose }}>
+            <Text style={{ fontFamily: 'Sans-Semi', fontSize: 10.5, color: up ? (dark ? colors.voltGlow : colors.mint) : colors.rose }}>
               {up ? '+' : ''}
               {delta.toFixed(1)}%
             </Text>
@@ -364,7 +364,7 @@ export function Avatar({ name, uri, size = 40, tone = 'ink' }: { name?: string |
       {src ? (
         <Image source={{ uri: src }} style={{ width: size, height: size }} contentFit="cover" />
       ) : (
-        <Text style={{ fontFamily: 'Syne_700Bold', fontSize: size * 0.38, color: fg, letterSpacing: -0.5 }}>{initials(name)}</Text>
+        <Text style={{ fontFamily: 'Display-Bold', fontSize: size * 0.38, lineHeight: Math.round(size * 0.5), color: fg, letterSpacing: -0.5 }}>{initials(name)}</Text>
       )}
     </View>
   );
@@ -415,7 +415,7 @@ export function Chip({
         <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: dotColor }} />
       ) : null}
       {Icon ? <Icon size={14} color={selected && !dark ? colors.volt : fg} strokeWidth={1.8} /> : null}
-      <Text style={{ fontFamily: 'IBMPlexSans_500Medium', fontSize: 13, color: fg }}>{label}</Text>
+      <Text style={{ fontFamily: 'Sans-Medium', fontSize: 13, color: fg }}>{label}</Text>
       {count !== undefined ? (
         <View
           style={{
@@ -428,7 +428,7 @@ export function Chip({
             backgroundColor: selected ? (dark ? 'rgba(12,14,11,0.12)' : 'rgba(198,220,74,0.18)') : dark ? 'rgba(250,247,240,0.08)' : colors.bone,
           }}
         >
-          <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 10.5, lineHeight: 13, color: selected ? (dark ? colors.ink : colors.volt) : dark ? colors.paperMuted : colors.ink4 }}>
+          <Text style={{ fontFamily: 'Sans-Semi', fontSize: 10.5, lineHeight: 13, color: selected ? (dark ? colors.ink : colors.volt) : dark ? colors.paperMuted : colors.ink4 }}>
             {count}
           </Text>
         </View>
@@ -520,7 +520,7 @@ export function Segmented<T extends string>({
             style={{ flex: 1, height: 36, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}
           >
             <Text
-              style={{ fontFamily: on ? 'IBMPlexSans_600SemiBold' : 'IBMPlexSans_500Medium', fontSize: 13, color: on ? colors.ink : colors.ink4 }}
+              style={{ fontFamily: on ? 'Sans-Semi' : 'Sans-Medium', fontSize: 13, color: on ? colors.ink : colors.ink4 }}
               numberOfLines={1}
             >
               {o.label}
@@ -633,7 +633,7 @@ export function MenuTile({
         </View>
         {badge !== undefined && badge !== 0 ? (
           <View style={{ backgroundColor: dark ? colors.volt : colors.copper, borderRadius: 11, minWidth: 22, height: 22, paddingHorizontal: 7, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 11, lineHeight: 14, color: dark ? colors.ink : colors.paper }}>{badge}</Text>
+            <Text style={{ fontFamily: 'Sans-Semi', fontSize: 11, lineHeight: 14, color: dark ? colors.ink : colors.paper }}>{badge}</Text>
           </View>
         ) : (
           <View
@@ -675,6 +675,7 @@ export function QuickAction({
   onPress,
   tone = 'paper',
   badge,
+  dark,
 }: {
   icon: LucideIcon;
   label: string;
@@ -682,10 +683,12 @@ export function QuickAction({
   /** `paper` on bone canvas, `glass` on ink heroes, `volt` for the primary action. */
   tone?: 'paper' | 'glass' | 'volt' | 'ink';
   badge?: number;
+  /** Sits on an ink surface — keeps the caption legible for non-glass tones. */
+  dark?: boolean;
 }) {
   const bg = tone === 'glass' ? 'rgba(250,247,240,0.09)' : tone === 'volt' ? colors.volt : tone === 'ink' ? colors.ink : colors.paper;
   const fg = tone === 'volt' ? colors.ink : tone === 'paper' ? colors.ink : colors.volt;
-  const labelColor = tone === 'glass' ? 'paperMuted' : 'ink3';
+  const labelColor = tone === 'glass' || dark ? 'paperMuted' : 'ink3';
   return (
     <Touchable onPress={onPress} hapticOnPress scaleTo={0.92} accessibilityRole="button" accessibilityLabel={label} style={{ flex: 1, alignItems: 'center', gap: 8, minWidth: 64 }}>
       <View
@@ -722,7 +725,7 @@ export function QuickAction({
               borderColor: tone === 'glass' ? colors.ink : colors.bone,
             }}
           >
-            <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 10, lineHeight: 12, color: colors.paper }}>{badge > 99 ? '99+' : badge}</Text>
+            <Text style={{ fontFamily: 'Sans-Semi', fontSize: 10, lineHeight: 12, color: colors.paper }}>{badge > 99 ? '99+' : badge}</Text>
           </View>
         ) : null}
       </View>

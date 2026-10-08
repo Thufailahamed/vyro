@@ -8,7 +8,8 @@ import { File, Paths } from 'expo-file-system';
 import { AlertTriangle, ArrowRight, Bell, ChevronRight, GraduationCap, SearchX, X, type LucideIcon } from 'lucide-react-native';
 import { api } from '@/lib/api';
 import { useAuth, type OrgRole } from '@/lib/auth';
-import { Badge, Button, Card, IconButton, IconTile, PillAction, Pulse, Text, Touchable } from '@/ui';
+import { humanize } from '@/lib/format';
+import { Badge, Button, Card, IconButton, IconTile, InkHero, PillAction, Pulse, Text, Touchable } from '@/ui';
 import { colors, fonts, radii, shadow, type Tone } from '@/theme/tokens';
 
 /* --------------------------------- Context -------------------------------- */
@@ -246,6 +247,143 @@ export function HeroMetric({
   );
 }
 
+export type SummaryCell = {
+  label: string;
+  value: string | number;
+  dot?: string;
+  active?: boolean;
+  onPress?: () => void;
+};
+
+/**
+ * Ink summary hero for supplier sub-pages: an icon, a headline metric and up
+ * to four glass stat cells. Cells with `onPress` act as list filters.
+ */
+export function SummaryHero({
+  icon: Icon,
+  kicker,
+  value,
+  sub,
+  right,
+  cells,
+  grid,
+  children,
+}: {
+  icon: LucideIcon;
+  /** Lay cells out 2×2 instead of one row — for long labels or money values. */
+  grid?: boolean;
+  kicker: string;
+  value: string;
+  sub?: string;
+  right?: ReactNode;
+  cells?: SummaryCell[];
+  children?: ReactNode;
+}) {
+  return (
+    <InkHero style={{ padding: 18, gap: 16 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <IconTile icon={Icon} tone="glass" size={40} />
+        <Text variant="overline" color="volt" style={{ flex: 1 }} numberOfLines={1}>
+          {kicker}
+        </Text>
+        {right}
+      </View>
+      <View style={{ gap: 2 }}>
+        <Text variant="displayMd" color="paper" tabular numberOfLines={1} adjustsFontSizeToFit>
+          {value}
+        </Text>
+        {sub ? (
+          <Text variant="bodySm" color="paperMuted" numberOfLines={2}>
+            {sub}
+          </Text>
+        ) : null}
+      </View>
+      {children}
+      {cells?.length ? (
+        <View style={{ gap: 8 }}>
+          {(grid ? [cells.slice(0, 2), cells.slice(2)] : [cells])
+            .filter((r) => r.length)
+            .map((row, ri) => (
+              <View
+                key={ri}
+                style={{ flexDirection: 'row', gap: !grid && cells.length > 3 ? 6 : 8 }}
+              >
+                {row.map((c) => {
+                  const dense = !grid && cells.length > 3;
+                  const inner = (
+                    <>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        {c.dot && !dense ? (
+                          <View
+                            style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.dot }}
+                          />
+                        ) : null}
+                        <Text
+                          variant="caption"
+                          color={c.active ? 'volt' : 'paperMuted'}
+                          numberOfLines={1}
+                          style={{ flexShrink: 1 }}
+                        >
+                          {c.label}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        {c.dot && dense ? (
+                          <View
+                            style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.dot }}
+                          />
+                        ) : null}
+                        <Text
+                          variant="h2"
+                          color="paper"
+                          tabular
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          style={{ flexShrink: 1 }}
+                        >
+                          {c.value}
+                        </Text>
+                      </View>
+                    </>
+                  );
+                  const style: ViewStyle = {
+                    flex: 1,
+                    minWidth: 0,
+                    paddingHorizontal: dense ? 9 : 11,
+                    paddingVertical: 10,
+                    gap: 4,
+                    borderRadius: radii.lg,
+                    borderCurve: 'continuous',
+                    backgroundColor: c.active ? 'rgba(198,220,74,0.16)' : 'rgba(250,247,240,0.06)',
+                    borderWidth: 1,
+                    borderColor: c.active ? 'rgba(198,220,74,0.45)' : 'transparent',
+                  };
+                  return c.onPress ? (
+                    <Touchable
+                      key={c.label}
+                      onPress={c.onPress}
+                      hapticOnPress
+                      scaleTo={0.95}
+                      accessibilityLabel={`${c.label} ${c.value}`}
+                      accessibilityState={{ selected: !!c.active }}
+                      style={style}
+                    >
+                      {inner}
+                    </Touchable>
+                  ) : (
+                    <View key={c.label} style={style}>
+                      {inner}
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
+        </View>
+      ) : null}
+    </InkHero>
+  );
+}
+
 /** Stage tile row — used for fulfilment / escrow pipelines. */
 export function StageTile({
   n,
@@ -407,7 +545,7 @@ export function RfqPill({ status, size }: { status?: string | null; size?: 'sm' 
       : s === 'negotiating'
         ? 'copper'
         : 'warning';
-  return <Badge label={s.replace(/_/g, ' ')} tone={tone} dot size={size} />;
+  return <Badge label={humanize(s)} tone={tone} dot size={size} />;
 }
 
 /** Accounts ledger status pill — the web's accounts/shared StatusPill map. */
@@ -530,7 +668,7 @@ export function VerificationBanner() {
 type Gate = { required: boolean; missing: { slug: string; title: string }[] };
 
 /** Training nudge — the web's LearningCta (banner / inline). */
-export function LearningCta({ variant = 'banner' }: { variant?: 'banner' | 'inline' }) {
+export function LearningCta({ variant = 'banner' }: { variant?: 'banner' | 'inline' | 'compact' }) {
   const { supplierId } = useSupplier();
   const { data } = useQuery({
     queryKey: ['learning', 'gate', supplierId],
@@ -556,6 +694,64 @@ export function LearningCta({ variant = 'banner' }: { variant?: 'banner' | 'inli
     );
   }
   const total = data.missing.length;
+  if (variant === 'compact') {
+    const next = data.missing[0];
+    return (
+      <Touchable
+        onPress={() => go(next ? `/supplier/learning/${next.slug}` : '/supplier/learning')}
+        hapticOnPress
+        scaleTo={0.98}
+        accessibilityLabel="Continue supplier training"
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          padding: 14,
+          borderRadius: radii.xl,
+          borderCurve: 'continuous',
+          backgroundColor: colors.amberSoft,
+        }}
+      >
+        <View
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 14,
+            borderCurve: 'continuous',
+            backgroundColor: colors.paper,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <GraduationCap size={20} color={colors.amber} strokeWidth={2} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="bodySm" weight="semibold">
+            Finish training to go live
+          </Text>
+          <Text variant="caption" color="copperDeep" numberOfLines={1}>
+            {plural(total, 'lesson')} left{next ? ` · Next: ${next.title}` : ''}
+          </Text>
+        </View>
+        <View
+          style={{
+            height: 32,
+            paddingHorizontal: 12,
+            borderRadius: 16,
+            backgroundColor: colors.ink,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+          }}
+        >
+          <Text variant="caption" weight="semibold" color="paper">
+            Continue
+          </Text>
+          <ArrowRight size={12} color={colors.volt} />
+        </View>
+      </Touchable>
+    );
+  }
   return (
     <Enter i={1}>
       <Card kind="flat" padding={18} style={{ gap: 16, overflow: 'hidden' }}>

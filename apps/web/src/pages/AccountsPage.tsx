@@ -137,7 +137,6 @@ export function AccountsPage() {
 
       <div>
         {tab === 'overview' && <Overview businessId={businessId} />}
-        {tab === 'overview' && <SavedCardsPanel />}
         {tab === 'payments' && <Payments businessId={businessId} />}
         {tab === 'invoices' && <Invoices businessId={businessId} />}
         {tab === 'refunds' && <Refunds businessId={businessId} />}
@@ -372,26 +371,43 @@ function Overview({ businessId }: { businessId: string }) {
         </Surface>
       </div>
 
-      {/* Footer trust strip */}
-      <Surface kind="elevated" className="px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-l-4 border-l-mint">
-        <div className="flex items-start sm:items-center gap-3">
-          <div className="size-9 rounded-lg bg-mint/15 text-mint flex items-center justify-center shrink-0">
-            <ShieldCheckIcon size={18} />
+      <div className="grid gap-5 lg:grid-cols-12">
+        <SavedCardsPanel businessId={businessId} className="lg:col-span-7" />
+
+        {/* Escrow trust card */}
+        <Surface className="lg:col-span-5 p-6 flex flex-col gap-4 bg-mint/[0.04]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="size-9 rounded-lg bg-mint/15 text-mint flex items-center justify-center shrink-0">
+              <ShieldCheckIcon size={18} />
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-mint/10 px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-mint">
+              <span className="size-1.5 rounded-full bg-mint animate-pulse" />
+              Finance API live
+            </span>
           </div>
           <div>
-            <div className="text-[10px] font-mono text-mint uppercase tracking-[0.14em] font-bold">
-              Escrow-protected settlement
-            </div>
-            <p className="text-xs text-ink-3 leading-relaxed mt-0.5">
-              Every PayHere / bank transfer payment is held in licensed escrow until GRN or order completion. Refunds settle within 1–2 business days.
+            <h3 className="text-sm font-bold text-ink-1 leading-tight">Escrow-protected settlement</h3>
+            <p className="text-xs text-ink-3 leading-relaxed mt-1">
+              Every PayHere / bank transfer payment is held in licensed escrow until GRN or order completion.
             </p>
           </div>
-        </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-mint/10 px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-mint shrink-0">
-          <span className="size-1.5 rounded-full bg-mint animate-pulse" />
-          Finance API live
-        </span>
-      </Surface>
+          <ol className="mt-auto space-y-2.5 border-t border-ink/10 pt-4">
+            {[
+              'You pay — funds move into escrow',
+              'Supplier dispatches, you confirm GRN',
+              'Escrow releases to supplier',
+            ].map((step, i) => (
+              <li key={step} className="flex items-center gap-2.5 text-xs text-ink-2">
+                <span className="size-5 rounded-full bg-mint/15 text-mint font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
+                  {i + 1}
+                </span>
+                {step}
+              </li>
+            ))}
+            <li className="pl-[30px] text-[11px] text-ink-4">Refunds settle within 1–2 business days.</li>
+          </ol>
+        </Surface>
+      </div>
     </div>
   );
 }
@@ -988,11 +1004,11 @@ function PanelEmpty({
   description?: string;
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-ink/15 bg-ink/[0.03] px-6 py-10 text-center">
-      <div className="mx-auto size-11 rounded-xl bg-ink/[0.07] text-ink-3 flex items-center justify-center">
+    <div className="px-6 py-8 text-center">
+      <div className="mx-auto size-10 rounded-full bg-ink/[0.05] ring-8 ring-ink/[0.025] text-ink-3 flex items-center justify-center">
         {icon}
       </div>
-      <div className="mt-3 font-display text-sm font-semibold text-ink">{title}</div>
+      <div className="mt-4 font-display text-sm font-semibold text-ink">{title}</div>
       {description ? (
         <p className="mt-1 text-xs text-ink-4 max-w-xs mx-auto leading-relaxed">{description}</p>
       ) : null}

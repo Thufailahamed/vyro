@@ -15,6 +15,7 @@ import {
   RotateCcw,
   Scale,
   Search,
+  Settings,
   ShieldCheck,
   ShoppingBag,
   SlidersHorizontal,
@@ -25,11 +26,12 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react-native';
-import { ListRow, ListSection, MenuGrid, MenuTile, Screen } from '@/ui';
+import { useState } from 'react';
+import { View } from 'react-native';
+import { EmptyState, ListRow, ListSection, MenuGrid, MenuTile, Screen, SearchBar } from '@/ui';
 import { hasPermission, useAdminRole } from '@/features/admin/common/permissions';
-import { AdminHeaderActions } from '@/features/admin/ops/kit';
+import { AdminTabHeader } from '@/features/admin/ops/kit';
 import { Appear, go } from '@/features/admin/platform/kit';
-import { PortalSwitcher } from '@/features/common/PortalSwitcher';
 
 interface HubItem {
   label: string;
@@ -126,47 +128,52 @@ export function AdminMoreScreen() {
     return list.some((p) => !role || hasPermission(role, p));
   };
 
+  const [query, setQuery] = useState('');
+  const needle = query.trim().toLowerCase();
+  const match = (i: HubItem) => !needle || `${i.label} ${i.hint}`.toLowerCase().includes(needle);
+  const sections = SECTIONS.map((s) => ({ ...s, items: s.items.filter((i) => can(i.perm) && match(i)) })).filter((s) => s.items.length);
+
   return (
-    <Screen
-      tabBar
-      kicker="Index"
-      title="More"
-      subtitle="Every operator tool, in one place."
-      right={
-        <>
-          <AdminHeaderActions />
-          <PortalSwitcher current="admin" />
-        </>
-      }
-    >
+    <Screen tabBar header={<AdminTabHeader kicker="Index" title="All tools" subtitle="Every operator tool, in one place." />}>
       <Appear>
-        <MenuGrid>
-          {PINNED.filter((i) => can(i.perm)).map((item, i) => (
-            <MenuTile key={item.label} icon={item.icon} label={item.label} hint={item.hint} tone={i === 0 ? 'ink' : 'paper'} onPress={() => go(item.href)} />
-          ))}
-        </MenuGrid>
+        <SearchBar value={query} onChangeText={setQuery} placeholder="Find a tool…" />
       </Appear>
-      {SECTIONS.map((s, si) => {
-        const items = s.items.filter((i) => can(i.perm));
-        if (!items.length) return null;
-        return (
-          <Appear key={s.title} i={si + 1}>
-            <ListSection label={`${s.title} · ${s.kicker}`} style={{ marginTop: 6 }}>
-              {items.map((item, i) => (
-                <ListRow
-                  key={item.label + item.href}
-                  title={item.label}
-                  subtitle={item.hint}
-                  icon={item.icon}
-                  iconTone={s.tone}
-                  last={i === items.length - 1}
-                  onPress={() => go(item.href)}
-                />
-              ))}
+      {!needle ? (
+        <Appear i={1}>
+          <MenuGrid>
+            {PINNED.filter((i) => can(i.perm)).map((item, i) => (
+              <MenuTile key={item.label} icon={item.icon} label={item.label} hint={item.hint} tone={i === 0 ? 'ink' : 'paper'} onPress={() => go(item.href)} />
+            ))}
+          </MenuGrid>
+        </Appear>
+      ) : null}
+      {sections.map((s, si) => (
+        <Appear key={s.title} i={si + 2}>
+          <ListSection label={`${s.title} · ${s.kicker}`} style={{ marginTop: 6 }}>
+            {s.items.map((item, i) => (
+              <ListRow
+                key={item.label + item.href}
+                title={item.label}
+                subtitle={item.hint}
+                icon={item.icon}
+                iconTone={s.tone}
+                last={i === s.items.length - 1}
+                onPress={() => go(item.href)}
+              />
+            ))}
+          </ListSection>
+        </Appear>
+      ))}
+      {needle && !sections.length ? <EmptyState compact icon={Search} title="No tools match" message={`Nothing called “${query.trim()}”.`} /> : null}
+      {!needle ? (
+        <Appear i={sections.length + 2}>
+          <View style={{ marginTop: 6 }}>
+            <ListSection label="Account">
+              <ListRow title="Settings" subtitle="Profile, security and preferences" icon={Settings} iconTone="paper" last onPress={() => go('/settings')} />
             </ListSection>
-          </Appear>
-        );
-      })}
+          </View>
+        </Appear>
+      ) : null}
     </Screen>
   );
 }

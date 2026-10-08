@@ -10,9 +10,6 @@ import {
   ListHeader,
   ListScreen,
   Loader,
-  Pulse,
-  QuickAction,
-  QuickActions,
   ScreenHeader,
   SkeletonList,
   StatusBadge,
@@ -23,7 +20,7 @@ import { api, errorMessage } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { colors, fonts } from '@/theme/tokens';
 import { MonoTag, Section, go } from '../../buyer/orders/kit';
-import { HeroMetric, RecordCard } from '@/features/admin/ops/kit';
+import { GlassStats, HeroFigure, HeroTopline, LinkTile, RecordCard } from '@/features/admin/ops/kit';
 
 type HealthSnapshot = {
   dbLatencyMs: number;
@@ -71,6 +68,8 @@ export function ObservabilityScreen() {
       ]
     : [];
 
+  const warnCount = metrics.filter((m) => m.warn).length;
+
   return (
     <ListScreen
       data={cron.data?.jobs ?? []}
@@ -85,39 +84,30 @@ export function ObservabilityScreen() {
             subtitle={h ? `Snapshot ${timeAgo(h.capturedAt)}` : undefined}
           />
           <Gutter style={{ gap: 14 }}>
-            <InkHero seed="admin-observability">
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text variant="overline" color="volt">
-                  Platform health
-                </Text>
-                {h ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Pulse color={metrics.some((m) => m.warn) ? colors.amber : colors.volt} size={6} />
-                    <Text variant="caption" color="paperMuted">
-                      {metrics.filter((m) => m.warn).length ? `${metrics.filter((m) => m.warn).length} warnings` : 'Nominal'}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
+            <InkHero seed="admin-observability" style={{ padding: 18 }}>
+              <HeroTopline
+                icon={Activity}
+                label="Platform health"
+                status={h ? (warnCount ? `${warnCount} warning${warnCount === 1 ? '' : 's'}` : 'Nominal') : health.isError ? 'Unavailable' : 'Checking…'}
+                statusTone={!h ? 'warn' : warnCount ? 'warn' : 'ok'}
+              />
               {health.isLoading ? (
                 <SkeletonList rows={1} height={90} />
-              ) : health.isError ? (
+              ) : health.isError || !h ? (
                 <Text variant="bodySm" color="paperMuted" style={{ marginTop: 12 }}>
                   Snapshot unavailable
                 </Text>
               ) : (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 16, columnGap: 14, marginTop: 16 }}>
-                  {metrics.map((m) => (
-                    <HeroMetric key={m.label} label={m.label} value={m.value} tone={m.warn ? 'rose' : 'paper'} />
-                  ))}
-                </View>
+                <>
+                  <HeroFigure value={`${h.dbLatencyMs}ms`} caption={`Database round-trip · snapshot ${timeAgo(h.capturedAt)}`} />
+                  <GlassStats items={metrics.slice(1).map((m) => ({ label: m.label, value: m.value, warn: m.warn }))} />
+                </>
               )}
-              <View style={{ height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.paperLine, marginTop: 20, marginBottom: 18 }} />
-              <QuickActions style={{ justifyContent: 'flex-start', gap: 12 }}>
-                <QuickAction icon={Bell} label="Alerts" tone="glass" onPress={() => go('/admin/observability/alerts')} />
-                <QuickAction icon={ListTree} label="Queues" tone="glass" onPress={() => go('/admin/observability/queues')} />
-              </QuickActions>
             </InkHero>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <LinkTile icon={Bell} label="Alerts" hint="Rules & incidents" onPress={() => go('/admin/observability/alerts')} />
+              <LinkTile icon={ListTree} label="Queues" hint="Workers & DLQ" onPress={() => go('/admin/observability/queues')} />
+            </View>
             {health.isError ? <ErrorState message={errorMessage(health.error)} onRetry={() => health.refetch()} /> : null}
             {!health.isLoading && !health.isError ? (
               <>

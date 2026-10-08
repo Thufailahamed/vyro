@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowRight,
+  ChevronRight,
   FileText,
   LayoutGrid,
   MapPin,
@@ -22,7 +23,6 @@ import {
   EmptyState,
   ErrorState,
   Gutter,
-  IconButton,
   IconTile,
   InkHero,
   Kicker,
@@ -42,9 +42,9 @@ import {
 import { api, errorMessage, qs } from '@/lib/api';
 import { useAuth, useBusinessId } from '@/lib/auth';
 import { formatCompactLKR, formatDate, formatLKR } from '@/lib/format';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { Enter, go } from './kit';
-import { IN_FLIGHT, REORDER_TO_CART, REORDERABLE, STATUS_FILTERS, TERMINAL, journeyProgress } from './orderStatus';
+import { IN_FLIGHT, REORDER_TO_CART, REORDERABLE, STATUS_FILTERS, TERMINAL, journeyProgress, journeyStage } from './orderStatus';
 import { ReorderSheet } from './components/ReorderSheet';
 import type { OrderRow } from './types';
 import { PAYMENT_STATE_LABEL } from '@/lib/orderLifecycle';
@@ -117,70 +117,66 @@ export function OrdersScreen() {
         kicker={business?.businessName ? `Procurement · ${business.businessName}` : 'Procurement'}
         title="Purchase orders"
         subtitle="From supplier confirmation and dispatch to dockside receipt and settlement."
-        right={
-          <>
-            <IconButton icon={MessageCircle} variant="surface" accessibilityLabel="Conversational ordering" onPress={() => go('/buyer/order/conversational')} />
-            <IconButton icon={FileText} variant="surface" accessibilityLabel="Requests for quotation" onPress={() => go('/buyer/rfqs')} />
-            <IconButton icon={RotateCcw} variant="surface" accessibilityLabel="Returns" onPress={() => go('/buyer/returns')} />
-          </>
-        }
       />
-      <Gutter style={{ gap: 14 }}>
+      <Gutter style={{ gap: 16 }}>
         {all.length > 0 ? (
           <Enter i={0}>
-            <InkHero seed={`orders-${businessId ?? ''}`}>
-              <View style={{ gap: 18 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <View style={{ gap: 6, flex: 1 }}>
-                    <Kicker color="volt">Commercial volume</Kicker>
-                    <Text variant="metric" color="paper" numberOfLines={1} adjustsFontSizeToFit>
-                      {formatCompactLKR(stats.spend)}
-                    </Text>
-                    <Text variant="caption" color="paperMuted">
-                      {stats.total} purchase order{stats.total === 1 ? '' : 's'} issued
-                    </Text>
-                  </View>
+            <InkHero seed={`orders-${businessId ?? ''}`} style={{ padding: 0 }}>
+              <View style={{ padding: 20, paddingBottom: 18, gap: 6 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 24 }}>
+                  <Kicker color="volt">Commercial volume</Kicker>
                   {stats.inFlight > 0 ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(198,220,74,0.14)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(198,220,74,0.12)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(198,220,74,0.28)', borderRadius: 999, paddingHorizontal: 10, height: 24 }}>
                       <Pulse size={6} />
-                      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11, color: colors.volt }}>LIVE</Text>
+                      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 10.5, letterSpacing: 1, color: colors.volt }}>LIVE</Text>
                     </View>
                   ) : null}
                 </View>
-                <View style={{ flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.paperLine, paddingTop: 14 }}>
-                  <HeroStat label="In flight" value={stats.inFlight} tone="volt" onPress={() => setFilter('out_for_delivery')} />
-                  <HeroStat label="Delivered" value={stats.completed} onPress={() => setFilter('delivered')} />
-                  <HeroStat label="Disputed" value={stats.disputed} tone={stats.disputed ? 'rose' : undefined} onPress={() => setFilter('disputed')} />
-                </View>
+                <Text variant="metric" color="paper" numberOfLines={1} adjustsFontSizeToFit style={{ marginTop: 2 }}>
+                  {formatCompactLKR(stats.spend)}
+                </Text>
+                <Text variant="caption" color="paperMuted">
+                  Across {stats.total} purchase order{stats.total === 1 ? '' : 's'} issued
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.paperLine, backgroundColor: 'rgba(250,247,240,0.03)' }}>
+                <HeroStat label="In flight" value={stats.inFlight} tone="volt" onPress={() => setFilter('out_for_delivery')} />
+                <HeroStat label="Delivered" value={stats.completed} divider onPress={() => setFilter('delivered')} />
+                <HeroStat label="Disputed" value={stats.disputed} divider tone={stats.disputed ? 'rose' : undefined} onPress={() => setFilter('disputed')} />
               </View>
             </InkHero>
           </Enter>
         ) : null}
 
         <Enter i={1}>
-          <QuickActions style={{ paddingHorizontal: 8 }}>
-            <QuickAction icon={MessageCircle} label="Chat to order" tone="volt" onPress={() => go('/buyer/order/conversational')} />
-            <QuickAction icon={FileText} label="Bulk quotes" onPress={() => go('/buyer/rfqs')} />
+          <QuickActions style={{ paddingTop: 4 }}>
+            <QuickAction icon={MessageCircle} label="Chat order" tone="volt" onPress={() => go('/buyer/order/conversational')} />
+            <QuickAction icon={FileText} label="Quotes" onPress={() => go('/buyer/rfqs')} />
             <QuickAction icon={Sparkles} label="Ask AI" onPress={() => go('/buyer/ask')} />
-            <QuickAction icon={ShoppingCart} label="Cart" badge={cartCount} onPress={() => go('/buyer/cart')} />
+            <QuickAction icon={RotateCcw} label="Returns" onPress={() => go('/buyer/returns')} />
           </QuickActions>
         </Enter>
 
         {cartCount > 0 ? (
           <Enter i={2}>
-            <Card kind="volt" onPress={() => go('/buyer/cart')} padding={14}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <IconTile icon={ShoppingCart} tone="ink" size={44} />
-                <View style={{ flex: 1 }}>
-                  <Text variant="h3">
-                    {cartCount} item{cartCount === 1 ? '' : 's'} waiting in your cart
+            <Card kind="volt" onPress={() => go('/buyer/cart')} padding={14} radius={radii['2xl']}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                <View>
+                  <IconTile icon={ShoppingCart} tone="ink" size={48} />
+                  <View style={{ position: 'absolute', top: -5, right: -5, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: colors.copper, borderWidth: 2, borderColor: colors.volt, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontFamily: fonts.monoMedium, fontSize: 10, color: colors.paper }}>{cartCount}</Text>
+                  </View>
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text variant="h3" numberOfLines={1}>
+                    {cartCount} item{cartCount === 1 ? '' : 's'} in your cart
                   </Text>
-                  <Text variant="caption" color="ink3">
-                    {cart.data?.totalCents ? `${formatLKR(cart.data.totalCents)} · ` : ''}Check out to issue supplier POs
+                  <Text variant="caption" color="ink3" numberOfLines={1}>
+                    {cart.data?.totalCents ? `${formatLKR(cart.data.totalCents)} · ` : ''}Ready to issue POs
                   </Text>
                 </View>
-                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(12,14,11,0.08)', alignItems: 'center', justifyContent: 'center' }}>
-                  <ArrowRight size={16} color={colors.ink} />
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+                  <ArrowRight size={16} color={colors.volt} strokeWidth={2.2} />
                 </View>
               </View>
             </Card>
@@ -237,13 +233,19 @@ export function OrdersScreen() {
   );
 }
 
-function HeroStat({ label, value, tone, onPress }: { label: string; value: number; tone?: 'volt' | 'rose'; onPress: () => void }) {
+function HeroStat({ label, value, tone, divider, onPress }: { label: string; value: number; tone?: 'volt' | 'rose'; divider?: boolean; onPress: () => void }) {
   return (
-    <Touchable onPress={onPress} style={{ flex: 1, gap: 2 }} scaleTo={0.95}>
+    <Touchable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${value} ${label}`}
+      style={{ flex: 1, gap: 4, paddingVertical: 14, paddingHorizontal: 20, borderLeftWidth: divider ? StyleSheet.hairlineWidth : 0, borderLeftColor: colors.paperLine }}
+      scaleTo={0.95}
+    >
       <Text variant="metricSm" style={{ color: tone === 'volt' ? colors.volt : tone === 'rose' ? colors.roseSoft : colors.paper }}>
         {value}
       </Text>
-      <Text variant="overline" color="paperFaint">
+      <Text variant="overline" color="paperFaint" numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 9.5, letterSpacing: 1.3 }}>
         {label}
       </Text>
     </Touchable>
@@ -255,33 +257,54 @@ function OrderCard({ order: o, index, onReorder }: { order: OrderRow; index: num
   const status = o.status.toLowerCase();
   const terminal = TERMINAL.includes(status);
   const canReorder = REORDERABLE.has(status) || REORDER_TO_CART.has(status);
-  const place = o.deliveryCity ? `${o.deliveryCity}${o.deliveryDistrict ? `, ${o.deliveryDistrict}` : ''}` : 'Colombo depot';
+  const stage = journeyStage(status);
+  const place =
+    [...new Map([o.deliveryCity, o.deliveryDistrict].filter((v): v is string => !!v).map((v) => [v.toLowerCase(), v.charAt(0).toUpperCase() + v.slice(1)])).values()].join(', ') ||
+    'Colombo depot';
   return (
     <Enter i={index}>
-      <Card onPress={() => go(`/buyer/order/${o.id}`)} padding={16} radius={radii['2xl']} style={{ gap: 14 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <IconTile icon={Store} tone={terminal ? 'paper' : 'ink'} size={44} />
-          <View style={{ flex: 1, gap: 2 }}>
+      <Card onPress={() => go(`/buyer/order/${o.id}`)} padding={16} radius={radii['2xl']} style={[{ gap: 16, backgroundColor: colors.paper, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.lineSoft }, shadow.card]}>
+        {/* Supplier + PO number */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <IconTile icon={Store} tone={terminal ? 'paper' : 'ink'} size={48} />
+          <View style={{ flex: 1, gap: 3 }}>
             <Text variant="h3" numberOfLines={1}>
               {o.supplierName ?? 'Wholesale supplier'}
             </Text>
-            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: colors.copperDeep, letterSpacing: 0.3 }}>{o.poNumber}</Text>
+            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11.5, lineHeight: 15, color: colors.copperDeep, letterSpacing: 0.3 }} numberOfLines={1}>
+              {o.poNumber}
+            </Text>
           </View>
-          <View style={{ alignItems: 'flex-end', gap: 4 }}>
-            <StatusBadge status={status} size="sm" />
-            {o.paymentState && !terminal ? <StatusBadge status={o.paymentState} label={PAYMENT_STATE_LABEL[o.paymentState]} size="sm" /> : null}
-          </View>
+          <ChevronRight size={18} color={colors.ink5} strokeWidth={2} />
         </View>
 
-        {!terminal ? (
-          <ProgressBar value={journeyProgress(status)} max={1} height={6} tone={status === 'completed' ? 'ink' : 'volt'} />
-        ) : null}
-
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
-          <View style={{ gap: 3, flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              <MapPin size={12} color={colors.ink5} />
+        {/* Status + journey */}
+        <View style={{ gap: 10, backgroundColor: colors.pearl, borderRadius: radii.lg, borderCurve: 'continuous', padding: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <StatusBadge status={status} size="sm" />
+            {o.paymentState && !terminal ? <StatusBadge status={o.paymentState} label={PAYMENT_STATE_LABEL[o.paymentState]} size="sm" /> : null}
+            {!terminal ? (
+              <Text style={{ marginLeft: 'auto', fontFamily: fonts.monoMedium, fontSize: 10.5, letterSpacing: 0.4, color: colors.ink4 }}>
+                {stage.step}/{stage.total}
+              </Text>
+            ) : null}
+          </View>
+          {!terminal ? (
+            <View style={{ gap: 6 }}>
+              <ProgressBar value={journeyProgress(status)} max={1} height={6} tone={status === 'completed' ? 'ink' : 'volt'} />
               <Text variant="caption" color="ink4" numberOfLines={1}>
+                {stage.label}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Delivery + total */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+          <View style={{ gap: 4, flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <MapPin size={13} color={colors.ink4} strokeWidth={1.9} />
+              <Text variant="caption" color="ink3" numberOfLines={1} style={{ flexShrink: 1 }}>
                 {place}
               </Text>
             </View>
@@ -289,13 +312,20 @@ function OrderCard({ order: o, index, onReorder }: { order: OrderRow; index: num
               Issued {formatDate(o.createdAt)}
             </Text>
           </View>
-          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 18, letterSpacing: -0.6, color: colors.ink }}>{formatLKR(o.totalCents)}</Text>
+          <View style={{ alignItems: 'flex-end', gap: 2, flexShrink: 1 }}>
+            <Text variant="overline" color="ink5" style={{ fontSize: 9.5 }}>
+              PO total
+            </Text>
+            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 18, lineHeight: 22, letterSpacing: -0.6, color: colors.ink }} numberOfLines={1} adjustsFontSizeToFit>
+              {formatLKR(o.totalCents)}
+            </Text>
+          </View>
         </View>
 
         {canReorder ? (
-          <View style={{ flexDirection: 'row', gap: 8, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft, paddingTop: 12 }}>
-            <Button title="Reorder" icon={RefreshCw} size="sm" variant="secondary" onPress={onReorder} accessibilityLabel={`Reorder ${o.poNumber}`} />
-            <Button title="Details" iconRight={ArrowRight} size="sm" variant="ghost" onPress={() => go(`/buyer/order/${o.id}`)} />
+          <View style={{ flexDirection: 'row', gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line, paddingTop: 14 }}>
+            <Button title="Reorder" icon={RefreshCw} size="sm" variant="secondary" onPress={onReorder} accessibilityLabel={`Reorder ${o.poNumber}`} style={{ flex: 1 }} />
+            <Button title="Details" iconRight={ArrowRight} size="sm" variant="ghost" onPress={() => go(`/buyer/order/${o.id}`)} style={{ flex: 1 }} />
           </View>
         ) : null}
       </Card>

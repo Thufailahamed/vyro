@@ -5,21 +5,18 @@ import { FileText, Mail, MapPin, Phone, ShieldCheck, UserRound } from 'lucide-re
 import { api, errorMessage } from '@/lib/api';
 import { formatDate, humanize } from '@/lib/format';
 import {
-  Avatar,
   Banner,
   Button,
   ConfirmSheet,
-  InkHero,
   KeyValue,
   QueryView,
   Screen,
   StatusBadge,
-  Text,
   useToast,
 } from '@/ui';
 import { useAdminGet } from '@/features/admin/common/api';
 import { Can } from '@/features/admin/platform/kit';
-import { ContactLine, Section } from '@/features/admin/ops/kit';
+import { ContactLine, ProfileHero, Section } from '@/features/admin/ops/kit';
 
 interface SupplierDetail {
   id: string;
@@ -95,28 +92,21 @@ export function SupplierDetailScreen() {
           const v = d.supplier;
           return (
             <>
-              <InkHero seed={`supplier-${v.id}`}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                  <Avatar name={v.name} size={56} tone="volt" />
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <Text variant="overline" color="volt">
-                      Merchant
-                    </Text>
-                    <Text variant="h1" color="paper" numberOfLines={2}>
-                      {v.name}
-                    </Text>
-                  </View>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-                  {v.status ? <StatusBadge status={v.status} size="sm" /> : null}
-                  {v.verificationStatus ? <StatusBadge status={v.verificationStatus} size="sm" /> : null}
-                  {v.createdAt ? (
-                    <Text variant="caption" color="paperFaint">
-                      Joined {formatDate(v.createdAt)}
-                    </Text>
-                  ) : null}
-                </View>
-              </InkHero>
+              <ProfileHero
+                name={v.name}
+                kind="Merchant"
+                tone="volt"
+                joined={v.createdAt ? formatDate(v.createdAt) : null}
+                phone={v.phone}
+                email={v.email}
+                place={[v.address, v.city, v.district].filter(Boolean).join(', ') || null}
+                badges={
+                  <>
+                    {v.status ? <StatusBadge status={v.status} size="sm" /> : null}
+                    {v.verificationStatus ? <StatusBadge status={v.verificationStatus} size="sm" /> : null}
+                  </>
+                }
+              />
               <Section kicker="Contact" title={v.contactPerson ?? 'Reach the merchant'} icon={UserRound}>
                 <View style={{ gap: 4 }}>
                   <ContactLine icon={Phone} value={v.phone} href={v.phone ? `tel:${v.phone}` : undefined} />

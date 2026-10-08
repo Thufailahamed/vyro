@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { View } from 'react-native';
-import { BookOpen, CheckCircle2, CircleHelp, GraduationCap } from 'lucide-react-native';
+import { ArrowRight, BookOpen, CheckCircle2, CircleHelp, GraduationCap } from 'lucide-react-native';
 import { colors, fonts } from '@/theme/tokens';
 import { api, errorMessage, qs } from '@/lib/api';
 import { useSupplierId } from '@/lib/auth';
@@ -12,7 +12,6 @@ import {
   EmptyState,
   ErrorState,
   IconTile,
-  InkHero,
   Kicker,
   ProgressBar,
   RadioCards,
@@ -22,7 +21,7 @@ import {
   Text,
   useToast,
 } from '@/ui';
-import { Enter, ItemCard } from '@/features/supplier/ops/kit';
+import { Enter, ItemCard, SummaryHero } from '@/features/supplier/ops/kit';
 import { useSupplierLesson, useSupplierLessons } from './api';
 
 export function SupplierLearningScreen() {
@@ -44,44 +43,67 @@ export function SupplierLearningScreen() {
 
   const lessons = q.data?.lessons ?? [];
   const done = lessons.filter((l) => l.completed).length;
+  const todo = lessons.filter((l) => !l.completed).sort((a, b) => Number(!!b.required) - Number(!!a.required));
+  const completed = lessons.filter((l) => l.completed);
+  const requiredLeft = todo.filter((l) => l.required).length;
+  const next = todo[0];
+
+  const row = (l: (typeof lessons)[number], i: number) => (
+    <Enter key={l.slug} i={i + 1}>
+      <ItemCard
+        icon={l.completed ? CheckCircle2 : BookOpen}
+        iconTone={l.completed ? 'success' : l.required ? 'warning' : 'paper'}
+        title={l.title}
+        subtitle={`${l.track ?? 'General'}${l.durationMinutes ? ` · ${l.durationMinutes} min` : ''}`}
+        badge={<StatusBadge status={l.completed ? 'completed' : l.required ? 'required' : 'optional'} size="sm" />}
+        onPress={() => router.push(`/supplier/learning/${l.slug}` as never)}
+      />
+    </Enter>
+  );
 
   return (
     <Screen back onRefresh={() => q.refetch()} kicker="Training" title="Learning centre" subtitle="Complete required training to publish and sell.">
       <Enter>
-        <InkHero seed="learning">
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <IconTile icon={GraduationCap} tone="glass" size={44} />
-            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: colors.paperMuted }}>
+        <SummaryHero
+          icon={GraduationCap}
+          kicker="Your progress"
+          value={`${done} of ${lessons.length} lessons`}
+          sub={requiredLeft ? `${requiredLeft} required ${requiredLeft === 1 ? 'lesson' : 'lessons'} left before you can go live.` : lessons.length ? 'All required training complete — you are cleared to sell.' : undefined}
+          right={
+            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 13, color: colors.volt }}>
               {lessons.length ? Math.round((done / lessons.length) * 100) : 0}%
             </Text>
-          </View>
-          <View style={{ marginTop: 18, gap: 4 }}>
-            <Kicker color="volt">Your progress</Kicker>
-            <Text variant="metric" color="paper">
-              {done}/{lessons.length}
-            </Text>
-            <Text variant="caption" color="paperMuted">
-              {done}/{lessons.length} complete
-            </Text>
-          </View>
-          {lessons.length ? <ProgressBar value={done} max={Math.max(1, lessons.length)} tone="volt" track="rgba(250,247,240,0.12)" style={{ marginTop: 16 }} /> : null}
-        </InkHero>
+          }
+        >
+          {lessons.length ? <ProgressBar value={done} max={Math.max(1, lessons.length)} tone="volt" track="rgba(250,247,240,0.12)" /> : null}
+          {next ? (
+            <Button
+              title={`Continue · ${next.title}`}
+              icon={ArrowRight}
+              variant="volt"
+              full
+              onPress={() => router.push(`/supplier/learning/${next.slug}` as never)}
+            />
+          ) : null}
+        </SummaryHero>
       </Enter>
       {lessons.length === 0 ? (
         <EmptyState icon={GraduationCap} title="No lessons yet" message="Training modules appear here when published." />
       ) : (
-        lessons.map((l, i) => (
-          <Enter key={l.slug} i={i + 1}>
-            <ItemCard
-              icon={l.completed ? CheckCircle2 : BookOpen}
-              iconTone={l.completed ? 'success' : l.required ? 'warning' : 'paper'}
-              title={l.title}
-              subtitle={`${l.track ?? 'General'}${l.durationMinutes ? ` · ${l.durationMinutes} min` : ''}`}
-              badge={<StatusBadge status={l.completed ? 'completed' : l.required ? 'required' : 'optional'} size="sm" />}
-              onPress={() => router.push(`/supplier/learning/${l.slug}` as never)}
-            />
-          </Enter>
-        ))
+        <>
+          {todo.length ? (
+            <Text variant="overline" color="ink4" style={{ marginLeft: 6, marginBottom: -6 }}>
+              To do · {todo.length}
+            </Text>
+          ) : null}
+          {todo.map(row)}
+          {completed.length ? (
+            <Text variant="overline" color="ink4" style={{ marginLeft: 6, marginTop: 6, marginBottom: -6 }}>
+              Completed · {completed.length}
+            </Text>
+          ) : null}
+          {completed.map((l, i) => row(l, todo.length + i))}
+        </>
       )}
     </Screen>
   );

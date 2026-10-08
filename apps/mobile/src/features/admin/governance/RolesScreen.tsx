@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { Mail, MailPlus, UserMinus } from 'lucide-react-native';
+import { Mail, MailPlus, ShieldCheck, UserMinus } from 'lucide-react-native';
+import { colors } from '@/theme/tokens';
 import { api, errorMessage } from '@/lib/api';
 import { formatDate, humanize } from '@/lib/format';
 import {
@@ -10,6 +11,7 @@ import {
   ConfirmSheet,
   Field,
   IconTile,
+  InkHero,
   Input,
   ListCard,
   ListRow,
@@ -30,6 +32,7 @@ import {
   useAdminRole,
   type AdminRole,
 } from '@/features/admin/common/permissions';
+import { HeroFigure, HeroPipeline, HeroTopline } from '@/features/admin/ops/kit';
 import { Appear, go } from '@/features/admin/platform/kit';
 
 interface AdminUser {
@@ -69,6 +72,10 @@ export function RolesScreen() {
   const [busy, setBusy] = useState(false);
   const [revoke, setRevoke] = useState<Invite | null>(null);
   const [demote, setDemote] = useState<AdminUser | null>(null);
+
+  const seatList = admins.data?.items ?? [];
+  const seatCount = (r: string) => seatList.filter((u) => u.adminRole === r).length;
+  const pendingInvites = (invites.data?.invites ?? []).length;
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['admin-users'] });
@@ -110,6 +117,20 @@ export function RolesScreen() {
       }
     >
       <Appear>
+        <InkHero seed="admin-roles" style={{ padding: 18 }}>
+          <HeroTopline icon={ShieldCheck} label="Operator seats" status={pendingInvites ? `${pendingInvites} invite${pendingInvites === 1 ? '' : 's'} pending` : 'No pending invites'} statusTone={pendingInvites ? 'warn' : 'ok'} />
+          <HeroFigure value={seatList.length} caption="People who can operate the platform" />
+          <HeroPipeline
+            segments={[
+              { label: 'Super', value: seatCount('super_admin'), color: colors.rose },
+              { label: 'Ops', value: seatCount('ops'), color: colors.copper },
+              { label: 'Finance', value: seatCount('finance'), color: colors.mint },
+              { label: 'Support', value: seatCount('support'), color: colors.volt },
+            ]}
+          />
+        </InkHero>
+      </Appear>
+      <Appear i={1}>
         <View>
           <SectionHeader
             kicker={`Operators · ${(admins.data?.items ?? []).length}`}

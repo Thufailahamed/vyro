@@ -6,15 +6,17 @@ import { Eye, Package, Pencil, Percent, Tag, Warehouse } from 'lucide-react-nati
 import { colors, fonts, radii } from '@/theme/tokens';
 import { api, errorMessage } from '@/lib/api';
 import { useSupplierId } from '@/lib/auth';
-import { formatLKR } from '@/lib/format';
+import { formatLKR, humanize } from '@/lib/format';
 import {
   Badge,
   Button,
+  Card,
   ConfirmSheet,
   EmptyState,
   ErrorState,
   Field,
   Input,
+  ProductImage,
   Screen,
   SearchBar,
   Select,
@@ -25,7 +27,8 @@ import {
   ToggleRow,
   useToast,
 } from '@/ui';
-import { Enter, ItemCard, Section } from '@/features/supplier/ops/kit';
+import { Enter, ItemCard, Section, SummaryHero } from '@/features/supplier/ops/kit';
+import { AvailabilityToggle } from '@/features/supplier/catalog/components';
 import { lkrToCents, offersKey, useCatalog, useCategories, useOffers, type Offer } from '@/features/supplier/catalog/api';
 
 /* ------------------------------ Product form ------------------------------ */
@@ -81,6 +84,7 @@ export function SupplierProductFormScreen({ mode }: { mode: 'new' | 'edit' }) {
   });
 
   const ready = !!supplierId && !!productId && lkrToCents(price) > 0;
+  const picked = products.find((p) => p.id === productId);
 
   return (
     <Screen
@@ -97,6 +101,31 @@ export function SupplierProductFormScreen({ mode }: { mode: 'new' | 'edit' }) {
         <ErrorState message="Could not load listing." onRetry={() => existing.refetch()} />
       ) : (
         <>
+          <Card kind="ink" padding={16} radius={radii['2xl']} style={{ gap: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text variant="overline" color="volt">
+                Buyer preview
+              </Text>
+              <Badge label={active ? 'Live' : 'Hidden'} tone={active ? 'success' : 'neutral'} dot size="sm" />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
+              <ProductImage src={picked?.imageUrl} seed={productId || 'new'} style={{ width: 64, height: 64, borderRadius: 16, borderCurve: 'continuous' }} label={picked?.unit ?? undefined} />
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text variant="h3" color="paper" numberOfLines={2}>
+                  {picked?.name ?? 'Select a product'}
+                </Text>
+                <Text variant="h2" color={lkrToCents(price) > 0 ? 'volt' : 'paperFaint'} tabular>
+                  {lkrToCents(price) > 0 ? formatLKR(lkrToCents(price)) : 'Rs. —'}
+                  <Text variant="caption" color="paperFaint">
+                    {' '}/ {picked?.unit ?? 'unit'}
+                  </Text>
+                </Text>
+                <Text variant="caption" color="paperMuted">
+                  MOQ {moq} · {lead === 0 ? 'Same-day dispatch' : `${lead}d lead time`}
+                </Text>
+              </View>
+            </View>
+          </Card>
           <Section icon={Package} kicker="Step 1" title="Product" sub="Pick the verified catalog standard you supply.">
             <Field label="Catalog product" hint="Verified commodity standard." required>
               <Select value={productId || null} options={productOptions} onChange={setProductId} placeholder="Select a product…" title="Catalog product" />
@@ -135,7 +164,10 @@ export function SupplierPricingScreen() {
   const [tiers, setTiers] = useState({ q1: '', d1: '', q2: '', d2: '', q3: '', d3: '' });
 
   const nameOf = (id: string) => catalog.data?.products.find((p) => p.id === id)?.name ?? id.slice(0, 10);
-  const list = (offers.data?.offers ?? []).filter((o) => nameOf(o.productId).toLowerCase().includes(search.trim().toLowerCase()));
+  const all = offers.data?.offers ?? [];
+  const list = all.filter((o) => nameOf(o.productId).toLowerCase().includes(search.trim().toLowerCase()));
+  const tiered = all.filter((o) => o.tier1DiscountPct || o.tier2DiscountPct || o.tier3DiscountPct).length;
+  const maxPct = all.reduce((m, o) => Math.max(m, o.tier1DiscountPct ?? 0, o.tier2DiscountPct ?? 0, o.tier3DiscountPct ?? 0), 0);
 
   const save = useMutation({
     mutationFn: (o: Offer) =>
@@ -170,13 +202,26 @@ export function SupplierPricingScreen() {
 
   return (
     <Screen back onRefresh={() => Promise.all([offers.refetch(), catalog.refetch()])} kicker="Catalog" title="Pricing" subtitle="Volume tiers and MOQs per listing.">
+      <Enter>
+        <SummaryHero
+          icon={Percent}
+          kicker="Volume pricing"
+          value={`${tiered} of ${all.length} tiered`}
+          sub="Tiered listings convert better on bulk orders — discounts apply automatically at checkout."
+          cells={[
+            { label: 'Listings', value: all.length, dot: colors.paperFaint },
+            { label: 'Tiered', value: tiered, dot: colors.volt },
+            { label: 'Top discount', value: `${maxPct}%`, dot: colors.copper },
+          ]}
+        />
+      </Enter>
       <SearchBar value={search} onChangeText={setSearch} placeholder="Search listings…" />
       {list.length === 0 ? (
         <EmptyState icon={Percent} title="No listings" message="Publish products before setting tier rules." action={{ label: 'Add product', onPress: () => router.push('/supplier/products/new' as never) }} />
       ) : (
         list.map((o, i) => (
           <Enter key={o.id} i={i}>
-            <ItemCard icon={Percent} iconTone="volt" title={nameOf(o.productId)} subtitle={`MOQ ${o.minOrderQty}`} amount={formatLKR(o.priceCents)} amountSub="Base rate">
+            <ItemCard icon={Percent} iconTone="volt" title={nameOf(o.productId)} subtitle={`MOQ ${o.minOrderQty} · ${o.leadTimeDays}d lead`} amount={formatLKR(o.priceCents)} amountSub="Base rate">
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {(
                   [
@@ -190,6 +235,11 @@ export function SupplierPricingScreen() {
                       {t} · {qn ?? '—'}+
                     </Text>
                     <Text style={{ fontFamily: fonts.monoMedium, fontSize: 15, color: pct ? colors.ink : colors.ink5 }}>{pct ?? 0}% off</Text>
+                    {pct ? (
+                      <Text variant="caption" color="ink4" numberOfLines={1}>
+                        {formatLKR(Math.round(o.priceCents * (1 - pct / 100)))}
+                      </Text>
+                    ) : null}
                   </View>
                 ))}
               </View>
@@ -258,7 +308,12 @@ export function SupplierInventoryScreen() {
   const [track, setTrack] = useState<Record<string, boolean>>({});
 
   const nameOf = (id: string) => catalog.data?.products.find((p) => p.id === id)?.name ?? id.slice(0, 10);
-  const list = (offers.data?.offers ?? []).filter((o) => nameOf(o.productId).toLowerCase().includes(search.trim().toLowerCase()));
+  const [avail, setAvail] = useState<'all' | 'in_stock' | 'low' | 'out_of_stock'>('all');
+  const all = offers.data?.offers ?? [];
+  const list = all.filter((o) => nameOf(o.productId).toLowerCase().includes(search.trim().toLowerCase()) && (avail === 'all' || o.availabilityStatus === avail));
+  const count = (st: Offer['availabilityStatus']) => all.filter((o) => o.availabilityStatus === st).length;
+  const freeUnits = all.reduce((sum, o) => sum + (o.trackInventory === false ? 0 : (o.availableQty ?? o.stockQty ?? 0)), 0);
+  const toggleAvail = (st: typeof avail) => setAvail((cur) => (cur === st ? 'all' : st));
 
   const adjust = useMutation({
     mutationFn: (o: Offer) =>
@@ -298,9 +353,27 @@ export function SupplierInventoryScreen() {
 
   return (
     <Screen back onRefresh={() => Promise.all([offers.refetch(), catalog.refetch()])} kicker="Catalog" title="Inventory" subtitle="Depot allocations and availability.">
+      <Enter>
+        <SummaryHero
+          icon={Warehouse}
+          kicker="Free to sell"
+          value={`${freeUnits.toLocaleString()} units`}
+          sub={`Across ${all.length} ${all.length === 1 ? 'listing' : 'listings'} · tap a status to filter`}
+          cells={[
+            { label: 'In stock', value: count('in_stock'), dot: colors.mint, active: avail === 'in_stock', onPress: () => toggleAvail('in_stock') },
+            { label: 'Low', value: count('low'), dot: colors.amber, active: avail === 'low', onPress: () => toggleAvail('low') },
+            { label: 'Out', value: count('out_of_stock'), dot: colors.rose, active: avail === 'out_of_stock', onPress: () => toggleAvail('out_of_stock') },
+          ]}
+        />
+      </Enter>
       <SearchBar value={search} onChangeText={setSearch} placeholder="Search listings…" />
       {list.length === 0 ? (
-        <EmptyState icon={Package} title="No listings" message="Publish products to manage stock." />
+        <EmptyState
+          icon={Package}
+          title={all.length ? 'No matching listings' : 'No listings'}
+          message={all.length ? 'Try another search or clear the status filter.' : 'Publish products to manage stock.'}
+          action={all.length ? { label: 'Clear filters', onPress: () => { setSearch(''); setAvail('all'); } } : undefined}
+        />
       ) : (
         list.map((o, i) => (
           <Enter key={o.id} i={i}>
@@ -309,7 +382,7 @@ export function SupplierInventoryScreen() {
               iconTone={o.availabilityStatus === 'out_of_stock' ? 'danger' : o.availabilityStatus === 'low' ? 'warning' : 'success'}
               title={nameOf(o.productId)}
               subtitle={`${formatLKR(o.priceCents)} · MOQ ${o.minOrderQty}`}
-              badge={<Badge label={o.availabilityStatus.replace(/_/g, ' ')} tone={o.availabilityStatus === 'out_of_stock' ? 'danger' : o.availabilityStatus === 'low' ? 'warning' : 'success'} dot size="sm" />}
+              badge={<Badge label={humanize(o.availabilityStatus)} tone={o.availabilityStatus === 'out_of_stock' ? 'danger' : o.availabilityStatus === 'low' ? 'warning' : 'success'} dot size="sm" />}
             >
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {(
@@ -328,19 +401,35 @@ export function SupplierInventoryScreen() {
                 ))}
               </View>
               <Field label="Adjust quantity (+/-)">
-                <Input value={qty[o.id] ?? ''} onChangeText={(v) => setQty((q) => ({ ...q, [o.id]: v }))} keyboardType="numbers-and-punctuation" placeholder="+50" />
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  <Input
+                    value={qty[o.id] ?? ''}
+                    onChangeText={(v) => setQty((q) => ({ ...q, [o.id]: v }))}
+                    keyboardType="numbers-and-punctuation"
+                    placeholder="+50 or -10"
+                    containerStyle={{ flex: 1 }}
+                  />
+                  <Button
+                    title="Apply"
+                    size="md"
+                    loading={adjust.isPending && adjust.variables?.id === o.id}
+                    disabled={!Number(qty[o.id] ?? 0)}
+                    onPress={() => adjust.mutate(o)}
+                  />
+                </View>
               </Field>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <Text variant="bodySm" weight="medium" color="ink3">
-                  Track inventory
-                </Text>
+                <View style={{ flex: 1, gap: 1 }}>
+                  <Text variant="bodySm" weight="semibold">
+                    Track inventory
+                  </Text>
+                  <Text variant="caption" color="ink4">
+                    Auto-mark low and out of stock from counts
+                  </Text>
+                </View>
                 <Switch value={track[o.id] ?? o.trackInventory ?? true} onValueChange={(v) => setTrack((t) => ({ ...t, [o.id]: v }))} />
               </View>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Button title="Adjust" icon={Warehouse} size="sm" loading={adjust.isPending} onPress={() => adjust.mutate(o)} style={{ flex: 1 }} />
-                <Button title="In stock" variant="secondary" size="sm" onPress={() => setStatus.mutate({ id: o.id, status: 'in_stock' })} />
-                <Button title="Out" variant="secondary" size="sm" onPress={() => setStatus.mutate({ id: o.id, status: 'out_of_stock' })} />
-              </View>
+              <AvailabilityToggle value={o.availabilityStatus} onChange={(status) => setStatus.mutate({ id: o.id, status })} disabled={setStatus.isPending} />
             </ItemCard>
           </Enter>
         ))

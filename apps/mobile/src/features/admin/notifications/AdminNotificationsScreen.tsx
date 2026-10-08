@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowUpRight, CheckCheck, Info, Megaphone, Send, XCircle } from 'lucide-react-native';
+import { AlertTriangle, ArrowUpRight, Bell, CheckCheck, Info, Megaphone, Send, XCircle } from 'lucide-react-native';
 import {
   Banner,
   Button,
@@ -13,6 +13,7 @@ import {
   Gutter,
   IconButton,
   IconTile,
+  InkHero,
   Input,
   ListHeader,
   ListScreen,
@@ -27,6 +28,7 @@ import { api, errorMessage, qs } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { colors } from '@/theme/tokens';
 import { go } from '../../buyer/orders/kit';
+import { HeroFigure, HeroTopline } from '@/features/admin/ops/kit';
 
 type Severity = 'info' | 'warning' | 'critical';
 interface AdminNote {
@@ -73,6 +75,7 @@ export function AdminNotificationsScreen() {
 
   const list = useMemo(() => q.data?.notifications ?? [], [q.data]);
   const unread = q.data?.unreadCount ?? 0;
+  const criticalCount = list.filter((n) => n.severity === 'critical' && !n.readAt).length;
 
   const dismiss = useMutation({
     mutationFn: (id: string) => api.post(`/admin/notifications/${encodeURIComponent(id)}/read`),
@@ -95,17 +98,19 @@ export function AdminNotificationsScreen() {
               back
               kicker="Operations"
               title="Admin inbox"
-              subtitle={unread ? `${unread} unread` : 'All caught up'}
-              right={
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {unread ? <IconButton icon={CheckCheck} variant="surface" accessibilityLabel="Mark all read" onPress={() => markAll.mutate()} /> : null}
-                  <IconButton icon={Megaphone} variant="ink" accessibilityLabel="Broadcast" onPress={() => setCompose(true)} />
-                </View>
-              }
+              subtitle="Platform alerts, escalations and broadcasts."
             />
             <Gutter>
-              <ChipRow options={[...FILTERS]} value={filter} onChange={setFilter} />
+              <InkHero seed="admin-inbox" style={{ padding: 18 }}>
+                <HeroTopline icon={Bell} label="Unread" status={criticalCount ? `${criticalCount} critical` : unread ? 'Needs a look' : 'All caught up'} statusTone={criticalCount ? 'danger' : unread ? 'warn' : 'ok'} />
+                <HeroFigure value={unread} caption={unread ? 'Notifications waiting for an operator' : 'Nothing waiting — nice.'} />
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
+                  <Button title="Mark all read" icon={CheckCheck} variant="outlinePaper" size="sm" disabled={!unread} loading={markAll.isPending} onPress={() => markAll.mutate()} style={{ flex: 1 }} />
+                  <Button title="Broadcast" icon={Megaphone} variant="volt" size="sm" onPress={() => setCompose(true)} style={{ flex: 1 }} />
+                </View>
+              </InkHero>
             </Gutter>
+            <ChipRow options={[...FILTERS]} value={filter} onChange={setFilter} style={{ paddingHorizontal: 20 }} />
           </ListHeader>
         }
         ListEmptyComponent={

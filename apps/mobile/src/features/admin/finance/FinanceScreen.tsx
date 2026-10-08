@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, FileSpreadsheet, RotateCcw, Undo2, XCircle } from 'lucide-react-native';
+import { FileSpreadsheet, Landmark, ReceiptText, RotateCcw, Undo2, XCircle } from 'lucide-react-native';
 import {
   Button,
   Card,
@@ -14,6 +14,7 @@ import {
   ListHeader,
   ListScreen,
   ScreenHeader,
+  SectionHeader,
   Sheet,
   SkeletonList,
   StatusBadge,
@@ -24,9 +25,8 @@ import { api, errorMessage } from '@/lib/api';
 import { openDocument } from '@/lib/files';
 import { formatLKR, timeAgo } from '@/lib/format';
 import { colors } from '@/theme/tokens';
-import { MonoTag, Section } from '../../buyer/orders/kit';
-import { RecordCard } from '@/features/admin/ops/kit';
-import { HeroGrid, HeroMetric } from '@/features/admin/platform/kit';
+import { MonoTag } from '../../buyer/orders/kit';
+import { HeroFigure, HeroPipeline, HeroTopline, LinkTile, RecordCard } from '@/features/admin/ops/kit';
 
 type FailedPayout = {
   id: string;
@@ -78,35 +78,30 @@ export function AdminFinanceScreen() {
               kicker="Money operations"
               title="Finance"
               subtitle="Failed payouts, refund issuance and ledger exports."
-              right={<Button title="Refund" icon={Undo2} variant="paper" size="sm" onPress={() => setRefundOpen(true)} />}
-            />
+                          />
             <Gutter style={{ gap: 14 }}>
-              {m ? (
-                <InkHero seed="admin-finance">
-                  <Text variant="overline" color="volt">
-                    Failed payout value
-                  </Text>
-                  <Text variant="metric" color="paper" style={{ marginTop: 12 }} numberOfLines={1} adjustsFontSizeToFit>
-                    {formatLKR(m.failedAmountCents)}
-                  </Text>
-                  <HeroGrid>
-                    <HeroMetric label="Failed" value={String(m.failedCount)} accent={m.failedCount > 0} />
-                    <HeroMetric label="Pending" value={String(m.pendingCount)} />
-                    <HeroMetric label="Total payouts" value={String(m.totalCount)} />
-                  </HeroGrid>
-                </InkHero>
-              ) : null}
-              <Section kicker="Ledger" title="Exports" icon={FileSpreadsheet}>
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  <Button title="Ledger CSV" variant="paper" size="sm" icon={Download} onPress={() => void openDocument('/api/admin/finance/exports/ledger.csv')} style={{ flex: 1 }} />
-                  <Button title="Payments CSV" variant="paper" size="sm" icon={Download} onPress={() => void openDocument('/api/admin/finance/exports/payments.csv')} style={{ flex: 1 }} />
-                </View>
-              </Section>
-              <Section kicker="Recovery" title="Failed payouts" icon={RotateCcw}>
-                <Text variant="caption" color="ink4">
+              <InkHero seed="admin-finance" style={{ padding: 18 }}>
+                <HeroTopline icon={Landmark} label="Failed payout value" status={m?.failedCount ? `${m.failedCount} to recover` : 'Transfers clear'} statusTone={m?.failedCount ? 'danger' : 'ok'} />
+                <HeroFigure value={formatLKR(m?.failedAmountCents ?? 0)} caption={`${m?.totalCount ?? 0} payouts on record`} />
+                <HeroPipeline
+                  segments={[
+                    { label: 'Cleared', value: Math.max(0, (m?.totalCount ?? 0) - (m?.failedCount ?? 0) - (m?.pendingCount ?? 0)), color: colors.mint },
+                    { label: 'Pending', value: m?.pendingCount ?? 0, color: colors.volt },
+                    { label: 'Failed', value: m?.failedCount ?? 0, color: colors.rose },
+                  ]}
+                />
+              </InkHero>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <LinkTile icon={FileSpreadsheet} label="Ledger CSV" hint="Export" onPress={() => void openDocument('/api/admin/finance/exports/ledger.csv')} />
+                <LinkTile icon={ReceiptText} label="Payments CSV" hint="Export" onPress={() => void openDocument('/api/admin/finance/exports/payments.csv')} />
+                <LinkTile icon={Undo2} label="Refund" hint="Issue manually" onPress={() => setRefundOpen(true)} />
+              </View>
+              <View style={{ marginTop: 6 }}>
+                <SectionHeader kicker="Recovery" title="Failed payouts" style={{ marginBottom: 4 }} />
+                <Text variant="caption" color="ink4" style={{ paddingHorizontal: 2 }}>
                   Bank rejections land here. Retry only after the supplier's account details are verified.
                 </Text>
-              </Section>
+              </View>
             </Gutter>
           </ListHeader>
         }

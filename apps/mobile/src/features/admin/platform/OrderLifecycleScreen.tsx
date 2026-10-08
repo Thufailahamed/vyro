@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Save, Timer } from 'lucide-react-native';
+import { Save, ShieldCheck, Timer } from 'lucide-react-native';
+import { colors } from '@/theme/tokens';
 import { api, ApiError, errorMessage } from '@/lib/api';
 import { useOnChange } from '@/lib/useOnChange';
 import { formatDateTime } from '@/lib/format';
-import { Banner, Button, ErrorState, Field, Input, Screen, SkeletonList, Text, ToggleRow, useToast } from '@/ui';
+import { Banner, Button, ErrorState, Field, InkHero, Input, Screen, SkeletonList, Text, ToggleRow, useToast } from '@/ui';
 import { Can } from '@/features/admin/platform/kit';
-import { Section } from '@/features/admin/ops/kit';
+import { HeroTopline, Section } from '@/features/admin/ops/kit';
 
 interface OrderLifecycleConfig {
   pendingAutoCancelHours: number;
@@ -147,16 +148,42 @@ export function OrderLifecycleScreen() {
         <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} />
       ) : (
         <View style={{ gap: 14 }}>
+          <InkHero seed="order-lifecycle" style={{ padding: 18 }}>
+            <HeroTopline icon={Timer} label="Lifecycle at a glance" status={draft.automationEnabled ? 'Automation on' : 'Automation off'} statusTone={draft.automationEnabled ? 'ok' : 'warn'} />
+            <View style={{ marginTop: 18, gap: 0 }}>
+              {[
+                { at: 'Order placed', rule: `Auto-cancels after ${draft.pendingAutoCancelHours || '—'}h unanswered` },
+                { at: 'Paid / confirmed', rule: draft.paymentGateEnabled ? 'Payment gate guards dispatch' : 'Dispatch is not payment-gated' },
+                { at: 'Delivered', rule: `Disputes open for ${draft.disputeWindowDays || '—'}d · returns ${draft.returnsEnabled ? `${draft.returnWindowDays || 0}d` : 'off'}` },
+                { at: 'Completed', rule: `Auto-completes after ${draft.autoCompleteDays || '—'}d · funds release` },
+              ].map((x, i, arr) => (
+                <View key={x.at} style={{ flexDirection: 'row', gap: 12 }}>
+                  <View style={{ alignItems: 'center', width: 14 }}>
+                    <View style={{ width: 12, height: 12, borderRadius: 6, marginTop: 3, backgroundColor: i === arr.length - 1 ? colors.volt : 'transparent', borderWidth: 2, borderColor: colors.volt }} />
+                    {i < arr.length - 1 ? <View style={{ flex: 1, width: 2, backgroundColor: 'rgba(198,220,74,0.3)', marginVertical: 3 }} /> : null}
+                  </View>
+                  <View style={{ flex: 1, paddingBottom: i < arr.length - 1 ? 14 : 0, gap: 2 }}>
+                    <Text variant="bodySm" weight="semibold" color="paper">
+                      {x.at}
+                    </Text>
+                    <Text variant="caption" color="paperMuted">
+                      {x.rule}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </InkHero>
           <Section kicker="Windows" title="Timers" icon={Timer}>
             <View style={{ gap: 14 }}>
               {NUMERIC_FIELDS.map((f) => (
                 <Field key={f.key} label={f.label} hint={`${f.hint} (${f.min}–${f.max})`}>
-                  <Input value={text[f.key]} onChangeText={(v) => setNumeric(f.key, v)} keyboardType="number-pad" />
+                  <Input value={text[f.key]} onChangeText={(v) => setNumeric(f.key, v)} keyboardType="number-pad" suffix={f.key === 'pendingAutoCancelHours' ? 'hours' : 'days'} />
                 </Field>
               ))}
             </View>
           </Section>
-          <Section kicker="Guards" title="Automation" icon={Timer}>
+          <Section kicker="Guards" title="Automation" icon={ShieldCheck}>
             <View>
               {TOGGLE_FIELDS.map((f, i) => (
                 <ToggleRow

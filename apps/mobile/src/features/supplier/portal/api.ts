@@ -22,6 +22,7 @@ export type Po = {
   createdAt: number;
   deliveryCity?: string;
   deliveryDistrict?: string;
+  deliveryPromisedAt?: number | null;
 };
 
 export type PoDetail = LifecycleDetailFields & {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { ListChecks, ShieldAlert, UserRound, UserX, UserCheck } from 'lucide-react-native';
+import { ListChecks, ShieldAlert, ShieldCheck, UserRound, UserX, UserCheck, Users } from 'lucide-react-native';
 import { api, errorMessage } from '@/lib/api';
 import { formatDate, humanize } from '@/lib/format';
 import { colors } from '@/theme/tokens';
@@ -14,7 +14,6 @@ import {
   QueryView,
   Screen,
   SearchBar,
-  Segmented,
   StatusBadge,
   Text,
   useToast,
@@ -28,6 +27,7 @@ import {
   BulkResultSheet,
   SelectionBar,
   SelectDot,
+  TileTabs,
   useBulk,
   useSelection,
   type BulkResult,
@@ -140,13 +140,13 @@ export function UsersScreen() {
         }
         onRefresh={() => q.refetch()}
       >
-      <Segmented<Filter>
+      <TileTabs<Filter>
         value={filter}
         onChange={setFilter}
         options={[
-          { value: 'all', label: 'All' },
-          { value: 'admins', label: 'Operators' },
-          { value: 'suspended', label: 'Suspended' },
+          { value: 'all', label: 'Everyone', hint: 'All accounts', icon: Users },
+          { value: 'admins', label: 'Operators', hint: 'Admin roles', icon: ShieldCheck },
+          { value: 'suspended', label: 'Suspended', hint: 'On hold', icon: UserX },
         ]}
       />
       <SearchBar value={search} onChangeText={setSearch} placeholder="Search name or email…" />

@@ -56,7 +56,7 @@ const TILE = {
 /** Logistics: receiving dock, settlement, notes and live delivery tracking. */
 export function DeliveryCard({ order, delivery, loading }: { order: OrderDetail['order']; delivery: Delivery | null | undefined; loading: boolean }) {
   return (
-    <Section step={2} kicker="Logistics" title="Delivery & tracking" sub="Receiving dock, driver and transit milestones">
+    <Section icon={Truck} kicker="Logistics" title="Delivery & tracking" sub="Receiving dock, driver and transit milestones">
       <View style={{ gap: 10 }}>
         <View style={TILE}>
           <IconTile icon={MapPin} tone="ink" size={40} />

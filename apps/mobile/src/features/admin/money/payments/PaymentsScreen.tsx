@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, View, ScrollView } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { ArrowDownLeft, Banknote, Building2, CreditCard, Landmark, SlidersHorizontal, Store, Wallet, type LucideIcon } from 'lucide-react-native';
+import { Banknote, CreditCard, Landmark, SlidersHorizontal, Wallet, type LucideIcon } from 'lucide-react-native';
 import { colors, radii } from '@/theme/tokens';
 import { errorMessage } from '@/lib/api';
 import { formatCompactLKR, formatDateTime, humanize } from '@/lib/format';
 import { usePermission } from '@/features/admin/common/permissions';
 import {
+  Avatar,
   Badge,
   Button,
   Card,
@@ -16,7 +17,7 @@ import {
   Field,
   Gutter,
   IconButton,
-  IconTile,
+  InkHero,
   Input,
   ListHeader,
   ListScreen,
@@ -30,6 +31,7 @@ import {
   Text,
 } from '@/ui';
 import { Appear, MoneyText, go, rupeesToCents } from '@/features/admin/platform/kit';
+import { GlassStats, HeroFigure, HeroTopline } from '@/features/admin/ops/kit';
 import { useAdminPaymentOptions, useAdminPaymentSearch, type PaymentMethod, type PaymentProvider, type PaymentRow, type PaymentSearchFilters, type PaymentSort, type PaymentStatus } from '../api';
 
 const ALL_STATUSES: PaymentStatus[] = ['pending', 'confirmed', 'failed', 'cancelled', 'chargeback', 'refunded'];
@@ -53,38 +55,51 @@ function PaymentCard({ p }: { p: PaymentRow }) {
   const Icon = METHOD_ICON[p.method] ?? Wallet;
   const tone = statusTone(p.status);
   return (
-    <Card kind="flat" padding={16} onPress={() => go(`/admin/payments/${p.id}`)} style={{ gap: 12 }}>
-      <Row gap={12} align="center">
-        <IconTile icon={Icon} tone={tone === 'in' ? 'success' : tone === 'out' ? 'danger' : tone === 'warn' ? 'warning' : 'ink'} size={44} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="mono" style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 14.5, color: colors.ink }} numberOfLines={1}>
+    <Card kind="flat" padding={0} onPress={() => go(`/admin/payments/${p.id}`)}>
+      <View style={{ padding: 16, gap: 14 }}>
+        <Row gap={8}>
+          <Text variant="mono" style={{ fontFamily: 'Sans-Semi', fontSize: 12, color: colors.ink3, letterSpacing: 0.2, flex: 1 }} numberOfLines={1}>
             {p.poNumber || p.id.slice(0, 16)}
           </Text>
-          <Text variant="caption" color="ink4" numberOfLines={1}>
-            {humanize(p.method)} · {formatDateTime(p.createdAt)}
-          </Text>
-        </View>
-        <StatusBadge status={p.status} size="sm" />
-      </Row>
-      <View style={{ gap: 6, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
-        <Row gap={8}>
-          <Building2 size={13} color={colors.ink4} />
-          <Text variant="bodySm" weight="medium" numberOfLines={1} style={{ flex: 1 }}>
-            {p.businessName}
-          </Text>
+          <StatusBadge status={p.status} size="sm" />
         </Row>
-        <Row gap={8}>
-          <Store size={13} color={colors.copper} />
-          <Text variant="bodySm" color="ink3" numberOfLines={1} style={{ flex: 1 }}>
-            {p.supplierName}
-          </Text>
+        <Row gap={12}>
+          <View style={{ width: 44, height: 44 }}>
+            <Avatar name={p.businessName} size={36} tone="ink" />
+            <View style={{ position: 'absolute', right: 0, bottom: 0, borderRadius: 14, borderWidth: 2, borderColor: colors.paper }}>
+              <Avatar name={p.supplierName} size={24} tone="copper" />
+            </View>
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="h3" numberOfLines={1}>
+              {p.businessName}
+            </Text>
+            <Text variant="bodySm" color="ink4" numberOfLines={1}>
+              to {p.supplierName}
+            </Text>
+          </View>
+          <MoneyText cents={p.amountCents} size="lg" tone={tone === 'neutral' ? 'neutral' : tone} style={{ fontFamily: 'Display-Bold', fontSize: 18, lineHeight: 23 }} />
         </Row>
       </View>
-      <Row justify="space-between" align="flex-end">
-        <Text variant="caption" color="ink5">
-          Fee {formatCompactLKR(p.feeCents)} · Net {formatCompactLKR(p.netCents)}
+      <Row
+        gap={8}
+        style={{
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+          backgroundColor: colors.pearl,
+          borderBottomLeftRadius: radii.xl,
+          borderBottomRightRadius: radii.xl,
+          borderTopWidth: StyleSheet.hairlineWidth * 2,
+          borderTopColor: colors.lineSoft,
+        }}
+      >
+        <Icon size={13} color={colors.ink4} strokeWidth={1.9} />
+        <Text variant="caption" color="ink4" numberOfLines={1} style={{ flex: 1 }}>
+          {humanize(p.method)} · fee {formatCompactLKR(p.feeCents)} · net {formatCompactLKR(p.netCents)}
         </Text>
-        <MoneyText cents={p.amountCents} size="lg" tone={tone === 'neutral' ? 'neutral' : tone} />
+        <Text variant="caption" color="ink5">
+          {formatDateTime(p.createdAt)}
+        </Text>
       </Row>
     </Card>
   );
@@ -107,6 +122,9 @@ export function PaymentsScreen() {
   const options = useAdminPaymentOptions(can);
   const rows = useMemo(() => (q.data?.pages ?? []).flatMap((p) => p?.payments ?? []), [q.data]);
   const volume = rows.reduce((s, p) => s + (p.status === 'confirmed' ? p.amountCents : 0), 0);
+  const fees = rows.reduce((s, p) => s + (p.status === 'confirmed' ? p.feeCents : 0), 0);
+  const failed = rows.filter((p) => p.status === 'failed' || p.status === 'cancelled').length;
+  const reversed = rows.filter((p) => p.status === 'refunded' || p.status === 'chargeback').length;
 
   const set = (patch: Partial<PaymentSearchFilters>) => setFilters((f) => ({ ...f, ...patch }));
   const toggleStatus = (s: PaymentStatus) => {
@@ -144,6 +162,20 @@ export function PaymentsScreen() {
         subtitle="Cross-tenant payment search and detail."
         right={<IconButton icon={SlidersHorizontal} variant={advancedCount ? 'ink' : 'surface'} badge={advancedCount || undefined} accessibilityLabel="Filters" onPress={() => setSheet(true)} />}
       />
+      <Gutter>
+        <InkHero seed="admin-payments" style={{ padding: 18 }}>
+          <HeroTopline icon={Wallet} label="Confirmed volume" status={`${rows.length}${q.hasNextPage ? '+' : ''} loaded`} />
+          <HeroFigure value={formatCompactLKR(volume)} caption={filters.status?.length || advancedCount || filters.q ? 'Within the current filters' : 'Across every tenant'} />
+          <GlassStats
+            items={[
+              { label: 'Fees earned', value: formatCompactLKR(fees), hint: 'Confirmed only' },
+              { label: 'Failed', value: failed, hint: 'Failed or cancelled', warn: failed > 0 },
+              { label: 'Reversed', value: reversed, hint: 'Refunds & chargebacks', warn: reversed > 0 },
+              { label: 'Payments', value: rows.length, hint: q.hasNextPage ? 'More on scroll' : 'All loaded' },
+            ]}
+          />
+        </InkHero>
+      </Gutter>
       <Gutter style={{ gap: 12 }}>
         <SearchBar
           value={text}
@@ -161,34 +193,6 @@ export function PaymentsScreen() {
           <Chip key={s} label={humanize(s)} selected={!!filters.status?.includes(s)} onPress={() => toggleStatus(s)} />
         ))}
       </ScrollView>
-      {rows.length ? (
-        <Gutter>
-          <Card kind="ink" padding={14}>
-            <Row justify="space-between">
-              <View style={{ gap: 2 }}>
-                <Text variant="overline" color="paperMuted">
-                  Loaded
-                </Text>
-                <Text variant="metricSm" color="paper">
-                  {rows.length}
-                  {q.hasNextPage ? '+' : ''}
-                </Text>
-              </View>
-              <View style={{ gap: 2, alignItems: 'flex-end' }}>
-                <Row gap={4}>
-                  <ArrowDownLeft size={12} color={colors.volt} />
-                  <Text variant="overline" color="paperMuted">
-                    Confirmed volume
-                  </Text>
-                </Row>
-                <Text variant="metricSm" color="volt">
-                  {formatCompactLKR(volume)}
-                </Text>
-              </View>
-            </Row>
-          </Card>
-        </Gutter>
-      ) : null}
     </ListHeader>
   );
 

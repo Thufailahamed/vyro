@@ -1,8 +1,8 @@
 import { useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import { Banknote, Boxes, FileDown, History, MapPin, Package, Route } from 'lucide-react-native';
+import { Banknote, Boxes, Check, FileDown, History, MapPin, Package, Route } from 'lucide-react-native';
 import { errorMessage } from '@/lib/api';
-import { formatDateTime, formatLKR, humanize } from '@/lib/format';
+import { formatDate, formatDateTime, formatLKR, humanize } from '@/lib/format';
 import { colors, fonts, radii } from '@/theme/tokens';
 import {
   Badge,
@@ -10,6 +10,7 @@ import {
   Button,
   EmptyState,
   ErrorState,
+  IconButton,
   IconTile,
   InkHero,
   KeyValue,
@@ -18,9 +19,8 @@ import {
   SkeletonList,
   StatusBadge,
   Text,
-  Timeline,
 } from '@/ui';
-import { LIFECYCLE, destination } from '@/features/supplier/ops/api';
+import { destination } from '@/features/supplier/ops/api';
 import { OrderActions } from '@/features/supplier/ops/OrderActions';
 import { TrackingSection } from '@/features/supplier/ops/DeliverySheets';
 import { OrderReturnsSection } from '@/features/supplier/ops/SupplierReturns';
@@ -28,6 +28,58 @@ import { PaymentBadge, PaymentSummaryRows } from '@/features/common/orderLifecyc
 import { deliveryEventStatus, requestedQty } from '@/lib/orderLifecycle';
 import { Enter, Section, shareApiFile } from '@/features/supplier/ops/kit';
 import { usePoDetail } from './api';
+
+const STAGES = ['Placed', 'Accepted', 'On the way', 'Delivered'];
+const TERMINAL = ['delivered', 'completed', 'received', 'cancelled', 'rejected', 'failed', 'disputed'];
+
+function stageOf(status: string) {
+  if (['delivered', 'completed', 'received'].includes(status)) return 3;
+  if (['out_for_delivery', 'dispatched', 'shipped'].includes(status)) return 2;
+  if (['accepted', 'preparing', 'ready_for_pickup'].includes(status)) return 1;
+  return 0;
+}
+
+/** Four-stage progress track for the ink hero. */
+function StageTrack({ status }: { status: string }) {
+  const stopped = ['cancelled', 'rejected', 'failed', 'disputed'].includes(status);
+  const at = stageOf(status);
+  return (
+    <View style={{ gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {STAGES.map((_, i) => {
+          const done = !stopped && i <= at;
+          const current = !stopped && i === at;
+          return (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', flex: i ? 1 : undefined }}>
+              {i ? <View style={{ flex: 1, height: 2, marginHorizontal: 4, borderRadius: 1, backgroundColor: done ? colors.volt : 'rgba(250,247,240,0.14)' }} /> : null}
+              <View
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: done ? colors.volt : 'rgba(250,247,240,0.08)',
+                  borderWidth: current ? 3 : 0,
+                  borderColor: 'rgba(198,220,74,0.3)',
+                }}
+              >
+                {done && !current ? <Check size={11} color={colors.ink} strokeWidth={3} /> : null}
+              </View>
+            </View>
+          );
+        })}
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+        {STAGES.map((l, i) => (
+          <Text key={l} variant="caption" color={!stopped && i <= at ? 'paper' : 'paperFaint'} style={{ fontSize: 11 }}>
+            {l}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
+}
 
 export function SupplierOrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -56,15 +108,12 @@ export function SupplierOrderDetailScreen() {
     );
 
   const o = d.order;
-  const idx = LIFECYCLE.indexOf(o.status as (typeof LIFECYCLE)[number]);
-  const steps = LIFECYCLE.map((s, i) => ({
-    label: humanize(s),
-    state: (idx < 0 ? 'idle' : i < idx ? 'done' : i === idx ? 'active' : 'idle') as 'done' | 'active' | 'idle',
-  }));
   const units = d.items.reduce((s, it) => s + (it.quantity ?? 0), 0);
   const lc = d.lifecycle;
   const trackable = ['accepted', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(o.status);
   const partial = o.originalTotalCents != null && o.originalTotalCents !== o.totalCents;
+  const live = !TERMINAL.includes(o.status);
+  const shareInvoice = () => shareApiFile(`/purchase-orders/${o.id}/invoice`, `${o.poNumber ?? o.id}.pdf`, 'application/pdf').catch(() => {});
 
   return (
     <Screen
@@ -73,8 +122,9 @@ export function SupplierOrderDetailScreen() {
       kicker="Operations"
       title={o.poNumber || 'Order'}
       subtitle={`${destination(o)} · ${formatDateTime(o.createdAt)}`}
+      right={live ? <IconButton icon={FileDown} variant="surface" size={44} accessibilityLabel="Share invoice PDF" onPress={shareInvoice} /> : undefined}
       footer={
-        <>
+        live ? (
           <OrderActions
             poId={o.id}
             poNumber={o.poNumber}
@@ -83,15 +133,9 @@ export function SupplierOrderDetailScreen() {
             full
             detail={{ items: d.items, totalCents: o.totalCents, lifecycle: lc, paymentSummary: d.paymentSummary, delivery: d.delivery }}
           />
-          <Button
-            title="Share invoice PDF"
-            icon={FileDown}
-            variant="secondary"
-            size="md"
-            full
-            onPress={() => shareApiFile(`/purchase-orders/${o.id}/invoice`, `${o.poNumber ?? o.id}.pdf`, 'application/pdf').catch(() => {})}
-          />
-        </>
+        ) : (
+          <Button title="Share invoice PDF" icon={FileDown} variant="secondary" size="md" full onPress={shareInvoice} />
+        )
       }
     >
       <Enter>
@@ -103,7 +147,7 @@ export function SupplierOrderDetailScreen() {
               <StatusBadge status={o.status} />
             </View>
           </View>
-          <View style={{ marginTop: 20, gap: 6 }}>
+          <View style={{ marginTop: 18, gap: 6 }}>
             <Kicker color="volt">Order value</Kicker>
             <Text variant="metric" color="paper" numberOfLines={1} adjustsFontSizeToFit>
               {formatLKR(o.totalCents)}
@@ -112,11 +156,22 @@ export function SupplierOrderDetailScreen() {
               {d.items.length} {d.items.length === 1 ? 'line' : 'lines'} · {units} units
             </Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: 'rgba(250,247,240,0.07)' }}>
-            <MapPin size={15} color={colors.volt} strokeWidth={1.9} />
-            <Text variant="bodySm" color="paper" numberOfLines={2} style={{ flex: 1 }}>
-              {o.deliveryAddress ?? destination(o)}
-            </Text>
+          <View style={{ marginTop: 20 }}>
+            <StageTrack status={o.status} />
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 18, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: 'rgba(250,247,240,0.07)' }}>
+            <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(198,220,74,0.14)', alignItems: 'center', justifyContent: 'center' }}>
+              <MapPin size={15} color={colors.volt} strokeWidth={1.9} />
+            </View>
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text variant="bodySm" weight="semibold" color="paper" numberOfLines={2}>
+                {o.deliveryAddress ?? destination(o)}
+              </Text>
+              <Text variant="caption" color="paperFaint" numberOfLines={1}>
+                {destination(o)}
+                {o.deliveryPromisedAt ? ` · Due ${formatDate(o.deliveryPromisedAt)}` : ''}
+              </Text>
+            </View>
           </View>
         </InkHero>
       </Enter>
@@ -147,10 +202,10 @@ export function SupplierOrderDetailScreen() {
       <Enter i={1}>
         <Section icon={Route} kicker="Summary" title="Order details">
           <View style={{ marginTop: -8 }}>
-            <KeyValue label="Total" value={formatLKR(o.totalCents)} mono emphasize last={false} />
-            <KeyValue label="Delivery" value={o.deliveryAddress ?? destination(o)} />
+            <KeyValue label="Purchase order" value={o.poNumber ?? o.id.slice(0, 12)} mono />
             <KeyValue label="Placed" value={formatDateTime(o.createdAt)} />
-            <KeyValue label="Notes" value={o.notes ?? '—'} last />
+            {o.deliveryPromisedAt ? <KeyValue label="Delivery due" value={formatDate(o.deliveryPromisedAt)} /> : null}
+            <KeyValue label="Buyer notes" value={o.notes ?? '—'} last />
           </View>
         </Section>
       </Enter>
@@ -221,12 +276,6 @@ export function SupplierOrderDetailScreen() {
           <OrderReturnsSection returns={d.returns} />
         </Enter>
       ) : null}
-
-      <Enter i={3}>
-        <Section icon={Route} kicker="Fulfilment" title="Lifecycle">
-          <Timeline steps={steps} />
-        </Section>
-      </Enter>
 
       {d.events.length ? (
         <Enter i={4}>

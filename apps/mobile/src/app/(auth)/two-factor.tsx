@@ -45,7 +45,7 @@ export default function TwoFactorScreen() {
           autoComplete="one-time-code"
           textContentType="oneTimeCode"
           placeholder="123 456"
-          style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 24, letterSpacing: 8 }}
+          style={{ fontFamily: 'Sans-Semi', fontSize: 24, letterSpacing: 8 }}
           containerStyle={{ minHeight: 64 }}
           onSubmitEditing={submit}
           autoFocus

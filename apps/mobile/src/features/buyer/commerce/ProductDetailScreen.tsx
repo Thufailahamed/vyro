@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { ChevronRight, Clock, FileText, MapPin, Package, ShoppingCart, Sparkles, Star, Store, TrendingUp, Truck } from 'lucide-react-native';
+import { BadgeCheck, ChevronRight, Clock, FileText, MapPin, Package, ShoppingCart, Sparkles, Star, TrendingDown, Truck, type LucideIcon } from 'lucide-react-native';
 import {
+  Avatar,
   Banner,
   Button,
   Card,
@@ -10,8 +11,8 @@ import {
   EmptyState,
   ErrorState,
   Gutter,
+  IconButton,
   IconTile,
-  InkHero,
   ListHeader,
   ListScreen,
   ProductImage,
@@ -24,9 +25,10 @@ import {
 } from '@/ui';
 import { errorMessage } from '@/lib/api';
 import { useAuth, useBusinessId } from '@/lib/auth';
-import { formatLKR } from '@/lib/format';
+import { formatLKR, formatRs } from '@/lib/format';
 import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { MonoTag, go } from '../orders/kit';
+import { useCartCount } from '../useCartCount';
 import { availabilityLabel, leadLabel, openStorefront, useProductOffers, useSupplierReviewSummary } from './data';
 import { useAddToCart } from './useAddToCart';
 import type { OfferRow } from './types';
@@ -39,11 +41,12 @@ const SORTS: { value: SortMode; label: string }[] = [
   { value: 'moq_asc', label: 'Lowest MOQ' },
 ];
 
-/** Product detail — image, price stats, ranked supplier offers with qty steppers. */
+/** Product detail — gallery, price summary, insights, ranked supplier offers with qty steppers. */
 export function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const businessId = useBusinessId();
+  const cartCount = useCartCount();
   const q = useProductOffers(id);
   const { addToCart, pendingKey } = useAddToCart();
   const [sortBy, setSortBy] = useState<SortMode>('recommended');
@@ -69,128 +72,153 @@ export function ProductDetailScreen() {
     [data?.offers],
   );
   const maxPrice = Math.max(0, ...(data?.offers ?? []).map((o) => o.offer.priceCents));
+  const spread = maxPrice - (bestPrice?.offer.priceCents ?? 0);
 
   const product = data?.product;
   const images = product?.images ?? [];
   const heroSrc = activeImage ?? product?.imageUrl ?? images[0]?.url;
+  const quoteCount = data?.priceStats.count ?? 0;
 
   const header = (
     <ListHeader>
-      <ScreenHeader back large={false} title={product?.name ?? 'Product'} />
-      <Gutter style={{ gap: 14 }}>
-        {product ? (
-          <>
-            {/* Hero image + thumbs */}
-            <View style={[{ backgroundColor: colors.paper, borderRadius: radii['3xl'], borderCurve: 'continuous', padding: 6 }, shadow.md]}>
-              <ProductImage src={heroSrc} seed={product.id} style={{ width: '100%', height: 280, borderRadius: radii['2xl'], borderCurve: 'continuous' }} />
+      <ScreenHeader
+        back
+        kicker={product ? [product.brand, `Per ${product.unit}`].filter(Boolean).join(' · ') : undefined}
+        title={product?.name ?? 'Product'}
+        right={<IconButton icon={ShoppingCart} variant="surface" badge={cartCount} accessibilityLabel="Cart" onPress={() => go('/buyer/cart')} />}
+      />
+      {product ? (
+        <Gutter style={{ gap: 20, marginTop: -6 }}>
+          {/* Gallery */}
+          <View style={{ gap: 10 }}>
+            <View style={[{ borderRadius: radii['3xl'], borderCurve: 'continuous' }, shadow.md]}>
+              <ProductImage src={heroSrc} seed={product.id} style={{ width: '100%', aspectRatio: 1.12, borderRadius: radii['3xl'], borderCurve: 'continuous' }} />
+              {quoteCount ? (
+                <View
+                  style={{
+                    position: 'absolute',
+                    left: 14,
+                    bottom: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    paddingHorizontal: 12,
+                    height: 30,
+                    borderRadius: 15,
+                    backgroundColor: 'rgba(12,14,11,0.78)',
+                  }}
+                >
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.volt }} />
+                  <Text variant="caption" weight="semibold" color="paper">
+                    {quoteCount} live quote{quoteCount === 1 ? '' : 's'}
+                  </Text>
+                </View>
+              ) : null}
             </View>
             {images.length > 1 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 4 }} style={{ overflow: 'visible' }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }} style={{ overflow: 'visible' }}>
                 {images.map((img, i) => {
-                  const on = (activeImage ?? product.imageUrl ?? images[0]?.url) === img.url;
+                  const on = heroSrc === img.url;
                   return (
                     <Touchable
                       key={img.id}
                       onPress={() => setActiveImage(img.url)}
                       scaleTo={0.94}
-                      style={[{ padding: 3, borderRadius: radii.lg + 3, borderCurve: 'continuous', backgroundColor: on ? colors.ink : colors.paper }, on ? shadow.ink : shadow.sm]}
+                      style={{ padding: 2, borderRadius: 16, borderCurve: 'continuous', borderWidth: 2, borderColor: on ? colors.ink : 'transparent' }}
                     >
-                      <ProductImage
-                        src={img.url}
-                        seed={`${product.id}-${i}`}
-                        style={{ width: 58, height: 58, borderRadius: radii.lg, borderCurve: 'continuous', opacity: on ? 1 : 0.72 }}
-                      />
+                      <ProductImage src={img.url} seed={`${product.id}-${i}`} style={{ width: 54, height: 54, borderRadius: 12, borderCurve: 'continuous', opacity: on ? 1 : 0.6 }} />
                     </Touchable>
                   );
                 })}
               </ScrollView>
             ) : null}
+          </View>
 
-            {/* Identity */}
-            <View style={{ gap: 4 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text variant="overline" color="copper">
-                  {product.unit}
+          {/* Price summary */}
+          {quoteCount > 0 ? (
+            <View style={{ gap: 2 }}>
+              <Text variant="bodySm" color="ink4">
+                Best spot rate
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+                <Text variant="metric" numberOfLines={1} adjustsFontSizeToFit style={{ flexShrink: 1 }}>
+                  {formatLKR(data!.priceStats.min)}
                 </Text>
-                <Text variant="caption" color="ink4">
-                  · Commercial wholesale
+                <Text variant="body" color="ink4">
+                  / {product.unit}
                 </Text>
               </View>
-              <Text variant="displayMd">{product.name}</Text>
-              {product.brand ? (
-                <Text variant="caption" color="ink4">
-                  Brand: <Text variant="caption" weight="semibold" color="ink">{product.brand}</Text>
-                </Text>
-              ) : null}
-              {product.description ? (
-                <Text variant="bodySm" color="ink3">
-                  {product.description}
+              {data!.priceStats.max > data!.priceStats.min ? (
+                <Text variant="caption" color="ink5">
+                  Quotes range up to {formatLKR(data!.priceStats.max)}
                 </Text>
               ) : null}
             </View>
+          ) : null}
 
-            {/* Price stats */}
-            {(data?.priceStats.count ?? 0) > 0 ? (
-              <InkHero seed={`price-${product.id}`} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 }}>
-                <View style={{ gap: 4, flex: 1 }}>
-                  <Text variant="overline" color="volt">
-                    Starting rate from
-                  </Text>
-                  <Text variant="metric" color="paper" numberOfLines={1} adjustsFontSizeToFit>
-                    {formatLKR(data!.priceStats.min)}
-                  </Text>
-                  <Text variant="caption" color="paperMuted">
-                    {data!.priceStats.count} live supplier quote{data!.priceStats.count === 1 ? '' : 's'} · per {product.unit}
-                  </Text>
-                </View>
-                <MonoTag label={`${offers.length} offers`} tone="volt" />
-              </InkHero>
-            ) : null}
+          {product.description ? (
+            <Text variant="body" color="ink3">
+              {product.description}
+            </Text>
+          ) : null}
 
-            {/* Benchmarks */}
-            {offers.length ? (
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {bestPrice ? (
-                  <BenchCard icon={Sparkles} label="Best price" value={formatLKR(bestPrice.offer.priceCents)} sub={bestPrice.supplier.name} onPress={() => setSortBy('price_asc')} />
-                ) : null}
-                {fastest ? (
-                  <BenchCard icon={Clock} label="Fastest" value={`${fastest.offer.leadTimeDays}d lead`} sub={fastest.supplier.name} onPress={() => setSortBy('lead_asc')} />
-                ) : null}
-                <BenchCard
-                  icon={TrendingUp}
-                  label="Spread"
-                  value={maxPrice > (bestPrice?.offer.priceCents ?? 0) ? `Save ${formatLKR(maxPrice - (bestPrice?.offer.priceCents ?? 0))}` : '—'}
-                  sub="vs highest quote"
-                />
+          {/* Insights — one segmented card */}
+          {offers.length ? (
+            <Card padding={0} radius={radii['2xl']} style={{ flexDirection: 'row' }}>
+              {bestPrice ? (
+                <Insight icon={Sparkles} label="Best price" value={formatRs(bestPrice.offer.priceCents)} sub={bestPrice.supplier.name} onPress={() => setSortBy('price_asc')} />
+              ) : null}
+              <View style={DIVIDER} />
+              {fastest ? (
+                <Insight icon={Clock} label="Fastest" value={leadLabel(fastest.offer.leadTimeDays, true)} sub={fastest.supplier.name} onPress={() => setSortBy('lead_asc')} />
+              ) : null}
+              <View style={DIVIDER} />
+              <Insight icon={TrendingDown} label="You save" value={spread > 0 ? formatRs(spread) : '—'} sub="vs highest quote" tint={spread > 0 ? colors.mint : undefined} />
+            </Card>
+          ) : null}
+
+          {/* Auth / business gates */}
+          {!user ? (
+            <Banner tone="info" title="Sign in to order" message="Unlock verified trade credit, automated POs and direct dispatch." action={{ label: 'Sign in', onPress: () => go('/login') }} />
+          ) : !businessId ? (
+            <Banner tone="warning" title="Business profile required" message="Register your business entity to issue purchase orders." action={{ label: 'Complete profile', onPress: () => go('/onboarding/business') }} />
+          ) : null}
+
+          {businessId ? (
+            <Touchable
+              onPress={() => go('/buyer/rfqs/new')}
+              hapticOnPress
+              scaleTo={0.98}
+              accessibilityLabel="Request a custom quote"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, paddingRight: 14, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.copperSoft }}
+            >
+              <IconTile icon={FileText} tone="paper" size={38} style={{ backgroundColor: colors.paper }} />
+              <View style={{ flex: 1 }}>
+                <Text variant="bodySm" weight="semibold">
+                  Buying 500kg or more?
+                </Text>
+                <Text variant="caption" color="copperDeep">
+                  Request a custom supplier quote
+                </Text>
               </View>
-            ) : null}
+              <ChevronRight size={18} color={colors.copperDeep} />
+            </Touchable>
+          ) : null}
 
-            {/* Auth / business gates */}
-            {!user ? (
-              <Banner tone="info" title="Sign in to order" message="Unlock verified trade credit, automated POs and direct dispatch." action={{ label: 'Sign in', onPress: () => go('/login') }} />
-            ) : !businessId ? (
-              <Banner tone="warning" title="Business profile required" message="Register your business entity to issue purchase orders." action={{ label: 'Complete profile', onPress: () => go('/onboarding/business') }} />
-            ) : null}
-
-            {businessId ? (
-              <Card kind="flat" onPress={() => go('/buyer/rfqs/new')} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                <IconTile icon={FileText} tone="copper" size={44} />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text variant="overline" color="ink4">
-                    Large quantity?
-                  </Text>
-                  <Text variant="body" weight="semibold">
-                    Need 500kg+? Request a custom supplier quote
-                  </Text>
-                </View>
-                <ChevronRight size={18} color={colors.ink4} />
-              </Card>
-            ) : null}
-
+          {/* Offers heading + sort */}
+          <View style={{ gap: 12, marginTop: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+              <Text variant="h1">Supplier offers</Text>
+              {offers.length ? (
+                <Text variant="bodySm" color="ink4">
+                  {offers.length}
+                </Text>
+              ) : null}
+            </View>
             <ChipRow options={SORTS} value={sortBy} onChange={setSortBy} />
-          </>
-        ) : null}
-      </Gutter>
+          </View>
+        </Gutter>
+      ) : null}
     </ListHeader>
   );
 
@@ -235,20 +263,32 @@ export function ProductDetailScreen() {
   );
 }
 
-function BenchCard({ icon: Icon, label, value, sub, onPress }: { icon: typeof Clock; label: string; value: string; sub: string; onPress?: () => void }) {
-  return (
-    <Card onPress={onPress} padding={12} style={{ flex: 1, gap: 8 }}>
-      <IconTile icon={Icon} tone="paper" size={30} />
-      <Text variant="overline" color="ink4" numberOfLines={1}>
-        {label}
-      </Text>
-      <Text variant="bodySm" weight="semibold" numberOfLines={1} adjustsFontSizeToFit>
+const DIVIDER = { width: StyleSheet.hairlineWidth * 2, backgroundColor: colors.lineSoft, marginVertical: 14 };
+
+function Insight({ icon: Icon, label, value, sub, onPress, tint }: { icon: LucideIcon; label: string; value: string; sub: string; onPress?: () => void; tint?: string }) {
+  const body = (
+    <>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+        <Icon size={13} color={tint ?? colors.copper} strokeWidth={2} />
+        <Text variant="caption" color="ink4" numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
+      <Text variant="h2" numberOfLines={1} adjustsFontSizeToFit tabular style={tint ? { color: tint } : null}>
         {value}
       </Text>
-      <Text variant="caption" color="ink4" numberOfLines={1}>
+      <Text variant="caption" color="ink5" numberOfLines={1}>
         {sub}
       </Text>
-    </Card>
+    </>
+  );
+  const style = { flex: 1, paddingHorizontal: 14, paddingVertical: 14, gap: 4 };
+  return onPress ? (
+    <Touchable onPress={onPress} hapticOnPress scaleTo={0.96} accessibilityLabel={label} style={style}>
+      {body}
+    </Touchable>
+  ) : (
+    <View style={style}>{body}</View>
   );
 }
 
@@ -285,107 +325,112 @@ function OfferCard({
   ].filter((t): t is { minQty: number; pct: number } => (t.minQty ?? 0) > 0 && (t.pct ?? 0) > 0);
   const subtotal = row.offer.priceCents * selectedQty;
   const out = row.offer.availabilityStatus === 'out_of_stock';
+  const place = [...new Set([row.supplier.city, row.supplier.district].filter(Boolean))].join(', ') || 'Sri Lanka';
+  const tags = [
+    isBestPrice ? { label: 'Best price', tone: 'volt' as const } : null,
+    isValue && !isBestPrice ? { label: 'Best value', tone: 'copper' as const } : null,
+    isFastest ? { label: 'Fastest', tone: 'mint' as const } : null,
+  ].filter(Boolean) as { label: string; tone: 'volt' | 'copper' | 'mint' }[];
 
   return (
-    <Card kind={isBestPrice ? 'elevated' : 'flat'} radius={radii['2xl']} style={[{ gap: 12 }, isBestPrice ? { borderWidth: 1.5, borderColor: colors.volt } : null]}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-        <MonoTag label={`Rank #${row.rank}`} tone="ink" />
-        {isBestPrice ? <MonoTag label="Best price" tone="volt" /> : null}
-        {isValue && !isBestPrice ? <MonoTag label="Best value" tone="copper" /> : null}
-        {isFastest ? <MonoTag label="Fastest" tone="mint" /> : null}
-        {row.supplier.verificationStatus === 'verified' ? <MonoTag label="Verified mill" tone="mint" /> : null}
-      </View>
-
-      <Touchable onPress={() => void openStorefront(row.supplier)} accessibilityLabel={`View ${row.supplier.name} storefront`}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <IconTile icon={Store} tone={isBestPrice ? 'volt' : 'ink'} size={42} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text variant="h3" numberOfLines={1}>
-              {row.supplier.name}
-            </Text>
-            <StarsLine supplierId={row.supplier.id} />
+    <Card kind={isBestPrice ? 'elevated' : 'flat'} padding={0} radius={radii['2xl']} style={isBestPrice ? { borderWidth: 1.5, borderColor: colors.volt } : null}>
+      <View style={{ padding: 16, gap: 14 }}>
+        {/* Supplier */}
+        <Touchable onPress={() => void openStorefront(row.supplier)} accessibilityLabel={`View ${row.supplier.name} storefront`}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Avatar name={row.supplier.name} size={44} tone={isBestPrice ? 'volt' : 'ink'} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text variant="h3" numberOfLines={1} style={{ flexShrink: 1 }}>
+                  {row.supplier.name}
+                </Text>
+                {row.supplier.verificationStatus === 'verified' ? <BadgeCheck size={16} color={colors.mint} strokeWidth={2.2} accessibilityLabel="Verified supplier" /> : null}
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <StarsLine supplierId={row.supplier.id} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, flexShrink: 1 }}>
+                  <MapPin size={11} color={colors.ink5} />
+                  <Text variant="caption" color="ink4" numberOfLines={1}>
+                    {place}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <ChevronRight size={18} color={colors.ink5} />
           </View>
-          <ChevronRight size={18} color={colors.ink5} />
-        </View>
-      </Touchable>
-      {row.ranking?.reasons?.length ? (
-        <Text variant="caption" style={{ color: colors.copper }}>
-          #{row.ranking.rank} · {row.ranking.reasons.join(' + ')}
-        </Text>
-      ) : null}
-      {row.supplier.address ? (
-        <Text variant="caption" color="ink4" numberOfLines={1}>
-          {row.supplier.address}
-        </Text>
-      ) : null}
+        </Touchable>
 
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-        <View style={META}>
-          <MapPin size={12} color={colors.copper} />
-          <Text variant="caption" color="ink3">
-            {[row.supplier.city, row.supplier.district].filter(Boolean).join(', ') || 'Sri Lanka'}
-          </Text>
+        {tags.length || row.ranking?.reasons?.length ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+            {tags.map((t) => (
+              <MonoTag key={t.label} label={t.label} tone={t.tone} />
+            ))}
+            {row.ranking?.reasons?.length ? (
+              <Text variant="caption" color="copper" numberOfLines={1} style={{ flexShrink: 1 }}>
+                {row.ranking.reasons.join(' · ')}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* Price + facts */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+          <View style={{ flexShrink: 1, gap: 2 }}>
+            <Text numberOfLines={1}>
+              <Text variant="metricSm">{formatLKR(row.offer.priceCents)}</Text>
+              <Text variant="bodySm" color="ink4">
+                {' '}
+                / {unit}
+              </Text>
+            </Text>
+            {savingsVsMax > 0 ? (
+              <Text variant="caption" color="mint">
+                Save {formatLKR(savingsVsMax)} vs highest quote
+              </Text>
+            ) : null}
+          </View>
+          <StatusBadge status={row.offer.availabilityStatus} size="sm" label={avail.label} />
         </View>
-        <View style={META}>
-          <Truck size={12} color={colors.ink4} />
-          <Text variant="caption" color="ink3">
-            {leadLabel(row.offer.leadTimeDays)}
-          </Text>
+
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Fact icon={Truck} label={leadLabel(row.offer.leadTimeDays)} />
+          <Fact icon={Package} label={`MOQ ${row.offer.minOrderQty}`} />
+          {row.offer.trackInventory && row.offer.availableQty != null ? <Fact icon={Star} label={`${row.offer.availableQty} avail.`} /> : null}
         </View>
-        <View style={META}>
-          <Package size={12} color={colors.ink4} />
-          <Text variant="caption" color="ink3">
-            MOQ {row.offer.minOrderQty}
-          </Text>
-        </View>
-        <StatusBadge status={row.offer.availabilityStatus} size="sm" label={avail.label} />
-        {row.offer.trackInventory && row.offer.availableQty != null ? (
-          <Text variant="caption" color="ink4">
-            {row.offer.availableQty} avail.
-          </Text>
+
+        {tiers.length ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {tiers.map((t, i) => (
+              <MonoTag key={i} label={`${t.minQty}+ · −${t.pct}%`} tone="copper" />
+            ))}
+          </View>
         ) : null}
       </View>
 
-      {savingsVsMax > 0 ? (
-        <Text variant="caption" style={{ color: colors.mint }}>
-          Save {formatLKR(savingsVsMax)} per {unit} vs highest quote
-        </Text>
-      ) : null}
-      {tiers.length ? (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          {tiers.map((t, i) => (
-            <MonoTag key={i} label={`${t.minQty}+ · −${t.pct}%`} tone="copper" />
-          ))}
-        </View>
-      ) : null}
-
+      {/* Order bar */}
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'space-between',
           gap: 10,
-          padding: 10,
-          paddingLeft: 14,
-          borderRadius: radii.lg,
-          borderCurve: 'continuous',
+          paddingHorizontal: 12,
+          paddingVertical: 12,
+          borderTopWidth: StyleSheet.hairlineWidth * 2,
+          borderTopColor: colors.lineSoft,
           backgroundColor: colors.pearl,
+          borderBottomLeftRadius: radii['2xl'],
+          borderBottomRightRadius: radii['2xl'],
+          borderCurve: 'continuous',
         }}
       >
-        <View style={{ flexShrink: 1 }}>
-          <Text variant="overline" color="ink5">
-            {formatLKR(row.offer.priceCents)} / {unit}
-          </Text>
-          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 17, letterSpacing: -0.5, color: colors.ink }} numberOfLines={1} adjustsFontSizeToFit>
-            {formatLKR(subtotal)}
-          </Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Stepper value={selectedQty} min={row.offer.minOrderQty} onChange={onQty} size="sm" />
+        <Stepper value={selectedQty} min={row.offer.minOrderQty} onChange={onQty} size="sm" />
+        <View style={{ flex: 1 }}>
           <Button
-            title={out ? 'Out' : 'Add'}
-            icon={ShoppingCart}
+            title={out ? 'Out of stock' : `Add · ${formatRs(subtotal)}`}
+            icon={out ? undefined : ShoppingCart}
             size="sm"
+            full
+            variant={isBestPrice ? 'primary' : 'secondary'}
             loading={adding}
             disabled={out}
             onPress={canOrder ? onAdd : () => go('/onboarding/business')}
@@ -396,24 +441,25 @@ function OfferCard({
   );
 }
 
-const META = {
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  gap: 5,
-  paddingHorizontal: 9,
-  height: 26,
-  borderRadius: radii.pill,
-  backgroundColor: colors.pearl,
-};
+function Fact({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, height: 28, borderRadius: radii.pill, backgroundColor: colors.pearl }}>
+      <Icon size={12} color={colors.ink4} strokeWidth={2} />
+      <Text variant="caption" color="ink3" style={{ fontFamily: fonts.sansMedium }}>
+        {label}
+      </Text>
+    </View>
+  );
+}
 
 function StarsLine({ supplierId }: { supplierId: string }) {
   const { avg, count } = useSupplierReviewSummary(supplierId);
   if (avg == null) return null;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-      <Star size={12} color={colors.copper} fill={colors.copper} />
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+      <Star size={11} color={colors.amber} fill={colors.amber} />
       <Text variant="caption" color="ink3">
-        {avg.toFixed(1)} ({count} review{count === 1 ? '' : 's'})
+        {avg.toFixed(1)} ({count})
       </Text>
     </View>
   );

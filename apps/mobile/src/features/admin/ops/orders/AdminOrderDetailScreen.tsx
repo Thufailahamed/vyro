@@ -28,7 +28,7 @@ import {
 import { ApiError, api, errorMessage } from '@/lib/api';
 import { formatDateTime, formatLKR, humanize, timeAgo } from '@/lib/format';
 import { colors, radii } from '@/theme/tokens';
-import { ContactLine, HeroMetric, Pill, Reveal, Section } from '../kit';
+import { ContactLine, GlassStats, HeroFigure, HeroTopline, Reveal, Section } from '../kit';
 import { overrideTargets, useAdminOrder, type AdminOrder } from './api';
 import { Can } from '@/features/admin/platform/kit';
 import { OUTCOME_LABEL, ResolveDisputeSheet, type DisputeOutcome } from '../disputes/ResolveDisputeSheet';
@@ -37,6 +37,52 @@ const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'AED', 'SGD', 'AUD', 'JPY', 'CNY
 
 function apiErr(e: unknown, fallback: string) {
   return e instanceof ApiError ? `${e.code}: ${e.message}` : errorMessage(e, fallback);
+}
+
+const STAGES = ['Placed', 'Accepted', 'Preparing', 'Shipping', 'Delivered'];
+const STAGE_OF: Record<string, number> = {
+  pending: 0,
+  accepted: 1,
+  preparing: 2,
+  ready_for_pickup: 2,
+  out_for_delivery: 3,
+  delivered: 4,
+  completed: 4,
+};
+
+/** Five-step lifecycle track inside the hero; halted orders show a rose stop. */
+function StageTrack({ status }: { status: string }) {
+  const halted = !(status in STAGE_OF);
+  const at = STAGE_OF[status] ?? 0;
+  return (
+    <View style={{ marginTop: 20, gap: 8 }}>
+      <View style={{ flexDirection: 'row', gap: 4 }}>
+        {STAGES.map((st, i) => (
+          <View
+            key={st}
+            style={{
+              flex: 1,
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: halted ? (i === 0 ? colors.rose : 'rgba(250,247,240,0.1)') : i <= at ? (i === at ? colors.volt : 'rgba(198,220,74,0.55)') : 'rgba(250,247,240,0.1)',
+            }}
+          />
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row' }}>
+        {STAGES.map((st, i) => (
+          <Text
+            key={st}
+            variant="caption"
+            numberOfLines={1}
+            style={{ flex: 1, fontSize: 10.5, textAlign: i === 0 ? 'left' : i === STAGES.length - 1 ? 'right' : 'center', color: !halted && i === at ? colors.volt : colors.paperFaint }}
+          >
+            {halted && i === 0 ? humanize(status) : st}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
 }
 
 export function AdminOrderDetailScreen() {
@@ -92,22 +138,23 @@ export function AdminOrderDetailScreen() {
       ) : (
         <>
           <Reveal index={0}>
-            <InkHero seed={`order-${order.id}`}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <StatusBadge status={order.status} />
-                {cross ? <Pill label={String(order.direction).toUpperCase()} tone="volt" icon={Globe2} /> : null}
-              </View>
-              <Text variant="overline" color="paperMuted" style={{ marginTop: 16 }}>
-                Total amount · {order.currency ?? 'LKR'}
-              </Text>
-              <Text variant="metric" color="paper" numberOfLines={1} adjustsFontSizeToFit>
-                {formatLKR(order.totalCents ?? 0)}
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 12, marginTop: 20, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.paperLine }}>
-                <HeroMetric label="Subtotal" value={formatLKR(order.subtotalCents ?? 0)} />
-                <HeroMetric label="Delivery" value={formatLKR(order.deliveryFeeCents ?? 0)} />
-                <HeroMetric label="Lines" value={String(items.length)} tone="volt" />
-              </View>
+            <InkHero seed={`order-${order.id}`} style={{ padding: 18 }}>
+              <HeroTopline
+                icon={cross ? Globe2 : Package}
+                label={`Total · ${order.currency ?? 'LKR'}${cross ? ` · ${String(order.direction).toUpperCase()}` : ''}`}
+                status={humanize(order.status)}
+                statusTone={['disputed', 'cancelled', 'rejected'].includes(order.status) ? 'danger' : order.status === 'pending' ? 'warn' : 'ok'}
+              />
+              <HeroFigure value={formatLKR(order.totalCents ?? 0)} caption={`${order.businessName ?? 'Buyer'} · from ${order.supplierName ?? 'supplier'}`} />
+              <StageTrack status={order.status} />
+              <GlassStats
+                items={[
+                  { label: 'Subtotal', value: formatLKR(order.subtotalCents ?? 0) },
+                  { label: 'Delivery', value: formatLKR(order.deliveryFeeCents ?? 0) },
+                  { label: 'Line items', value: items.length },
+                  { label: 'Last update', value: timeAgo(order.updatedAt) },
+                ]}
+              />
             </InkHero>
           </Reveal>
 
@@ -182,7 +229,7 @@ export function AdminOrderDetailScreen() {
                       }}
                     >
                       <View style={{ minWidth: 38, height: 38, paddingHorizontal: 6, borderRadius: 12, borderCurve: 'continuous', backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ fontFamily: 'IBMPlexMono_500Medium', fontSize: 12.5, color: colors.ink }}>{it.quantity}×</Text>
+                        <Text style={{ fontFamily: 'Sans-Semi', fontSize: 12.5, color: colors.ink }}>{it.quantity}×</Text>
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
                         <Text variant="body" weight="medium" numberOfLines={2}>
@@ -192,7 +239,7 @@ export function AdminOrderDetailScreen() {
                           {it.quantity} × {formatLKR(it.unitPriceCents)}
                         </Text>
                       </View>
-                      <Text variant="mono" style={{ fontFamily: 'IBMPlexMono_500Medium' }}>
+                      <Text variant="mono" style={{ fontFamily: 'Sans-Semi' }}>
                         {formatLKR(it.lineTotalCents)}
                       </Text>
                     </View>

@@ -1,44 +1,24 @@
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  AlertTriangle,
-  Clock,
-  Eye,
-  EyeOff,
-  Layers,
-  Package,
-  Pencil,
-  Percent,
-  Plus,
-  Store,
-  Trash2,
-  TrendingUp,
-  Truck,
-  Warehouse,
-  Zap,
-} from 'lucide-react-native';
+import { Clock, Layers, Package, Pencil, Percent, Plus, Store, Trash2, TrendingUp, Truck, Warehouse, Zap } from 'lucide-react-native';
 import { api, errorMessage } from '@/lib/api';
 import { useSupplierId } from '@/lib/auth';
 import { formatLKR, formatRs } from '@/lib/format';
-import { colors, fonts, radii, shadow } from '@/theme/tokens';
+import { colors, radii, shadow } from '@/theme/tokens';
 import {
   Card,
-  ChipRow,
   ConfirmSheet,
   EmptyState,
   ErrorState,
   Gutter,
   IconButton,
-  InkHero,
-  Kicker,
   ListHeader,
   ListScreen,
+  InkHero,
   ProductImage,
-  QuickAction,
-  QuickActions,
+  ProgressRing,
   Row,
-  ScreenHeader,
   SearchBar,
   Text,
   Touchable,
@@ -57,7 +37,8 @@ import {
   type CatalogProduct,
   type Offer,
 } from './api';
-import { FadeInItem, HowItWorks, InkTip, MetaChip, QuickStartGrid, SkeletonCards, StockChip, TrainingBanner } from './components';
+import { FadeInItem, HowItWorks, InkTip, MetaChip, QuickStartGrid, SkeletonCards, StockChip } from './components';
+import { LearningCta } from '@/features/supplier/ops/kit';
 import { QuickEditSheet } from './QuickEditSheet';
 
 type Filter = 'all' | Availability;
@@ -116,81 +97,117 @@ export function SupplierProductsScreen() {
 
   const refresh = () => Promise.all([offers.refetch(), catalog.refetch()]);
 
+  const cells: { value: Filter; label: string; count: number; dot?: string }[] = [
+    { value: 'all', label: 'Listings', count: list.length },
+    { value: 'in_stock', label: 'Ready', count: counts.in_stock, dot: colors.mint },
+    { value: 'low', label: 'Low', count: counts.low, dot: colors.amber },
+    { value: 'out_of_stock', label: 'Out', count: counts.out_of_stock, dot: colors.rose },
+  ];
+
   const header = (
     <ListHeader>
-      <ScreenHeader
-        kicker="Depot catalog"
-        title="Products"
-        subtitle={
-          list.length
-            ? `${list.length} wholesale ${list.length === 1 ? 'commodity' : 'commodities'} published to buyers.`
-            : 'Publish commodities or custom depot items to receive purchase orders.'
-        }
-        right={
-          <>
-            <IconButton icon={Store} accessibilityLabel="Open marketplace" variant="surface" onPress={() => go('/buyer/catalog')} />
-            <IconButton icon={Plus} accessibilityLabel="Add product" variant="ink" onPress={() => go('/supplier/products/new')} />
-          </>
-        }
-      />
+      {/* Title bar */}
+      <Gutter style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 8 }}>
+        <View style={{ flexShrink: 1, gap: 2 }}>
+          <Text variant="overline" color="copper">
+            Supplier
+          </Text>
+          <Text variant="displayMd">Products</Text>
+        </View>
+        <Row gap={8}>
+          <IconButton icon={Store} accessibilityLabel="Open marketplace" variant="surface" size={44} onPress={() => go('/buyer/catalog')} />
+          <IconButton icon={Plus} accessibilityLabel="Add product" variant="ink" size={44} onPress={() => go('/supplier/products/new')} />
+        </Row>
+      </Gutter>
+
       <Gutter style={{ gap: 14 }}>
-        <TrainingBanner />
-        <FadeInItem>
-          <InkHero seed={`products-${supplierId ?? ''}`}>
-            <Row justify="space-between" align="flex-start">
-              <View style={{ gap: 4, flex: 1 }}>
-                <Kicker color="volt">{list.length ? 'Catalog active' : 'Awaiting listings'}</Kicker>
-                <Text variant="metric" color="paper">
-                  {list.length}
-                </Text>
-                <Text variant="caption" color="paperMuted">
-                  Published wholesale offers
-                </Text>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 3, paddingTop: 20 }}>
-                <Text variant="overline" color="paperFaint">
-                  Avg mill-gate rate
-                </Text>
-                <Text variant="metricSm" color="volt" adjustsFontSizeToFit numberOfLines={1}>
-                  {formatRs(avgPrice)}
-                </Text>
-                {tieredCount > 0 ? (
-                  <Text variant="caption" color="paperFaint">
-                    {tieredCount} tiered
-                  </Text>
-                ) : null}
-              </View>
-            </Row>
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 18 }}>
-              <HeroStat label="Ready" value={`${counts.in_stock}`} hint={list.length ? `${readyPct}% live` : 'None yet'} tone="mint" />
-              <HeroStat label="Low" value={`${counts.low}`} hint={counts.low ? 'Restock soon' : 'None'} tone="amber" />
-              <HeroStat label="Out" value={`${counts.out_of_stock}`} hint={counts.out_of_stock ? 'Suppressed' : 'None'} tone="rose" />
-            </View>
-            <View style={{ height: 1, backgroundColor: colors.paperLine, marginVertical: 18 }} />
-            <QuickActions>
-              <QuickAction icon={Plus} label="Add" tone="volt" onPress={() => go('/supplier/products/new')} />
-              <QuickAction icon={Percent} label="Pricing" tone="glass" onPress={() => go('/supplier/pricing')} />
-              <QuickAction icon={Warehouse} label="Inventory" tone="glass" badge={counts.low + counts.out_of_stock} onPress={() => go('/supplier/inventory')} />
-              <QuickAction icon={TrendingUp} label="Analytics" tone="glass" onPress={() => go('/supplier/analytics')} />
-            </QuickActions>
-          </InkHero>
-        </FadeInItem>
+        <LearningCta variant="compact" />
 
         {list.length ? (
-          <>
-            <SearchBar value={q} onChangeText={setQ} placeholder="Search commodities, SKU, brand…" />
-            <ChipRow<Filter>
-              value={filter}
-              onChange={setFilter}
-              options={[
-                { value: 'all', label: 'All', count: list.length },
-                { value: 'in_stock', label: 'In stock', count: counts.in_stock },
-                { value: 'low', label: 'Low stock', count: counts.low },
-                { value: 'out_of_stock', label: 'Out of stock', count: counts.out_of_stock },
-              ]}
-            />
-          </>
+          <FadeInItem>
+            {/* Catalog health — each cell filters the list */}
+            <InkHero style={{ padding: 16, gap: 14 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                <ProgressRing value={readyPct / 100} size={58} thickness={6} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text variant="h2" color="paper">
+                    Catalog health
+                  </Text>
+                  <Text variant="caption" color="paperMuted" numberOfLines={2}>
+                    Avg {formatRs(avgPrice)} per unit{tieredCount ? ` · ${tieredCount} with volume tiers` : ''}
+                  </Text>
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {cells.map((c) => {
+                  const on = filter === c.value;
+                  return (
+                    <Touchable
+                      key={c.value}
+                      onPress={() => setFilter(on && c.value !== 'all' ? 'all' : c.value)}
+                      hapticOnPress
+                      scaleTo={0.95}
+                      accessibilityLabel={`${c.label} ${c.count}`}
+                      accessibilityState={{ selected: on }}
+                      style={{
+                        flex: 1,
+                        paddingHorizontal: 10,
+                        paddingVertical: 9,
+                        gap: 3,
+                        borderRadius: radii.lg,
+                        borderCurve: 'continuous',
+                        backgroundColor: on ? 'rgba(198,220,74,0.16)' : 'rgba(250,247,240,0.06)',
+                        borderWidth: 1,
+                        borderColor: on ? 'rgba(198,220,74,0.45)' : 'transparent',
+                      }}
+                    >
+                      <Row gap={5}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.dot ?? colors.paper }} />
+                        <Text variant="caption" color={on ? 'volt' : 'paperMuted'} numberOfLines={1}>
+                          {c.label}
+                        </Text>
+                      </Row>
+                      <Text variant="h1" color="paper" tabular>
+                        {c.count}
+                      </Text>
+                    </Touchable>
+                  );
+                })}
+              </View>
+            </InkHero>
+          </FadeInItem>
         ) : null}
+
+        <Row gap={8}>
+          {(
+            [
+              { icon: Percent, label: 'Pricing', to: '/supplier/pricing', badge: 0 },
+              { icon: Warehouse, label: 'Inventory', to: '/supplier/inventory', badge: counts.low + counts.out_of_stock },
+              { icon: TrendingUp, label: 'Analytics', to: '/supplier/analytics', badge: 0 },
+            ] as const
+          ).map((a) => (
+            <Touchable
+              key={a.to}
+              onPress={() => go(a.to)}
+              hapticOnPress
+              scaleTo={0.95}
+              accessibilityLabel={a.label}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, height: 44, borderRadius: radii.pill, backgroundColor: colors.paper, ...shadow.sm }}
+            >
+              <a.icon size={15} color={colors.ink2} strokeWidth={2} />
+              <Text variant="caption" weight="semibold" color="ink2">
+                {a.label}
+              </Text>
+              {a.badge ? (
+                <View style={{ minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: colors.copper, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: 'Sans-Semi', fontSize: 10, lineHeight: 12, color: colors.paper }}>{a.badge}</Text>
+                </View>
+              ) : null}
+            </Touchable>
+          ))}
+        </Row>
+
+        {list.length ? <SearchBar value={q} onChangeText={setQ} placeholder="Search commodities, SKU, brand…" /> : null}
       </Gutter>
     </ListHeader>
   );
@@ -307,24 +324,6 @@ export function SupplierProductsScreen() {
   );
 }
 
-function HeroStat({ label, value, hint, tone }: { label: string; value: string; hint: string; tone: 'mint' | 'amber' | 'rose' }) {
-  const dot = tone === 'mint' ? colors.mint : tone === 'amber' ? colors.amber : colors.rose;
-  return (
-    <View style={{ flex: 1, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: 'rgba(250,247,240,0.07)', gap: 4, minHeight: 78 }}>
-      <Row gap={5} align="center">
-        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: dot }} />
-        <Text variant="overline" color="paperMuted" style={{ fontSize: 9 }} numberOfLines={1}>
-          {label}
-        </Text>
-      </Row>
-      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 20, color: colors.paper }}>{value}</Text>
-      <Text style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.paperFaint }} numberOfLines={2}>
-        {hint}
-      </Text>
-    </View>
-  );
-}
-
 function OfferCard({
   offer: o,
   product: p,
@@ -348,67 +347,64 @@ function OfferCard({
   const tiers = hasTiers(o);
   const free = o.trackInventory ? (o.availableQty ?? o.stockQty ?? 0) : null;
   return (
-    <Card kind="flat" padding={0} onPress={onEdit} style={{ overflow: 'hidden', opacity: o.active ? 1 : 0.72 }}>
-      {low || out ? (
-        <Row
-          gap={6}
-          style={{
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            backgroundColor: out ? colors.roseSoft : colors.amberSoft,
-          }}
-        >
-          <AlertTriangle size={12} color={out ? colors.rose : colors.amber} />
-          <Text variant="caption" style={{ color: out ? colors.rose : colors.copperDeep, flex: 1 }} numberOfLines={1}>
-            {out
-              ? 'Out of stock — checkout suppressed'
-              : free !== null
-                ? `Running low · ${free.toLocaleString()} ${unit} free`
-                : 'Low stock — replenish depot allocation'}
+    <Card kind="flat" padding={0} radius={radii['2xl']} onPress={onEdit} style={{ overflow: 'hidden' }}>
+      <View style={{ flexDirection: 'row', gap: 14, padding: 14, opacity: o.active ? 1 : 0.6 }}>
+        <ProductImage src={p?.imageUrl} seed={o.productId} style={{ width: 80, height: 80, borderRadius: 18, borderCurve: 'continuous' }} label={p?.unit ?? undefined} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text variant="body" weight="semibold" numberOfLines={2}>
+            {p?.name ?? 'Standard commodity'}
           </Text>
-        </Row>
-      ) : null}
-      <View style={{ flexDirection: 'row', gap: 14, padding: 14 }}>
-        <View style={{ borderRadius: radii.xl, borderCurve: 'continuous', overflow: 'hidden', ...shadow.sm }}>
-          <ProductImage src={p?.imageUrl} seed={o.productId} style={{ width: 96, height: 96, borderRadius: radii.xl }} label={p?.unit ?? undefined} />
-          {!o.active ? (
-            <View style={{ position: 'absolute', top: 7, left: 7, backgroundColor: colors.ink, borderRadius: radii.pill, paddingHorizontal: 7, paddingVertical: 2 }}>
-              <Text style={{ fontFamily: fonts.sansSemi, fontSize: 9.5, color: colors.paper, letterSpacing: 0.6 }}>HIDDEN</Text>
-            </View>
-          ) : null}
-        </View>
-        <View style={{ flex: 1, gap: 6 }}>
-          <View style={{ gap: 1 }}>
-            <Text variant="h3" numberOfLines={2}>
-              {p?.name ?? 'Standard commodity'}
+          <Text variant="caption" color="ink4" numberOfLines={1}>
+            {[productMeta(p), o.supplierSku ? `SKU ${o.supplierSku}` : null].filter(Boolean).join(' · ') || 'Standard SKU'}
+          </Text>
+          <Row gap={4} align="flex-end" style={{ marginTop: 2 }}>
+            <Text variant="h2" tabular>
+              {formatLKR(o.priceCents)}
             </Text>
-            <Text variant="caption" color="ink4" numberOfLines={1}>
-              {[productMeta(p), o.supplierSku ? `SKU ${o.supplierSku}` : null].filter(Boolean).join(' · ') || 'Standard SKU'}
-            </Text>
-          </View>
-          <Row gap={4} align="flex-end">
-            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 18, letterSpacing: -0.6, color: colors.ink }}>{formatLKR(o.priceCents)}</Text>
             <Text variant="caption" color="ink4" style={{ marginBottom: 2 }}>
               / {unit}
             </Text>
+            {tiers ? (
+              <View style={{ marginLeft: 4, marginBottom: 1 }}>
+                <MetaChip icon={Layers} label="Tiered" tone="volt" />
+              </View>
+            ) : null}
           </Row>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
-            <StockChip status={o.availabilityStatus} qty={free} />
-            <MetaChip label={`MOQ ${o.minOrderQty}`} />
-            <MetaChip icon={Clock} label={`${o.leadTimeDays}d`} />
-            <MetaChip
-              icon={Truck}
-              label={o.deliveryAvailable !== false ? (o.deliveryRadiusKm ? `${o.deliveryRadiusKm} km` : 'Island-wide') : 'Pickup'}
-            />
-            {tiers ? <MetaChip icon={Layers} label="Tiers" tone="volt" /> : null}
-          </View>
+          {low || out ? (
+            <Text variant="caption" weight="semibold" style={{ color: out ? colors.rose : colors.amber }} numberOfLines={1}>
+              {out ? 'Out of stock · hidden from checkout' : free !== null ? `Running low · ${free.toLocaleString()} ${unit} left` : 'Running low · restock soon'}
+            </Text>
+          ) : null}
         </View>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 8, backgroundColor: colors.pearl, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft }}>
+
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14, paddingBottom: 14, opacity: o.active ? 1 : 0.6 }}>
+        <StockChip status={o.availabilityStatus} qty={free} />
+        <MetaChip label={`MOQ ${o.minOrderQty}`} />
+        <MetaChip icon={Clock} label={`${o.leadTimeDays}d`} />
+        <MetaChip icon={Truck} label={o.deliveryAvailable !== false ? (o.deliveryRadiusKm ? `${o.deliveryRadiusKm} km` : 'Island-wide') : 'Pickup'} />
+      </View>
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: colors.pearl, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.lineSoft }}>
+        {/* Visibility toggle */}
+        <Touchable
+          onPress={onToggleActive}
+          hapticOnPress
+          scaleTo={0.95}
+          accessibilityLabel={o.active ? 'Hide listing' : 'Publish listing'}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 36, paddingLeft: 4, paddingRight: 12, borderRadius: 18, backgroundColor: colors.paper, ...shadow.sm }}
+        >
+          <View style={{ width: 34, height: 22, borderRadius: 11, padding: 2, backgroundColor: o.active ? colors.mint : colors.ink6, alignItems: o.active ? 'flex-end' : 'flex-start', marginLeft: 2 }}>
+            <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: colors.paper }} />
+          </View>
+          <Text variant="caption" weight="semibold" color={o.active ? 'ink' : 'ink4'}>
+            {toggling ? '…' : o.active ? 'Live' : 'Hidden'}
+          </Text>
+        </Touchable>
+        <View style={{ flex: 1 }} />
         <CardAction icon={Zap} label="Quick edit" onPress={onQuick} accent />
-        <CardAction icon={o.active ? EyeOff : Eye} label={toggling ? '…' : o.active ? 'Hide' : 'Publish'} onPress={onToggleActive} />
-        <CardAction icon={Pencil} label="Edit" onPress={onEdit} />
-        <CardAction icon={Trash2} label="" onPress={onDelete} danger narrow />
+        <CardAction icon={Pencil} label="" onPress={onEdit} narrow a11y="Edit listing" />
+        <CardAction icon={Trash2} label="" onPress={onDelete} danger narrow a11y="Delist" />
       </View>
     </Card>
   );
@@ -421,6 +417,7 @@ function CardAction({
   accent,
   danger,
   narrow,
+  a11y,
 }: {
   icon: typeof Zap;
   label: string;
@@ -428,22 +425,23 @@ function CardAction({
   accent?: boolean;
   danger?: boolean;
   narrow?: boolean;
+  a11y?: string;
 }) {
   return (
     <Touchable
       onPress={onPress}
       hapticOnPress
       scaleTo={0.95}
-      accessibilityLabel={label || 'Delist'}
+      accessibilityLabel={a11y ?? label}
       style={{
-        flex: narrow ? 0 : 1,
-        width: narrow ? 38 : undefined,
+        width: narrow ? 36 : undefined,
+        paddingHorizontal: narrow ? 0 : 14,
         height: 36,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 6,
-        borderRadius: radii.pill,
+        borderRadius: 18,
         backgroundColor: accent ? colors.ink : danger ? colors.roseSoft : colors.paper,
         ...(accent || danger ? {} : shadow.sm),
       }}

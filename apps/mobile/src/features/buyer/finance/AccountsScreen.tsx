@@ -1,41 +1,41 @@
 import { useMemo, useState } from 'react';
 import { Share, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDownLeft,
+  ArrowRight,
   ArrowUpRight,
   Banknote,
-  CheckCircle2,
+  Check,
   ChevronRight,
-  Clock,
   CreditCard,
   FileText,
   RefreshCw,
   Share2,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
-  TrendingUp,
+  Wallet,
+  X,
 } from 'lucide-react-native';
 import {
   AreaChart,
   Badge,
-  Button,
   Card,
   ChipRow,
   Donut,
   EmptyState,
   ErrorState,
   IconButton,
-  IconTile,
-  InkHero,
-  Kicker,
-  ProgressBar,
-  Pulse,
+  ListRow,
+  ListSection,
   Row,
   Screen,
   SearchBar,
+  Sheet,
   Skeleton,
   SkeletonList,
   StatusBadge,
@@ -45,20 +45,9 @@ import {
 import { Gate } from '@/features/common/Gate';
 import { api, errorMessage, qs } from '@/lib/api';
 import { useBusinessId } from '@/lib/auth';
-import { formatCompactLKR, formatDateTime, formatLKR, humanize } from '@/lib/format';
-import { colors, fonts, radii } from '@/theme/tokens';
-import {
-  go,
-  KpiGrid,
-  KpiTile,
-  MethodDot,
-  methodChartColor,
-  methodLabel,
-  MoneyText,
-  monthlySeries,
-  Panel,
-  termsLabel,
-} from './shared';
+import { formatCompactLKR, formatDate, formatLKR, formatRs, humanize } from '@/lib/format';
+import { colors, fonts, radii, shadow } from '@/theme/tokens';
+import { go, MethodDot, methodChartColor, methodLabel, MoneyRow, MonthGroups, monthlySeries, formatShort, statusTint, SummaryCard, TabStrip, termsLabel } from './shared';
 
 type Tab = 'overview' | 'payments' | 'invoices' | 'refunds' | 'transactions' | 'credit';
 
@@ -67,7 +56,7 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'payments', label: 'Payments' },
   { value: 'invoices', label: 'Invoices' },
   { value: 'refunds', label: 'Refunds' },
-  { value: 'transactions', label: 'Transactions' },
+  { value: 'transactions', label: 'Ledger' },
   { value: 'credit', label: 'Credit' },
 ];
 
@@ -160,18 +149,13 @@ function AccountsInner() {
   return (
     <Screen
       back
-      kicker="Business · Accounts"
       title="Accounts"
-      subtitle="What you paid, how you paid, what's pending and what was refunded — across every supplier PO."
       right={<IconButton icon={Sparkles} variant="ink" accessibilityLabel="Ask finance AI" onPress={() => go('/buyer/ask')} />}
       onRefresh={() => Promise.all([qc.refetchQueries({ queryKey: ['accounts'] }), qc.refetchQueries({ queryKey: ['credit-facility', businessId] })])}
+      gap={20}
     >
-      <Row gap={8}>
-        <Pulse color={colors.copper} size={6} />
-        <Badge label="Vyro Escrow Protected" tone="copper" icon={ShieldCheck} size="sm" />
-      </Row>
-      <View style={{ marginHorizontal: -20 }}>
-        <ChipRow options={TABS} value={tab} onChange={setTab} style={{ paddingHorizontal: 20 }} />
+      <View style={{ marginTop: -14 }}>
+        <TabStrip tabs={TABS} value={tab} onChange={setTab} />
       </View>
       {tab === 'overview' && <OverviewTab businessId={businessId} onSeeAll={() => setTab('payments')} />}
       {tab === 'payments' && <PaymentsTab businessId={businessId} />}
@@ -181,6 +165,45 @@ function AccountsInner() {
       {tab === 'credit' && <CreditTab businessId={businessId} />}
     </Screen>
   );
+}
+
+/* ------------------------------- Shared bits ------------------------------- */
+
+function SectionTitle({ title, action }: { title: string; action?: { label: string; onPress: () => void } }) {
+  return (
+    <Row justify="space-between" style={{ paddingHorizontal: 2 }}>
+      <Text variant="h2">{title}</Text>
+      {action ? (
+        <Touchable onPress={action.onPress} hapticOnPress style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+          <Text variant="bodySm" weight="semibold" color="copper">
+            {action.label}
+          </Text>
+          <ChevronRight size={15} color={colors.copper} />
+        </Touchable>
+      ) : null}
+    </Row>
+  );
+}
+
+function ChartCard({ title, data, color, onShare }: { title: string; data: { label: string; value: number }[]; color?: string; onShare: () => void }) {
+  return (
+    <Card padding={16} radius={radii['2xl']} style={{ gap: 6 }}>
+      <Row justify="space-between">
+        <View style={{ gap: 1 }}>
+          <Text variant="h3">{title}</Text>
+          <Text variant="caption" color="ink4">
+            Last 6 months
+          </Text>
+        </View>
+        <IconButton icon={Share2} size={36} variant="surface" accessibilityLabel={`Export ${title.toLowerCase()}`} onPress={onShare} />
+      </Row>
+      <AreaChart data={data} height={140} formatValue={(v) => formatCompactLKR(v)} color={color} />
+    </Card>
+  );
+}
+
+function paymentIcon(status: string) {
+  return status === 'refunded' ? RefreshCw : status === 'failed' || status === 'cancelled' ? X : status === 'confirmed' ? Check : CreditCard;
 }
 
 /* --------------------------------- Overview -------------------------------- */
@@ -194,12 +217,8 @@ function OverviewTab({ businessId, onSeeAll }: { businessId: string; onSeeAll: (
   if (q.isLoading) {
     return (
       <View style={{ gap: 12 }}>
-        <Skeleton height={180} radius={16} />
-        <Row gap={10}>
-          <Skeleton height={92} radius={12} style={{ flex: 1 }} />
-          <Skeleton height={92} radius={12} style={{ flex: 1 }} />
-        </Row>
-        <Skeleton height={220} radius={12} />
+        <Skeleton height={220} radius={28} />
+        <Skeleton height={200} radius={22} />
       </View>
     );
   }
@@ -208,194 +227,168 @@ function OverviewTab({ businessId, onSeeAll }: { businessId: string; onSeeAll: (
   const methods = d.byMethod.slice().sort((a, b) => b.cents - a.cents);
   const totalByMethod = methods.reduce((s, m) => s + m.cents, 0);
   const settledPct = d.totalSpendCents > 0 ? d.paidCents / d.totalSpendCents : 0;
+  const breakdown = [
+    { label: 'Paid', cents: d.paidCents, color: colors.mint },
+    { label: 'Pending', cents: d.pendingCents, color: colors.amber },
+    { label: 'Refunded', cents: d.refundedCents, color: colors.copper },
+    { label: 'Outstanding', cents: d.outstandingCents, color: colors.rose },
+  ];
 
   return (
-    <View style={{ gap: 16 }}>
+    <View style={{ gap: 22 }}>
+      {/* Spend card */}
       <Animated.View entering={enter(0)}>
-        <InkHero seed={`accounts-${businessId}`}>
-          <Kicker color="volt">Total spend · lifetime</Kicker>
-          <Text variant="metric" color="paper" style={{ marginTop: 10 }} numberOfLines={1} adjustsFontSizeToFit>
-            {formatLKR(d.totalSpendCents)}
-          </Text>
-          <Text variant="caption" color="paperMuted" style={{ marginTop: 4 }}>
-            Across all purchase orders
-          </Text>
-          <View style={{ marginTop: 18, gap: 8 }}>
+        <View style={[{ borderRadius: 28, borderCurve: 'continuous', backgroundColor: colors.ink, overflow: 'hidden' }, shadow.ink]}>
+          <LinearGradient pointerEvents="none" colors={['#2F3524', '#171A13', colors.ink]} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+          <LinearGradient pointerEvents="none" colors={['rgba(198,220,74,0.16)', 'rgba(198,220,74,0)']} start={{ x: 1, y: 0 }} end={{ x: 0.35, y: 0.6 }} style={StyleSheet.absoluteFill} />
+          <View style={{ padding: 22, gap: 16 }}>
             <Row justify="space-between">
-              <Text variant="caption" color="paperMuted">
-                Settled through escrow
-              </Text>
-              <Text variant="caption" color="volt" style={{ fontFamily: fonts.monoMedium }}>
-                {Math.round(settledPct * 100)}%
-              </Text>
+              <Row gap={8}>
+                <Wallet size={16} color={colors.volt} strokeWidth={2} />
+                <Text variant="bodySm" weight="medium" color="paperMuted">
+                  Total spend
+                </Text>
+              </Row>
+              <Row gap={5} style={{ paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: 'rgba(250,247,240,0.1)' }}>
+                <ShieldCheck size={12} color={colors.volt} strokeWidth={2.2} />
+                <Text variant="caption" weight="semibold" color="paper">
+                  Escrow
+                </Text>
+              </Row>
             </Row>
-            <ProgressBar value={settledPct} max={1} track={colors.paperLine} />
-          </View>
-          <Row gap={10} style={{ marginTop: 16 }}>
-            <HeroFigure label="Outstanding" value={formatCompactLKR(d.outstandingCents)} tone={d.outstandingCents > 0 ? 'rose' : 'paper'} />
-            <HeroFigure label="Pending" value={formatCompactLKR(d.pendingCents)} tone="paper" />
-          </Row>
-        </InkHero>
-      </Animated.View>
-
-      <Animated.View entering={enter(1)}>
-        <KpiGrid>
-          <KpiTile label="Paid" cents={d.paidCents} sub="Cleared through escrow" accent="mint" icon={CheckCircle2} />
-          <KpiTile label="Pending" cents={d.pendingCents} sub="Awaiting settlement" accent="amber" icon={Clock} />
-          <KpiTile label="Refunded" cents={d.refundedCents} sub="Returned to your account" accent="copper" icon={RefreshCw} />
-          <KpiTile label="Outstanding" cents={d.outstandingCents} sub="Due on open POs" accent="rose" icon={CreditCard} />
-        </KpiGrid>
-      </Animated.View>
-
-      <Animated.View entering={enter(2)}>
-        <Panel
-          title="By payment method"
-          subtitle="Cumulative volume per method"
-          icon={CreditCard}
-          right={
-            <Text variant="overline" color="ink4">
-              {methods.length} methods
+            <Text style={{ fontFamily: fonts.displayBold, fontSize: 38, lineHeight: 46, letterSpacing: -1.2, color: colors.paper, fontVariant: ['tabular-nums'] }} numberOfLines={1} adjustsFontSizeToFit>
+              {formatRs(d.totalSpendCents)}
             </Text>
-          }
-        >
-          {methods.length === 0 ? (
-            <EmptyState compact icon={CreditCard} title="No payments yet" message="Once you settle a PO, your payment method mix shows up here." />
-          ) : (
-            <View style={{ gap: 18 }}>
-              <Donut
-                size={128}
-                data={methods.map((m) => ({ label: methodLabel(m.method), value: m.cents, color: methodChartColor(m.method) }))}
-                centerValue={formatCompactLKR(totalByMethod)}
-                centerLabel="volume"
-              />
-              <View style={{ gap: 12 }}>
-                {methods.map((m) => {
-                  const pct = totalByMethod > 0 ? Math.min(100, (m.cents / totalByMethod) * 100) : 0;
-                  return (
-                    <View key={m.method} style={{ gap: 6 }}>
-                      <Row justify="space-between">
-                        <Row gap={6} style={{ flex: 1 }}>
-                          <MethodDot method={m.method} label={false} />
-                          <Text variant="bodySm" weight="semibold" numberOfLines={1} style={{ flexShrink: 1 }}>
-                            {methodLabel(m.method)}
-                          </Text>
-                          <Text variant="caption" color="ink4" style={{ fontFamily: fonts.mono }}>
-                            × {m.count}
-                          </Text>
-                        </Row>
-                        <Row gap={8}>
-                          <MoneyText cents={m.cents} size={13} />
-                          <Text variant="caption" color="ink4" style={{ fontFamily: fonts.mono, width: 34, textAlign: 'right' }}>
-                            {pct.toFixed(0)}%
-                          </Text>
-                        </Row>
-                      </Row>
-                      <ProgressBar value={pct} max={100} height={5} track={colors.bone} tone={toneForBar(methodChartColor(m.method))} />
-                    </View>
-                  );
-                })}
+            <View style={{ gap: 8 }}>
+              <View style={{ height: 8, borderRadius: 4, backgroundColor: 'rgba(250,247,240,0.1)', overflow: 'hidden' }}>
+                <View style={{ width: `${settledPct * 100}%`, height: '100%', borderRadius: 4, backgroundColor: colors.volt }} />
               </View>
+              <Text variant="caption" color="paperMuted">
+                {Math.round(settledPct * 100)}% settled through escrow
+              </Text>
             </View>
-          )}
-        </Panel>
-      </Animated.View>
-
-      <Animated.View entering={enter(3)}>
-        <Panel
-          title="Recent payments"
-          subtitle="Latest 5 settled transactions"
-          icon={CreditCard}
-          iconTone="copper"
-          padding={d.recentPayments.length ? 6 : 16}
-          right={
-            <Touchable onPress={onSeeAll} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-              <Text variant="overline" color="copper">
-                See all
-              </Text>
-              <ChevronRight size={12} color={colors.copper} />
-            </Touchable>
-          }
-        >
-          {d.recentPayments.length === 0 ? (
-            <EmptyState compact icon={CreditCard} title="No payments yet" message="Settled payments and escrow releases will show up here." />
-          ) : (
-            d.recentPayments.slice(0, 5).map((p, i, arr) => (
-              <Touchable
-                key={p.id}
-                hapticOnPress
-                scaleTo={0.985}
-                onPress={() => go(`/buyer/accounts/payment/${p.id}`)}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                  paddingVertical: 12,
-                  borderBottomWidth: i === arr.length - 1 ? 0 : StyleSheet.hairlineWidth * 2,
-                  borderBottomColor: colors.lineSoft,
-                }}
-              >
-                <IconTile icon={CreditCard} tone="paper" size={38} />
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Row gap={8}>
-                    <StatusBadge status={p.status} size="sm" />
-                    <MethodDot method={p.method} />
-                  </Row>
-                  <Text variant="caption" color="ink4" style={{ fontFamily: fonts.mono }}>
-                    {formatDateTime(p.createdAt)}
-                  </Text>
-                </View>
-                <MoneyText cents={p.amountCents} />
-                <ChevronRight size={16} color={colors.ink5} />
-              </Touchable>
-            ))
-          )}
-        </Panel>
-      </Animated.View>
-
-      <Animated.View entering={enter(4)}>
-        <Card radius={radii['2xl']} style={{ flexDirection: 'row', gap: 14 }}>
-          <IconTile icon={ShieldCheck} tone="success" size={42} />
-          <View style={{ flex: 1, gap: 4 }}>
-            <Kicker>Escrow-protected settlement</Kicker>
-            <Text variant="bodySm" color="ink3">
-              Every payments.lk / bank transfer payment is held in licensed escrow until GRN or order completion. Refunds settle within 1–2 business days.
-            </Text>
-            <Row gap={6} style={{ marginTop: 4 }}>
-              <Pulse color={colors.mint} size={5} />
-              <Text variant="caption" color="ink3" style={{ fontFamily: fonts.mono }}>
-                Finance API live
-              </Text>
-            </Row>
           </View>
+          <View style={{ flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.paperLine }}>
+            <HeroCell label="Outstanding" value={formatShort(d.outstandingCents)} danger={d.outstandingCents > 0} />
+            <View style={{ width: StyleSheet.hairlineWidth, backgroundColor: colors.paperLine, marginVertical: 14 }} />
+            <HeroCell label="Pending" value={formatShort(d.pendingCents)} />
+          </View>
+        </View>
+      </Animated.View>
+
+      {/* Breakdown */}
+      <Animated.View entering={enter(1)} style={{ gap: 10 }}>
+        <SectionTitle title="Breakdown" />
+        <Card padding={0} radius={radii['2xl']} style={{ paddingHorizontal: 16 }}>
+          {breakdown.map((b, i) => (
+            <View key={b.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: i === breakdown.length - 1 ? 0 : StyleSheet.hairlineWidth * 2, borderBottomColor: colors.lineSoft }}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: b.color }} />
+              <Text variant="body" style={{ flex: 1 }}>
+                {b.label}
+              </Text>
+              <Text variant="body" weight="semibold" tabular>
+                {formatLKR(b.cents)}
+              </Text>
+            </View>
+          ))}
         </Card>
       </Animated.View>
 
-      <Row gap={10}>
-        <Button title="View orders" icon={FileText} variant="secondary" size="sm" onPress={() => go('/buyer/orders')} style={{ flex: 1 }} />
-        <Button title="Ask finance AI" icon={Sparkles} size="sm" onPress={() => go('/buyer/ask')} style={{ flex: 1 }} />
-      </Row>
+      {/* Method mix */}
+      {methods.length ? (
+        <Animated.View entering={enter(2)} style={{ gap: 10 }}>
+          <SectionTitle title="Payment methods" />
+          <Card padding={18} radius={radii['2xl']} style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
+            <Donut size={112} thickness={14} data={methods.map((m) => ({ label: methodLabel(m.method), value: m.cents, color: methodChartColor(m.method) }))} centerValue={formatCompactLKR(totalByMethod)} centerLabel="volume" />
+            <View style={{ flex: 1, gap: 12 }}>
+              {methods.map((m) => {
+                const pct = totalByMethod > 0 ? Math.round((m.cents / totalByMethod) * 100) : 0;
+                return (
+                  <View key={m.method} style={{ gap: 2 }}>
+                    <Row justify="space-between">
+                      <MethodDot method={m.method} />
+                      <Text variant="caption" weight="semibold" tabular>
+                        {pct}%
+                      </Text>
+                    </Row>
+                    <Text variant="caption" color="ink5" style={{ marginLeft: 13 }}>
+                      {formatCompactLKR(m.cents)} · {m.count} payment{m.count === 1 ? '' : 's'}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </Card>
+        </Animated.View>
+      ) : null}
+
+      {/* Recent payments */}
+      <Animated.View entering={enter(3)} style={{ gap: 10 }}>
+        <SectionTitle title="Recent payments" action={d.recentPayments.length ? { label: 'See all', onPress: onSeeAll } : undefined} />
+        {d.recentPayments.length === 0 ? (
+          <EmptyCard icon={CreditCard} title="No payments yet" message="Settled payments and escrow releases will show up here." />
+        ) : (
+          <Card padding={0} radius={radii['2xl']} style={{ paddingHorizontal: 14 }}>
+            {d.recentPayments.slice(0, 5).map((p, i, arr) => {
+              const t = statusTint(p.status);
+              return (
+                <MoneyRow
+                  key={p.id}
+                  icon={paymentIcon(p.status)}
+                  tint={t.fg}
+                  tintBg={t.bg}
+                  title={methodLabel(p.method)}
+                  subtitle={formatDate(p.createdAt)}
+                  amount={formatLKR(p.amountCents)}
+                  meta={<StatusBadge status={p.status} size="sm" />}
+                  onPress={() => go(`/buyer/accounts/payment/${p.id}`)}
+                  last={i === arr.length - 1}
+                />
+              );
+            })}
+          </Card>
+        )}
+      </Animated.View>
+
+      {/* Escrow note */}
+      <Animated.View entering={enter(4)}>
+        <View style={{ flexDirection: 'row', gap: 12, padding: 14, borderRadius: radii.xl, borderCurve: 'continuous', backgroundColor: colors.mintSoft }}>
+          <ShieldCheck size={18} color={colors.mint} strokeWidth={2} style={{ marginTop: 1 }} />
+          <Text variant="bodySm" color="ink3" style={{ flex: 1 }}>
+            Payments are held in licensed escrow until goods are received. Refunds settle within 1–2 business days.
+          </Text>
+        </View>
+      </Animated.View>
     </View>
   );
 }
 
-function toneForBar(c: string): 'volt' | 'copper' | 'success' | 'warning' | 'ink' {
-  if (c === colors.volt) return 'volt';
-  if (c === colors.copper) return 'copper';
-  if (c === colors.mint) return 'success';
-  if (c === colors.amber) return 'warning';
-  return 'ink';
-}
-
-function HeroFigure({ label, value, tone }: { label: string; value: string; tone: 'paper' | 'rose' }) {
+function HeroCell({ label, value, danger }: { label: string; value: string; danger?: boolean }) {
   return (
-    <View style={{ flex: 1, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: 'rgba(250,247,240,0.07)', gap: 4 }}>
-      <Text variant="overline" color="paperMuted">
+    <View style={{ flex: 1, paddingHorizontal: 20, paddingVertical: 14, gap: 3 }}>
+      <Text variant="caption" color="paperFaint">
         {label}
       </Text>
-      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 16, color: tone === 'rose' ? colors.roseSoft : colors.paper }} numberOfLines={1} adjustsFontSizeToFit>
+      <Text variant="h3" numberOfLines={1} adjustsFontSizeToFit tabular style={{ color: danger ? colors.roseSoft : colors.paper }}>
         {value}
       </Text>
     </View>
+  );
+}
+
+function EmptyCard({ icon: Icon, title, message }: { icon: typeof CreditCard; title: string; message: string }) {
+  return (
+    <Card padding={22} radius={radii['2xl']} style={{ alignItems: 'center', gap: 8 }}>
+      <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: colors.bone, alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+        <Icon size={22} color={colors.ink3} strokeWidth={1.9} />
+      </View>
+      <Text variant="h3" align="center">
+        {title}
+      </Text>
+      <Text variant="bodySm" color="ink4" align="center">
+        {message}
+      </Text>
+    </Card>
   );
 }
 
@@ -420,6 +413,7 @@ function PaymentsTab({ businessId }: { businessId: string }) {
   const [status, setStatus] = useState('');
   const [method, setMethod] = useState('');
   const [search, setSearch] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const q = useQuery({
     queryKey: ['accounts', 'business-payments', businessId, status, method],
     queryFn: () => api.get<{ items: PaymentRow[] }>(`/finance/business/payments${qs({ businessId, status, method })}`),
@@ -433,74 +427,105 @@ function PaymentsTab({ businessId }: { businessId: string }) {
     );
   }, [q.data, search]);
   const trend = useMemo(() => monthlySeries(items, (p) => p.createdAt, (p) => p.amountCents), [items]);
+  const active = [status ? STATUS_OPTS.find((o) => o.value === status) : null, method ? METHOD_OPTS.find((o) => o.value === method) : null].filter(Boolean) as { value: string; label: string }[];
 
   return (
     <View style={{ gap: 14 }}>
-      <SearchBar value={search} onChangeText={setSearch} placeholder="Reference, method or PO ID…" />
-      <View style={{ marginHorizontal: -20, gap: 8 }}>
-        <ChipRow options={STATUS_OPTS} value={status} onChange={setStatus} style={{ paddingHorizontal: 20 }} />
-        <ChipRow options={METHOD_OPTS} value={method} onChange={setMethod} style={{ paddingHorizontal: 20 }} />
-      </View>
+      <Row gap={10}>
+        <SearchBar value={search} onChangeText={setSearch} placeholder="Reference, method or PO…" style={{ flex: 1 }} />
+        <Touchable
+          onPress={() => setFiltersOpen(true)}
+          hapticOnPress
+          scaleTo={0.92}
+          accessibilityLabel="Filter payments"
+          style={[{ width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', backgroundColor: active.length ? colors.ink : colors.paper }, active.length ? shadow.ink : shadow.card]}
+        >
+          <SlidersHorizontal size={19} color={active.length ? colors.volt : colors.ink} strokeWidth={2} />
+        </Touchable>
+      </Row>
+      {active.length ? (
+        <Row gap={8} style={{ flexWrap: 'wrap' }}>
+          {active.map((a) => (
+            <Touchable
+              key={a.label}
+              onPress={() => (STATUS_OPTS.includes(a) ? setStatus('') : setMethod(''))}
+              hapticOnPress
+              accessibilityLabel={`Remove ${a.label} filter`}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingLeft: 12, paddingRight: 8, borderRadius: 16, backgroundColor: colors.ink }}
+            >
+              <Text variant="caption" weight="semibold" color="paper">
+                {a.label}
+              </Text>
+              <X size={13} color={colors.paperMuted} strokeWidth={2.2} />
+            </Touchable>
+          ))}
+        </Row>
+      ) : null}
 
       {q.isLoading ? (
         <SkeletonList rows={5} />
       ) : q.isError ? (
         <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} />
       ) : items.length === 0 ? (
-        <EmptyState icon={CreditCard} title="No payments match" message="Try adjusting the filters, or settle a PO to see payments here." />
+        <EmptyCard icon={CreditCard} title={active.length || search ? 'No payments match' : 'No payments yet'} message={active.length || search ? 'Try clearing a filter or searching another reference.' : 'Settle a purchase order and its payment shows up here.'} />
       ) : (
         <>
-          <Card>
-            <Row justify="space-between" style={{ marginBottom: 8 }}>
-              <Kicker>Payment volume · 6 months</Kicker>
-              <IconButton
-                icon={Share2}
-                size={32}
-                variant="surface"
-                accessibilityLabel="Export payments"
-                onPress={() =>
-                  shareCsv(
-                    'VYRO payments',
-                    ['Reference', 'PO', 'Method', 'Status', 'Amount (LKR)', 'Date'],
-                    items.map((p) => [p.paymentNumber ?? p.id, p.purchaseOrderId, methodLabel(p.method), p.status, (p.amountCents / 100).toFixed(2), new Date(p.createdAt).toISOString()]),
-                  )
-                }
-              />
-            </Row>
-            <AreaChart data={trend} height={150} formatValue={(v) => formatCompactLKR(v)} />
-          </Card>
-          <Text variant="caption" color="ink4">
-            {items.length} payment{items.length === 1 ? '' : 's'}
-          </Text>
-          {items.map((p, i) => (
-            <Animated.View key={p.id} entering={enter(i)}>
-              <Card onPress={() => go(`/buyer/accounts/payment/${p.id}`)} padding={14} style={{ gap: 12 }}>
-                <Row justify="space-between" align="center" gap={12}>
-                  <IconTile icon={CreditCard} tone={p.status === 'confirmed' ? 'success' : p.status === 'failed' || p.status === 'cancelled' ? 'danger' : 'paper'} size={42} />
-                  <View style={{ flex: 1, gap: 3 }}>
-                    <Text variant="mono" style={{ fontFamily: fonts.monoMedium }} numberOfLines={1}>
-                      {p.paymentNumber ?? p.id.slice(0, 12)}
-                    </Text>
-                    <Text variant="caption" color="ink4" style={{ fontFamily: fonts.mono }}>
-                      PO {p.purchaseOrderId.slice(0, 8)}
-                    </Text>
-                  </View>
-                  <MoneyText cents={p.amountCents} size={15} />
-                </Row>
-                <Row justify="space-between">
-                  <Row gap={10}>
-                    <StatusBadge status={p.status} size="sm" />
-                    <MethodDot method={p.method} />
-                  </Row>
-                  <Text variant="caption" color="ink4" style={{ fontFamily: fonts.mono }}>
-                    {formatDateTime(p.createdAt)}
-                  </Text>
-                </Row>
-              </Card>
-            </Animated.View>
-          ))}
+          <ChartCard
+            title="Payment volume"
+            data={trend}
+            onShare={() =>
+              shareCsv(
+                'VYRO payments',
+                ['Reference', 'PO', 'Method', 'Status', 'Amount (LKR)', 'Date'],
+                items.map((p) => [p.paymentNumber ?? p.id, p.purchaseOrderId, methodLabel(p.method), p.status, (p.amountCents / 100).toFixed(2), new Date(p.createdAt).toISOString()]),
+              )
+            }
+          />
+          <MonthGroups
+            items={items}
+            ts={(p) => p.createdAt}
+            render={(p, last) => {
+              const t = statusTint(p.status);
+              return (
+                <MoneyRow
+                  key={p.id}
+                  icon={paymentIcon(p.status)}
+                  tint={t.fg}
+                  tintBg={t.bg}
+                  title={p.paymentNumber ?? `Payment ${p.id.slice(0, 8)}`}
+                  subtitle={`${methodLabel(p.method)} · ${formatDate(p.createdAt)}`}
+                  amount={formatLKR(p.amountCents)}
+                  meta={<StatusBadge status={p.status} size="sm" />}
+                  onPress={() => go(`/buyer/accounts/payment/${p.id}`)}
+                  last={last}
+                />
+              );
+            }}
+          />
         </>
       )}
+
+      <Sheet visible={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filter payments" scroll>
+        <View style={{ gap: 22 }}>
+          <View style={{ gap: 10 }}>
+            <Text variant="overline" color="ink4" style={{ marginLeft: 6 }}>
+              Status
+            </Text>
+            <ChipRow options={STATUS_OPTS} value={status} onChange={setStatus} />
+          </View>
+          <View style={{ gap: 10 }}>
+            <Text variant="overline" color="ink4" style={{ marginLeft: 6 }}>
+              Method
+            </Text>
+            <ChipRow options={METHOD_OPTS} value={method} onChange={setMethod} />
+          </View>
+          <Touchable onPress={() => setFiltersOpen(false)} hapticOnPress style={{ height: 52, borderRadius: 26, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+            <Text variant="body" weight="semibold" color="paper">
+              Show results
+            </Text>
+          </Touchable>
+        </View>
+      </Sheet>
     </View>
   );
 }
@@ -519,45 +544,37 @@ function InvoicesTab({ businessId }: { businessId: string }) {
   const linked = invoices.filter((i) => i.paymentId).length;
 
   return (
-    <View style={{ gap: 14 }}>
-      <KpiGrid>
-        <KpiTile label="Invoices issued" cents={total} sub={`${invoices.length} total`} accent="ink" icon={FileText} style={{ flexBasis: '100%' }} />
-        <KpiTile label="Linked to payment" value={linked} sub={`${invoices.length - linked} pending link`} accent="mint" icon={CheckCircle2} />
-        <KpiTile label="Avg. invoice" cents={invoices.length ? Math.round(total / invoices.length) : 0} sub="Across all POs" accent="copper" icon={TrendingUp} />
-      </KpiGrid>
+    <View style={{ gap: 18 }}>
+      <SummaryCard
+        label="Invoiced to date"
+        cents={total}
+        stats={[
+          { label: 'Invoices', value: String(invoices.length) },
+          { label: 'Paid', value: String(linked), color: colors.mint },
+          { label: 'Average', value: formatShort(invoices.length ? Math.round(total / invoices.length) : 0) },
+        ]}
+      />
       {invoices.length === 0 ? (
-        <EmptyState icon={FileText} title="No invoices yet" message="Invoices are issued automatically when payments complete." />
+        <EmptyCard icon={FileText} title="No invoices yet" message="Invoices are issued automatically when payments complete." />
       ) : (
-        invoices.map((inv, i) => (
-          <Animated.View key={inv.id} entering={enter(i)}>
-            <Card onPress={() => go(`/buyer/order/${inv.purchaseOrderId}/invoice/${inv.id}`)} padding={14} style={{ gap: 12 }}>
-              <Row justify="space-between" align="center" gap={12}>
-                <IconTile icon={FileText} tone="ink" size={42} />
-                <View style={{ flex: 1, gap: 3 }}>
-                  <Text variant="mono" style={{ fontFamily: fonts.monoMedium }}>
-                    {inv.number}
-                  </Text>
-                  <Text variant="caption" color="ink4" style={{ fontFamily: fonts.mono }}>
-                    PO {inv.purchaseOrderId.slice(0, 8)} · {formatDateTime(inv.issuedAt)}
-                  </Text>
-                </View>
-                <MoneyText cents={inv.totalCents} size={15} />
-              </Row>
-              <Row justify="space-between">
-                <Row gap={8}>
-                  <Badge label={humanize(inv.type)} size="sm" />
-                  {inv.paymentId ? <Badge label="Linked" tone="success" dot size="sm" /> : <Badge label="Unlinked" tone="warning" dot size="sm" />}
-                </Row>
-                <Row gap={2}>
-                  <Text variant="caption" weight="semibold">
-                    Open
-                  </Text>
-                  <ChevronRight size={14} color={colors.ink} />
-                </Row>
-              </Row>
-            </Card>
-          </Animated.View>
-        ))
+        <MonthGroups
+          items={invoices}
+          ts={(i) => i.issuedAt}
+          render={(inv, last) => (
+            <MoneyRow
+              key={inv.id}
+              icon={FileText}
+              tint={colors.volt}
+              tintBg={colors.ink}
+              title={inv.number}
+              subtitle={`${humanize(inv.type)} · ${formatDate(inv.issuedAt)}`}
+              amount={formatLKR(inv.totalCents)}
+              meta={inv.paymentId ? <Badge label="Paid" tone="success" dot size="sm" /> : <Badge label="Unpaid" tone="warning" dot size="sm" />}
+              onPress={() => go(`/buyer/order/${inv.purchaseOrderId}/invoice/${inv.id}`)}
+              last={last}
+            />
+          )}
+        />
       )}
     </View>
   );
@@ -577,34 +594,38 @@ function RefundsTab({ businessId }: { businessId: string }) {
   const pending = refunds.filter((r) => ['pending', 'requested'].includes(r.status)).length;
 
   return (
-    <View style={{ gap: 14 }}>
-      <KpiGrid>
-        <KpiTile label="Total refunded" cents={total} sub={`${refunds.length} refund${refunds.length === 1 ? '' : 's'}`} accent="copper" icon={RefreshCw} style={{ flexBasis: '100%' }} />
-        <KpiTile label="Pending review" value={pending} sub="Awaiting finance team" accent="amber" icon={Clock} />
-        <KpiTile label="Settled" value={refunds.length - pending} sub="Returned to account" accent="mint" icon={CheckCircle2} />
-      </KpiGrid>
+    <View style={{ gap: 18 }}>
+      <SummaryCard
+        label="Total refunded"
+        cents={total}
+        stats={[
+          { label: 'Refunds', value: String(refunds.length) },
+          { label: 'In review', value: String(pending), color: pending ? colors.amber : undefined },
+          { label: 'Settled', value: String(refunds.length - pending), color: colors.mint },
+        ]}
+      />
       {refunds.length === 0 ? (
-        <EmptyState icon={RefreshCw} title="No refunds" message="Refund requests and their outcomes will appear here." />
+        <EmptyCard icon={RefreshCw} title="No refunds" message="Refund requests and their outcomes will appear here. Request one from any payment." />
       ) : (
-        refunds.map((r, i) => (
-          <Animated.View key={r.id} entering={enter(i)}>
-            <Card onPress={() => go(`/buyer/accounts/payment/${r.paymentId}`)} padding={14} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <IconTile icon={RefreshCw} tone="copper" size={42} />
-              <View style={{ flex: 1, gap: 4 }}>
-                <Row gap={8}>
-                  <Text variant="mono" style={{ fontFamily: fonts.monoMedium, flexShrink: 1 }} numberOfLines={1}>
-                    {r.refundNumber ?? r.id.slice(0, 12)}
-                  </Text>
-                  <StatusBadge status={r.status} size="sm" />
-                </Row>
-                <Text variant="caption" color="ink4" numberOfLines={2}>
-                  {r.reason ?? 'No reason given'} · {formatDateTime(r.createdAt)}
-                </Text>
-              </View>
-              <MoneyText cents={r.amountCents} />
-            </Card>
-          </Animated.View>
-        ))
+        <MonthGroups
+          items={refunds}
+          ts={(r) => r.createdAt}
+          render={(r, last) => (
+            <MoneyRow
+              key={r.id}
+              icon={RefreshCw}
+              tint={colors.copperDeep}
+              tintBg={colors.copperSoft}
+              title={r.reason ?? 'Refund'}
+              subtitle={`${r.refundNumber ?? r.id.slice(0, 8)} · ${formatDate(r.createdAt)}`}
+              amount={`+${formatLKR(r.amountCents)}`}
+              amountColor={colors.mint}
+              meta={<StatusBadge status={r.status} size="sm" />}
+              onPress={() => go(`/buyer/accounts/payment/${r.paymentId}`)}
+              last={last}
+            />
+          )}
+        />
       )}
     </View>
   );
@@ -630,66 +651,64 @@ function TransactionsTab({ businessId }: { businessId: string }) {
   const shown = dir === 'all' ? txs : txs.filter((t) => t.direction === dir);
 
   return (
-    <View style={{ gap: 14 }}>
-      <KpiGrid>
-        <KpiTile label="Total credits" cents={credit} sub="Refunds, returns, adjustments" accent="mint" icon={ArrowDownLeft} />
-        <KpiTile label="Total debits" cents={debit} sub="Settlements, fees" accent="rose" icon={ArrowUpRight} />
-        <KpiTile label="Net movement" cents={net} sub="Credit − debit" accent={net >= 0 ? 'mint' : 'rose'} icon={TrendingUp} style={{ flexBasis: '100%' }} />
-      </KpiGrid>
+    <View style={{ gap: 18 }}>
+      <SummaryCard
+        label="Net movement"
+        value={`${net < 0 ? '−' : '+'}${formatRs(Math.abs(net))}`}
+        caption="Credits minus debits, all time"
+        stats={[
+          { label: 'Money in', value: formatShort(credit), color: colors.mint },
+          { label: 'Money out', value: formatShort(debit), color: colors.rose },
+        ]}
+      />
       {txs.length === 0 ? (
-        <EmptyState icon={Banknote} title="No transactions" message="Your financial ledger entries will appear here." />
+        <EmptyCard icon={Banknote} title="No ledger entries" message="Every debit and credit on your account will appear here." />
       ) : (
         <>
-          <Card>
-            <Row justify="space-between" style={{ marginBottom: 8 }}>
-              <Kicker>Debits · 6 months</Kicker>
-              <IconButton
-                icon={Share2}
-                size={32}
-                variant="surface"
-                accessibilityLabel="Export ledger"
-                onPress={() =>
-                  shareCsv(
-                    'VYRO ledger',
-                    ['Date', 'Direction', 'Amount (LKR)', 'Category', 'Description', 'Reference'],
-                    txs.map((t) => [new Date(t.createdAt).toISOString(), t.direction, (t.amountCents / 100).toFixed(2), t.category ?? t.refType, t.description, t.refId]),
-                  )
-                }
-              />
-            </Row>
-            <AreaChart data={trend} height={150} formatValue={(v) => formatCompactLKR(v)} color={colors.ink} />
-          </Card>
+          <ChartCard
+            title="Money out"
+            data={trend}
+            color={colors.ink}
+            onShare={() =>
+              shareCsv(
+                'VYRO ledger',
+                ['Date', 'Direction', 'Amount (LKR)', 'Category', 'Description', 'Reference'],
+                txs.map((t) => [new Date(t.createdAt).toISOString(), t.direction, (t.amountCents / 100).toFixed(2), t.category ?? t.refType, t.description, t.refId]),
+              )
+            }
+          />
           <View style={{ marginHorizontal: -20 }}>
             <ChipRow
               options={[
                 { value: 'all', label: 'All', count: txs.length },
-                { value: 'credit', label: 'Credits', count: txs.filter((t) => t.direction === 'credit').length },
-                { value: 'debit', label: 'Debits', count: txs.filter((t) => t.direction === 'debit').length },
+                { value: 'credit', label: 'Money in', count: txs.filter((t) => t.direction === 'credit').length },
+                { value: 'debit', label: 'Money out', count: txs.filter((t) => t.direction === 'debit').length },
               ]}
               value={dir}
               onChange={setDir}
               style={{ paddingHorizontal: 20 }}
             />
           </View>
-          {shown.map((t, i) => {
-            const isCredit = t.direction === 'credit';
-            return (
-              <Animated.View key={t.id} entering={enter(i)}>
-                <Card padding={14} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <IconTile icon={isCredit ? ArrowDownLeft : ArrowUpRight} tone={isCredit ? 'success' : 'danger'} size={42} />
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text variant="bodySm" weight="semibold" numberOfLines={1}>
-                      {t.description}
-                    </Text>
-                    <Text variant="caption" color="ink4" style={{ fontFamily: fonts.mono }} numberOfLines={1}>
-                      {t.category ?? t.refType} · {formatDateTime(t.createdAt)}
-                    </Text>
-                  </View>
-                  <MoneyText cents={t.amountCents} sign={isCredit ? '+' : '−'} color={isCredit ? 'mint' : 'rose'} size={13} />
-                </Card>
-              </Animated.View>
-            );
-          })}
+          <MonthGroups
+            items={shown}
+            ts={(t) => t.createdAt}
+            render={(t, last) => {
+              const isCredit = t.direction === 'credit';
+              return (
+                <MoneyRow
+                  key={t.id}
+                  icon={isCredit ? ArrowDownLeft : ArrowUpRight}
+                  tint={isCredit ? colors.mint : colors.ink}
+                  tintBg={isCredit ? colors.mintSoft : colors.bone}
+                  title={t.description}
+                  subtitle={`${humanize(t.category ?? t.refType)} · ${formatDate(t.createdAt)}`}
+                  amount={`${isCredit ? '+' : '−'}${formatLKR(t.amountCents)}`}
+                  amountColor={isCredit ? colors.mint : colors.ink}
+                  last={last}
+                />
+              );
+            }}
+          />
         </>
       )}
     </View>
@@ -703,39 +722,57 @@ function CreditTab({ businessId }: { businessId: string }) {
     queryKey: ['credit-facility', businessId],
     queryFn: () => api.get<FacilityLite>(`/credit/facility${qs({ businessId })}`),
   });
-  if (q.isLoading) return <Skeleton height={160} radius={16} />;
+  if (q.isLoading) return <Skeleton height={200} radius={28} />;
   if (q.isError) return <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} />;
   const f = q.data;
   if (!f?.facility) {
     return (
       <EmptyState
         icon={CreditCard}
-        title="Credit not available"
+        title="Credit not available yet"
         message={f?.reason && f.reason !== 'credit_not_eligible' ? humanize(f.reason) : 'Complete 3 paid orders to unlock VYRO Credit.'}
         action={{ label: 'See how to unlock', onPress: () => go('/buyer/credit') }}
       />
     );
   }
   const used = f.facility.limitCents > 0 ? f.facility.usedCents / f.facility.limitCents : 0;
+  const danger = (f.overdueCount ?? 0) > 0;
   return (
-    <Card kind="ink" padding={18} onPress={() => go('/buyer/credit')} style={{ gap: 12 }}>
-      <Kicker color="volt">Available credit</Kicker>
-      <Text variant="metric" color="volt" numberOfLines={1} adjustsFontSizeToFit>
-        {formatLKR(f.availableCents)}
-      </Text>
-      <ProgressBar value={used} max={1} track={colors.paperLine} tone={(f.overdueCount ?? 0) > 0 ? 'danger' : 'volt'} />
-      <Row justify="space-between">
-        <Text variant="caption" color="paperMuted">
-          {Math.round(used * 100)}% of {formatCompactLKR(f.facility.limitCents)} used
-          {f.facility.defaultTerms ? ` · ${termsLabel(f.facility.defaultTerms)}` : ''}
-        </Text>
-        <Row gap={2}>
-          <Text variant="caption" color="volt" weight="semibold">
-            Open VYRO Credit
+    <View style={{ gap: 18 }}>
+      <Touchable onPress={() => go('/buyer/credit')} hapticOnPress scaleTo={0.985} accessibilityLabel="Open VYRO Credit">
+        <View style={[{ borderRadius: 28, borderCurve: 'continuous', backgroundColor: colors.ink, overflow: 'hidden', padding: 22, gap: 16 }, shadow.ink]}>
+          <LinearGradient pointerEvents="none" colors={['#2F3524', '#171A13', colors.ink]} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+          <Row justify="space-between">
+            <Text variant="bodySm" weight="medium" color="paperMuted">
+              Available credit
+            </Text>
+            <Badge label={danger ? 'Paused' : 'Active'} tone={danger ? 'danger' : 'volt'} dot size="sm" />
+          </Row>
+          <Text style={{ fontFamily: fonts.displayBold, fontSize: 36, lineHeight: 44, letterSpacing: -1.1, color: colors.paper, fontVariant: ['tabular-nums'] }} numberOfLines={1} adjustsFontSizeToFit>
+            {formatRs(f.availableCents)}
           </Text>
-          <ChevronRight size={14} color={colors.volt} />
-        </Row>
-      </Row>
-    </Card>
+          <View style={{ gap: 8 }}>
+            <View style={{ height: 8, borderRadius: 4, backgroundColor: 'rgba(250,247,240,0.1)', overflow: 'hidden' }}>
+              <View style={{ width: `${used * 100}%`, height: '100%', borderRadius: 4, backgroundColor: danger ? colors.rose : colors.volt }} />
+            </View>
+            <Row justify="space-between">
+              <Text variant="caption" color="paperMuted">
+                {Math.round(used * 100)}% of {formatCompactLKR(f.facility.limitCents)} used
+              </Text>
+              <Row gap={4}>
+                <Text variant="caption" weight="semibold" color="volt">
+                  Manage
+                </Text>
+                <ArrowRight size={13} color={colors.volt} />
+              </Row>
+            </Row>
+          </View>
+        </View>
+      </Touchable>
+      <ListSection>
+        <ListRow icon={CreditCard} iconTone="paper" title="Default terms" subtitle={f.facility.defaultTerms ? termsLabel(f.facility.defaultTerms) : '—'} chevron={false} />
+        <ListRow icon={Banknote} iconTone="paper" title="Drawn" subtitle={formatLKR(f.facility.usedCents)} chevron={false} last />
+      </ListSection>
+    </View>
   );
 }

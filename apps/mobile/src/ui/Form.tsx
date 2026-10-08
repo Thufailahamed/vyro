@@ -1,5 +1,5 @@
 import { forwardRef, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Switch as RNSwitch, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleSheet, Switch as RNSwitch, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 import { Check, ChevronDown, Eye, EyeOff, Minus, Plus, Search, X, type LucideIcon } from 'lucide-react-native';
 import { colors, fonts, radii, shadow } from '@/theme/tokens';
 import { haptic } from '@/lib/haptics';
@@ -319,7 +319,8 @@ export function Switch({ value, onValueChange, disabled }: { value: boolean; onV
         onValueChange(v);
       }}
       trackColor={{ false: colors.ink6, true: colors.ink }}
-      thumbColor={value ? colors.volt : colors.paper}
+      // iOS keeps its native white thumb — a custom tint distorts the system switch.
+      thumbColor={Platform.OS === 'android' ? (value ? colors.volt : colors.paper) : undefined}
       ios_backgroundColor={colors.ink6}
     />
   );
