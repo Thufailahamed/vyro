@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Linking, Share, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -524,21 +524,7 @@ export function LoadMore({ hasMore, loading, onPress, label = 'Load more' }: { h
  * Confirm sheet with a reason textarea. Pass `minLength` to require a reason
  * (the confirm button stays disabled until it's met).
  */
-export function ReasonSheet({
-  visible,
-  onClose,
-  onConfirm,
-  title,
-  message,
-  confirmLabel = 'Confirm',
-  variant = 'danger',
-  loading,
-  minLength = 0,
-  label = 'Reason',
-  placeholder = 'Recorded in the audit trail…',
-  optional,
-  children,
-}: {
+interface ReasonSheetProps {
   visible: boolean;
   onClose: () => void;
   onConfirm: (reason: string) => void;
@@ -552,11 +538,32 @@ export function ReasonSheet({
   placeholder?: string;
   optional?: boolean;
   children?: ReactNode;
-}) {
+}
+
+/**
+ * Remounts whenever `visible` toggles so the reason input always starts
+ * empty — avoids setState-in-effect while keeping the reset-on-close UX.
+ */
+export function ReasonSheet(props: ReasonSheetProps) {
+  return <ReasonSheetInner key={props.visible ? 'open' : 'closed'} {...props} />;
+}
+
+function ReasonSheetInner({
+  visible,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmLabel = 'Confirm',
+  variant = 'danger',
+  loading,
+  minLength = 0,
+  label = 'Reason',
+  placeholder = 'Recorded in the audit trail…',
+  optional,
+  children,
+}: ReasonSheetProps) {
   const [reason, setReason] = useState('');
-  useEffect(() => {
-    if (!visible) setReason('');
-  }, [visible]);
   const ok = reason.trim().length >= minLength;
   return (
     <Sheet

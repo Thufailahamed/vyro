@@ -41,8 +41,13 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
 /** Catalog tab — wholesale product search with category pills, sorting and quick add. */
 export function CatalogScreen() {
   const params = useLocalSearchParams<{ q?: string; category?: string }>();
-  const [searchInput, setSearchInput] = useState(params.q ?? params.category ?? '');
-  const [q, setQ] = useState(params.q ?? params.category ?? '');
+  const navKey = `${params.q ?? ''}|${params.category ?? ''}`;
+  return <CatalogInner key={navKey} initialQuery={params.q ?? params.category ?? ''} />;
+}
+
+function CatalogInner({ initialQuery }: { initialQuery: string }) {
+  const [searchInput, setSearchInput] = useState(initialQuery);
+  const [q, setQ] = useState(initialQuery);
   const [sortBy, setSortBy] = useState<SortMode>('price_asc');
   const [fastDispatch, setFastDispatch] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -54,15 +59,6 @@ export function CatalogScreen() {
     const t = setTimeout(() => setQ(searchInput.trim()), 280);
     return () => clearTimeout(t);
   }, [searchInput]);
-
-  // Sync when navigated with ?q= (e.g. from cart "Compare") — moved to
-  // useEffect so we don't setState during render (mobile-005).
-  const navKey = `${params.q ?? ''}|${params.category ?? ''}`;
-  useEffect(() => {
-    const next = params.q ?? params.category ?? '';
-    if (next !== searchInput) setSearchInput(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navKey]);
 
   const search = useQuery({
     queryKey: ['search', q],

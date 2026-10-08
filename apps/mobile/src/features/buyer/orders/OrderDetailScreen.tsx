@@ -544,7 +544,7 @@ function PaymentCard({
   const cardsQ = useQuery({
     queryKey: ['saved-cards'],
     queryFn: () =>
-      api.get<{ cards: Array<{ id: string; brand: string | null; last4: string | null; expiryMonth: number | null; expiryYear: number | null }> }>(
+      api.get<{ cards: { id: string; brand: string | null; last4: string | null; expiryMonth: number | null; expiryYear: number | null }[] }>(
         `/payments/saved-cards?businessId=${order.businessId}`,
       ),
   });

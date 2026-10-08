@@ -92,7 +92,9 @@ export function AdminSecurityScreen() {
   const active = impersonation.data?.active;
   const exp = exportStatus.data;
   const rows = (sessions.data ?? []).slice(0, 50);
-  const liveSessions = rows.filter((r) => !r.revokedAt && (r.expiresAt < 10_000_000_000 ? r.expiresAt * 1000 : r.expiresAt) > Date.now()).length;
+  // dataUpdatedAt keeps this render pure; the count refreshes with the query.
+  const now = sessions.dataUpdatedAt;
+  const liveSessions = rows.filter((r) => !r.revokedAt && (r.expiresAt < 10_000_000_000 ? r.expiresAt * 1000 : r.expiresAt) > now).length;
 
   return (
     <Screen back kicker="Access control" title="Security" subtitle="Live sessions, support impersonation and GDPR export." gap={14}>
