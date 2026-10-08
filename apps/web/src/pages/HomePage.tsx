@@ -4,9 +4,19 @@ import { useQuery } from '@tanstack/react-query';
 import { ProductHoverPreview, type ProductPreviewItem } from '@/components/products/ProductHoverPreview';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
-import { Button } from '@/components/ui';
-import { TruckIcon, PackageIcon, CheckCircleIcon, ArrowRightIcon, ClockIcon, PlusIcon, MinusIcon } from '@/components/icons';
-import { FlowCanvas, FlowLine } from '@/components/brand/FlowLine';
+import {
+  TruckIcon,
+  PackageIcon,
+  CheckCircleIcon,
+  CheckIcon,
+  ArrowRightIcon,
+  ClockIcon,
+  PlusIcon,
+  MinusIcon,
+  MapPinIcon,
+  ShieldCheckIcon,
+} from '@/components/icons';
+import { FlowCanvas } from '@/components/brand/FlowLine';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { CatalogSearch } from '@/components/CatalogSearch';
 import { CATALOG_IMAGES } from '@/lib/catalogImages';
@@ -19,11 +29,13 @@ const HERO_PROOF = {
   origin: 'Mill-Direct · Western Province Milling Hub',
   image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=1200&q=80',
   offers: [
-    { tag: 'Best price', value: 'Rs. 4,200', hint: 'Lanka Agro Mills' },
-    { tag: 'Best value', value: 'Rs. 4,450', hint: 'Colombo Wholesalers' },
-    { tag: 'Fastest', value: '24h dispatch', hint: '3 live offers' },
+    { tag: 'Best price', supplier: 'Lanka Agro Mills', price: 'Rs. 4,200', lead: '48h', bar: 82 },
+    { tag: 'Best value', supplier: 'Colombo Wholesalers', price: 'Rs. 4,450', lead: '36h', bar: 90 },
+    { tag: 'Fastest', supplier: 'Island Logistics', price: 'Rs. 4,620', lead: '24h', bar: 100 },
   ],
 } as const;
+
+const HERO_PROMISES = ['Live LKR unit prices', 'No middleman markups', 'Automated split POs'];
 
 const HERO_MOSAIC = [
   {
@@ -359,147 +371,195 @@ export function HomePage() {
   return (
     <div className="bg-bone">
       {/* 1. HERO SECTION */}
-      <section className="relative overflow-hidden bg-void text-paper grain min-h-[calc(100dvh-3.5rem)] sm:min-h-[calc(100dvh-4rem)] flex flex-col justify-center">
-        <div className="absolute inset-0" aria-hidden>
-          <FlowCanvas tone="paper" density="hero" className="absolute inset-0 opacity-80" />
-          <div className="absolute inset-0 bg-gradient-to-r from-void via-void/80 to-void/30" />
-          <div className="absolute -left-24 top-[15%] size-[32rem] rounded-full bg-volt/[0.10] blur-[120px] pointer-events-none" />
-          <div className="absolute right-0 bottom-0 size-[28rem] rounded-full bg-copper/[0.08] blur-[120px] pointer-events-none" />
+      <section className="relative isolate overflow-hidden bg-void text-paper grain min-h-[calc(100dvh-3.5rem)] sm:min-h-[calc(100dvh-4rem)] flex flex-col justify-center">
+        <div className="absolute inset-0 -z-10" aria-hidden>
+          <FlowCanvas tone="paper" density="hero" className="absolute inset-0 opacity-30" />
+          {/* Hairline grid, faded toward the edges */}
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(250,247,240,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(250,247,240,0.045)_1px,transparent_1px)] bg-[size:72px_72px] [mask-image:radial-gradient(ellipse_70%_60%_at_40%_40%,#000_30%,transparent_100%)]" />
+          <div className="absolute -left-40 -top-40 size-[40rem] rounded-full bg-volt/[0.09] blur-[140px]" />
+          <div className="absolute right-[-10rem] bottom-[-12rem] size-[36rem] rounded-full bg-copper/[0.10] blur-[140px]" />
+          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-void to-transparent" />
         </div>
 
-        <div className="relative max-w-stage mx-auto w-full px-5 sm:px-8 py-12 sm:py-16 lg:py-20 grid lg:grid-cols-12 gap-10 sm:gap-12 lg:gap-10 items-center">
+        <div className="relative max-w-stage mx-auto w-full px-5 sm:px-8 py-14 sm:py-20 lg:py-24 grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           {/* Left Column: Heading & Search */}
-          <div className="lg:col-span-7">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-paper/10 border border-paper/15 text-xs text-volt mb-6 rounded-md">
-              <span className="size-2 rounded-full bg-volt animate-pulse" />
-              <span className="vyro-kicker text-volt">Sri Lanka's B2B Wholesale Operating Layer</span>
+          <div className="lg:col-span-7 min-w-0">
+            <div className="inline-flex items-center gap-2.5 rounded-full border border-paper/10 bg-paper/[0.04] py-1 pl-1 pr-3.5 backdrop-blur-md">
+              <span className="rounded-full bg-volt px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink">New</span>
+              <span className="text-xs text-paper/70">Sri Lanka's B2B wholesale operating layer</span>
             </div>
 
-            <h1 className="vyro-display text-[2rem] sm:text-5xl lg:text-[4.5rem] text-paper leading-[1.08] sm:leading-[1.06] max-w-2xl text-balance">
-              Everything a business <span className="text-volt">needs, connected.</span>
+            <h1 className="mt-7 vyro-display text-[2.05rem] min-[400px]:text-[2.4rem] sm:text-6xl lg:text-5xl xl:text-[4.6rem] text-paper leading-[0.98] tracking-[-0.045em] text-balance">
+              Everything a business needs,{' '}
+              <span className="relative whitespace-nowrap bg-gradient-to-r from-volt via-volt-glow to-volt bg-clip-text text-transparent">
+                connected.
+              </span>
             </h1>
 
-            <p className="mt-6 max-w-xl text-base sm:text-lg text-paper/75 leading-relaxed">
-              Source direct from verified mills, importers, and licensed distributors across Sri Lanka. Real-time LKR prices, multi-supplier split carts, and end-to-end delivery tracking.
+            <p className="mt-7 max-w-lg text-base sm:text-lg text-paper/60 leading-relaxed text-pretty">
+              Source direct from verified mills, importers and licensed distributors. Real-time LKR prices, multi-supplier carts and delivery tracking — in one place.
             </p>
 
-            <div className="mt-8">
+            <div className="mt-9">
               <CatalogSearch
                 variant="hero"
                 inputId="home-search"
                 value={query}
                 onChange={setQuery}
                 onSubmit={(term) => goSearch(term)}
+                placeholder="Search rice, sugar, tea, cement…"
               />
             </div>
 
             {/* Quick Keyword Pills */}
-            <div className="mt-4">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-wider text-paper/40 mr-1">Popular:</span>
-                {POPULAR.map((term) => (
-                  <button
-                    key={term}
-                    type="button"
-                    onClick={() => goSearch(term)}
-                    className="px-2.5 py-1 text-[11px] font-mono text-paper/70 bg-paper/5 border border-paper/15 hover:border-volt hover:text-volt hover:bg-paper/10 transition-colors cursor-pointer rounded-lg"
-                  >
-                    {term}
-                  </button>
-                ))}
-              </div>
+            <div className="mt-5 flex flex-wrap items-center gap-x-1 gap-y-2 max-w-xl">
+              <span className="text-xs text-paper/40 mr-2">Trending</span>
+              {POPULAR.slice(0, 6).map((term) => (
+                <button
+                  key={term}
+                  type="button"
+                  onClick={() => goSearch(term)}
+                  className="rounded-full px-3 py-1 text-xs text-paper/65 ring-1 ring-inset ring-paper/10 hover:ring-volt/50 hover:text-volt hover:bg-volt/[0.06] transition-colors duration-180"
+                >
+                  {term}
+                </button>
+              ))}
             </div>
 
-            {/* Live marketplace counts (from /api/home/feed) */}
-            {feed.data && (
-              <div className="mt-6 flex flex-wrap gap-2">
-                <span className="px-3 py-1 text-xs font-mono text-volt bg-volt/10 border border-volt/30 rounded-full">
-                  {feed.data.featuredProducts.length} live products
-                </span>
-                <span className="px-3 py-1 text-xs font-mono text-volt bg-volt/10 border border-volt/30 rounded-full">
-                  {feed.data.verifiedSuppliers.length} verified suppliers
-                </span>
-              </div>
-            )}
-
-            {/* Value Props Bullet List */}
-            <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-xs text-paper/65">
-              {['Live unit prices in LKR', 'No middleman markups', '25 districts covered', 'Automated PO generation'].map(
-                (item) => (
-                  <li key={item} className="flex items-center gap-2">
-                    <span className="size-1.5 rotate-45 bg-volt shrink-0" aria-hidden />
+            {/* Proof strip: live marketplace counts (from /api/home/feed) + promises */}
+            <div className="mt-10 pt-8 border-t border-paper/10 flex flex-wrap items-center gap-x-8 gap-y-4">
+              {feed.data && (
+                <div className="flex items-center gap-6">
+                  <div>
+                    <div className="vyro-metric text-2xl text-paper">{feed.data.featuredProducts.length}</div>
+                    <div className="text-[11px] text-paper/45 mt-0.5">Live products</div>
+                  </div>
+                  <div className="h-8 w-px bg-paper/10" aria-hidden />
+                  <div>
+                    <div className="vyro-metric text-2xl text-paper">{feed.data.verifiedSuppliers.length}</div>
+                    <div className="text-[11px] text-paper/45 mt-0.5">Verified suppliers</div>
+                  </div>
+                  <div className="h-8 w-px bg-paper/10" aria-hidden />
+                </div>
+              )}
+              <ul className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-paper/60">
+                {HERO_PROMISES.map((item) => (
+                  <li key={item} className="flex items-center gap-1.5">
+                    <CheckCircleIcon size={14} className="text-volt shrink-0" />
                     {item}
                   </li>
-                ),
-              )}
-            </ul>
+                ))}
+              </ul>
+            </div>
           </div>
 
-          {/* Right Column: Hero Visual Showcase */}
-          <div className="lg:col-span-5">
-            <div className="grid grid-cols-2 gap-3 aspect-[4/5] sm:aspect-auto sm:h-[32rem]">
-              {/* Large Featured Product Tile */}
-              <div className="relative col-span-2 row-span-2 overflow-hidden border border-paper/15 group rounded-xl">
-                <img
-                  src={HERO_PROOF.image}
-                  alt={HERO_PROOF.product}
-                  className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-700"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-void via-void/40 to-transparent" />
-
-                {/* Floating Live Pricing Badge */}
-                <div className="absolute top-3 right-3 sm:top-4 sm:right-4 bg-ink/90 backdrop-blur-md px-2.5 py-1 sm:px-3 border border-volt/40 flex items-center gap-2 text-[10px] sm:text-xs rounded-md">
-                  <span className="size-2 rounded-full bg-volt animate-ping" />
-                  <span className="font-mono text-volt font-bold">LIVE OFFERS</span>
+          {/* Right Column: live offer comparison card */}
+          <div className="lg:col-span-5 min-w-0">
+            <div className="relative">
+              <div className="absolute -inset-px rounded-[1.4rem] bg-gradient-to-b from-paper/20 via-paper/5 to-transparent" aria-hidden />
+              <div className="relative overflow-hidden rounded-[1.35rem] bg-ink/80 backdrop-blur-xl shadow-[0_40px_100px_-40px_rgba(0,0,0,0.9)]">
+                <div className="relative h-48 sm:h-56 overflow-hidden group">
+                  <img
+                    src={HERO_PROOF.image}
+                    alt={HERO_PROOF.product}
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1200ms] ease-cinematic group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-transparent" />
+                  <div className="absolute top-4 left-4 inline-flex items-center gap-2 rounded-full bg-void/60 px-3 py-1 backdrop-blur-md ring-1 ring-paper/10">
+                    <span className="relative flex size-2">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-volt opacity-60 animate-ping" />
+                      <span className="relative inline-flex size-2 rounded-full bg-volt" />
+                    </span>
+                    <span className="text-[11px] font-medium text-paper/90">3 live offers</span>
+                  </div>
+                  <div className="absolute inset-x-5 bottom-4">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-volt">Wholesale benchmark</p>
+                    <h2 className="mt-1 font-display text-2xl sm:text-[1.75rem] font-bold tracking-tight text-paper truncate">
+                      {HERO_PROOF.product}
+                    </h2>
+                    <p className="mt-0.5 text-xs text-paper/55 truncate">{HERO_PROOF.origin}</p>
+                  </div>
                 </div>
 
-                {/* Overlay Details */}
-                <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 bg-gradient-to-t from-void via-void/90 to-transparent">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <div className="min-w-0">
-                      <span className="text-[10px] uppercase font-bold tracking-widest text-volt">Wholesale Benchmark</span>
-                      <h2 className="font-display text-lg sm:text-3xl text-paper mt-0.5 truncate">{HERO_PROOF.product}</h2>
-                      <p className="text-[11px] sm:text-xs text-paper/70 mt-1 truncate">{HERO_PROOF.origin}</p>
-                    </div>
-                    <Link
-                      to="/search?q=rice"
-                      className="shrink-0 px-3 py-1.5 bg-volt text-ink text-[10px] sm:text-xs font-bold uppercase tracking-wider hover:bg-volt-glow transition-colors rounded-lg"
-                    >
-                      Compare →
-                    </Link>
-                  </div>
+                <ul className="px-3 pt-2 pb-1">
+                  {HERO_PROOF.offers.map((o, i) => {
+                    const best = i === 0;
+                    return (
+                      <li
+                        key={o.tag}
+                        className={`flex items-center gap-3 rounded-xl px-3 py-3 ${best ? 'bg-volt/[0.08] ring-1 ring-inset ring-volt/25' : ''}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-paper truncate">{o.supplier}</span>
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-px text-[10px] font-semibold ${best ? 'bg-volt text-ink' : 'bg-paper/[0.07] text-paper/60'}`}
+                            >
+                              {o.tag}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center gap-2">
+                            <div className="h-1 flex-1 overflow-hidden rounded-full bg-paper/[0.07]">
+                              <div
+                                className={`h-full rounded-full ${best ? 'bg-volt' : 'bg-paper/25'}`}
+                                style={{ width: `${o.bar}%` }}
+                              />
+                            </div>
+                            <span className="inline-flex items-center gap-1 text-[10px] text-paper/45 shrink-0">
+                              <ClockIcon size={11} />
+                              {o.lead}
+                            </span>
+                          </div>
+                        </div>
+                        <span className={`vyro-metric text-base sm:text-lg shrink-0 ${best ? 'text-volt' : 'text-paper/85'}`}>
+                          {o.price}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
 
-                  {/* 3 Offers live preview */}
-                  <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-1.5 sm:gap-2 pt-3 border-t border-paper/15">
-                    {HERO_PROOF.offers.map((o) => (
-                      <div key={o.tag} className="bg-void/80 backdrop-blur-sm p-1.5 sm:p-2 border border-paper/10 min-w-0 rounded-lg">
-                        <span className="text-[8px] sm:text-[9px] uppercase tracking-wider text-paper/50 block truncate">{o.tag}</span>
-                        <span className="vyro-metric text-[13px] sm:text-base text-paper font-bold block mt-0.5 truncate">{o.value}</span>
-                        <span className="hidden sm:block text-[10px] text-paper/60 truncate">{o.hint}</span>
-                      </div>
-                    ))}
-                  </div>
+                <div className="flex items-center justify-between gap-3 border-t border-paper/10 px-6 py-4 mt-2">
+                  <span className="text-xs text-paper/45">Per 25 kg bag · MOQ 5 bags</span>
+                  <Link
+                    to="/search?q=rice"
+                    className="group inline-flex shrink-0 whitespace-nowrap items-center gap-1.5 rounded-full bg-paper px-4 py-2 text-xs font-semibold text-ink hover:bg-volt transition-colors duration-180"
+                  >
+                    Compare offers
+                    <ArrowRightIcon size={13} className="transition-transform duration-180 group-hover:translate-x-0.5" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* Floating dispatch toast */}
+              <div className="hidden sm:flex absolute -top-6 right-6 xl:-right-8 items-center gap-3 rounded-2xl bg-paper px-4 py-3 text-ink shadow-[0_24px_60px_-20px_rgba(0,0,0,0.8)]">
+                <span className="flex size-9 items-center justify-center rounded-xl bg-ink text-volt">
+                  <TruckIcon size={18} />
+                </span>
+                <div className="leading-tight">
+                  <div className="text-xs font-semibold">PO #2026-0841 dispatched</div>
+                  <div className="mt-0.5 text-[11px] text-ink-4">Colombo 11 → Kandy · ETA 24h</div>
                 </div>
               </div>
             </div>
 
-            {/* 3 Secondary Mini Image Tiles */}
-            <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
+            {/* Secondary category tiles */}
+            <div className="mt-4 grid grid-cols-3 gap-3">
               {HERO_MOSAIC.map((item) => (
                 <Link
                   key={item.name}
                   to={`/search?q=${item.query}`}
-                  className="relative h-24 sm:h-28 overflow-hidden border border-paper/15 group cursor-pointer rounded-xl"
+                  className="group relative h-24 sm:h-28 overflow-hidden rounded-2xl ring-1 ring-inset ring-paper/10"
                 >
                   <img
                     src={item.src}
                     alt={item.alt}
-                    className="absolute inset-0 h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-cinematic group-hover:scale-110"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-void/90 via-void/30 to-transparent" />
-                  <div className="absolute bottom-1.5 sm:bottom-2 inset-x-1.5 sm:inset-x-2">
-                    <span className="text-[8px] sm:text-[9px] font-mono text-volt uppercase block truncate">{item.badge}</span>
-                    <span className="text-[10px] sm:text-xs font-display text-paper leading-tight block truncate group-hover:text-volt transition-colors">
+                  <div className="absolute inset-0 bg-gradient-to-t from-void/95 via-void/40 to-transparent" />
+                  <div className="absolute bottom-2.5 inset-x-3">
+                    <span className="block text-[9px] font-medium uppercase tracking-[0.14em] text-volt/90 truncate">{item.badge}</span>
+                    <span className="mt-0.5 block text-xs font-medium text-paper leading-tight truncate group-hover:text-volt transition-colors">
                       {item.name}
                     </span>
                   </div>
@@ -510,71 +570,56 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* 2. TRUST STATS TICKER */}
-      <section className="bg-bone border-b border-ink/10 py-8">
+      {/* 2. TRUST STATS */}
+      <section className="relative bg-bone py-14 sm:py-20">
         <div className="max-w-stage mx-auto px-5 sm:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-6 text-left">
-            {renderedTrustStats.map((s) => (
-              <div key={s.label} className="border-l-2 border-volt pl-3 sm:pl-4 min-w-0">
-                <div className="vyro-metric text-2xl sm:text-3xl lg:text-4xl text-ink font-bold break-words leading-tight">{s.metric}</div>
-                <div className="font-display text-sm sm:text-base text-ink mt-1 font-semibold">{s.label}</div>
-                <div className="text-[11px] sm:text-xs text-ink-4 mt-0.5 leading-snug">{s.sub}</div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 rounded-3xl bg-paper ring-1 ring-ink/[0.06] shadow-[0_24px_60px_-32px_rgba(12,14,11,0.25)] overflow-hidden">
+            {renderedTrustStats.map((s, i) => (
+              <div
+                key={s.label}
+                className={`relative p-6 sm:p-8 min-w-0 ${i % 2 === 1 ? 'border-l border-ink/[0.07]' : ''} ${i >= 2 ? 'border-t lg:border-t-0 border-ink/[0.07]' : ''} ${i === 2 ? 'lg:border-l' : ''}`}
+              >
+                <div className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-[-0.04em] text-ink break-words leading-none">
+                  {s.metric}
+                </div>
+                <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-ink">
+                  <span className="size-1.5 rounded-full bg-volt-deep shrink-0" aria-hidden />
+                  {s.label}
+                </div>
+                <div className="mt-1 text-xs text-ink-4 leading-snug">{s.sub}</div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* 3. FEATURED WHOLESALE LOTS (LIVE PRODUCTS SHOWCASE - EDITORIAL PARTICLES) */}
+      {/* 3. FEATURED WHOLESALE LOTS (editorial list with cursor preview) */}
       <section
         ref={productsSectionRef}
         onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
         onMouseLeave={() => setHoveredProduct(null)}
-        className="relative bg-[#0C0E0B] text-paper border-y border-ink/40 py-16 sm:py-24 lg:py-32 overflow-hidden"
+        className="relative isolate bg-ink text-paper py-20 sm:py-28 lg:py-32 overflow-hidden grain"
       >
-        {/* Ambient atmospheric gradients */}
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-volt/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-copper/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute inset-0 -z-10 pointer-events-none" aria-hidden>
+          <div className="absolute -top-40 left-1/4 size-[36rem] rounded-full bg-volt/[0.06] blur-[140px]" />
+          <div className="absolute -bottom-40 right-0 size-[32rem] rounded-full bg-copper/[0.07] blur-[140px]" />
+        </div>
 
-        {/* Floating cursor preview with particle assembly */}
         <div className="hidden lg:block">
-          <ProductHoverPreview
-            activeProduct={hoveredProduct}
-            mousePos={mousePos}
-            containerRef={productsSectionRef}
-          />
+          <ProductHoverPreview activeProduct={hoveredProduct} mousePos={mousePos} containerRef={productsSectionRef} />
         </div>
 
         <div className="max-w-stage mx-auto px-5 sm:px-8 relative z-10">
-          {/* Section Header matching portfolio aesthetic */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-10 sm:pb-16 border-b border-paper/10">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-volt animate-pulse" />
-                <span className="text-[10px] sm:text-[11px] font-mono tracking-widest text-volt uppercase">
-                  SELECTED COMMODITIES · MARKETPLACE BENCHMARK
-                </span>
-              </div>
-              <h2 className="mt-4 vyro-display text-3xl sm:text-5xl lg:text-6xl text-paper tracking-tight">
-                Things We Supply
-              </h2>
-              <p className="mt-3 text-sm sm:text-base text-ink-5 max-w-xl font-sans">
-                From mill-direct grains to commercial estate tea, every wholesale lot is benchmarked with live transparent pricing and verified origin.
-              </p>
-            </div>
-            <Link
-              to="/search"
-              className="group inline-flex items-center gap-2 text-xs sm:text-sm font-mono uppercase tracking-wider text-paper/80 hover:text-volt transition-colors py-2.5 px-5 border border-paper/20 hover:border-volt rounded-full backdrop-blur-sm self-start md:self-end"
-            >
-              <span>Browse full catalog</span>
-              <span className="group-hover:translate-x-1 transition-transform">→</span>
-            </Link>
-          </div>
+          <SectionHeading
+            tone="dark"
+            eyebrow="Marketplace benchmark"
+            title="Things we supply."
+            body="From mill-direct grains to estate tea — every wholesale lot is benchmarked with live, transparent pricing and verified origin."
+            action={{ to: '/search', label: 'Browse full catalog' }}
+          />
 
-          {/* Product Items List (Editorial Numbered Rows) */}
-          <div className="divide-y divide-paper/10">
+          <div className="mt-12 sm:mt-16 border-t border-paper/10">
             {FEATURED_PRODUCTS.map((p, idx) => {
-              const numStr = String(idx + 1).padStart(2, '0');
               const isHovered = hoveredProduct?.id === p.id;
               const isAnyHovered = hoveredProduct !== null;
 
@@ -583,132 +628,160 @@ export function HomePage() {
                   key={p.id}
                   to={`/products/${p.id}`}
                   onMouseEnter={() => setHoveredProduct(p)}
-                  className={`group relative block py-6 sm:py-10 transition-all duration-300 ${
-                    isAnyHovered
-                      ? isHovered
-                        ? 'opacity-100 translate-x-1 sm:translate-x-2'
-                        : 'opacity-30'
-                      : 'opacity-90 hover:opacity-100'
+                  className={`group relative block border-b border-paper/10 py-6 sm:py-8 transition-[opacity,transform] duration-320 ease-cinematic ${
+                    isAnyHovered ? (isHovered ? 'opacity-100 lg:translate-x-3' : 'opacity-35') : 'opacity-100'
                   }`}
                 >
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    {/* Left: Number, Title & Metadata */}
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 lg:gap-10">
                     <div className="flex items-start sm:items-center gap-5 sm:gap-8 flex-1 min-w-0">
-                      <span className="text-xs sm:text-sm font-mono text-ink-5 shrink-0 group-hover:text-volt transition-colors pt-1 sm:pt-0">
-                        {numStr}
+                      <span className="vyro-metric text-xs text-paper/35 shrink-0 pt-1.5 sm:pt-0 group-hover:text-volt transition-colors">
+                        {String(idx + 1).padStart(2, '0')}
                       </span>
-
-                      <div className="space-y-1.5 min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                          <h3 className="vyro-display text-xl sm:text-4xl text-paper group-hover:text-volt transition-colors truncate">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                          <h3 className="font-display text-xl sm:text-3xl font-bold tracking-[-0.03em] text-paper group-hover:text-volt transition-colors">
                             {p.name}
                           </h3>
                           {p.badge && (
-                            <span className="px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider bg-paper/10 text-paper/90 border border-paper/20 rounded-md group-hover:border-volt/40 group-hover:text-volt transition-colors shrink-0">
+                            <span className="rounded-full px-2.5 py-0.5 text-[10px] font-medium text-paper/70 ring-1 ring-inset ring-paper/15 group-hover:ring-volt/40 group-hover:text-volt transition-colors shrink-0">
                               {p.badge}
                             </span>
                           )}
                         </div>
-
-                        {/* Metadata Tagline */}
-                        <div className="flex flex-wrap items-center gap-x-2 text-[11px] sm:text-xs font-mono text-ink-5 uppercase tracking-wider">
+                        <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-paper/45">
                           <span className="text-copper">{p.category}</span>
-                          <span className="text-ink-5/50">•</span>
-                          <span className="text-ink-4">{p.supplier}</span>
-                          <span className="text-ink-5/50 hidden sm:inline">•</span>
-                          <span className="text-volt/80 hidden sm:inline">{p.leadTime} dispatch</span>
+                          <span aria-hidden>·</span>
+                          <span>{p.supplier}</span>
+                          <span className="hidden sm:inline" aria-hidden>·</span>
+                          <span className="hidden sm:inline-flex items-center gap-1">
+                            <ClockIcon size={12} />
+                            {p.leadTime} dispatch
+                          </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Right: Pricing, MOQ, and Arrow Indicator */}
-                    <div className="flex items-center justify-between lg:justify-end gap-6 sm:gap-8 shrink-0 pt-2 lg:pt-0 border-t border-paper/5 lg:border-t-0">
+                    <div className="flex items-center justify-between lg:justify-end gap-6 sm:gap-8 shrink-0 pl-10 sm:pl-14 lg:pl-0">
                       <div className="text-left lg:text-right">
-                        <div className="vyro-metric text-xl sm:text-2xl font-bold text-paper group-hover:text-volt transition-colors">
-                          {p.price}
-                        </div>
-                        <div className="text-[11px] font-mono text-ink-5">
-                          {p.unit} · <span className="text-paper/60">{p.moq}</span>
+                        <div className="vyro-metric text-xl sm:text-2xl text-paper group-hover:text-volt transition-colors">{p.price}</div>
+                        <div className="mt-0.5 text-[11px] text-paper/40">
+                          {p.unit} · {p.moq}
                         </div>
                       </div>
-
-                      <div className="w-10 h-10 rounded-full border border-paper/20 group-hover:border-volt group-hover:bg-volt group-hover:text-ink text-paper/80 flex items-center justify-center transition-all duration-300">
-                        <span className="transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform text-base">
-                          ↗
-                        </span>
-                      </div>
+                      <span className="flex size-11 items-center justify-center rounded-full ring-1 ring-inset ring-paper/15 text-paper/70 transition-all duration-320 ease-cinematic group-hover:bg-volt group-hover:text-ink group-hover:ring-volt group-hover:-rotate-45">
+                        <ArrowRightIcon size={16} />
+                      </span>
                     </div>
                   </div>
 
-                  {/* Mobile inline preview (for touch devices) */}
-                  <div className="mt-4 lg:hidden rounded-xl overflow-hidden border border-paper/15 relative h-36 bg-ink/60">
-                    <img
-                      src={p.image}
-                      alt={p.name}
-                      loading="lazy"
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-ink/90 via-transparent to-transparent flex items-end p-3">
-                      <span className="text-xs font-mono text-paper">Tap to view lot specifications →</span>
-                    </div>
+                  {/* Touch devices: inline image instead of the cursor preview */}
+                  <div className="mt-4 ml-10 sm:ml-14 lg:hidden relative h-36 overflow-hidden rounded-2xl ring-1 ring-inset ring-paper/10">
+                    <img src={p.image} alt={p.name} loading="lazy" className="h-full w-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-ink/80 to-transparent" />
                   </div>
                 </Link>
               );
             })}
           </div>
 
-          {/* Section Footer stats banner */}
-          <div className="mt-16 pt-8 border-t border-paper/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-ink-5">
+          <div className="mt-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs text-paper/45">
             <div className="flex items-center gap-2">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-volt" />
-              <span>Direct factory clearing prices updated every 4 hours</span>
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-volt opacity-60 animate-ping" />
+                <span className="relative inline-flex size-2 rounded-full bg-volt" />
+              </span>
+              Factory clearing prices refresh every 4 hours
             </div>
-            <Link to="/search" className="text-copper hover:text-paper transition-colors underline underline-offset-4">
-              View all 120+ wholesale product specifications →
+            <Link to="/search" className="inline-flex items-center gap-1.5 text-paper/70 hover:text-volt transition-colors">
+              View all 120+ wholesale lots
+              <ArrowRightIcon size={13} />
             </Link>
           </div>
         </div>
       </section>
 
-      {/* 4. WHO IT'S FOR (OPERATORS PHOTOGRAPHIC GRID) */}
-      <section className="bg-paper border-y border-ink/10 py-12 sm:py-16 lg:py-20">
+      {/* 4. WHO IT'S FOR (bento grid) */}
+      <section className="bg-paper py-20 sm:py-28">
         <div className="max-w-stage mx-auto px-5 sm:px-8">
-          <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-10 items-end mb-12">
-            <div>
-              <div className="vyro-kicker text-copper">Network Participants</div>
-              <h2 className="mt-2 vyro-display text-3xl sm:text-5xl text-ink">Built for operators who buy weekly.</h2>
-            </div>
-            <p className="text-sm sm:text-base text-ink-3 leading-relaxed">
-              From high-table dining establishments and 5-star coastal resorts to retail chains and commercial bakeries — VYRO connects operators directly to the primary supply source.
-            </p>
-          </div>
+          <SectionHeading
+            eyebrow="Network participants"
+            title="Built for operators who buy every week."
+            body="From fine-dining kitchens and coastal resorts to retail chains and commercial bakeries — VYRO connects operators directly to the primary supply source."
+          />
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {BUSINESSES.map((b) => (
-              <Link
-                key={b.name}
-                to="/onboarding/business"
-                className="group relative h-80 overflow-hidden border border-ink/15 hover:border-ink transition-all duration-300 flex flex-col justify-end p-6 cursor-pointer rounded-xl"
-              >
-                {/* Background Photo */}
-                <img
-                  src={b.image}
-                  alt={b.name}
-                  loading="lazy"
-                  className="absolute inset-0 h-full w-full object-cover group-hover:scale-108 transition-transform duration-700 brightness-[0.85] group-hover:brightness-95"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-void via-void/60 to-transparent" />
-
-                {/* Floating Content */}
-                <div className="relative z-10">
-                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-volt text-ink inline-block mb-3 rounded-md">
+          <div className="mt-12 sm:mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 auto-rows-[17rem] sm:auto-rows-[16rem]">
+            {BUSINESSES.map((b, i) => {
+              const feature = i === 0;
+              return (
+                <Link
+                  key={b.name}
+                  to="/onboarding/business"
+                  className={`group relative isolate flex flex-col justify-end overflow-hidden rounded-3xl p-6 sm:p-7 ${
+                    feature ? 'sm:col-span-2 lg:row-span-2' : ''
+                  }`}
+                >
+                  <img
+                    src={b.image}
+                    alt={b.name}
+                    loading="lazy"
+                    className="absolute inset-0 -z-10 h-full w-full object-cover transition-transform duration-[1200ms] ease-cinematic group-hover:scale-[1.06]"
+                  />
+                  <div className="absolute inset-0 -z-10 bg-gradient-to-t from-void/95 via-void/45 to-void/5" />
+                  <span className="absolute top-5 left-5 rounded-full bg-paper/15 px-3 py-1 text-[11px] font-medium text-paper backdrop-blur-md ring-1 ring-inset ring-paper/20">
                     {b.tag}
                   </span>
-                  <h3 className="font-display text-2xl text-paper group-hover:text-volt transition-colors">{b.name}</h3>
-                  <p className="mt-2 text-xs text-paper/80 leading-relaxed line-clamp-2">{b.note}</p>
-                  <div className="mt-4 pt-3 border-t border-paper/20 flex items-center justify-between text-xs text-paper font-semibold">
-                    <span>Register business</span>
-                    <span className="group-hover:translate-x-1 transition-transform">→</span>
+                  <span className="absolute top-5 right-5 flex size-10 items-center justify-center rounded-full bg-paper text-ink opacity-0 -translate-y-1 transition-all duration-320 ease-cinematic group-hover:opacity-100 group-hover:translate-y-0">
+                    <ArrowRightIcon size={16} className="-rotate-45" />
+                  </span>
+                  <h3 className={`font-display font-bold tracking-[-0.03em] text-paper ${feature ? 'text-3xl sm:text-4xl' : 'text-2xl'}`}>
+                    {b.name}
+                  </h3>
+                  <p className={`mt-2 text-paper/70 leading-relaxed ${feature ? 'text-sm sm:text-base max-w-md' : 'text-xs line-clamp-2'}`}>
+                    {b.note}
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* 5. SECTORS CATALOG */}
+      <section className="bg-bone py-20 sm:py-28">
+        <div className="max-w-stage mx-auto px-5 sm:px-8">
+          <SectionHeading
+            eyebrow="Wholesale lines"
+            title="What moves through VYRO."
+            body="Mill-direct grains, industrial commodities, export spices and construction inputs."
+            action={{ to: '/search', label: 'All categories' }}
+          />
+
+          <div className="mt-12 sm:mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {CATEGORIES.map((c) => (
+              <Link
+                key={c.name}
+                to={`/search?q=${encodeURIComponent(c.query)}`}
+                className="group flex flex-col rounded-3xl bg-paper p-2 ring-1 ring-ink/[0.06] transition-all duration-320 ease-cinematic hover:-translate-y-1 hover:shadow-[0_24px_50px_-24px_rgba(12,14,11,0.3)]"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-mist">
+                  <img
+                    src={c.imageUrl}
+                    alt={c.name}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-700 ease-cinematic group-hover:scale-105"
+                  />
+                  <span className="absolute top-3 left-3 rounded-full bg-paper/85 px-2.5 py-1 text-[10px] font-medium text-ink backdrop-blur-md">
+                    {c.volume}
+                  </span>
+                </div>
+                <div className="flex flex-1 flex-col px-3 pt-4 pb-3">
+                  <h3 className="font-display text-lg font-bold tracking-[-0.02em] text-ink leading-snug">{c.name}</h3>
+                  <p className="mt-1.5 text-xs text-ink-4 leading-relaxed line-clamp-2">{c.detail}</p>
+                  <div className="mt-auto pt-4 flex items-center justify-between">
+                    <span className="text-xs font-medium text-ink-3">{c.count}</span>
+                    <span className="flex size-8 items-center justify-center rounded-full bg-bone text-ink transition-colors duration-240 group-hover:bg-ink group-hover:text-volt">
+                      <ArrowRightIcon size={14} />
+                    </span>
                   </div>
                 </div>
               </Link>
@@ -717,114 +790,72 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* 5. SECTORS CATALOG (WITH IMAGES) */}
-      <section className="max-w-stage mx-auto px-5 sm:px-8 py-12 sm:py-16 lg:py-20">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
-          <div>
-            <div className="vyro-kicker text-copper">Wholesale Lines</div>
-            <h2 className="mt-2 vyro-display text-3xl sm:text-5xl text-ink">What moves through VYRO</h2>
-            <p className="mt-2 text-sm text-ink-3 max-w-lg">
-              Mill-direct grains, industrial commodities, export spices, and construction inputs.
-            </p>
-          </div>
-          <Link to="/search" className="text-sm font-semibold text-copper hover:text-ink">
-            Search all categories →
-          </Link>
-        </div>
-
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {CATEGORIES.map((c) => (
-            <Link
-              key={c.name}
-              to={`/search?q=${encodeURIComponent(c.query)}`}
-              className="group bg-paper border border-ink/15 hover:border-ink hover:shadow-md transition-all duration-240 overflow-hidden flex flex-col justify-between rounded-xl"
-            >
-              <div>
-                <div className="relative h-36 overflow-hidden bg-bone">
-                  <img
-                    src={c.imageUrl}
-                    alt={c.name}
-                    loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <span className="absolute top-2 right-2 px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider bg-paper/90 backdrop-blur-sm border border-ink/10 text-ink rounded-md">
-                    {c.volume}
-                  </span>
-                </div>
-                <div className="p-4">
-                  <h3 className="font-display text-xl text-ink group-hover:text-copper transition-colors leading-snug">
-                    {c.name}
-                  </h3>
-                  <p className="mt-1.5 text-xs text-ink-4 leading-relaxed line-clamp-2">{c.detail}</p>
-                </div>
-              </div>
-              <div className="p-4 pt-0 flex items-center justify-between text-xs border-t border-ink/10 pt-3 mt-2 text-copper font-medium">
-                <span>{c.count}</span>
-                <span className="group-hover:translate-x-1 transition-transform">→</span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* 6. VERIFIED SUPPLIER DEPOTS SPOTLIGHT */}
-      <section className="bg-paper border-t border-ink/10 py-12 sm:py-16 lg:py-20">
+      {/* 6. VERIFIED SUPPLIERS */}
+      <section className="bg-paper py-20 sm:py-28">
         <div className="max-w-stage mx-auto px-5 sm:px-8">
-          <div className="max-w-2xl mb-12">
-            <div className="vyro-kicker text-copper">Verified Supply Base</div>
-            <h2 className="mt-2 vyro-display text-3xl sm:text-5xl text-ink">Direct from primary depots and mills.</h2>
-            <p className="mt-3 text-sm text-ink-3">
-              Every supplier on VYRO operates physical warehouse facilities, audited stock inventories, and dedicated delivery dispatch fleets.
-            </p>
-          </div>
+          <SectionHeading
+            eyebrow="Verified supply base"
+            title="Direct from primary depots and mills."
+            body="Every supplier on VYRO runs physical warehouses, audited stock and its own dispatch fleet."
+          />
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="mt-12 sm:mt-16 grid gap-5 md:grid-cols-3">
             {VERIFIED_SUPPLIERS.map((s) => (
               <div
                 key={s.name}
-                className="bg-bone border border-ink/15 overflow-hidden flex flex-col justify-between hover:border-ink hover:shadow-lg transition-all duration-300 rounded-xl"
+                className="group flex flex-col rounded-3xl bg-bone/60 p-2 ring-1 ring-ink/[0.06] transition-all duration-320 ease-cinematic hover:bg-paper hover:shadow-[0_24px_50px_-24px_rgba(12,14,11,0.3)]"
               >
-                <div>
-                  <div className="relative h-48 overflow-hidden">
-                    <img
-                      src={s.image}
-                      alt={s.name}
-                      loading="lazy"
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute top-3 right-3 px-2 py-1 bg-ink text-volt text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md rounded-md">
-                      <CheckCircleIcon size={12} />
-                      Verified Facility
-                    </div>
-                  </div>
-
-                  <div className="p-5 space-y-3">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-copper block">{s.category}</span>
-                    <h3 className="font-display text-xl text-ink font-semibold">{s.name}</h3>
-
-                    <div className="space-y-1.5 text-xs text-ink-3 pt-2 border-t border-ink/10">
-                      <div className="flex items-center gap-2">
-                        <span className="text-ink-4">Location:</span>
-                        <span className="font-medium text-ink">{s.location}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-ink-4">Dispatch:</span>
-                        <span className="text-ink-2">{s.coverage}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-ink-4">Inventory:</span>
-                        <span className="text-volt-dark font-semibold">{s.productsCount}</span>
-                      </div>
-                    </div>
-                  </div>
+                <div className="relative h-52 overflow-hidden rounded-2xl">
+                  <img
+                    src={s.image}
+                    alt={s.name}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-700 ease-cinematic group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-void/50 to-transparent" />
+                  <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-ink/80 px-2.5 py-1 text-[11px] font-medium text-volt backdrop-blur-md">
+                    <ShieldCheckIcon size={12} />
+                    Verified facility
+                  </span>
                 </div>
 
-                <div className="p-5 pt-0">
+                <div className="flex flex-1 flex-col px-4 pt-5 pb-4">
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-ink font-display text-sm font-bold text-volt">
+                      {s.name
+                        .split(' ')
+                        .slice(0, 2)
+                        .map((w) => w[0])
+                        .join('')}
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="font-display text-lg font-bold tracking-[-0.02em] text-ink truncate">{s.name}</h3>
+                      <p className="text-xs text-copper truncate">{s.category}</p>
+                    </div>
+                  </div>
+
+                  <dl className="mt-5 space-y-2.5 text-xs">
+                    {[
+                      { icon: <MapPinIcon size={14} />, label: 'Location', value: s.location },
+                      { icon: <TruckIcon size={14} />, label: 'Dispatch', value: s.coverage },
+                      { icon: <PackageIcon size={14} />, label: 'Inventory', value: s.productsCount },
+                    ].map((row) => (
+                      <div key={row.label} className="flex items-start gap-2.5">
+                        <dt className="mt-px text-ink-4 shrink-0">
+                          {row.icon}
+                          <span className="sr-only">{row.label}</span>
+                        </dt>
+                        <dd className="text-ink-2">{row.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+
                   <Link
                     to={`/search?q=${encodeURIComponent(s.name.split(' ')[0] || s.name)}`}
-                    className="w-full h-10 border border-ink/20 hover:border-ink hover:bg-ink hover:text-paper transition-colors flex items-center justify-center text-xs font-semibold uppercase tracking-wider rounded-lg"
+                    className="mt-6 inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-ink text-sm font-medium text-paper transition-colors duration-180 hover:bg-ink-2"
                   >
-                    View Supplier Catalog →
+                    View supplier catalog
+                    <ArrowRightIcon size={14} />
                   </Link>
                 </div>
               </div>
@@ -833,136 +864,141 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* 7. HOW IT WORKS (FOUR MOVEMENTS WITH VISUAL PROCESS) */}
-      <section className="bg-bone border-t border-ink/10 py-12 sm:py-16 lg:py-20">
+      {/* 7. HOW IT WORKS */}
+      <section className="relative isolate overflow-hidden bg-void text-paper py-20 sm:py-28 grain">
+        <div className="absolute inset-0 -z-10 pointer-events-none" aria-hidden>
+          <FlowCanvas tone="paper" density="hero" className="absolute inset-0 opacity-20" />
+          <div className="absolute left-1/2 top-0 -translate-x-1/2 size-[40rem] rounded-full bg-volt/[0.06] blur-[160px]" />
+        </div>
+
         <div className="max-w-stage mx-auto px-5 sm:px-8">
-          <div className="grid lg:grid-cols-12 gap-12 items-center">
-            <div className="lg:col-span-5 space-y-6">
-              <div className="vyro-kicker text-copper">How It Operates</div>
-              <h2 className="vyro-display text-3xl sm:text-5xl text-ink text-balance">Four movements. One continuous flow.</h2>
-              <p className="text-sm sm:text-base text-ink-3 leading-relaxed">
-                Procurement in Sri Lanka shouldn't be scattered across WhatsApp screenshots, handwritten chits, and phone tag. VYRO gives your business an auditable digital trail from live quote to delivery signature.
-              </p>
+          <SectionHeading
+            tone="dark"
+            eyebrow="How it operates"
+            title="Four movements. One continuous flow."
+            body="Procurement shouldn't live in WhatsApp screenshots and handwritten chits. VYRO gives every order an auditable trail from live quote to delivery signature."
+            action={{ to: '/how-it-works', label: 'Full walkthrough' }}
+          />
 
-              <div className="pt-2">
-                <FlowLine
-                  nodes={[
-                    { label: 'Discover', state: 'done' },
-                    { label: 'Compare', state: 'active' },
-                    { label: 'Issue', state: 'idle' },
-                    { label: 'Move', state: 'idle' },
-                  ]}
-                />
-              </div>
-
-              <div className="pt-4 flex flex-col sm:flex-row gap-3 sm:gap-4">
-                <Link to={user ? '/search' : '/onboarding/business'} className="w-full sm:w-auto">
-                  <Button className="w-full">{user ? 'Enter Marketplace' : 'Register Your Business'}</Button>
-                </Link>
-                <Link to="/how-it-works" className="w-full sm:w-auto">
-                  <Button variant="secondary" className="w-full">Full Walkthrough →</Button>
-                </Link>
-              </div>
-            </div>
-
-            <div className="lg:col-span-7 space-y-4">
-              <div className="grid sm:grid-cols-2 gap-4">
-                {JOURNEY.map((s) => (
-                  <div key={s.n} className="bg-paper p-6 border border-ink/15 shadow-sm space-y-3 rounded-xl">
-                    <span className="vyro-metric text-3xl text-copper font-bold">{s.n}</span>
-                    <h3 className="font-display text-2xl text-ink">{s.t}</h3>
-                    <p className="text-xs text-ink-3 leading-relaxed">{s.b}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Live Dispatch Preview Bar */}
-              <div className="bg-paper border border-ink/15 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <div className="size-10 bg-volt/20 flex items-center justify-center text-ink shrink-0 rounded-lg">
-                    <TruckIcon size={22} />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-copper block">Dispatch Journey</span>
-                    <span className="text-xs font-semibold text-ink">PO #2026-0841 · Western Province Route Active</span>
-                  </div>
-                </div>
-                <span className="px-3 py-1 bg-ink text-paper text-[11px] font-mono uppercase tracking-wider shrink-0 rounded-md">
-                  Track in Real-Time
+          <ol className="relative mt-14 sm:mt-20 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <li role="presentation" className="hidden lg:block absolute top-[1.375rem] left-6 right-6 h-px bg-gradient-to-r from-volt/60 via-paper/15 to-paper/5" aria-hidden />
+            {JOURNEY.map((s, i) => (
+              <li key={s.n} className="relative">
+                <span
+                  className={`relative z-10 flex size-11 items-center justify-center rounded-full font-mono text-xs font-semibold ring-4 ring-void ${
+                    i === 0 ? 'bg-volt text-ink' : 'bg-ink-2 text-paper/80 ring-offset-0'
+                  }`}
+                >
+                  {s.n}
                 </span>
+                <div className="mt-5 rounded-2xl bg-paper/[0.03] p-6 ring-1 ring-inset ring-paper/10 transition-colors duration-240 hover:bg-paper/[0.06] hover:ring-paper/20 h-[calc(100%-4rem)]">
+                  <h3 className="font-display text-2xl font-bold tracking-[-0.03em] text-paper">{s.t}</h3>
+                  <p className="mt-3 text-sm text-paper/55 leading-relaxed">{s.b}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+
+          {/* Live dispatch preview */}
+          <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl bg-paper/[0.04] p-4 sm:p-5 ring-1 ring-inset ring-paper/10">
+            <div className="flex items-center gap-4 min-w-0">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-volt text-ink">
+                <TruckIcon size={20} />
+              </span>
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-paper truncate">PO #2026-0841 · Western Province route</div>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  {['Order', 'Supplier', 'Preparation', 'Delivery', 'Business'].map((step, i) => (
+                    <span key={step} className="flex items-center gap-1.5">
+                      <span className={`h-1 w-6 sm:w-10 rounded-full ${i < 3 ? 'bg-volt' : 'bg-paper/15'}`} title={step} />
+                    </span>
+                  ))}
+                  <span className="ml-1.5 text-[11px] text-paper/45">Preparation</span>
+                </div>
               </div>
             </div>
+            <Link
+              to={user ? '/search' : '/onboarding/business'}
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-paper px-5 text-sm font-medium text-ink transition-colors duration-180 hover:bg-volt"
+            >
+              {user ? 'Enter marketplace' : 'Register your business'}
+              <ArrowRightIcon size={14} />
+            </Link>
           </div>
         </div>
       </section>
 
       <FaqSection signedIn={Boolean(user)} />
 
-      {/* 9. BOTTOM DUAL-AUDIENCE CTA WITH PHOTOGRAPHY */}
-      <section className="bg-ink text-paper grain relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20 pointer-events-none">
-          <FlowCanvas tone="paper" density="hero" />
-        </div>
-
-        <div className="relative max-w-stage mx-auto px-5 sm:px-8 py-16 sm:py-20 grid lg:grid-cols-2 gap-6 sm:gap-8">
-          {/* Buyer CTA Box */}
-          <div className="relative overflow-hidden border border-paper/15 p-6 sm:p-8 lg:p-10 flex flex-col justify-between group min-h-[20rem] sm:min-h-[24rem] rounded-xl">
-            <img
-              src="https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=800&q=80"
-              alt="Commercial procurement kitchen chef"
-              className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-30 group-hover:scale-105 transition-all duration-700"
-            />
-            <div className="relative z-10 space-y-4">
-              <div className="flex items-center gap-2">
-                <BrandMark size={24} tone="volt" />
-                <span className="vyro-kicker text-volt">For Buying Businesses</span>
-              </div>
-              <h2 className="vyro-display text-2xl sm:text-3xl lg:text-4xl text-paper leading-tight">Stop chasing quotes. Start procuring.</h2>
-              <p className="text-sm text-paper/75 max-w-md">
-                Register your business in under 2 minutes, browse live LKR prices, compare multiple suppliers, and issue binding POs.
-              </p>
-              <ul className="space-y-2 text-xs text-paper/70 pt-2">
-                <li className="flex items-center gap-2">✓ Live supplier unit quotes updated daily</li>
-                <li className="flex items-center gap-2">✓ Automated multi-supplier order splitting</li>
-                <li className="flex items-center gap-2">✓ 25 Sri Lankan districts receiving delivery</li>
-              </ul>
+      {/* 9. DUAL-AUDIENCE CTA */}
+      <section className="bg-bone pb-20 sm:pb-28">
+        <div className="max-w-stage mx-auto px-5 sm:px-8 grid lg:grid-cols-2 gap-4 sm:gap-5">
+          {/* Buyers */}
+          <div className="relative isolate overflow-hidden rounded-3xl bg-volt p-8 sm:p-10 lg:p-12 text-ink flex flex-col min-h-[26rem]">
+            <div className="absolute -right-24 -bottom-24 -z-10 size-80 rounded-full bg-volt-glow blur-3xl" aria-hidden />
+            <div className="absolute right-8 top-8 -z-10 opacity-15" aria-hidden>
+              <BrandMark size={120} tone="ink" />
             </div>
-            <div className="relative z-10 pt-6 sm:pt-8">
-              <Link to={user ? '/search' : '/onboarding/business'} className="block w-full sm:inline-block sm:w-auto">
-                <Button className="w-full sm:w-auto bg-volt text-ink hover:bg-volt-glow font-bold uppercase tracking-wider text-xs px-6 py-3 min-h-[44px]">
-                  {user ? 'Browse Live Catalog →' : 'Register Your Business →'}
-                </Button>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">For buying businesses</span>
+            <h2 className="mt-4 vyro-display text-4xl sm:text-5xl text-ink tracking-[-0.045em] text-balance max-w-md">
+              Stop chasing quotes. Start procuring.
+            </h2>
+            <p className="mt-4 max-w-md text-sm sm:text-base text-ink/70 leading-relaxed">
+              Register in under 2 minutes, compare live LKR prices across suppliers and issue binding POs.
+            </p>
+            <ul className="mt-6 space-y-2.5 text-sm text-ink/80">
+              {['Live supplier quotes updated daily', 'Automatic multi-supplier order splitting', 'Delivery to 25 districts'].map((item) => (
+                <li key={item} className="flex items-center gap-2.5">
+                  <span className="flex size-5 items-center justify-center rounded-full bg-ink text-volt shrink-0">
+                    <CheckIcon size={12} />
+                  </span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-auto pt-8">
+              <Link
+                to={user ? '/search' : '/onboarding/business'}
+                className="inline-flex h-12 items-center gap-2 rounded-xl bg-ink px-6 text-sm font-semibold text-paper transition-colors duration-180 hover:bg-ink-2"
+              >
+                {user ? 'Browse live catalog' : 'Register your business'}
+                <ArrowRightIcon size={15} />
               </Link>
             </div>
           </div>
 
-          {/* Supplier CTA Box */}
-          <div className="relative overflow-hidden border border-paper/15 p-6 sm:p-8 lg:p-10 flex flex-col justify-between group min-h-[20rem] sm:min-h-[24rem] rounded-xl">
+          {/* Suppliers */}
+          <div className="group relative isolate overflow-hidden rounded-3xl bg-ink p-8 sm:p-10 lg:p-12 text-paper flex flex-col min-h-[26rem]">
             <img
-              src="https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=800&q=80"
-              alt="Wholesale warehouse manager"
-              className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-30 group-hover:scale-105 transition-all duration-700"
+              src="https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=1200&q=80"
+              alt=""
+              className="absolute inset-0 -z-10 h-full w-full object-cover opacity-30 transition-transform duration-[1500ms] ease-cinematic group-hover:scale-105"
             />
-            <div className="relative z-10 space-y-4">
-              <div className="flex items-center gap-2">
-                <BrandMark size={24} tone="paper" />
-                <span className="vyro-kicker text-copper">For Wholesale Suppliers</span>
-              </div>
-              <h2 className="vyro-display text-2xl sm:text-3xl lg:text-4xl text-paper leading-tight">Put your inventory in the flow.</h2>
-              <p className="text-sm text-paper/75 max-w-md">
-                Connect your mill, factory, or distribution depot directly to commercial buyers across Sri Lanka without middleman fees.
-              </p>
-              <ul className="space-y-2 text-xs text-paper/70 pt-2">
-                <li className="flex items-center gap-2">✓ Incoming digital POs directly into your dashboard</li>
-                <li className="flex items-center gap-2">✓ Set your own minimum order quantities & lead times</li>
-                <li className="flex items-center gap-2">✓ Direct commercial buyer relationships</li>
-              </ul>
-            </div>
-            <div className="relative z-10 pt-6 sm:pt-8">
-              <Link to="/onboarding/supplier" className="block w-full sm:inline-block sm:w-auto">
-                <Button variant="secondary" className="w-full sm:w-auto text-paper border-paper/30 hover:bg-paper hover:text-ink font-bold uppercase tracking-wider text-xs px-6 py-3 min-h-[44px]">
-                  List as Authorized Supplier →
-                </Button>
+            <div className="absolute inset-0 -z-10 bg-gradient-to-br from-ink via-ink/85 to-ink/40" aria-hidden />
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-copper">For wholesale suppliers</span>
+            <h2 className="mt-4 vyro-display text-4xl sm:text-5xl text-paper tracking-[-0.045em] text-balance max-w-md">
+              Put your inventory in the flow.
+            </h2>
+            <p className="mt-4 max-w-md text-sm sm:text-base text-paper/65 leading-relaxed">
+              Connect your mill, factory or depot directly to commercial buyers across Sri Lanka — no middleman fees.
+            </p>
+            <ul className="mt-6 space-y-2.5 text-sm text-paper/75">
+              {['Digital POs straight to your dashboard', 'Set your own MOQs and lead times', 'Direct buyer relationships'].map((item) => (
+                <li key={item} className="flex items-center gap-2.5">
+                  <span className="flex size-5 items-center justify-center rounded-full bg-paper/15 text-volt shrink-0">
+                    <CheckIcon size={12} />
+                  </span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-auto pt-8">
+              <Link
+                to="/onboarding/supplier"
+                className="inline-flex h-12 items-center gap-2 rounded-xl bg-paper px-6 text-sm font-semibold text-ink transition-colors duration-180 hover:bg-volt"
+              >
+                List as a supplier
+                <ArrowRightIcon size={15} />
               </Link>
             </div>
           </div>
@@ -972,75 +1008,126 @@ export function HomePage() {
   );
 }
 
+function SectionHeading({
+  eyebrow,
+  title,
+  body,
+  action,
+  tone = 'light',
+}: {
+  eyebrow: string;
+  title: string;
+  body?: string;
+  action?: { to: string; label: string };
+  tone?: 'light' | 'dark';
+}) {
+  const dark = tone === 'dark';
+  return (
+    <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 lg:gap-12">
+      <div className="max-w-3xl">
+        <div className={`inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] ${dark ? 'text-paper/50' : 'text-ink-4'}`}>
+          <span className={`size-1.5 rounded-full ${dark ? 'bg-volt' : 'bg-copper'}`} aria-hidden />
+          {eyebrow}
+        </div>
+        <h2
+          className={`mt-4 vyro-display text-[2.1rem] sm:text-5xl lg:text-6xl tracking-[-0.045em] leading-[1] text-balance ${dark ? 'text-paper' : 'text-ink'}`}
+        >
+          {title}
+        </h2>
+        {body && (
+          <p className={`mt-5 max-w-xl text-base leading-relaxed text-pretty ${dark ? 'text-paper/55' : 'text-ink-3'}`}>{body}</p>
+        )}
+      </div>
+      {action && (
+        <Link
+          to={action.to}
+          className={`group inline-flex shrink-0 items-center gap-2 self-start lg:self-end rounded-full px-5 h-11 text-sm font-medium transition-colors duration-180 ${
+            dark
+              ? 'text-paper ring-1 ring-inset ring-paper/20 hover:bg-paper hover:text-ink'
+              : 'text-ink ring-1 ring-inset ring-ink/15 hover:bg-ink hover:text-paper'
+          }`}
+        >
+          {action.label}
+          <ArrowRightIcon size={14} className="transition-transform duration-180 group-hover:translate-x-0.5" />
+        </Link>
+      )}
+    </div>
+  );
+}
+
 function FaqSection({ signedIn }: { signedIn: boolean }) {
   const [open, setOpen] = useState(0);
 
   return (
-    <section id="faq" className="border-t border-ink/10 bg-paper py-12 sm:py-16 lg:py-20">
-      <div className="mx-auto grid max-w-stage gap-10 px-5 sm:px-8 lg:grid-cols-12 lg:gap-16 lg:items-start">
-        <div className="lg:col-span-5">
-          <p className="vyro-kicker text-copper">Questions & answers</p>
-          <h2 className="mt-2 vyro-display text-3xl text-ink sm:text-5xl text-balance">
+    <section id="faq" className="bg-bone py-20 sm:py-28">
+      <div className="mx-auto grid max-w-stage gap-12 px-5 sm:px-8 lg:grid-cols-12 lg:gap-16 lg:items-start">
+        <div className="lg:col-span-5 lg:sticky lg:top-28">
+          <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-ink-4">
+            <span className="size-1.5 rounded-full bg-copper" aria-hidden />
+            Questions & answers
+          </div>
+          <h2 className="mt-4 vyro-display text-[2.1rem] sm:text-5xl tracking-[-0.045em] leading-[1] text-ink text-balance">
             Everything you need to know.
           </h2>
-          <p className="mt-4 max-w-md text-sm leading-relaxed text-ink-3">
-            The catalog is public. You only register when you are ready to issue a purchase order.
+          <p className="mt-5 max-w-md text-base leading-relaxed text-ink-3">
+            The catalog is public. You only register when you're ready to issue a purchase order.
           </p>
           <Link
             to={signedIn ? '/search' : '/how-it-works'}
-            className="mt-6 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink hover:text-copper"
+            className="group mt-8 inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-medium text-ink ring-1 ring-inset ring-ink/15 transition-colors duration-180 hover:bg-ink hover:text-paper"
           >
             {signedIn ? 'Browse the catalog' : 'See how it works'}
-            <ArrowRightIcon size={14} />
+            <ArrowRightIcon size={14} className="transition-transform duration-180 group-hover:translate-x-0.5" />
           </Link>
         </div>
 
-        <div className="lg:col-span-7">
-          <div className="vyro-elevated divide-y divide-ink/10 px-2 sm:px-4">
-            {FAQ.map((item, idx) => {
-              const expanded = open === idx;
-              const panelId = `home-faq-${idx}`;
-              return (
-                <div key={item.q}>
-                  <h3>
-                    <button
-                      type="button"
-                      aria-expanded={expanded}
-                      aria-controls={panelId}
-                      onClick={() => setOpen(expanded ? -1 : idx)}
-                      className="flex w-full min-h-11 items-start gap-4 px-3 py-5 text-left sm:px-4"
-                    >
-                      <span className="mt-0.5 w-7 shrink-0 font-mono text-[11px] font-bold tabular-nums text-copper">
-                        {String(idx + 1).padStart(2, '0')}
-                      </span>
-                      <span className="min-w-0 flex-1 font-display text-base font-semibold leading-snug text-ink sm:text-lg">
-                        {item.q}
-                      </span>
-                      <span
-                        className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-ink text-volt"
-                        aria-hidden
-                      >
-                        {expanded ? <MinusIcon size={14} /> : <PlusIcon size={14} />}
-                      </span>
-                    </button>
-                  </h3>
-                  <div
-                    id={panelId}
-                    role="region"
-                    hidden={!expanded}
-                    className={expanded ? 'px-3 pb-5 sm:px-4 sm:pl-[3.25rem]' : undefined}
+        <div className="lg:col-span-7 space-y-3">
+          {FAQ.map((item, idx) => {
+            const expanded = open === idx;
+            const panelId = `home-faq-${idx}`;
+            return (
+              <div
+                key={item.q}
+                className={`rounded-2xl bg-paper ring-1 transition-shadow duration-240 ${
+                  expanded ? 'ring-ink/10 shadow-[0_20px_40px_-24px_rgba(12,14,11,0.25)]' : 'ring-ink/[0.06]'
+                }`}
+              >
+                <h3>
+                  <button
+                    type="button"
+                    aria-expanded={expanded}
+                    aria-controls={panelId}
+                    onClick={() => setOpen(expanded ? -1 : idx)}
+                    className="flex w-full min-h-11 items-center gap-4 rounded-2xl px-5 py-5 text-left sm:px-6"
                   >
-                    {expanded ? (
-                      <p className="max-w-prose text-sm leading-relaxed text-ink-3">{item.a}</p>
-                    ) : null}
+                    <span className="min-w-0 flex-1 font-display text-base font-semibold leading-snug tracking-[-0.01em] text-ink sm:text-lg">
+                      {item.q}
+                    </span>
+                    <span
+                      className={`flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-240 ${
+                        expanded ? 'bg-ink text-volt' : 'bg-bone text-ink'
+                      }`}
+                      aria-hidden
+                    >
+                      {expanded ? <MinusIcon size={14} /> : <PlusIcon size={14} />}
+                    </span>
+                  </button>
+                </h3>
+                <div
+                  id={panelId}
+                  role="region"
+                  inert={!expanded}
+                  className={`grid transition-[grid-template-rows] duration-320 ease-cinematic ${expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+                >
+                  <div className="overflow-hidden">
+                    <p className="max-w-prose px-5 pb-6 text-sm leading-relaxed text-ink-3 sm:px-6">{item.a}</p>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>
   );
 }
-

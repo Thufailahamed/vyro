@@ -209,14 +209,16 @@ export function CatalogSearch({
           <label htmlFor={inputId} className="sr-only">
             Search the wholesale catalog
           </label>
-          <div className="flex flex-col sm:flex-row bg-paper rounded-xl shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6)] focus-within:shadow-[0_0_0_2px_#C6DC4A,0_20px_50px_-20px_rgba(0,0,0,0.6)] transition-all">
-            <div className="relative flex-1">
-              <SearchIcon size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-4 pointer-events-none" />
-              {input}
+          <div className="rounded-2xl bg-paper/[0.06] p-1.5 ring-1 ring-paper/15 backdrop-blur-xl transition-shadow duration-240 focus-within:ring-volt/60 focus-within:shadow-[0_0_0_6px_rgba(198,220,74,0.08)]">
+            <div className="flex flex-col sm:flex-row gap-1.5 bg-paper rounded-xl shadow-[0_24px_60px_-24px_rgba(0,0,0,0.7)]">
+              <div className="relative flex-1 min-w-0">
+                <SearchIcon size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-4 pointer-events-none" />
+                {input}
+              </div>
+              <Button type="submit" size="lg" className="m-1.5 sm:ml-0 rounded-lg bg-ink text-paper hover:bg-ink-2">
+                Search
+              </Button>
             </div>
-            <Button type="submit" size="lg" className="m-1.5 sm:min-w-40 bg-ink text-paper hover:bg-ink-2">
-              Search Catalog →
-            </Button>
           </div>
         </form>
         {panel}
