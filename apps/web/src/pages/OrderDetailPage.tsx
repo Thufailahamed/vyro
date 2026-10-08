@@ -8,6 +8,7 @@ import {
   ErrorBanner,
   SuccessBanner,
   Textarea,
+  Input,
   Label,
   StatusBadge,
   Badge,
@@ -15,6 +16,7 @@ import {
 import type { OrderStatus } from '@/components/ui';
 import { allowedTransitions, type OrderStatus as SharedOrderStatus } from '@vyro/shared';
 import { formatLKR } from '@/lib/format';
+import { remainingRefundableCents } from '@/lib/refundable';
 import {
   formatLifecycleDate,
   invoiceTypeLabel,
@@ -182,6 +184,7 @@ export function OrderDetailPage() {
   const [returnOpen, setReturnOpen] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundReason, setRefundReason] = useState('');
+  const [refundAmount, setRefundAmount] = useState('');
   const [refundSubmitting, setRefundSubmitting] = useState(false);
   const [refundMsg, setRefundMsg] = useState('');
 
@@ -216,6 +219,23 @@ export function OrderDetailPage() {
       .sort((a, b) => b.amountCents - a.amountCents);
     return confirmed[0] ?? null;
   }, [paymentsData]);
+
+  const { data: refundsData } = useQuery({
+    queryKey: ['payment-refunds', refundablePayment?.id],
+    queryFn: () =>
+      api.get<{ refunds: Array<{ amountCents: number; status: string }> }>(
+        `/refunds/${refundablePayment!.id}/refunds`,
+      ),
+    enabled: refundOpen && !!refundablePayment,
+  });
+  const refundRemaining = useMemo(
+    () => (refundablePayment ? remainingRefundableCents(refundablePayment.amountCents, refundsData?.refunds ?? []) : 0),
+    [refundablePayment, refundsData],
+  );
+  const refundAmountCents = useMemo(
+    () => (refundAmount.trim() === '' ? refundRemaining : Math.round(Number(refundAmount) * 100)),
+    [refundAmount, refundRemaining],
+  );
 
   /** Reason-carrying transitions (cancel / dispute). Throws so the dialog shows the error. */
   async function transitionWithReason(to: 'cancelled' | 'disputed', reason: string) {
@@ -257,15 +277,26 @@ export function OrderDetailPage() {
   async function submitRefund() {
     if (!refundablePayment) return;
     setRefundMsg('');
+    if (!Number.isFinite(refundAmountCents) || refundAmountCents <= 0) {
+      setRefundMsg('Enter a refund amount greater than zero.');
+      return;
+    }
+    if (refundAmountCents > refundRemaining) {
+      setRefundMsg(`Maximum refundable is ${formatLKR(refundRemaining)}.`);
+      return;
+    }
     setRefundSubmitting(true);
     try {
       await api.post(`/refunds/${refundablePayment.id}/refund`, {
+        amountCents: refundAmountCents,
         reason: refundReason.trim() || 'Buyer requested refund',
       });
       setRefundMsg('Refund requested. You will be notified when it completes.');
       setRefundOpen(false);
       setRefundReason('');
+      setRefundAmount('');
       void qc.invalidateQueries({ queryKey: ['payments', id] });
+      void qc.invalidateQueries({ queryKey: ['payment-refunds', refundablePayment.id] });
     } catch (e) {
       setRefundMsg(e instanceof ApiError ? e.message : 'Refund request failed');
     } finally {
@@ -1095,13 +1126,21 @@ export function OrderDetailPage() {
             </div>
 
             <div className="p-5 space-y-4">
-              <div className="rounded-xl bg-ink text-paper p-4 text-center">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-volt font-bold">
-                  Refund amount
-                </div>
-                <div className="font-mono text-3xl mt-1 text-volt">
-                  {formatLKR(refundablePayment.amountCents)}
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="refund-amount">Refund amount (LKR)</Label>
+                <Input
+                  id="refund-amount"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  inputMode="decimal"
+                  placeholder={(refundRemaining / 100).toFixed(2)}
+                  value={refundAmount}
+                  onChange={(e) => setRefundAmount(e.target.value)}
+                />
+                <p className="text-[11px] text-ink-4">
+                  Remaining refundable: {formatLKR(refundRemaining)}. Leave blank to refund the full remaining amount.
+                </p>
               </div>
 
               <p className="text-xs text-ink-3 leading-relaxed">
