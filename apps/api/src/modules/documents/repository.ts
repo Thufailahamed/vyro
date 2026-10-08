@@ -37,6 +37,7 @@ export async function createUpload(
     originalFilename: string;
     sizeBytes: number;
     supplierId?: string | null;
+    purchaseOrderId?: string | null;
   },
 ): Promise<string> {
   const id = newId();
@@ -45,6 +46,7 @@ export async function createUpload(
     businessId: input.businessId,
     uploadedByUserId: input.uploadedByUserId,
     supplierId: input.supplierId ?? null,
+    purchaseOrderId: input.purchaseOrderId ?? null,
     status: 'pending',
     r2Key: input.r2Key,
     mimeType: input.mimeType,

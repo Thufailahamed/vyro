@@ -17,7 +17,7 @@ import {
 } from './repository';
 import { categorizeItems, type CategorySlug } from '@vyro/ai';
 import { getDb } from '@vyro/db';
-import { invoiceUploads } from '@vyro/db/schema';
+import { invoiceUploads, purchaseOrders } from '@vyro/db/schema';
 import { eq } from 'drizzle-orm';
 import { queueSend } from '../../lib/queue';
 
@@ -38,6 +38,19 @@ router.post('/upload-direct', rateLimit({ key: 'doc-upload', limit: 20, window: 
   const file = form.get('file');
   const supplierIdRaw = form.get('supplierId');
   const supplierId = typeof supplierIdRaw === 'string' && supplierIdRaw.length > 0 ? supplierIdRaw : null;
+  // Optional PO link: docs-invoice auto-reconcile (scene: buyer uploads the
+  // supplier invoice straight from order detail). Gates validate ownership +
+  // lifecycle before we accept the file.
+  const poIdRaw = form.get('purchaseOrderId');
+  const purchaseOrderId = typeof poIdRaw === 'string' && poIdRaw.length > 0 ? poIdRaw : null;
+  if (purchaseOrderId) {
+    const po = await getDb(c.env.DB).select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).get();
+    if (!po) throw httpError(404, 'NOT_FOUND', 'Purchase order not found');
+    if (po.businessId !== businessId) throw httpError(403, 'FORBIDDEN', 'Not your purchase order');
+    if (po.status !== 'delivered' && po.status !== 'completed') {
+      throw httpError(400, 'VALIDATION_ERROR', 'Invoices can be attached once the order is delivered');
+    }
+  }
   if (!(file instanceof File)) throw httpError(400, 'VALIDATION_ERROR', 'file field required');
   if (!ALLOWED_MIME.has(file.type)) throw httpError(400, 'VALIDATION_ERROR', `Unsupported type ${file.type}`);
   if (file.size > MAX_BYTES) throw httpError(413, 'PAYLOAD_TOO_LARGE', 'Max 10MB');
@@ -52,6 +65,7 @@ router.post('/upload-direct', rateLimit({ key: 'doc-upload', limit: 20, window: 
     originalFilename: file.name,
     sizeBytes: file.size,
     supplierId,
+    purchaseOrderId,
   });
   const r2Key = buildR2Key(businessId, uploadId, file.name);
   try {
