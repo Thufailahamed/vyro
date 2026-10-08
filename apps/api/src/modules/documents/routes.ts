@@ -201,6 +201,14 @@ router.post('/:id/review', async (c) => {
     }
   }
 
+  // Doc-intel v2 phase A: a manual review on a PO-linked upload replaces the
+  // auto-staged lines — re-run reconciliation against the corrected data.
+  const fresh = await getUpload(c.env, businessId, id);
+  if (fresh?.purchaseOrderId) {
+    const { reconcileIfLinked } = await import('./reconcile');
+    await reconcileIfLinked(c.env, id);
+  }
+
   return c.json({ ok: true });
 });
 

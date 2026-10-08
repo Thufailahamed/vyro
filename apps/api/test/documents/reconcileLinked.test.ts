@@ -2,6 +2,7 @@ import { describe, expect, it, beforeAll, vi } from 'vitest';
 import { makeD1, applyMigrations } from '../helpers/d1';
 
 let env: any;
+let sessionCtx: any = null;
 
 vi.mock('../../src/middleware/session', () => ({
   session: () => async (c: any, next: any) => {
@@ -169,5 +170,48 @@ describe('reconcileIfLinked', () => {
     await reconcileIfLinked(env, uploadId);
     const exceptions = await db.select().from(schema.reconciliationExceptions).all();
     expect(exceptions.filter((e: any) => e.entityId === poId)).toHaveLength(1);
+  });
+
+  it('re-reconciles at PO prices after a manual review corrects the lines', async () => {
+    const { getDb, Hono } = await import('@vyro/db');
+    void Hono;
+    const schema = await import('@vyro/db/schema');
+    const { newId } = await import('@vyro/shared');
+    const db = getDb(env.DB);
+    const poId = await seedPoAndDelivery(db, schema, base as any, newId, true);
+    // Upload stuck in manual_required until the buyer submits a review.
+    const uploadId = newId();
+    await db.insert(schema.invoiceUploads).values({ id: uploadId, businessId: base.biz, uploadedByUserId: base.userId, status: 'manual_required', r2Key: 'k', mimeType: 'image/png', originalFilename: 'i.png', sizeBytes: 4, purchaseOrderId: poId, createdAt: now } as any);
+
+    const { errorEnvelope } = await import('../../src/lib/errors');
+    const app = new (await import('hono')).Hono();
+    app.onError((err: any, c: any) => {
+      const e = errorEnvelope(err);
+      return c.json(e.body, e.status as any);
+    });
+    const router = (await import('../../src/modules/documents/routes')).default;
+    app.route('/api/documents', router);
+    sessionCtx = { userId: base.userId, isAdmin: false, adminRole: null, businesses: [{ businessId: base.biz, role: 'owner' }], suppliers: [] };
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/documents/${uploadId}/review`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          totalCents: 17000,
+          lines: [
+            { lineNumber: 1, description: 'Basmati Rice 5kg', quantity: 10, unit: 'bag', unitPriceCents: 1200, totalCents: 12000 },
+            { lineNumber: 2, description: 'White Sugar 1kg', quantity: 20, unit: 'pack', unitPriceCents: 250, totalCents: 5000 },
+          ],
+        }),
+      }),
+      env,
+    );
+    expect(res.status).toBe(200);
+    sessionCtx = null;
+
+    const upload = (await db.select().from(schema.invoiceUploads).all()).find((u: any) => u.id === uploadId) as any;
+    expect(upload.status).toBe('reviewed');
+    expect(upload.reconciliationStatus).toBe('passed');
   });
 });
