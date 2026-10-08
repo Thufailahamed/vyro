@@ -44,11 +44,15 @@ export function DeliveryTransitionButtons({
 
   const mut = useMutation({
     mutationFn: (payload?: { driverName?: string; driverPhone?: string }) =>
-      api.post(`/deliveries/${poId}/transitions`, {
-        status: next,
-        ...(payload?.driverName ? { driverName: payload.driverName } : {}),
-        ...(payload?.driverPhone ? { driverPhone: payload.driverPhone } : {}),
-      }),
+      api.post(
+        `/deliveries/${poId}/transitions`,
+        {
+          status: next,
+          ...(payload?.driverName ? { driverName: payload.driverName } : {}),
+          ...(payload?.driverPhone ? { driverPhone: payload.driverPhone } : {}),
+        },
+        { idempotencyKey: crypto.randomUUID() },
+      ),
     onSuccess: () => {
       toast.show(toast.success(`Delivery advanced to ${LABEL[next!] ?? next}`));
       setAssignModalOpen(false);
@@ -169,7 +173,11 @@ export function DeliveryTransitionButtons({
           poId={poId}
           onClose={() => setPodOpen(false)}
           onCaptured={async () => {
-            await api.post(`/deliveries/${poId}/transitions`, { status: 'delivered' });
+            await api.post(
+              `/deliveries/${poId}/transitions`,
+              { status: 'delivered' },
+              { idempotencyKey: crypto.randomUUID() },
+            );
             toast.show(toast.success('Delivery marked delivered'));
             void qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'deliveries'] });
             void qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'po'] });
