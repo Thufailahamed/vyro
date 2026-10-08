@@ -26,7 +26,8 @@ describe('LearningCta', () => {
     const html = renderToStaticMarkup(
       createElement(MemoryRouter, null, createElement(LearningCta)),
     );
-    expect(html).toMatch(/Complete training to publish \(2 pending\)/);
+    expect(html).toMatch(/Finish training to publish/);
+    expect(html).toMatch(/2 pending/);
     expect(html).toMatch(/Publish your first product/);
     expect(html).toMatch(/Set up payouts/);
     expect(html).toMatch(/Open training/);
@@ -55,7 +56,7 @@ describe('LearningCta', () => {
       const html = renderToStaticMarkup(
         createElement(MemoryRouter, null, createElement(Cta2)),
       );
-      expect(html).toMatch(/\+ 2 more/);
+      expect(html).toMatch(/\+2 more/);
     });
   });
 });
