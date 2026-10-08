@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import {
   Button,
   EmptyState,
@@ -591,7 +592,6 @@ function Invoices({ businessId }: { businessId: string }) {
 
   return (
     <div className="space-y-4">
-      {/* Mini stat strip */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <KpiTile
           label="Invoices issued"
@@ -683,6 +683,18 @@ function Invoices({ businessId }: { businessId: string }) {
 }
 
 function Refunds({ businessId }: { businessId: string }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const { user } = useAuth();
+  const { ask, dialog } = useConfirm();
+  const withdraw = useMutation({
+    mutationFn: (id: string) => api.post(`/refunds/${id}/cancel`, {}),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['accounts', 'business-refunds', businessId] });
+      toast.success('Refund withdrawn');
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not withdraw refund'),
+  });
   const q = useQuery({
     queryKey: ['accounts', 'business-refunds', businessId],
     queryFn: () =>
@@ -694,6 +706,7 @@ function Refunds({ businessId }: { businessId: string }) {
           amountCents: number;
           status: string;
           reason: string | null;
+          requestedByUserId?: string;
           createdAt: number;
         }>;
       }>(`/finance/business/refunds?businessId=${businessId}`),
@@ -705,6 +718,7 @@ function Refunds({ businessId }: { businessId: string }) {
   const pendingCount = refunds.filter((r) => ['pending', 'requested'].includes(r.status)).length;
 
   return (
+    <>
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <KpiTile
@@ -759,6 +773,29 @@ function Refunds({ businessId }: { businessId: string }) {
                   </div>
                 </div>
               </div>
+              {r.status === 'requested' && r.requestedByUserId === user?.userId && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() =>
+                    ask({
+                      title: 'Withdraw refund request',
+                      body: (
+                        <>
+                          Withdraw the refund of <Money cents={r.amountCents} />? The amount becomes
+                          refundable again.
+                        </>
+                      ),
+                      confirmLabel: 'Withdraw',
+                      action: async () => {
+                        await withdraw.mutateAsync(r.id);
+                      },
+                    })
+                  }
+                >
+                  Withdraw
+                </Button>
+              )}
               <span className="font-mono font-semibold text-ink-1 text-sm">
                 <Money cents={r.amountCents} />
               </span>
@@ -767,6 +804,8 @@ function Refunds({ businessId }: { businessId: string }) {
         </ul>
       )}
     </div>
+    {dialog}
+    </>
   );
 }
 

@@ -29,6 +29,7 @@ export const refunds = sqliteTable(
     approvedByUserId: text('approved_by_user_id').references(() => users.id),
     approvedAt: integer('approved_at'),
     rejectionReason: text('rejection_reason'),
+    cancellationReason: text('cancellation_reason'),
     processedAt: integer('processed_at'),
     completedAt: integer('completed_at'),
     failureReason: text('failure_reason'),

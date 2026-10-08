@@ -4,12 +4,15 @@ import type { Ctx } from '../../middleware/session';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
-import { payments as paymentsTable, purchaseOrders, businessMembers } from '@vyro/db/schema';
+import { payments as paymentsTable, purchaseOrders, businessMembers, refunds as refundsTable, type Refund } from '@vyro/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { createRefundSchema } from '@vyro/validation/payment';
+import { createRefundSchema, refundCancelSchema } from '@vyro/validation/payment';
+import { canTransitionRefund } from '@vyro/shared';
 import { findRefund, listRefundsForPayment } from './repository';
 import { executeRefund } from './executor';
 import { requireBusinessPaymentRole, isSupplierMember } from '../payments/membership';
+import { recordAudit } from '../supplierProducts/repository';
+import { notifyAdmins } from '../notifications/dispatcher';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -118,6 +121,64 @@ router.get('/:id', session(), async (c) => {
     throw httpError(403, 'FORBIDDEN', 'No access');
   }
   return c.json({ refund });
+});
+
+router.post('/:id/cancel', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const parsed = refundCancelSchema.safeParse((await c.req.json().catch(() => ({}))) ?? {});
+  if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
+
+  const refund = (await findRefund(c.env.DB, c.req.param('id'))) as Refund | null;
+  if (!refund) throw httpError(404, 'NOT_FOUND', 'Refund not found');
+  const loaded = await loadPaymentAndPo(c.env.DB, refund.paymentId);
+  if (!loaded) throw httpError(404, 'NOT_FOUND', 'Underlying payment missing');
+  const { po } = loaded;
+
+  const isRequester = refund.requestedByUserId === ctx.userId;
+  if (!ctx.isAdmin) {
+    if (!isRequester) throw httpError(403, 'FORBIDDEN', 'Only the requester or an admin can cancel a refund');
+    try {
+      await requireBusinessPaymentRole(c.env.DB, po.businessId, ctx.userId);
+    } catch {
+      throw httpError(403, 'FORBIDDEN', 'Insufficient role to cancel refund');
+    }
+    if (refund.status !== 'requested') {
+      throw httpError(409, 'CONFLICT', `Buyers can only withdraw requested refunds (current: ${refund.status})`);
+    }
+  } else if (refund.status !== 'requested' && refund.status !== 'approved') {
+    throw httpError(409, 'CONFLICT', `Refund cannot be cancelled from ${refund.status}`);
+  }
+  if (!canTransitionRefund(refund.status, 'cancelled')) {
+    throw httpError(409, 'CONFLICT', `Refund cannot be cancelled from ${refund.status}`);
+  }
+
+  const now = Date.now();
+  await getDb(c.env.DB)
+    .update(refundsTable)
+    .set({ status: 'cancelled', cancellationReason: parsed.data.reason ?? null, updatedAt: now })
+    .where(eq(refundsTable.id, refund.id))
+    .run();
+
+  await recordAudit(c.env.DB, {
+    actorUserId: ctx.userId,
+    action: 'refund.cancel',
+    resourceType: 'payment',
+    resourceId: refund.paymentId,
+    metadata: { refundId: refund.id, amountCents: refund.amountCents, reason: parsed.data.reason ?? null },
+  }).catch(() => undefined);
+
+  await notifyAdmins(c.env, {
+    role: 'finance',
+    severity: 'info',
+    category: 'admin_alert',
+    title: `Refund ${refund.refundNumber ?? refund.id.slice(0, 8)} cancelled`,
+    body: `${ctx.isAdmin ? 'An admin' : 'The requester'} cancelled a ${refund.status} refund on PO ${po.poNumber}.`,
+    link: '/admin/finance',
+    sourceRef: refund.id,
+  }).catch(() => undefined);
+
+  return c.json({ id: refund.id, status: 'cancelled' });
 });
 
 export default router;

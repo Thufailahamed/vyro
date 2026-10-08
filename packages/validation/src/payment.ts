@@ -24,6 +24,12 @@ export const createRefundSchema = z
   })
   .strict();
 
+export const refundCancelSchema = z
+  .object({
+    reason: z.string().max(500).optional(),
+  })
+  .strict();
+
 export const payoutGenerateSchema = z
   .object({
     supplierId: z.string().min(1),
@@ -46,6 +52,7 @@ export const payoutMarkFailedSchema = z
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>;
 export type ConfirmPaymentInput = z.infer<typeof confirmPaymentSchema>;
 export type CreateRefundInput = z.infer<typeof createRefundSchema>;
+export type RefundCancelInput = z.infer<typeof refundCancelSchema>;
 export type PayoutGenerateInput = z.infer<typeof payoutGenerateSchema>;
 export type PayoutMarkPaidInput = z.infer<typeof payoutMarkPaidSchema>;
 export type PayoutMarkFailedInput = z.infer<typeof payoutMarkFailedSchema>;
