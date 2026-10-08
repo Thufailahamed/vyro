@@ -6,7 +6,7 @@ import { api, ApiError } from '@/lib/api';
 import { Button, EmptyState } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
-import { useToast } from '@vyro/ui';
+import { cn, useToast } from '@vyro/ui';
 import {
   ShoppingCartIcon,
   Trash2Icon,
@@ -21,12 +21,14 @@ import {
   FileTextIcon,
   AlertCircleIcon,
   CheckCircleIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  LayersIcon,
 } from '@/components/icons';
-import { FlowLine } from '@/components/brand/FlowLine';
 import { PageHero, HeroStatusPill, heroActionClass } from '@/components/brand/PageHero';
-import { MetricNumber, ProductImage, Surface } from '@/components/brand/Surface';
+import { ProductImage, Surface } from '@/components/brand/Surface';
 import { CartHintsBanner } from '@/ai/CartHintsBanner';
-import { BulkQuoteCta } from '@/components/BulkQuoteCta';
+import { useRfqQualify } from '@/components/BulkQuoteCta';
 import { useQuery as useRQ } from '@tanstack/react-query';
 import { useRepeatOffersPreview } from '@/hooks/useRepeatOffersPreview';
 import { RepeatOfferBadge } from '@/components/RepeatOfferBadge';
@@ -229,6 +231,8 @@ export function CartPage() {
   const itemCount = data?.items?.length ?? 0;
   const totalUnits = items.reduce((acc, it) => acc + it.quantity, 0);
   const belowMoq = items.filter((i) => i.quantity < i.offer.minOrderQty);
+  const hasBlockingIssues = belowMoq.length > 0 || items.some((it) => (it.issues?.length ?? 0) > 0);
+  const poLabel = `${supplierCount} PO${supplierCount === 1 ? '' : 's'}`;
 
   return (
     <div className="space-y-8">
@@ -242,12 +246,11 @@ export function CartPage() {
         </Link>
       </div>
 
-      {/* Main Page Title & Flow Stepper */}
       <PageHero
         icon={ShoppingCartIcon}
         kicker="Wholesale Procurement"
         title="Review the flow."
-        description="Order lines are automatically segmented into individual vendor Purchase Orders. Checkout initiates cryptographic PO numbering and triggers supplier dispatch lead times."
+        description="Lines are grouped by supplier and issued as separate Purchase Orders at checkout, each with its own dispatch lead time."
         status={
           items.length > 0 ? (
             <HeroStatusPill label="Draft POs Ready" tone="volt" />
@@ -259,6 +262,7 @@ export function CartPage() {
           items.length > 0 ? (
             <>
               <Link to="/search" className={heroActionClass}>
+                <PlusIcon size={13} />
                 Add More Lines
               </Link>
               <button
@@ -267,6 +271,7 @@ export function CartPage() {
                 disabled={clearing}
                 className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose/30 bg-rose/10 px-3 text-xs font-semibold text-rose transition-colors hover:bg-rose/20 disabled:opacity-50 cursor-pointer"
               >
+                <Trash2Icon size={13} />
                 {clearing ? 'Clearing…' : 'Clear Cart'}
               </button>
             </>
@@ -282,16 +287,6 @@ export function CartPage() {
         }
       />
 
-      <div className="max-w-xl">
-        <FlowLine
-          nodes={[
-            { label: `Cart (${itemCount} lines)`, state: 'active' },
-            { label: `Split into ${supplierCount} PO${supplierCount === 1 ? '' : 's'}`, state: 'idle' },
-            { label: 'Issue & Track', state: 'idle' },
-          ]}
-        />
-      </div>
-
       {/* Empty State */}
       {items.length === 0 ? (
         <EmptyState
@@ -300,421 +295,503 @@ export function CartPage() {
           description="Browse verified wholesale mills, compare quotes by price and lead time, and add commercial supply lines."
           action={
             <Link to="/search">
-              <Button size="lg" icon={<ArrowRightIcon size={16} />}>
-                Browse Wholesale Catalog
-              </Button>
+              <Button size="lg">Browse Wholesale Catalog</Button>
             </Link>
           }
         />
       ) : (
-        /* Two Column Layout: PO Groups + Summary */
-        <div className="grid lg:grid-cols-[1fr_340px] gap-8 items-start">
-          {/* Left Column: Supplier PO Draft Cards */}
-          <div className="space-y-6">
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_380px] gap-8 items-start">
+          {/* Left Column: Steps + Supplier PO Draft Cards */}
+          <div className="space-y-5 min-w-0">
+            <CheckoutSteps
+              steps={[
+                { label: 'Review cart', sub: `${itemCount} line${itemCount === 1 ? '' : 's'} · ${totalUnits} units` },
+                { label: `Split into ${poLabel}`, sub: 'One per supplier' },
+                { label: 'Issue & track', sub: 'Dispatch + GRN' },
+              ]}
+            />
+
             <CartHintsBanner businessId={businessId} />
+
             {Array.from(grouped.entries()).map(([supplierName, { supplier, lines }], idx) => {
               const poNumber = `PO-${String(idx + 1).padStart(2, '0')}`;
               const sub = lines.reduce((a, b) => a + b.lineTotalCents, 0);
               const maxLead = Math.max(...lines.map((l) => l.offer.leadTimeDays || 1));
               const supplierDiscount = lines.reduce((a, b) => a + (b.discountCents || 0), 0);
+              const supplierUnits = lines.reduce((a, b) => a + b.quantity, 0);
               const repeatOffer = repeatOfferBySupplier.get(supplier.id);
 
               return (
-                <div key={supplierName}>
-                {repeatOffer && (
-                  <div className="mb-2"><RepeatOfferBadge offer={repeatOffer} /></div>
-                )}
-                <Surface kind="flat" className="p-0 border border-line vyro-surface overflow-hidden">
-                  {/* Supplier PO Header */}
-                  <div className="px-5 py-4 bg-bone border-b border-line flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-md bg-ink text-volt">
-                          Draft {poNumber}
-                        </span>
-                        {supplier.verificationStatus === 'verified' && (
-                          <span className="inline-flex items-center gap-1 rounded-full text-[10px] uppercase tracking-wider font-semibold text-mint border border-mint/30 bg-mint/5 px-2 py-0.5">
-                            <ShieldCheckIcon size={11} /> Verified Mill
-                          </span>
-                        )}
-                        <span className="text-xs text-ink-4">•</span>
-                        <span className="inline-flex items-center gap-1 text-xs text-ink-3 font-medium">
-                          <MapPinIcon size={12} className="text-copper" />
-                          {supplier.city || 'Western Province'}, {supplier.district || 'LK'}
-                        </span>
+                <div key={supplierName} className="space-y-2">
+                  {repeatOffer && <RepeatOfferBadge offer={repeatOffer} />}
+                  <Surface kind="flat" className="p-0 overflow-hidden">
+                    {/* Supplier PO Header */}
+                    <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-line">
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="size-12 shrink-0 rounded-xl bg-ink text-volt font-display text-lg font-bold flex items-center justify-center">
+                          {supplierName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <h2 className="font-display text-lg text-ink font-semibold tracking-tight truncate">
+                              {supplierName}
+                            </h2>
+                            {supplier.verificationStatus === 'verified' && (
+                              <span title="Verified mill" className="text-mint shrink-0">
+                                <ShieldCheckIcon size={15} />
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-4">
+                            <span className="font-mono font-semibold uppercase tracking-wider text-ink-3">
+                              Draft {poNumber}
+                            </span>
+                            <span className="size-1 rounded-full bg-ink/20" />
+                            <span className="inline-flex items-center gap-1">
+                              <MapPinIcon size={11} />
+                              {supplier.city || 'Western Province'}, {supplier.district || 'LK'}
+                            </span>
+                            <span className="size-1 rounded-full bg-ink/20" />
+                            <span className="inline-flex items-center gap-1">
+                              <TruckIcon size={11} />
+                              Dispatches in {maxLead} day{maxLead === 1 ? '' : 's'}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <h2 className="font-display text-xl text-ink font-semibold tracking-tight">
-                        {supplierName}
-                      </h2>
+
+                      <div className="sm:text-right shrink-0 flex sm:block items-baseline justify-between">
+                        <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">PO value</div>
+                        <div className="vyro-metric text-xl text-ink font-semibold whitespace-nowrap">{formatLKR(sub)}</div>
+                      </div>
                     </div>
 
-                    <div className="flex sm:flex-col items-baseline sm:items-end justify-between sm:justify-center gap-1 text-right">
-                      <div className="inline-flex items-center gap-1 text-xs text-ink-3">
-                        <TruckIcon size={13} className="text-ink-4" />
-                        <span>{maxLead} day dispatch lead</span>
-                      </div>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-[11px] text-ink-4 font-mono">PO Value:</span>
-                        <span className="vyro-metric text-lg text-ink font-semibold">{formatLKR(sub)}</span>
-                      </div>
-                    </div>
-                  </div>
+                    {/* Line Items List */}
+                    <ul className="divide-y divide-line">
+                      {lines.map((it) => {
+                        const draft = pendingQty[it.id] ?? String(it.quantity);
+                        const isBelowMoq = it.quantity < it.offer.minOrderQty;
+                        const isLineUpdating = updatingId === it.id;
+                        const grossLineTotal = it.priceCents * it.quantity;
+                        const hint = lineHintsByItem.get(it.id);
+                        const unit = it.product.unit || 'unit';
 
-                  {/* Line Items List */}
-                  <ul className="divide-y divide-line bg-paper">
-                    {lines.map((it) => {
-                      const draft = pendingQty[it.id] ?? String(it.quantity);
-                      const isBelowMoq = it.quantity < it.offer.minOrderQty;
-                      const isLineUpdating = updatingId === it.id;
-                      const grossLineTotal = it.priceCents * it.quantity;
-
-                      return (
-                        <li key={it.id} className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 transition-colors hover:bg-bone/30">
-                          {/* Item Thumbnail & Information */}
-                          <div className="flex items-start gap-4 flex-1 min-w-0">
-                            <Link to={`/products/${it.product.id}`} className="shrink-0 group">
+                        return (
+                          <li
+                            key={it.id}
+                            className={cn(
+                              'px-6 py-5 grid grid-cols-[72px_minmax(0,1fr)] md:grid-cols-[88px_minmax(0,1fr)_auto] gap-x-5 gap-y-4 transition-opacity',
+                              isLineUpdating && 'opacity-60',
+                            )}
+                          >
+                            {/* Thumbnail */}
+                            <Link to={`/products/${it.product.id}`} className="group block">
                               <ProductImage
                                 src={it.product.imageUrl}
                                 alt={it.product.name}
                                 seed={it.product.id}
-                                className="w-16 h-16 rounded-lg border border-line group-hover:scale-105 transition-transform"
+                                className="size-[72px] md:size-[88px] rounded-xl border border-line bg-bone group-hover:shadow-md transition-shadow"
                               />
                             </Link>
 
-                            <div className="space-y-1 flex-1 min-w-0">
-                              <Link
-                                to={`/products/${it.product.id}`}
-                                className="font-display text-base font-semibold text-ink hover:text-copper transition-colors truncate block"
-                              >
-                                {it.product.name}
-                              </Link>
-
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-4">
+                            {/* Product info */}
+                            <div className="min-w-0 space-y-2">
+                              <div>
                                 {it.product.brand && (
-                                  <span className="font-medium text-ink-3">Brand: {it.product.brand}</span>
+                                  <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">
+                                    {it.product.brand}
+                                  </div>
                                 )}
-                                <span>•</span>
-                                <span className="font-mono text-ink-3">
-                                  {formatLKR(it.priceCents)} / {it.product.unit || 'unit'}
-                                </span>
-                                <span>•</span>
-                                <span>MOQ {it.offer.minOrderQty}</span>
+                                <Link
+                                  to={`/products/${it.product.id}`}
+                                  className="font-display text-base font-semibold text-ink hover:text-copper transition-colors truncate block"
+                                >
+                                  {it.product.name}
+                                </Link>
                               </div>
 
-                              {/* Volume Discount Badges */}
-                              {it.bestTier && (
-                                <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider text-volt bg-ink mt-1">
-                                  <SparklesIcon size={10} /> −{it.bestTier.discountPct}% Volume Discount Active
-                                </div>
-                              )}
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="inline-flex items-center rounded-md bg-bone px-2 py-0.5 font-mono text-[11px] text-ink-2">
+                                  {formatLKR(it.priceCents)}
+                                  <span className="text-ink-4">&nbsp;/ {unit}</span>
+                                </span>
+                                <span className="inline-flex items-center rounded-md bg-bone px-2 py-0.5 font-mono text-[11px] text-ink-3">
+                                  MOQ {it.offer.minOrderQty}
+                                </span>
+                                {it.product.packSize && (
+                                  <span className="inline-flex items-center rounded-md bg-bone px-2 py-0.5 font-mono text-[11px] text-ink-3">
+                                    {it.product.packSize}
+                                  </span>
+                                )}
+                                {it.bestTier && (
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-ink px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-volt">
+                                    <SparklesIcon size={10} /> −{it.bestTier.discountPct}% volume
+                                  </span>
+                                )}
+                              </div>
+
                               {it.nextTier && (
-                                <div className="inline-flex items-center gap-1 rounded-full text-[11px] text-ink-3 bg-bone border border-line px-2.5 py-0.5 mt-1">
-                                  <span>Add {it.nextTier.minQty - it.quantity} more units for </span>
-                                  <span className="font-semibold text-copper">−{it.nextTier.discountPct}% off</span>
+                                <div className="text-[11px] text-ink-3">
+                                  Add <span className="font-semibold text-ink">{it.nextTier.minQty - it.quantity}</span> more for{' '}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSetExact(it.id, it.nextTier!.minQty)}
+                                    className="font-semibold text-copper hover:underline cursor-pointer"
+                                  >
+                                    −{it.nextTier.discountPct}% off
+                                  </button>
                                 </div>
                               )}
 
                               {/* Warning: Below MOQ Alert */}
                               {isBelowMoq && (
-                                <div className="flex items-center gap-2 rounded-lg text-xs text-rose bg-rose/5 border border-rose/30 px-3 py-1.5 mt-1.5">
-                                  <AlertCircleIcon size={13} />
-                                  <span>Below supplier minimum order quantity ({it.offer.minOrderQty} units).</span>
+                                <LineNotice tone="rose">
+                                  Below the {it.offer.minOrderQty}-unit supplier minimum.
                                   <button
                                     type="button"
                                     onClick={() => handleSetExact(it.id, it.offer.minOrderQty)}
                                     className="font-semibold underline ml-1 hover:text-ink"
                                   >
-                                    Set to MOQ ({it.offer.minOrderQty})
+                                    Set to MOQ
                                   </button>
-                                </div>
+                                </LineNotice>
                               )}
 
                               {/* Per-line cheaper-alt hint */}
-                              {lineHintsByItem.get(it.id) && (
-                                <div className="flex items-center gap-2 rounded-lg text-xs text-mint bg-mint/5 border border-mint/30 px-3 py-1.5 mt-1.5">
-                                  <SparklesIcon size={13} />
-                                  <span>
-                                    Cheaper at {lineHintsByItem.get(it.id)!.cheaperSupplierName} — save{' '}
-                                    <span className="font-mono font-semibold">{formatLKR(lineHintsByItem.get(it.id)!.savingCents)}</span>{' '}
-                                    on this line.
-                                  </span>
+                              {hint && (
+                                <LineNotice tone="mint" icon={<SparklesIcon size={12} />}>
+                                  Cheaper at {hint.cheaperSupplierName} — save{' '}
+                                  <span className="font-mono font-semibold">{formatLKR(hint.savingCents)}</span>.
                                   <Link
                                     to={`/search?q=${encodeURIComponent(it.product.name)}`}
                                     className="font-semibold underline ml-1 hover:text-ink"
                                   >
                                     Compare
                                   </Link>
-                                </div>
+                                </LineNotice>
                               )}
 
                               {/* Stock warnings (server-validated) */}
-                              {it.issues?.map((issue, idx) => (
-                                <div
-                                  key={idx}
-                                  className="flex items-center gap-2 rounded-lg text-xs text-rose bg-rose/5 border border-rose/30 px-3 py-1.5 mt-1.5"
-                                >
-                                  <AlertCircleIcon size={13} />
-                                  <span>{issue.message}</span>
+                              {it.issues?.map((issue, i) => (
+                                <LineNotice key={i} tone="rose">
+                                  {issue.message}
                                   {issue.code === 'BELOW_MOQ' && (
                                     <button
                                       type="button"
                                       onClick={() => handleSetExact(it.id, it.offer.minOrderQty)}
                                       className="font-semibold underline ml-1 hover:text-ink"
                                     >
-                                      Set to MOQ ({it.offer.minOrderQty})
+                                      Set to MOQ
                                     </button>
                                   )}
-                                </div>
+                                </LineNotice>
                               ))}
                             </div>
-                          </div>
 
-                          {/* Controls & Financials */}
-                          <div className="flex items-center justify-between sm:justify-end gap-5 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-line">
-                            {/* Industrial Stepper */}
-                            <div className="flex flex-col items-center gap-1">
-                              <div className="flex items-center rounded-full border border-line bg-paper shadow-inner overflow-hidden">
-                                <button
-                                  type="button"
-                                  onClick={() => handleStep(it.id, it.quantity, -1, it.offer.minOrderQty)}
-                                  disabled={it.quantity <= it.offer.minOrderQty || isLineUpdating}
-                                  className="w-8 h-8 flex items-center justify-center text-ink hover:bg-bone disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                  title="Decrease quantity"
-                                >
-                                  <MinusIcon size={13} />
-                                </button>
-                                <input
-                                  type="number"
-                                  min={it.offer.minOrderQty}
-                                  value={draft}
-                                  onChange={(e) => setPendingQty((p) => ({ ...p, [it.id]: e.target.value }))}
-                                  onBlur={(e) => {
-                                    const val = Number(e.target.value);
-                                    if (Number.isFinite(val) && val !== it.quantity) {
-                                      handleSetExact(it.id, Math.max(1, val));
-                                    }
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      const val = Number((e.target as HTMLInputElement).value);
-                                      if (Number.isFinite(val)) handleSetExact(it.id, Math.max(1, val));
-                                    }
-                                  }}
-                                  className="w-14 h-8 text-center font-mono font-semibold text-xs border-x border-line bg-transparent focus:outline-none"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleStep(it.id, it.quantity, 1, it.offer.minOrderQty)}
-                                  disabled={isLineUpdating}
-                                  className="w-8 h-8 flex items-center justify-center text-ink hover:bg-bone transition-colors"
-                                  title="Increase quantity"
-                                >
-                                  <PlusIcon size={13} />
-                                </button>
+                            {/* Controls & Financials */}
+                            <div className="col-span-2 md:col-span-1 flex items-start justify-between md:justify-end gap-6 pt-4 md:pt-0 border-t md:border-t-0 border-line">
+                              <div className="flex flex-col items-start md:items-end gap-1.5">
+                                <div className="flex items-center h-10 rounded-xl border border-line bg-paper overflow-hidden focus-within:border-ink transition-colors">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStep(it.id, it.quantity, -1, it.offer.minOrderQty)}
+                                    disabled={it.quantity <= it.offer.minOrderQty || isLineUpdating}
+                                    className="size-10 flex items-center justify-center text-ink hover:bg-bone disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                    aria-label="Decrease quantity"
+                                  >
+                                    <MinusIcon size={14} />
+                                  </button>
+                                  <input
+                                    type="number"
+                                    min={it.offer.minOrderQty}
+                                    value={draft}
+                                    aria-label={`Quantity of ${it.product.name}`}
+                                    onChange={(e) => setPendingQty((p) => ({ ...p, [it.id]: e.target.value }))}
+                                    onBlur={(e) => {
+                                      const val = Number(e.target.value);
+                                      if (Number.isFinite(val) && val !== it.quantity) {
+                                        handleSetExact(it.id, Math.max(1, val));
+                                      }
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        const val = Number((e.target as HTMLInputElement).value);
+                                        if (Number.isFinite(val)) handleSetExact(it.id, Math.max(1, val));
+                                      }
+                                    }}
+                                    className="w-14 h-full text-center font-mono font-semibold text-sm bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStep(it.id, it.quantity, 1, it.offer.minOrderQty)}
+                                    disabled={isLineUpdating}
+                                    className="size-10 flex items-center justify-center text-ink hover:bg-bone disabled:opacity-30 transition-colors cursor-pointer"
+                                    aria-label="Increase quantity"
+                                  >
+                                    <PlusIcon size={14} />
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  {[
+                                    { label: 'MOQ', onClick: () => handleSetExact(it.id, it.offer.minOrderQty) },
+                                    { label: '+10', onClick: () => handleStep(it.id, it.quantity, 10, it.offer.minOrderQty) },
+                                    { label: '+25', onClick: () => handleStep(it.id, it.quantity, 25, it.offer.minOrderQty) },
+                                  ].map((p) => (
+                                    <button
+                                      key={p.label}
+                                      type="button"
+                                      onClick={p.onClick}
+                                      disabled={isLineUpdating}
+                                      className="h-6 px-2 rounded-md font-mono text-[10px] text-ink-4 hover:text-ink hover:bg-bone transition-colors cursor-pointer disabled:opacity-40"
+                                    >
+                                      {p.label}
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
 
-                              {/* Presets */}
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => handleSetExact(it.id, it.offer.minOrderQty)}
-                                  className="text-[10px] text-ink-4 hover:text-ink font-mono px-2 py-0.5 rounded-full border border-line bg-bone"
-                                >
-                                  MOQ
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleStep(it.id, it.quantity, 10, it.offer.minOrderQty)}
-                                  className="text-[10px] text-ink-4 hover:text-ink font-mono px-2 py-0.5 rounded-full border border-line bg-bone"
-                                >
-                                  +10
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleStep(it.id, it.quantity, 25, it.offer.minOrderQty)}
-                                  className="text-[10px] text-ink-4 hover:text-ink font-mono px-2 py-0.5 rounded-full border border-line bg-bone"
-                                >
-                                  +25
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Line Total */}
-                            <div className="text-right min-w-[100px]">
-                              {it.discountCents > 0 ? (
-                                <div>
-                                  <div className="vyro-metric text-base text-ink font-semibold">
+                              <div className="flex items-start gap-2">
+                                <div className="text-right min-w-[112px]">
+                                  <div className="vyro-metric text-lg text-ink font-semibold whitespace-nowrap leading-10">
                                     {formatLKR(it.lineTotalCents)}
                                   </div>
-                                  <div className="text-[11px] text-mint font-medium">
-                                    You save {formatLKR(it.discountCents)}
-                                    {it.bestTier ? ` (${it.bestTier.discountPct}%)` : ''}
-                                  </div>
-                                  <div className="text-[11px] text-ink-4 line-through">
-                                    {formatLKR(grossLineTotal)}
-                                  </div>
+                                  {it.discountCents > 0 ? (
+                                    <div className="text-[11px] leading-tight">
+                                      <span className="text-ink-4 line-through mr-1.5">{formatLKR(grossLineTotal)}</span>
+                                      <span className="text-mint font-medium">−{formatLKR(it.discountCents)}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="text-[11px] text-ink-4 font-mono">
+                                      {it.quantity} × {unit}
+                                    </div>
+                                  )}
                                 </div>
-                              ) : (
-                                <div className="vyro-metric text-base text-ink font-semibold">
-                                  {formatLKR(it.lineTotalCents)}
-                                </div>
-                              )}
-                              <div className="text-[10px] text-ink-4 font-mono">
-                                {it.quantity} {it.product.unit || 'units'}
+                                <button
+                                  type="button"
+                                  onClick={() => remove(it.id)}
+                                  disabled={deletingId === it.id}
+                                  className="size-10 rounded-xl flex items-center justify-center text-ink-4 hover:text-rose hover:bg-rose/10 transition-colors disabled:opacity-40 cursor-pointer"
+                                  aria-label={`Remove ${it.product.name}`}
+                                >
+                                  <Trash2Icon size={15} />
+                                </button>
                               </div>
                             </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
 
-                            {/* Remove Line Item */}
-                            <button
-                              type="button"
-                              onClick={() => remove(it.id)}
-                              disabled={deletingId === it.id}
-                              className="text-ink-4 hover:text-rose p-2 transition-colors disabled:opacity-40"
-                              title="Remove item"
-                            >
-                              <Trash2Icon size={15} />
-                            </button>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-
-                  {/* Supplier Footer Notice */}
-                  {supplierDiscount > 0 && (
-                    <div className="px-5 py-2.5 bg-mint/5 border-t border-mint/20 flex items-center justify-between text-xs text-mint">
-                      <span className="inline-flex items-center gap-1.5 font-medium">
-                        <CheckCircleIcon size={13} /> Direct wholesale volume discount applied
+                    {/* Supplier footer */}
+                    <div className="px-6 py-3 bg-bone/50 border-t border-line flex flex-wrap items-center justify-between gap-2 text-[11px] text-ink-4">
+                      <span className="font-mono">
+                        {lines.length} line{lines.length === 1 ? '' : 's'} · {supplierUnits} units
                       </span>
-                      <span className="font-mono font-semibold">−{formatLKR(supplierDiscount)}</span>
+                      {supplierDiscount > 0 ? (
+                        <span className="inline-flex items-center gap-1.5 font-medium text-mint">
+                          <CheckCircleIcon size={12} /> Volume discount applied
+                          <span className="font-mono font-semibold">−{formatLKR(supplierDiscount)}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5">
+                          <FileTextIcon size={12} /> Issued as a separate PO
+                        </span>
+                      )}
                     </div>
-                  )}
-                </Surface>
+                  </Surface>
                 </div>
               );
             })}
           </div>
 
-          {/* Right Column: Order Totals & Checkout Summary */}
-          <div className="space-y-4 lg:sticky lg:top-8">
-            <Surface kind="floating" className="p-6 border border-line space-y-5 bg-paper">
-              <div>
-                <div className="vyro-kicker">Order Summary</div>
-                <h2 className="font-display text-2xl text-ink font-semibold tracking-tight mt-1">
-                  Procurement Totals
-                </h2>
+          {/* Right Column: Order Summary */}
+          <div className="space-y-4 lg:sticky lg:top-24">
+            <Surface kind="floating" className="p-0 overflow-hidden">
+              {/* Total hero */}
+              <div className="relative bg-ink text-paper p-6 overflow-hidden">
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-volt/10 blur-2xl"
+                />
+                <div className="relative">
+                  <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-volt font-semibold">
+                    Order summary
+                  </div>
+                  <div className="mt-4 text-xs text-paper/60">Total PO commitment</div>
+                  <div className="mt-1 vyro-metric text-[2rem] leading-none font-bold whitespace-nowrap">
+                    {formatLKR(total)}
+                  </div>
+                  <div className="mt-2 text-[11px] text-paper/50">
+                    Across {poLabel} · LKR wholesale rates locked
+                  </div>
+
+                  <dl className="mt-6 grid grid-cols-3 rounded-xl bg-paper/[0.06] border border-paper/10 divide-x divide-paper/10">
+                    {[
+                      { k: 'Vendors', v: supplierCount },
+                      { k: 'Lines', v: itemCount },
+                      { k: 'Units', v: totalUnits },
+                    ].map((s) => (
+                      <div key={s.k} className="px-3 py-2.5 text-center">
+                        <dt className="text-[9px] font-mono uppercase tracking-[0.14em] text-paper/50">{s.k}</dt>
+                        <dd className="mt-0.5 font-mono text-base font-bold">{s.v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
               </div>
 
-              {/* Multi-Supplier Splitting Notice */}
-              <div className="p-3 rounded-xl bg-bone border border-line text-xs space-y-1">
-                <div className="flex items-center gap-1.5 font-semibold text-ink">
-                  <FileTextIcon size={13} className="text-copper" />
-                  <span>Automated PO Splitting</span>
-                </div>
-                <p className="text-ink-4 leading-normal text-[11px]">
-                  Checkout splits this cart into <strong className="text-ink">{supplierCount} binding Purchase Order{supplierCount === 1 ? '' : 's'}</strong> with direct vendor dispatch.
-                </p>
-              </div>
+              <div className="p-6 space-y-5">
+                {/* Financial Breakdown */}
+                <dl className="space-y-3 text-xs">
+                  <div className="flex items-center justify-between">
+                    <dt className="text-ink-3">Subtotal</dt>
+                    <dd className="font-mono text-sm text-ink">{formatLKR(subtotal)}</dd>
+                  </div>
+                  {discountTotal > 0 && (
+                    <div className="flex items-center justify-between text-mint">
+                      <dt className="inline-flex items-center gap-1 font-medium">
+                        <SparklesIcon size={11} /> Volume discounts
+                      </dt>
+                      <dd className="font-mono text-sm font-semibold">−{formatLKR(discountTotal)}</dd>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <dt className="text-ink-3">Delivery</dt>
+                    <dd className="text-[11px] font-semibold text-mint uppercase tracking-wider">Included</dd>
+                  </div>
+                  <div className="pt-3 border-t border-dashed border-line flex items-center justify-between">
+                    <dt className="font-semibold text-ink">Total</dt>
+                    <dd className="font-mono text-base font-bold text-ink whitespace-nowrap">{formatLKR(total)}</dd>
+                  </div>
+                </dl>
 
-              {/* Order Scope Metrics */}
-              <div className="grid grid-cols-3 gap-2 py-3 border-y border-line text-center">
-                <div className="border-r border-line last:border-0 pr-1">
-                  <div className="text-[10px] uppercase tracking-wider text-ink-4 font-mono">Vendors</div>
-                  <div className="font-mono text-xl font-bold text-ink mt-0.5">{supplierCount}</div>
-                </div>
-                <div className="border-r border-line last:border-0 px-1">
-                  <div className="text-[10px] uppercase tracking-wider text-ink-4 font-mono">Lines</div>
-                  <div className="font-mono text-xl font-bold text-ink mt-0.5">{itemCount}</div>
-                </div>
-                <div className="pl-1">
-                  <div className="text-[10px] uppercase tracking-wider text-ink-4 font-mono">Units</div>
-                  <div className="font-mono text-xl font-bold text-ink mt-0.5">{totalUnits}</div>
-                </div>
-              </div>
-
-              {/* Financial Breakdown */}
-              <div className="space-y-2.5 text-xs text-ink-3">
-                <div className="flex items-center justify-between">
-                  <span>Gross Subtotal</span>
-                  <span className="font-mono text-sm text-ink">{formatLKR(subtotal)}</span>
-                </div>
-
-                {discountTotal > 0 && (
-                  <div className="flex items-center justify-between text-mint font-medium">
-                    <span className="inline-flex items-center gap-1">
-                      <SparklesIcon size={11} /> Volume Discounts
-                    </span>
-                    <span className="font-mono text-sm font-semibold">−{formatLKR(discountTotal)}</span>
+                {/* Error / Warning if blocked */}
+                {hasBlockingIssues && (
+                  <div className="flex gap-2.5 p-3 rounded-xl bg-rose/5 border border-rose/25 text-rose">
+                    <AlertCircleIcon size={14} className="shrink-0 mt-0.5" />
+                    <div className="text-[11px] leading-relaxed">
+                      <div className="font-semibold">Fix {belowMoq.length > 0 ? 'minimum order' : 'stock'} issues to continue</div>
+                      {belowMoq.length > 0 && (
+                        <p className="text-rose/80">
+                          {belowMoq.length} line{belowMoq.length === 1 ? ' is' : 's are'} below the supplier minimum.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
 
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1">
-                    <TruckIcon size={12} className="text-ink-4" /> Island-Wide Delivery
-                  </span>
-                  <span className="font-mono text-[11px] text-ink-4">Included / Mill Dock</span>
-                </div>
-
-                <div className="pt-3 border-t border-line flex items-baseline justify-between">
-                  <div>
-                    <span className="text-[11px] uppercase tracking-[0.14em] text-ink font-semibold block">Total PO Commitment</span>
-                    <span className="text-[10px] text-ink-4">LKR wholesale rates lock</span>
-                  </div>
-                  <div className="text-right">
-                    <MetricNumber size="md" className="text-ink font-bold">
-                      {formatLKR(total)}
-                    </MetricNumber>
-                  </div>
-                </div>
-              </div>
-
-              {/* Error / Warning if below MOQ */}
-              {belowMoq.length > 0 && (
-                <div className="p-3 rounded-xl bg-rose/5 border border-rose/30 text-xs text-rose space-y-1">
-                  <div className="font-semibold flex items-center gap-1">
-                    <AlertCircleIcon size={13} /> Minimum Order Constraint
-                  </div>
-                  <p className="text-[11px] leading-normal">
-                    {belowMoq.length} line item{belowMoq.length === 1 ? '' : 's'} does not meet the supplier minimum order threshold. Please adjust before issuing POs.
+                {/* Checkout CTA */}
+                <div className="space-y-2.5">
+                  <Button
+                    size="lg"
+                    className="w-full justify-center"
+                    disabled={hasBlockingIssues}
+                    onClick={() => navigate('/checkout')}
+                  >
+                    Generate {poLabel} & checkout
+                  </Button>
+                  <p className="text-center text-[11px] text-ink-4">
+                    Payment is held in escrow until you confirm delivery.
                   </p>
                 </div>
-              )}
 
-              {/* Checkout CTA */}
-              <div className="pt-2">
-                <Button
-                  size="lg"
-                  className="w-full justify-center"
-                  disabled={belowMoq.length > 0 || items.some((it) => (it.issues?.length ?? 0) > 0)}
-                  onClick={() => navigate('/checkout')}
-                  icon={<ArrowRightIcon size={16} />}
-                >
-                  Generate {supplierCount} PO{supplierCount === 1 ? '' : 's'} & Checkout
-                </Button>
-                <div className="mt-3">
-                  <BulkQuoteCta totalCents={total} quantity={totalUnits} />
-                </div>
-              </div>
+                <BulkQuoteRow totalCents={total} quantity={totalUnits} />
 
-              {/* Procurement Guarantees */}
-              <div className="pt-3 border-t border-line space-y-2 text-[11px] text-ink-4">
-                <div className="flex items-center gap-2">
-                  <ShieldCheckIcon size={13} className="text-mint shrink-0" />
-                  <span>Direct Mill Gate Price-Lock Guarantee</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <FileTextIcon size={13} className="text-copper shrink-0" />
-                  <span>Automated Tax-Compliant PO Documentation</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <TruckIcon size={13} className="text-ink-3 shrink-0" />
-                  <span>Consolidated Island-Wide Dispatch Tracking</span>
-                </div>
+                {/* Procurement Guarantees */}
+                <ul className="pt-4 border-t border-line space-y-2.5 text-[11px] text-ink-3">
+                  {[
+                    { icon: <ShieldCheckIcon size={12} />, text: 'Mill-gate price lock on every line' },
+                    { icon: <FileTextIcon size={12} />, text: 'Tax-compliant PO documentation' },
+                    { icon: <TruckIcon size={12} />, text: 'Island-wide dispatch tracking' },
+                  ].map((g) => (
+                    <li key={g.text} className="flex items-center gap-2.5">
+                      <span className="size-6 rounded-lg bg-mint/10 text-mint flex items-center justify-center shrink-0">
+                        {g.icon}
+                      </span>
+                      {g.text}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </Surface>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function CheckoutSteps({ steps }: { steps: Array<{ label: string; sub: string }> }) {
+  return (
+    <ol className="vyro-surface rounded-xl px-5 py-4 grid grid-cols-3 gap-3">
+      {steps.map((s, i) => {
+        const active = i === 0;
+        return (
+          <li key={s.label} className="flex items-center gap-3 min-w-0">
+            <span
+              className={cn(
+                'size-8 shrink-0 rounded-full flex items-center justify-center font-mono text-xs font-bold',
+                active ? 'bg-ink text-volt shadow-sm' : 'border border-line text-ink-4',
+              )}
+            >
+              {active ? <CheckIcon size={13} /> : i + 1}
+            </span>
+            <div className="min-w-0">
+              <div className={cn('text-xs font-semibold truncate', active ? 'text-ink' : 'text-ink-3')}>{s.label}</div>
+              <div className="text-[10px] text-ink-4 truncate hidden sm:block">{s.sub}</div>
+            </div>
+            {i < steps.length - 1 && <span className="hidden md:block h-px flex-1 min-w-4 bg-line" />}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function LineNotice({
+  tone,
+  icon,
+  children,
+}: {
+  tone: 'rose' | 'mint';
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex items-start gap-2 rounded-lg px-3 py-2 text-xs',
+        tone === 'rose' ? 'text-rose bg-rose/5' : 'text-mint bg-mint/5',
+      )}
+    >
+      <span className="shrink-0 mt-px">{icon ?? <AlertCircleIcon size={12} />}</span>
+      <span className="leading-relaxed">{children}</span>
+    </div>
+  );
+}
+
+function BulkQuoteRow({ totalCents, quantity }: { totalCents: number; quantity: number }) {
+  const { data } = useRfqQualify(totalCents, quantity);
+  return (
+    <a
+      href="/rfqs/new?fromCart=1"
+      className={cn(
+        'group flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors',
+        data?.qualifies ? 'border-copper/30 bg-copper/5 hover:border-copper/60' : 'border-line hover:border-ink/30',
+      )}
+    >
+      <span className="size-9 shrink-0 rounded-lg bg-copper/10 text-copper flex items-center justify-center">
+        <LayersIcon size={15} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-semibold text-ink">
+          {data?.qualifies ? 'Eligible for a bulk quote' : 'Request a bulk quote'}
+        </span>
+        <span className="block text-[11px] text-ink-4 leading-snug">
+          {data?.qualifies ? 'Negotiate below catalog price with suppliers.' : 'Get custom pricing for large quantities.'}
+        </span>
+      </span>
+      <ChevronRightIcon size={14} className="text-ink-4 group-hover:text-ink group-hover:translate-x-0.5 transition-all" />
+    </a>
   );
 }
