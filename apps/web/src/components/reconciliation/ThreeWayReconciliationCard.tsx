@@ -1,9 +1,16 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
 import { useToast } from '@vyro/ui';
 import type { ThreeWayReconciliationResult } from '@vyro/ai';
+
+/** Persisted auto-reconciliation loaded by the parent (GET /documents/by-po/:id/auto-reconciliation). */
+export interface AutoReconciliation {
+  status: string;
+  payload: ThreeWayReconciliationResult | null;
+}
 
 interface ThreeWayReconciliationCardProps {
   orderId: string;
@@ -11,6 +18,7 @@ interface ThreeWayReconciliationCardProps {
   poTotalCents: number;
   orderStatus: string;
   onReleasePayment?: () => void;
+  autoReconciliation?: AutoReconciliation | null;
 }
 
 export function ThreeWayReconciliationCard({
@@ -19,13 +27,22 @@ export function ThreeWayReconciliationCard({
   poTotalCents,
   orderStatus,
   onReleasePayment,
+  autoReconciliation,
 }: ThreeWayReconciliationCardProps) {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [claimLoading, setClaimLoading] = useState(false);
-  const [result, setResult] = useState<ThreeWayReconciliationResult | null>(null);
+  const [manualResult, setManualResult] = useState<ThreeWayReconciliationResult | null>(null);
   const [showClaimDrawer, setShowClaimDrawer] = useState(false);
   const [claimMessage, setClaimMessage] = useState('');
+
+  // Auto result hydrates the card; a manual audit always overrides it.
+  const autoResult =
+    autoReconciliation && (autoReconciliation.status === 'passed' || autoReconciliation.status === 'discrepancy')
+      ? autoReconciliation.payload ?? null
+      : null;
+  const result = manualResult ?? autoResult;
+  const autoChecked = autoResult !== null && manualResult === null;
 
   async function handleRunAudit() {
     setLoading(true);
@@ -47,7 +64,7 @@ export function ThreeWayReconciliationCard({
           },
         },
       );
-      setResult(res.reconciliation);
+      setManualResult(res.reconciliation);
       if (res.reconciliation.draftClaimNote) {
         setClaimMessage(res.reconciliation.draftClaimNote);
       }
@@ -85,23 +102,45 @@ export function ThreeWayReconciliationCard({
             🧾
           </span>
           <div>
-            <h3 className="font-semibold text-ink">3-Way PO & Invoice Reconciliation</h3>
+            <h3 className="font-semibold text-ink">
+              3-Way PO &amp; Invoice Reconciliation
+              {autoChecked && (
+                <span className="ml-2 text-[10px] uppercase tracking-wide text-emerald-600">
+                  Checked automatically
+                </span>
+              )}
+            </h3>
             <p className="text-xs text-ink-3">
               Cross-checks PO authorized rates, loading dock delivery, and vendor invoice lines.
             </p>
           </div>
         </div>
 
-        <Button
-          onClick={handleRunAudit}
-          loading={loading}
-          disabled={loading}
-          size="sm"
-          className="bg-ink text-paper hover:bg-ink/90 font-medium"
-        >
-          {loading ? 'Auditing 3-Way Records…' : 'Run 3-Way Audit'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link
+            to={`/invoices/upload?poId=${orderId}`}
+            className="text-xs text-ink-3 underline hover:text-ink"
+          >
+            Upload supplier invoice
+          </Link>
+          <Button
+            onClick={handleRunAudit}
+            loading={loading}
+            disabled={loading}
+            size="sm"
+            className="bg-ink text-paper hover:bg-ink/90 font-medium"
+          >
+            {loading ? 'Auditing 3-Way Records…' : 'Run 3-Way Audit'}
+          </Button>
+        </div>
       </div>
+
+      {!result && (
+        <p className="mt-3 text-xs text-ink-3">
+          No supplier invoice checked for this order yet. Upload one to have it
+          reconciled against the PO automatically.
+        </p>
+      )}
 
       {result && (
         <div className="mt-4 space-y-4">

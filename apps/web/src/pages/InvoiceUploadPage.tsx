@@ -1,5 +1,5 @@
 import { useState, useCallback, type DragEvent, type ChangeEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiBase, ApiError } from '@/lib/api';
 import { Button, PageHeader } from '@/components/ui';
 import { UploadCloudIcon, FileTextIcon, AlertCircleIcon, CheckCircleIcon } from '@/components/icons';
@@ -14,6 +14,8 @@ interface UploadResponse {
 
 export function InvoiceUploadPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const poId = params.get('poId');
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,7 @@ export function InvoiceUploadPage() {
     try {
       const form = new FormData();
       form.append('file', file);
+      if (poId) form.append('purchaseOrderId', poId);
       const res = await fetch(apiBase + '/documents/upload-direct', {
         method: 'POST',
         credentials: 'include',
@@ -45,7 +48,7 @@ export function InvoiceUploadPage() {
     } finally {
       setBusy(false);
     }
-  }, [navigate]);
+  }, [navigate, poId]);
 
   const onDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -67,6 +70,11 @@ export function InvoiceUploadPage() {
         title="Upload a supplier invoice"
         sub="OCR is automatic. You'll review every line before it counts toward your analytics."
       />
+      {poId && (
+        <p className="text-xs text-ink-3 text-center">
+          Uploaded against PO {poId.slice(0, 12)}… — the reconciliation result will appear on the order page.
+        </p>
+      )}
       <div
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}

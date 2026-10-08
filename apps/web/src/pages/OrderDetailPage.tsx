@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ThreeWayReconciliationResult } from '@vyro/ai';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { api, ApiError, apiBase } from '@/lib/api';
 import {
@@ -209,6 +210,17 @@ export function OrderDetailPage() {
   const { data: invoicesData } = useQuery({
     queryKey: ['po-invoices', id],
     queryFn: () => api.get<{ invoices: PoInvoice[] }>(`/invoices?poId=${id}`),
+    enabled: !!id,
+    retry: false,
+  });
+
+  // Doc-intel v2 phase A: persisted auto-reconciliation for the card.
+  const { data: autoRecon } = useQuery({
+    queryKey: ['po-auto-recon', id],
+    queryFn: () =>
+      api.get<{ status: string; payload: ThreeWayReconciliationResult | null }>(
+        `/documents/by-po/${id}/auto-reconciliation`,
+      ),
     enabled: !!id,
     retry: false,
   });
@@ -606,6 +618,7 @@ export function OrderDetailPage() {
               poNumber={order.poNumber}
               poTotalCents={order.totalCents}
               orderStatus={order.status}
+              autoReconciliation={autoRecon ?? null}
               onReleasePayment={() => {
                 void confirmReceipt();
               }}
