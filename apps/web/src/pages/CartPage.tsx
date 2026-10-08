@@ -211,9 +211,7 @@ export function CartPage() {
     if (!window.confirm('Are you sure you want to remove all items from your cart?')) return;
     setClearing(true);
     try {
-      for (const item of data.items) {
-        await api.del(`/cart/items/${item.id}`);
-      }
+      await api.del(`/cart?businessId=${businessId}`);
       await qc.invalidateQueries({ queryKey: ['cart'] });
       toast.success('Cart cleared');
     } catch (e) {

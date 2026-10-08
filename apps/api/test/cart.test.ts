@@ -30,7 +30,11 @@ vi.mock('../src/modules/cart/repository', () => ({
     const i = itemsStore.findIndex((x) => x.id === itemId);
     if (i !== -1) itemsStore.splice(i, 1);
   }),
-  clearCart: vi.fn(async () => {}),
+  clearCart: vi.fn(async (_d1, cartId) => {
+    for (let i = itemsStore.length - 1; i >= 0; i--) {
+      if (itemsStore[i].cartId === cartId) itemsStore.splice(i, 1);
+    }
+  }),
   findOpenCartByBusiness: vi.fn(async () => null),
   createOpenCart: vi.fn(async () => 'cart-x'),
 }));
@@ -123,5 +127,38 @@ describe('cart module', () => {
       { DB: D1_STUB, ENVIRONMENT: 'test' } as any,
     );
     expect(res.status).toBe(400);
+  });
+});
+
+describe('DELETE /api/cart', () => {
+  it('clears every item for the business and returns ok', async () => {
+    sessionCtx = { userId: 'u1', isAdmin: false, adminRole: null, businesses: [{ businessId: 'biz-1', role: 'owner' }], suppliers: [] };
+    const { ensureOpenCart } = await import('../src/modules/cart/repository');
+    const cart = await ensureOpenCart(D1_STUB, 'biz-1');
+    itemsStore.push({ id: 'ci-1', cartId: cart.id, supplierProductId: 'sp-1', quantity: 2 });
+    itemsStore.push({ id: 'ci-2', cartId: cart.id, supplierProductId: 'sp-2', quantity: 1 });
+
+    const res = await app.request('/api/cart?businessId=biz-1', { method: 'DELETE' }, { DB: D1_STUB, ENVIRONMENT: 'test' } as any);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(itemsStore.length).toBe(0);
+  });
+
+  it('is 400 without businessId', async () => {
+    sessionCtx = { userId: 'u1', isAdmin: false, adminRole: null, businesses: [{ businessId: 'biz-1', role: 'owner' }], suppliers: [] };
+    const res = await app.request('/api/cart', { method: 'DELETE' }, { DB: D1_STUB, ENVIRONMENT: 'test' } as any);
+    expect(res.status).toBe(400);
+  });
+
+  it('is 403 for a role that cannot manage the cart', async () => {
+    sessionCtx = { userId: 'u2', isAdmin: false, adminRole: null, businesses: [{ businessId: 'biz-1', role: 'accountant' }], suppliers: [] };
+    const res = await app.request('/api/cart?businessId=biz-1', { method: 'DELETE' }, { DB: D1_STUB, ENVIRONMENT: 'test' } as any);
+    expect(res.status).toBe(403);
+  });
+
+  it('is 401 without a session', async () => {
+    const res = await app.request('/api/cart?businessId=biz-1', { method: 'DELETE' }, { DB: D1_STUB, ENVIRONMENT: 'test' } as any);
+    expect(res.status).toBe(401);
   });
 });

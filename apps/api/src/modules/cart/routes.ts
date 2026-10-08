@@ -230,8 +230,19 @@ router.delete('/items/:itemId', session(), async (c) => {
   return c.json({ ok: true });
 });
 
+router.delete('/', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const businessId = c.req.query('businessId');
+  if (!businessId) throw httpError(400, 'VALIDATION_ERROR', 'businessId required');
+  requireBusinessRole(ctx, businessId, CART_ROLES);
+
+  const cart = await ensureOpenCart(c.env.DB, businessId);
+  await clearCart(c.env.DB, cart.id);
+  return c.json({ ok: true });
+});
+
 void requireRole;
 void findCartItem;
-void clearCart;
 
 export default router;
