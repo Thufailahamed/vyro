@@ -16,6 +16,7 @@ import {
   RefreshCwIcon,
   PlusIcon,
   ExternalLinkIcon,
+  UploadCloudIcon,
   LayersIcon,
   TruckIcon,
 } from '@/components/icons';
@@ -189,6 +190,13 @@ export function SupplierProductsPage() {
               >
                 <ExternalLinkIcon size={13} />
                 <span className="hidden sm:inline">Marketplace</span>
+              </Link>
+              <Link
+                to="/supplier/products/ai-upload"
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-paper/15 bg-paper/5 px-3.5 text-[13px] font-semibold text-paper/80 transition-colors hover:bg-paper/10 hover:text-paper"
+              >
+                <UploadCloudIcon size={14} />
+                <span className="hidden sm:inline">Import with AI</span>
               </Link>
               <Link
                 to="/supplier/products/new"

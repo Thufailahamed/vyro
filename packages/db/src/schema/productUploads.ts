@@ -1,5 +1,4 @@
 import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
-import { businesses } from './businesses';
 import { users } from './users';
 import { suppliers } from './suppliers';
 import { products } from './products';
@@ -10,7 +9,6 @@ export const productUploadSessions = sqliteTable(
   'product_upload_sessions',
   {
     id: text('id').primaryKey(),
-    businessId: text('business_id').notNull().references(() => businesses.id),
     supplierId: text('supplier_id').notNull().references(() => suppliers.id),
     userId: text('user_id').notNull().references(() => users.id),
     status: text('status', {

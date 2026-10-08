@@ -148,9 +148,11 @@ function pick(rec: Record<string, string>, names: string[] | undefined): string 
 function normalizeRow(rec: Record<string, string>, rowIndex: number): CandidateRow {
   const productName = pick(rec, KEY_ALIASES.productName).trim().slice(0, 200);
   const price = num(pick(rec, KEY_ALIASES.priceLkr));
-  const filled = Object.values(rec).filter((v) => v && v.trim().length > 0).length;
-  const base = Math.min(95, 40 + filled * 8);
-  const confidence = Math.max(0, Math.min(100, price !== undefined ? base : base - 20));
+  const extras = Object.values(rec).filter((v) => v && v.trim().length > 0).length;
+  // Start confident when the two essentials (name + price) are present, grow
+  // with every additional filled cell; missing price is the real red flag.
+  const base = productName && price !== undefined ? Math.min(95, 70 + Math.max(0, extras - 2) * 8) : 40;
+  const confidence = Math.max(0, Math.min(100, base));
   const roundInt = (names: string[] | undefined) => {
     const n = num(pick(rec, names));
     return n === undefined ? undefined : Math.round(n);

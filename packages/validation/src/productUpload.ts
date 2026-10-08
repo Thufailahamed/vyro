@@ -7,7 +7,6 @@ import { z } from 'zod';
 export const productUploadCreateSchema = z
   .object({
     supplierId: z.string().min(1),
-    businessId: z.string().min(1),
     filename: z.string().min(1).max(120),
     contentType: z.enum([
       'text/csv',

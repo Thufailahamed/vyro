@@ -71,7 +71,7 @@ beforeAll(async () => {
   const bt = newId();
   await db.insert(schema.businessTypes).values({ id: bt, slug: 'restaurant', name: 'Restaurant', active: true });
   const biz = newId();
-  await db.insert(schema.businesses).values({ id: biz, businessId: biz, name: 'B', businessTypeId: bt, contactPerson: 'B', phone: '077', email: 'b@t', address: '1', city: 'C', district: 'C', description: null, status: 'active', createdAt: now, updatedAt: now, deletedAt: null } as any);
+  await db.insert(schema.businesses).values({ id: biz,  name: 'B', businessTypeId: bt, contactPerson: 'B', phone: '077', email: 'b@t', address: '1', city: 'C', district: 'C', description: null, status: 'active', createdAt: now, updatedAt: now, deletedAt: null } as any);
   const sup = newId();
   await db.insert(schema.suppliers).values({ id: sup, name: 'S', businessTypeId: bt, contactPerson: 'S', phone: '077', email: 'su@t', address: '2', city: 'C', district: 'C', description: null, status: 'active', createdAt: now, updatedAt: now, deletedAt: null });
   await db.insert(schema.supplierMembers).values({ id: newId(), supplierId: sup, userId: 'u-sup', role: 'owner', status: 'active', createdAt: now, updatedAt: now });
@@ -92,7 +92,7 @@ async function seedExtractedSession(rows: Array<Record<string, unknown>>): Promi
   const now = Date.now();
   const sid = newId();
   await db.insert(schema.productUploadSessions).values({
-    id: sid, businessId: seeded.biz, supplierId: seeded.sup, userId: seeded.userId,
+    id: sid, supplierId: seeded.sup, userId: seeded.userId,
     status: 'extracted', sourceKind: 'csv', r2Key: `product-uploads/${seeded.biz}/${sid}.csv`,
     originalFilename: 'l.csv', mimeType: 'text/csv', sizeBytes: 100,
     errorMessage: null, createdAt: now, updatedAt: now, committedAt: null,

@@ -88,11 +88,11 @@ beforeAll(async () => {
   const bt = newId();
   await db.insert(schema.businessTypes).values({ id: bt, slug: 'restaurant', name: 'Restaurant', active: true });
   const biz = newId();
-  await db.insert(schema.businesses).values({ id: biz, businessId: biz, name: 'B', businessTypeId: bt, contactPerson: 'B', phone: '077', email: 'b@t', address: '1', city: 'C', district: 'C', description: null, status: 'active', createdAt: now, updatedAt: now, deletedAt: null } as any);
+  await db.insert(schema.businesses).values({ id: biz,  name: 'B', businessTypeId: bt, contactPerson: 'B', phone: '077', email: 'b@t', address: '1', city: 'C', district: 'C', description: null, status: 'active', createdAt: now, updatedAt: now, deletedAt: null } as any);
   const sup = newId();
   await db.insert(schema.suppliers).values({ id: sup, name: 'S', businessTypeId: bt, contactPerson: 'S', phone: '077', email: 'su@t', address: '2', city: 'C', district: 'C', description: null, status: 'active', createdAt: now, updatedAt: now, deletedAt: null });
   await db.insert(schema.supplierMembers).values({ id: newId(), supplierId: sup, userId: 'u-sup', role: 'owner', status: 'active', createdAt: now, updatedAt: now });
-  ids.biz = biz;
+  ids.sup2 = biz; // unused
   ids.sup = sup;
 
   const cat = newId();
@@ -107,7 +107,6 @@ describe('POST /api/ai/product-uploads', () => {
     sessionCtx = supplierCtx();
     const res = await post('/api/ai/product-uploads', {
       supplierId: ids.sup,
-      businessId: ids.biz,
       filename: 'my prices.csv',
       contentType: 'text/csv',
       base64: b64('Product Name,Price\nRice 5kg,420'),
@@ -116,7 +115,7 @@ describe('POST /api/ai/product-uploads', () => {
     const body = await res.json();
     expect(body.status).toBe('pending');
     expect(r2Puts).toHaveLength(1);
-    expect(r2Puts[0]!.key.startsWith(`product-uploads/${ids.biz}/`)).toBe(true);
+    expect(r2Puts[0]!.key.startsWith(`product-uploads/${ids.sup}/`)).toBe(true);
     expect(r2Puts[0]!.key.endsWith('.csv')).toBe(true);
 
     const { getDb } = await import('@vyro/db');
@@ -132,7 +131,6 @@ describe('POST /api/ai/product-uploads', () => {
     sessionCtx = supplierCtx();
     const res = await post('/api/ai/product-uploads', {
       supplierId: ids.sup,
-      businessId: ids.biz,
       filename: 'list.xlsx',
       contentType: 'text/csv',
       base64: b64('x,y\n1,2'),
@@ -145,7 +143,6 @@ describe('POST /api/ai/product-uploads', () => {
     sessionCtx = supplierCtx();
     const res = await post('/api/ai/product-uploads', {
       supplierId: ids.sup,
-      businessId: ids.biz,
       filename: 'large.csv',
       contentType: 'text/csv',
       base64: b64('x'.repeat(11_000_000)),
@@ -157,7 +154,6 @@ describe('POST /api/ai/product-uploads', () => {
     sessionCtx = otherCtx();
     const res = await post('/api/ai/product-uploads', {
       supplierId: ids.sup,
-      businessId: ids.biz,
       filename: 'a.csv',
       contentType: 'text/csv',
       base64: b64('x,y\n1,2'),
@@ -169,7 +165,6 @@ describe('POST /api/ai/product-uploads', () => {
     sessionCtx = null;
     const res = await post('/api/ai/product-uploads', {
       supplierId: ids.sup,
-      businessId: ids.biz,
       filename: 'a.csv',
       contentType: 'text/csv',
       base64: b64('x,y\n1,2'),

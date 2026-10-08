@@ -3,7 +3,6 @@
 -- product photos) with per-row extraction candidates and review decisions.
 CREATE TABLE product_upload_sessions (
   id TEXT PRIMARY KEY,
-  business_id TEXT NOT NULL REFERENCES businesses(id),
   supplier_id TEXT NOT NULL REFERENCES suppliers(id),
   user_id TEXT NOT NULL REFERENCES users(id),
   -- pending | extracting | extracted | failed | committed

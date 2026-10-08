@@ -89,6 +89,7 @@ const AdminRfqsPage = lazy(() => import('./admin/RfqsPage').then((m) => ({ defau
 const AdminReviewsPage = lazy(() => import('./admin/ReviewsPage').then((m) => ({ default: m.AdminReviewsPage })));
 const SupplierDashboardPage = lazy(() => import('./supplier/DashboardPage').then((m) => ({ default: m.SupplierDashboardPage })));
 const SupplierProductsPage = lazy(() => import('./supplier/ProductsPage').then((m) => ({ default: m.SupplierProductsPage })));
+const SupplierAiUploadPage = lazy(() => import('./supplier/AiUploadPage').then((m) => ({ default: m.default })));
 const SupplierProductFormPage = lazy(() => import('./supplier/ProductFormPage').then((m) => ({ default: m.SupplierProductFormPage })));
 const SupplierPricingPage = lazy(() => import('./supplier/PricingPage').then((m) => ({ default: m.SupplierPricingPage })));
 const SupplierInventoryPage = lazy(() => import('./supplier/InventoryPage').then((m) => ({ default: m.SupplierInventoryPage })));
@@ -252,6 +253,7 @@ export default function App() {
         <Route path="orders/:id" element={<SupplierOrderDetailPage />} />
         <Route path="returns" element={<SupplierReturnsPage />} />
         <Route path="products" element={<SupplierProductsPage />} />
+        <Route path="products/ai-upload" element={<SupplierAiUploadPage />} />
         <Route path="products/new" element={<SupplierProductFormPage mode="create" />} />
         <Route path="products/:id/edit" element={<SupplierProductFormPage mode="edit" />} />
         <Route path="pricing" element={<SupplierPricingPage />} />

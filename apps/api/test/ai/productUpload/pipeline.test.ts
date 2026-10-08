@@ -10,7 +10,7 @@ beforeAll(async () => {
   env = { DB: d1, ENVIRONMENT: 'test' };
 });
 
-let seeded: { businessId: string; userId: string; supplierId: string };
+let seeded: { userId: string; supplierId: string };
 
 async function seedPrereqs(withCatalog: boolean): Promise<void> {
   const { getDb } = await import('@vyro/db');
@@ -23,7 +23,7 @@ async function seedPrereqs(withCatalog: boolean): Promise<void> {
   const bt = newId();
   await db.insert(schema.businessTypes).values({ id: bt, slug: `rest-${newId()}`, name: 'Rest', active: true });
   const biz = newId();
-  await db.insert(schema.businesses).values({ id: biz, businessId: biz, name: 'B', businessTypeId: bt, contactPerson: 'B', phone: '1', email: 'b@t', address: 'x', city: 'C', district: 'C', description: null, status: 'active', createdAt: now, updatedAt: now, deletedAt: null } as any);
+  await db.insert(schema.businesses).values({ id: biz,  name: 'B', businessTypeId: bt, contactPerson: 'B', phone: '1', email: 'b@t', address: 'x', city: 'C', district: 'C', description: null, status: 'active', createdAt: now, updatedAt: now, deletedAt: null } as any);
   const sup = newId();
   await db.insert(schema.suppliers).values({ id: sup, name: 'S', businessTypeId: bt, contactPerson: 'S', phone: '1', email: 'su@t', address: 'x', city: 'C', district: 'C', description: null, status: 'active', createdAt: now, updatedAt: now, deletedAt: null });
   let productId: string | undefined;
@@ -33,7 +33,7 @@ async function seedPrereqs(withCatalog: boolean): Promise<void> {
     productId = newId();
     await db.insert(schema.products).values({ id: productId, name: 'Rice 5kg', description: null, categoryId: cat, brand: null, unit: 'bag', packSize: null, active: true, featured: false, moderationNotes: null, createdAt: now, updatedAt: now, deletedAt: null, hsCode: null, countryOfOrigin: null, isExportControlled: false });
   }
-  seeded = { businessId: biz, userId, supplierId: sup };
+  seeded = {  userId, supplierId: sup };
   void productId;
 }
 
@@ -48,7 +48,7 @@ describe('processUploadSession', () => {
 
     const sid = newId();
     await db.insert(schema.productUploadSessions).values({
-      id: sid, businessId: seeded.businessId, supplierId: seeded.supplierId, userId: seeded.userId,
+      id: sid, supplierId: seeded.supplierId, userId: seeded.userId,
       status: 'pending', sourceKind: 'csv',
       // test-inline: prefix makes the pipeline read CSV text directly instead of R2
       r2Key: 'test-inline:Item,Rate\nRice 5kg,420',
@@ -88,7 +88,7 @@ describe('processUploadSession', () => {
     const now = Date.now();
     const sid = newId();
     await db.insert(schema.productUploadSessions).values({
-      id: sid, businessId: seeded.businessId, supplierId: seeded.supplierId, userId: seeded.userId,
+      id: sid, supplierId: seeded.supplierId, userId: seeded.userId,
       status: 'pending', sourceKind: 'csv', r2Key: 'test-inline:,bad',
       originalFilename: 'l.csv', mimeType: 'text/csv', sizeBytes: 10,
       errorMessage: null, createdAt: now, updatedAt: now, committedAt: null,
@@ -113,7 +113,7 @@ describe('processUploadSession', () => {
     const now = Date.now();
     const sid = newId();
     await db.insert(schema.productUploadSessions).values({
-      id: sid, businessId: seeded.businessId, supplierId: seeded.supplierId, userId: seeded.userId,
+      id: sid, supplierId: seeded.supplierId, userId: seeded.userId,
       status: 'pending', sourceKind: 'csv', r2Key: 'missing/key',
       originalFilename: 'l.csv', mimeType: 'text/csv', sizeBytes: 10,
       errorMessage: null, createdAt: now, updatedAt: now, committedAt: null,

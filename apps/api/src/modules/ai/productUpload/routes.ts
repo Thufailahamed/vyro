@@ -53,7 +53,7 @@ router.post('/', session(), async (c) => {
   const ctx = requireCtx(c);
   const parsed = productUploadCreateSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid upload', parsed.error.flatten());
-  const { supplierId, businessId, filename, contentType, base64 } = parsed.data;
+  const { supplierId, filename, contentType, base64 } = parsed.data;
   await requireSupplierMember(c.env, supplierId, ctx.userId);
 
   const ext = filename.includes('.') ? filename.split('.').pop()!.toLowerCase() : '';
@@ -67,13 +67,12 @@ router.post('/', session(), async (c) => {
   if (!kind) throw httpError(400, 'VALIDATION_ERROR', 'Unsupported file type. Upload CSV/TSV text, a price-list photo/PDF, or a product photo.');
 
   const sessionId = newId();
-  const r2Key = `product-uploads/${businessId}/${sessionId}.${ext || 'bin'}`;
+  const r2Key = `product-uploads/${supplierId}/${sessionId}.${ext || 'bin'}`;
   await c.env.PRODUCTS.put(r2Key, bytes);
 
   const now = Date.now();
   await getDb(c.env.DB).insert(productUploadSessions).values({
     id: sessionId,
-    businessId,
     supplierId,
     userId: ctx.userId,
     status: 'pending',
