@@ -50,19 +50,19 @@ export function ReviewList({ supplierId }: { supplierId: string }): JSX.Element 
   return (
     <div className="space-y-4">
       {/* Controls Bar: Sort Pills & Filter Indicator */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-ink/10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono uppercase tracking-wider text-ink-4">
+          <span className="text-xs text-ink-4">
             Sort reviews:
           </span>
-          <div className="inline-flex rounded-lg p-0.5 bg-sand/40 border border-ink/10 text-xs">
+          <div className="inline-flex rounded-full p-1 bg-paper ring-1 ring-ink/[0.07] text-xs">
             <button
               type="button"
               onClick={() => {
                 setSort('recent');
                 setNextCursor(null);
               }}
-              className={`px-3 py-1 rounded-md font-medium transition-all ${
+              className={`px-3.5 py-1.5 rounded-full font-medium transition-all ${
                 sort === 'recent'
                   ? 'bg-ink text-paper shadow-2xs font-semibold'
                   : 'text-ink-3 hover:text-ink'
@@ -76,7 +76,7 @@ export function ReviewList({ supplierId }: { supplierId: string }): JSX.Element 
                 setSort('highest');
                 setNextCursor(null);
               }}
-              className={`px-3 py-1 rounded-md font-medium transition-all ${
+              className={`px-3.5 py-1.5 rounded-full font-medium transition-all ${
                 sort === 'highest'
                   ? 'bg-ink text-paper shadow-2xs font-semibold'
                   : 'text-ink-3 hover:text-ink'
@@ -90,7 +90,7 @@ export function ReviewList({ supplierId }: { supplierId: string }): JSX.Element 
                 setSort('lowest');
                 setNextCursor(null);
               }}
-              className={`px-3 py-1 rounded-md font-medium transition-all ${
+              className={`px-3.5 py-1.5 rounded-full font-medium transition-all ${
                 sort === 'lowest'
                   ? 'bg-ink text-paper shadow-2xs font-semibold'
                   : 'text-ink-3 hover:text-ink'
@@ -131,8 +131,8 @@ export function ReviewList({ supplierId }: { supplierId: string }): JSX.Element 
 
       {/* Empty State */}
       {items.length === 0 && !loading && (
-        <div className="border border-dashed border-ink/15 rounded-xl p-8 sm:p-10 bg-paper/60 text-center space-y-4">
-          <div className="mx-auto size-12 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 text-xl font-bold shadow-2xs">
+        <div className="rounded-3xl p-10 sm:p-12 bg-paper ring-1 ring-ink/[0.07] text-center space-y-4">
+          <div className="mx-auto size-12 rounded-2xl bg-bone flex items-center justify-center text-amber text-xl font-bold">
             ★
           </div>
           <div className="max-w-md mx-auto space-y-1.5">
@@ -143,12 +143,12 @@ export function ReviewList({ supplierId }: { supplierId: string }): JSX.Element 
               No verified buyer reviews logged yet for this facility. When commercial buyers accept deliveries and complete Purchase Orders, they will be prompted to submit performance feedback.
             </p>
           </div>
-          <div className="pt-2 inline-flex flex-wrap items-center justify-center gap-3 text-xs text-ink-4 font-mono">
-            <span className="inline-flex items-center gap-1 bg-sand/30 px-2.5 py-1 rounded-md border border-ink/5">
+          <div className="pt-2 inline-flex flex-wrap items-center justify-center gap-2 text-xs text-ink-4">
+            <span className="inline-flex items-center gap-1 bg-bone px-3 py-1.5 rounded-full">
               <ShieldCheckIcon size={13} className="text-volt" />
               <span>Authentic PO Deliveries Only</span>
             </span>
-            <span className="inline-flex items-center gap-1 bg-sand/30 px-2.5 py-1 rounded-md border border-ink/5">
+            <span className="inline-flex items-center gap-1 bg-bone px-3 py-1.5 rounded-full">
               <span>🚚 Packaging & Delivery Audits</span>
             </span>
           </div>
@@ -163,7 +163,7 @@ export function ReviewList({ supplierId }: { supplierId: string }): JSX.Element 
             return (
               <div
                 key={r.id}
-                className="border border-ink/10 bg-paper rounded-xl p-4 sm:p-5 space-y-3 hover:border-ink/20 transition-all shadow-2xs"
+                className="ring-1 ring-ink/[0.07] bg-paper rounded-2xl p-5 sm:p-6 space-y-3 hover:ring-ink/15 transition-all"
               >
                 {/* Review Header */}
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -213,7 +213,7 @@ export function ReviewList({ supplierId }: { supplierId: string }): JSX.Element 
 
                 {/* Official Facility Reply */}
                 {r.reply && (
-                  <div className="mt-3 border-l-2 border-copper bg-sand/20 rounded-r-lg p-3 space-y-1 text-xs">
+                  <div className="mt-3 border-l-2 border-copper bg-bone rounded-r-xl p-3.5 space-y-1 text-xs">
                     <div className="flex items-center justify-between text-ink-3 font-medium">
                       <span className="font-semibold text-copper">
                         Official Supplier Facility Response

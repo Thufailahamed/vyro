@@ -23,12 +23,9 @@ import {
   TruckIcon,
   SearchIcon,
   EyeIcon,
-  ClockIcon,
   XIcon,
-  AlertCircleIcon,
   Edit3Icon,
   Building2Icon,
-  ShieldCheckIcon,
   WarehouseIcon,
   UploadCloudIcon,
   PlusIcon,
@@ -38,7 +35,6 @@ import {
   PercentIcon,
   SparklesIcon,
   ChevronRightIcon,
-  ArrowRightIcon,
 } from '@/components/icons';
 import { formatLKR } from '@/lib/format';
 import { cn } from '@vyro/ui';
@@ -378,6 +374,20 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
         { key: 'moq', label: 'Minimum order quantity set', done: hasMoq },
       ]
     : readinessItems;
+  const stepperState = isAttach
+    ? [
+        { key: 'pricing', done: hasPrice && hasMoq },
+        { key: 'tiers', done: enableTiers },
+        { key: 'delivery', done: hasPrice && hasMoq },
+      ]
+    : [
+        { key: 'category', done: hasCategory },
+        { key: 'details', done: hasName && hasUnit },
+        { key: 'photo', done: hasImage },
+        { key: 'pricing', done: hasPrice && hasMoq },
+        { key: 'tiers', done: enableTiers },
+        { key: 'delivery', done: hasPrice && hasMoq },
+      ];
   const readinessScore = listingReadinessItems.filter((r) => r.done).length;
   const totalReadinessSteps = listingReadinessItems.length;
   const readinessPct = (readinessScore / Math.max(totalReadinessSteps, 1)) * 100;
@@ -590,88 +600,131 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const displayImageUrl = imagePreviewUrl || existingImageUrl || null;
   const displayPriceCents = priceCentsValue();
   const displayMoq = Number(minQty) || 1;
+  const [previewWhole, previewFraction] = (displayPriceCents / 100)
+    .toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    .split('.');
 
   return (
-    <div className={cn('space-y-8 max-w-7xl mx-auto', isSearch ? 'pb-8' : 'pb-32')}>
-      {/* Top bar: back link + stepper */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-ink/10 pb-4">
-        <Link
-          to="/supplier/products"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ink-3 hover:text-ink-1 transition-colors"
-        >
-          <ArrowLeftIcon size={14} /> Back to Products
-        </Link>
-        {!isSearch && (
-          <div className="w-full sm:w-[36rem]">
-            <FormStepper
-              sections={isAttach ? ATTACH_SECTIONS : FORM_SECTIONS}
-              state={
-                isAttach
-                  ? [
-                      { key: 'pricing', done: hasPrice && hasMoq },
-                      { key: 'tiers', done: enableTiers },
-                      { key: 'delivery', done: true },
-                    ]
-                  : readinessItems
-              }
-            />
-          </div>
-        )}
-      </div>
+    <div className={cn('max-w-7xl mx-auto', isSearch ? 'space-y-6 pb-8' : 'space-y-8 pb-32')}>
+      {/* Back link */}
+      <Link
+        to="/supplier/products"
+        className="group inline-flex items-center gap-2 text-[13px] font-medium text-ink-3 transition-colors hover:text-ink"
+      >
+        <span className="flex size-7 items-center justify-center rounded-full border border-ink/10 bg-paper transition-colors group-hover:border-ink/30">
+          <ArrowLeftIcon size={13} />
+        </span>
+        Back to products
+      </Link>
 
-      {/* Header banner */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="size-2 rounded-full bg-volt animate-pulse" />
-            <span className="vyro-kicker text-volt-deep">Wholesale Catalog</span>
-            {isEdit && (
-              <span className="ml-1 font-mono text-[10px] font-semibold uppercase tracking-wider bg-copper/10 text-copper border border-copper/30 px-2 py-0.5">
-                Editing
+      {/* Search-mode hero */}
+      {isSearch && (
+        <Surface kind="ink" className="grain rounded-2xl shadow-soft-lg">
+          <div className="pointer-events-none absolute -top-32 -right-16 size-96 rounded-full bg-volt/[0.12] blur-3xl" aria-hidden />
+          <div className="pointer-events-none absolute -bottom-36 -left-20 size-80 rounded-full bg-copper/25 blur-3xl" aria-hidden />
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(to_right,#FAF7F0_1px,transparent_1px),linear-gradient(to_bottom,#FAF7F0_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_at_top_right,black,transparent_70%)]"
+            aria-hidden
+          />
+          <div className="relative grid gap-8 p-6 sm:p-9 lg:grid-cols-[1.2fr_1fr] lg:items-end">
+            <div className="min-w-0">
+              <span className="inline-flex items-center gap-2 rounded-full border border-volt/25 bg-volt/10 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-volt">
+                <span className="size-1.5 rounded-full bg-volt animate-pulse" />
+                Wholesale catalog
               </span>
-            )}
-            {isAttach && (
-              <span className="ml-1 font-mono text-[10px] font-semibold uppercase tracking-wider bg-volt/20 text-ink border border-volt/40 px-2 py-0.5">
-                Existing SKU
-              </span>
-            )}
-            {isCreateNew && (
-              <span className="ml-1 font-mono text-[10px] font-semibold uppercase tracking-wider bg-ink/10 text-ink-3 border border-ink/20 px-2 py-0.5">
-                New SKU
-              </span>
-            )}
+              <h1 className="vyro-display mt-4 text-3xl font-bold leading-[1.04] tracking-tight text-paper sm:text-[2.75rem] text-balance">
+                Add a <span className="text-volt">wholesale</span> listing
+              </h1>
+              <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-paper/60">
+                Search for a product already on VYRO and publish your rate — or create a new SKU
+                when nothing matches.
+              </p>
+            </div>
+            <ol className="grid gap-px overflow-hidden rounded-xl border border-paper/10 bg-paper/10 sm:grid-cols-3 lg:grid-cols-1">
+              {[
+                { icon: SearchIcon, title: 'Find the SKU', body: 'Match an existing catalog product' },
+                { icon: BanknoteIcon, title: 'Set your rate', body: 'Mill-gate price, MOQ & dispatch' },
+                { icon: SparklesIcon, title: 'Go live', body: 'Buyers compare you instantly' },
+              ].map((step, i) => (
+                <li key={step.title} className="flex items-center gap-3.5 bg-ink/80 px-4 py-3.5 backdrop-blur-sm">
+                  <span
+                    className={cn(
+                      'flex size-9 shrink-0 items-center justify-center rounded-lg',
+                      i === 0 ? 'bg-volt text-ink' : 'bg-paper/[0.06] text-paper/50 ring-1 ring-paper/10',
+                    )}
+                  >
+                    <step.icon size={16} />
+                  </span>
+                  <div className="min-w-0">
+                    <div className={cn('text-[13px] font-semibold', i === 0 ? 'text-paper' : 'text-paper/70')}>
+                      <span className="mr-1.5 font-mono text-[10px] text-paper/35">0{i + 1}</span>
+                      {step.title}
+                    </div>
+                    <div className="truncate text-[11px] text-paper/40">{step.body}</div>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
-          <h1 className="vyro-display text-4xl sm:text-5xl text-balance text-ink">
-            {isEdit
-              ? 'Edit Wholesale Product'
-              : isAttach
-                ? 'Add your wholesale rate'
-                : isCreateNew
-                  ? 'Create a new product'
-                  : 'Add a wholesale listing'}
-          </h1>
-          <p className="mt-3 text-body-lg text-ink-3 max-w-2xl">
-            {isEdit
-              ? 'Update this listing’s identity and commercial terms.'
-              : isAttach
-                ? 'This SKU already exists on VYRO. Set only your mill-gate price, MOQ, and dispatch terms.'
-                : isCreateNew
-                  ? 'Add a new catalog SKU. Search first if buyers already shop this item.'
-                  : 'Search for a product already on VYRO, then publish your rate — or create a new SKU.'}
-          </p>
-          {isCreateNew && (
-            <button
-              type="button"
-              onClick={() => {
-                void navigate('/supplier/products/new');
-              }}
-              className="mt-3 text-xs font-semibold text-ink-2 hover:text-ink underline-offset-2 hover:underline"
-            >
-              ← Search existing products instead
-            </button>
-          )}
-        </div>
-      </div>
+        </Surface>
+      )}
+
+      {/* Form-mode hero */}
+      {!isSearch && (
+        <Surface kind="ink" className="grain rounded-2xl shadow-soft-lg">
+          <div className="pointer-events-none absolute -top-32 -right-16 size-96 rounded-full bg-volt/[0.12] blur-3xl" aria-hidden />
+          <div className="pointer-events-none absolute -bottom-36 -left-20 size-80 rounded-full bg-copper/25 blur-3xl" aria-hidden />
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(to_right,#FAF7F0_1px,transparent_1px),linear-gradient(to_bottom,#FAF7F0_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_at_top_right,black,transparent_70%)]"
+            aria-hidden
+          />
+          <div className="relative p-6 sm:p-8">
+            <div className="flex flex-wrap items-end justify-between gap-6">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-volt/25 bg-volt/10 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-volt">
+                    <span className="size-1.5 rounded-full bg-volt animate-pulse" />
+                    Wholesale catalog
+                  </span>
+                  <span className="rounded-full border border-paper/15 bg-paper/5 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-paper/70">
+                    {isEdit ? 'Editing' : isAttach ? 'Existing SKU' : 'New SKU'}
+                  </span>
+                </div>
+                <h1 className="vyro-display mt-4 text-3xl font-bold leading-[1.04] tracking-tight text-paper sm:text-[2.6rem] text-balance">
+                  {isEdit
+                    ? 'Edit wholesale product'
+                    : isAttach
+                      ? 'Add your wholesale rate'
+                      : 'Create a new product'}
+                </h1>
+                <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-paper/60">
+                  {isEdit
+                    ? 'Update this listing’s identity and commercial terms.'
+                    : isAttach
+                      ? 'This SKU already exists on VYRO. Set only your mill-gate price, MOQ and dispatch terms.'
+                      : 'Add a new catalog SKU. Search first if buyers already shop this item.'}
+                </p>
+              </div>
+              {isCreateNew && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigate('/supplier/products/new');
+                  }}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-paper/15 bg-paper/5 px-4 text-[13px] font-semibold text-paper/85 transition-colors hover:bg-paper/10 hover:text-paper"
+                >
+                  <SearchIcon size={14} className="text-volt" />
+                  Search existing products instead
+                </button>
+              )}
+            </div>
+
+            <div className="mt-8 border-t border-paper/10 pt-5">
+              <FormStepper sections={isAttach ? ATTACH_SECTIONS : FORM_SECTIONS} state={stepperState} />
+            </div>
+          </div>
+        </Surface>
+      )}
 
       {err && <ErrorBanner message={err} />}
 
@@ -715,6 +768,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
             <>
           {/* SECTION 1 — Category */}
           <SectionCard
+            id="category"
             step={1}
             eyebrow="Category"
             title="Select product category"
@@ -756,29 +810,30 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                     type="button"
                     onClick={() => setCategoryId(cat.id)}
                     className={cn(
-                      'flex items-center justify-between p-3 rounded-xl border text-left transition-all',
+                      'flex items-center justify-between rounded-xl border p-3.5 text-left transition-all',
                       isSelected
-                        ? 'border-ink bg-ink/[0.04] ring-1 ring-volt/40 shadow-sm'
-                        : 'border-ink/10 bg-paper hover:border-ink/30',
+                        ? 'border-ink bg-ink shadow-[0_12px_24px_-16px_rgba(12,14,11,0.6)]'
+                        : 'border-ink/10 bg-paper hover:-translate-y-px hover:border-ink/30',
                     )}
                   >
                     <div className="min-w-0 pr-2">
                       <p
                         className={cn(
                           'text-xs truncate',
-                          isSelected ? 'font-bold text-ink' : 'font-medium text-ink-2',
+                          'text-[13px]',
+                          isSelected ? 'font-semibold text-paper' : 'font-medium text-ink-2',
                         )}
                       >
                         {cat.name}
                       </p>
-                      <p className="text-[10px] text-ink-4 font-mono truncate">{cat.slug}</p>
+                      <p className={cn('text-[10px] font-mono truncate', isSelected ? 'text-paper/50' : 'text-ink-4')}>{cat.slug}</p>
                     </div>
                     {isSelected ? (
-                      <span className="w-5 h-5 rounded-full bg-ink text-volt flex items-center justify-center flex-shrink-0">
+                      <span className="flex size-5 flex-shrink-0 items-center justify-center rounded-full bg-volt text-ink">
                         <CheckIcon size={12} />
                       </span>
                     ) : (
-                      <span className="w-4 h-4 rounded-full border border-ink/15 flex-shrink-0" />
+                      <span className="size-5 flex-shrink-0 rounded-full border border-dashed border-ink/20" />
                     )}
                   </button>
                 );
@@ -786,7 +841,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
             </div>
 
             {selectedCategoryObj && (
-              <div className="p-3 rounded-xl bg-mint/10 border border-mint/30 text-xs flex items-center justify-between text-ink-1">
+              <div className="flex items-center justify-between rounded-xl border border-mint/25 bg-mint/[0.07] px-4 py-3 text-xs text-ink-1">
                 <span className="flex items-center gap-2 font-semibold">
                   <CheckCircle2Icon size={14} className="text-mint" />
                   Listing under category: <strong>{selectedCategoryObj.name}</strong>
@@ -798,6 +853,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
           {/* SECTION 2 — Product details */}
           <SectionCard
+            id="details"
             step={2}
             eyebrow="Product"
             title="Product details & specifications"
@@ -866,10 +922,10 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                       type="button"
                       onClick={() => setUnit(u)}
                       className={cn(
-                        'px-2.5 py-0.5 text-xs font-mono transition-all rounded-md',
+                        'rounded-full border px-3 py-1 text-xs font-mono transition-all',
                         unit.toLowerCase() === u
-                          ? 'bg-ink text-volt font-semibold'
-                          : 'bg-paper border border-ink/10 text-ink-3 hover:border-ink/30',
+                          ? 'border-ink bg-ink text-volt font-semibold'
+                          : 'border-ink/10 bg-paper text-ink-3 hover:border-ink/30 hover:text-ink',
                       )}
                     >
                       {u}
@@ -935,6 +991,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
           {/* SECTION 3 — Product photo */}
           <SectionCard
+            id="photo"
             step={3}
             eyebrow="Photo"
             title="Product photo & depot packaging"
@@ -953,9 +1010,9 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
             {!displayImageUrl ? (
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-ink/15 hover:border-volt rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all bg-paper-subtle/30 hover:bg-volt/5 group"
+                className="group flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-ink/15 bg-bone/40 p-10 text-center transition-all hover:border-ink/40 hover:bg-volt/[0.06]"
               >
-                <div className="w-12 h-12 rounded-2xl bg-bone group-hover:bg-volt/20 text-ink-3 group-hover:text-volt-deep flex items-center justify-center transition-colors mb-3">
+                <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-paper text-ink-3 shadow-sm ring-1 ring-ink/10 transition-all group-hover:-translate-y-0.5 group-hover:bg-ink group-hover:text-volt">
                   <UploadCloudIcon size={24} />
                 </div>
                 <p className="text-sm font-bold text-ink-1">
@@ -971,7 +1028,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-2xl bg-paper-subtle/30 border border-ink/10">
+              <div className="flex flex-col items-center gap-5 rounded-2xl border border-ink/10 bg-bone/40 p-4 sm:flex-row">
                 <div className="w-24 h-24 rounded-xl overflow-hidden bg-bone border border-ink/10 flex-shrink-0 shadow-inner">
                   <img
                     src={displayImageUrl}
@@ -1019,6 +1076,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
             <>
           {/* SECTION 4 — Pricing & MOQ */}
           <SectionCard
+            id="pricing"
             step={isAttach ? 1 : 4}
             eyebrow="Pricing"
             title="Wholesale pricing & minimum order (MOQ)"
@@ -1057,7 +1115,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                 icon={<BanknoteIcon size={13} className="text-copper" />}
               >
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-xs font-bold text-ink-3 pointer-events-none">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink-4">
                     Rs.
                   </span>
                   <Input
@@ -1067,10 +1125,10 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                     placeholder="0.00"
                     value={priceLkr}
                     onChange={(e) => setPriceLkr(e.target.value)}
-                    className="pl-11 pr-16 bg-paper font-mono font-bold text-sm"
+                    className="h-14 pl-12 pr-20 bg-paper font-display text-2xl font-bold tracking-tight"
                     required
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-4 pointer-events-none">
+                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 rounded-md bg-bone px-2 py-1 text-xs text-ink-4">
                     / {unit || 'unit'}
                   </span>
                 </div>
@@ -1101,7 +1159,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
               {/* Min order commitment banner */}
               {displayPriceCents > 0 && displayMoq > 0 && (
-                <div className="p-4 rounded-xl bg-ink text-paper flex items-center justify-between shadow-sm">
+                <div className="flex items-center justify-between rounded-xl bg-ink p-4 text-paper shadow-[0_16px_32px_-20px_rgba(12,14,11,0.7)]">
                   <div className="text-xs">
                     <p className="font-mono uppercase tracking-wider text-volt text-[10px] font-bold">
                       Minimum order commitment
@@ -1123,6 +1181,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
           {/* SECTION 5 — Volume tiers */}
           <SectionCard
+            id="tiers"
             step={isAttach ? 2 : 5}
             eyebrow="Tiers"
             title="Volume discount ladders (optional)"
@@ -1189,6 +1248,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
           {/* SECTION 6 — Fulfillment & delivery */}
           <SectionCard
+            id="delivery"
             step={isAttach ? 3 : 6}
             eyebrow="Fulfillment"
             title="Delivery & coverage"
@@ -1239,7 +1299,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                       type="button"
                       onClick={() => setRadius(p.value)}
                       className={cn(
-                        'px-2.5 py-1 text-xs rounded-md border transition-all',
+                        'rounded-full border px-3 py-1 text-xs transition-all',
                         radius === p.value
                           ? 'bg-ink text-volt font-semibold border-ink'
                           : 'bg-paper text-ink-3 border-ink/10 hover:border-ink/30',
@@ -1255,7 +1315,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
           {/* Edit-only: active toggle */}
           {isEdit && (
-            <Surface className="p-4 rounded-2xl border border-ink/10 bg-paper flex items-center justify-between">
+            <Surface className="flex items-center justify-between rounded-2xl border border-ink/[0.08] bg-paper p-5">
               <div>
                 <p className="text-xs font-bold text-ink-1">Listing active status</p>
                 <p className="text-[11px] text-ink-3 mt-0.5">
@@ -1266,8 +1326,8 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
               <div className="flex items-center gap-3">
                 <span
                   className={cn(
-                    'text-[10px] font-mono uppercase tracking-wider font-bold px-2 py-0.5',
-                    active ? 'bg-mint/15 text-mint' : 'bg-ink/10 text-ink-3',
+                    'rounded-full px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider',
+                    active ? 'bg-mint/10 text-mint' : 'bg-ink/[0.06] text-ink-3',
                   )}
                 >
                   {active ? 'Active' : 'Archived'}
@@ -1282,215 +1342,204 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
         {/* RIGHT — Live preview & readiness */}
         {!isSearch && (
-        <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-6">
-          <div className="vyro-kicker text-copper">Marketplace Live Preview</div>
-
-          <Surface kind="ink" className="p-5 relative overflow-hidden grain shadow-xl border border-paper/20">
-            <div className="relative z-10 space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-paper/15">
-                <span className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-volt font-bold">
-                  <EyeIcon size={12} /> Buyer view
-                </span>
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 font-bold',
-                    avail === 'in_stock'
-                      ? 'bg-mint text-paper'
-                      : avail === 'low'
-                      ? 'bg-amber text-ink'
-                      : 'bg-rose text-paper',
-                  )}
-                >
-                  {avail === 'in_stock' ? 'In stock' : avail === 'low' ? 'Low stock' : 'Out of stock'}
-                </span>
-              </div>
-
-              {/* Product image */}
-              <div className="w-full aspect-[4/3] rounded-xl overflow-hidden bg-bone border border-paper/15 relative flex items-center justify-center">
-                {displayImageUrl ? (
-                  <img
-                    src={displayImageUrl}
-                    alt={productName || 'Product preview'}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center p-6 text-center text-paper/40">
-                    <PackageIcon size={40} className="stroke-1 mb-2 opacity-50" />
-                    <p className="text-xs font-medium">No photo uploaded yet</p>
-                    <p className="text-[10px] text-paper/40 mt-0.5">Upload photo in Step 3</p>
-                  </div>
+        <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-24">
+          <div className="flex items-center justify-between px-1">
+            <span className="flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-4">
+              <EyeIcon size={12} /> Live buyer preview
+            </span>
+            <span
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset',
+                avail === 'in_stock'
+                  ? 'bg-mint/10 text-mint ring-mint/25'
+                  : avail === 'low'
+                    ? 'bg-amber/10 text-amber ring-amber/25'
+                    : 'bg-rose/10 text-rose ring-rose/25',
+              )}
+            >
+              <span
+                className={cn(
+                  'size-1.5 rounded-full',
+                  avail === 'in_stock' ? 'bg-mint' : avail === 'low' ? 'bg-amber' : 'bg-rose',
                 )}
-              </div>
+              />
+              {avail === 'in_stock' ? 'In stock' : avail === 'low' ? 'Low stock' : 'Out of stock'}
+            </span>
+          </div>
 
-              {/* Supplier & category */}
-              <div>
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="w-5 h-5 rounded-md bg-volt/20 text-volt text-[10px] font-bold flex items-center justify-center">
-                    {(supplierName || 'S').charAt(0).toUpperCase()}
+          {/* Mirrors the marketplace product card */}
+          <article className="rounded-[1.25rem] border border-ink/[0.08] bg-paper p-2 shadow-[0_30px_60px_-36px_rgba(12,14,11,0.5)]">
+            <div className="relative aspect-[16/11] w-full overflow-hidden rounded-[0.9rem] bg-ink">
+              {displayImageUrl ? (
+                <img
+                  src={displayImageUrl}
+                  alt={productName || 'Product preview'}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center text-center text-paper/40">
+                  <span className="flex size-12 items-center justify-center rounded-2xl bg-paper/[0.06] ring-1 ring-paper/10">
+                    <UploadCloudIcon size={20} />
                   </span>
-                  <span className="text-xs font-bold text-paper truncate">
-                    {supplierName || 'Your Supplier Depot'}
-                  </span>
-                  <span className="text-[10px] text-mint font-medium flex items-center gap-0.5">
-                    <ShieldCheckIcon size={10} className="inline" /> Verified
-                  </span>
+                  <p className="mt-3 text-xs font-medium text-paper/60">No photo yet</p>
+                  <p className="mt-0.5 text-[11px]">Listings with photos convert better</p>
                 </div>
-
+              )}
+              <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
+                {brand ? (
+                  <span className="rounded-full bg-paper/90 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-ink shadow-sm backdrop-blur">
+                    {brand}
+                  </span>
+                ) : (
+                  <span />
+                )}
                 {selectedCategoryObj && (
-                  <span className="inline-block px-2 py-0.5 rounded-md bg-copper/20 text-copper border border-copper/30 text-[10px] font-mono font-bold uppercase tracking-wider mb-1.5">
+                  <span className="rounded-full bg-void/55 px-2.5 py-1 text-[11px] font-medium text-paper ring-1 ring-paper/15 backdrop-blur-md">
                     {selectedCategoryObj.name}
                   </span>
                 )}
+              </div>
+            </div>
 
-                <h3 className="font-display text-lg text-paper font-bold leading-snug">
-                  {productName || 'Product title…'}
-                </h3>
-                <div className="flex items-center gap-2 text-[11px] text-paper/60 mt-1 font-mono">
-                  {brand && <span>Brand: <strong className="text-paper">{brand}</strong></span>}
-                  {packSize && <span>· Pack: <strong className="text-paper">{packSize}</strong></span>}
-                </div>
+            <div className="px-3 pb-2 pt-4">
+              <div className="flex items-center justify-between gap-3 text-[11px]">
+                <span className="truncate font-mono font-semibold uppercase tracking-[0.14em] text-copper">
+                  {packSize || unit || 'Pack size'}
+                </span>
+                <span
+                  className={cn(
+                    'inline-flex shrink-0 items-center gap-1.5 font-medium',
+                    Number(lead) <= 2 ? 'text-mint' : 'text-ink-4',
+                  )}
+                >
+                  <span className={cn('size-1.5 rounded-full', Number(lead) <= 2 ? 'bg-mint' : 'bg-ink-5')} />
+                  {lead === '0' ? 'Same-day dispatch' : `${lead || '—'}d dispatch`}
+                </span>
               </div>
 
-              {/* Wholesale rate box */}
-              <div className="p-3.5 rounded-xl bg-paper/[0.04] border border-paper/15">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-[10px] font-mono text-paper/60 uppercase tracking-wider font-bold">
-                    Wholesale rate
-                  </span>
-                  <span className="text-[10px] font-mono text-paper/40">Per {unit || 'unit'}</span>
-                </div>
-                <div className="mt-1">
-                  <span className="font-mono font-bold text-2xl text-volt">
-                    {displayPriceCents > 0 ? formatLKR(displayPriceCents) : 'Rs. 0.00'}
-                  </span>
-                  <span className="text-xs text-paper/60 ml-1">/ {unit || 'unit'}</span>
-                </div>
+              <h3
+                className={cn(
+                  'mt-2 font-display text-[1.15rem] font-bold leading-snug tracking-tight line-clamp-2',
+                  productName ? 'text-ink' : 'text-ink-5',
+                )}
+              >
+                {productName || 'Your product title'}
+              </h3>
+              <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[13px] text-ink-4">
+                <span className="truncate">
+                  by <span className="font-medium text-ink-2">{supplierName || 'Your depot'}</span>
+                </span>
+                <CheckCircle2Icon size={13} className="shrink-0 text-volt-deep" />
               </div>
 
-              {/* MOQ + Lead time */}
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="p-2.5 rounded-lg border border-paper/15 bg-paper/[0.04]">
-                  <span className="text-[10px] text-paper/50 uppercase tracking-wider font-mono block">
-                    Min order
-                  </span>
-                  <span className="font-mono font-bold text-paper text-sm">
-                    {minQty || '1'} {unit || 'units'}
-                  </span>
-                </div>
-                <div className="p-2.5 rounded-lg border border-paper/15 bg-paper/[0.04]">
-                  <span className="text-[10px] text-paper/50 uppercase tracking-wider font-mono block">
-                    Dispatch lead
-                  </span>
-                  <span className="font-mono font-bold text-paper text-sm">
-                    {lead === '0' ? 'Same day' : `${lead} day${lead === '1' ? '' : 's'}`}
-                  </span>
-                </div>
-              </div>
-
-              {/* Tier preview */}
-              {enableTiers && Number(tier1DiscountPct) > 0 && (
-                <div className="p-3 rounded-xl border border-paper/15 bg-paper/[0.04] space-y-1.5 text-[11px]">
-                  <p className="text-[10px] font-mono text-paper/50 uppercase tracking-wider font-bold">
-                    Bulk volume tiers
-                  </p>
-                  <div className="space-y-1 font-mono text-paper/80">
-                    <div className="flex justify-between">
-                      <span>{tier1MinQty}+ {unit || 'units'}</span>
-                      <span className="text-volt font-semibold">{tier1DiscountPct}% off</span>
-                    </div>
-                    {Number(tier2DiscountPct) > 0 && (
-                      <div className="flex justify-between">
-                        <span>{tier2MinQty}+ {unit || 'units'}</span>
-                        <span className="text-volt font-semibold">{tier2DiscountPct}% off</span>
-                      </div>
-                    )}
-                    {Number(tier3DiscountPct) > 0 && (
-                      <div className="flex justify-between">
-                        <span>{tier3MinQty}+ {unit || 'units'}</span>
-                        <span className="text-volt font-semibold">{tier3DiscountPct}% off</span>
-                      </div>
-                    )}
+              <div className="mt-5 flex items-end justify-between gap-3 border-t border-dashed border-ink/10 pt-4">
+                <div className="min-w-0">
+                  <div className="flex items-baseline gap-1 text-ink">
+                    <span className="text-xs font-semibold text-ink-4">Rs.</span>
+                    <span
+                      className={cn(
+                        'font-display text-[1.75rem] font-bold leading-none tracking-tight tabular-nums',
+                        displayPriceCents > 0 ? 'text-ink' : 'text-ink-5',
+                      )}
+                    >
+                      {previewWhole}
+                    </span>
+                    <span className="text-sm font-semibold text-ink-3">.{previewFraction}</span>
+                    <span className="ml-0.5 text-xs text-ink-4">/ {unit || 'unit'}</span>
                   </div>
+                  <span className="mt-1 block text-[11px] text-ink-4">
+                    Min. order {minQty || '1'} {unit || 'units'}
+                  </span>
+                </div>
+                <span className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-ink pl-3.5 pr-4 text-[13px] font-semibold text-paper">
+                  <span className="flex size-6 items-center justify-center rounded-full bg-volt text-ink">
+                    <PlusIcon size={13} />
+                  </span>
+                  Add
+                </span>
+              </div>
+
+              {enableTiers && Number(tier1DiscountPct) > 0 && (
+                <div className="mt-4 space-y-1.5 rounded-xl bg-bone/70 p-3 text-[12px]">
+                  <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-4">
+                    Volume pricing
+                  </p>
+                  {[
+                    [tier1MinQty, tier1DiscountPct],
+                    [tier2MinQty, tier2DiscountPct],
+                    [tier3MinQty, tier3DiscountPct],
+                  ]
+                    .filter(([, pct]) => Number(pct) > 0)
+                    .map(([qty, pct]) => (
+                      <div key={`${qty}-${pct}`} className="flex justify-between text-ink-3">
+                        <span>
+                          {qty}+ {unit || 'units'}
+                        </span>
+                        <span className="font-semibold text-volt-deep">{pct}% off</span>
+                      </div>
+                    ))}
                 </div>
               )}
 
-              {/* Fulfillment tag */}
-              <div className="text-[11px] text-paper/70 flex items-center gap-2 pt-1 border-t border-paper/15 font-mono">
-                <TruckIcon size={12} className="text-volt" />
-                <span>
-                  {deliveryAvailable
-                    ? radius
-                      ? `Depot delivery · ${radius}km radius + dock pickup`
-                      : 'Island-wide delivery + dock pickup'
-                    : 'Depot dock pickup only'}
-                </span>
+              <div className="mt-4 flex items-center gap-2 border-t border-ink/[0.06] pt-3 text-[11px] text-ink-4">
+                <TruckIcon size={13} className="text-copper" />
+                {deliveryAvailable
+                  ? radius
+                    ? `Delivery within ${radius}km + dock pickup`
+                    : 'Island-wide delivery + dock pickup'
+                  : 'Depot dock pickup only'}
               </div>
             </div>
-          </Surface>
+          </article>
 
           {/* Readiness card */}
-          <Surface className="p-5 rounded-2xl border border-ink/10 bg-paper space-y-3 shadow-sm">
-            <div className="flex items-center justify-between">
+          <div className="rounded-2xl border border-ink/[0.08] bg-paper p-5">
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <span className="text-xs font-bold text-ink-1 uppercase tracking-wider">
-                  Listing readiness
-                </span>
-                <p className="text-[11px] text-ink-4 mt-0.5">Complete the must-haves to publish</p>
+                <p className="font-display text-[15px] font-bold text-ink">Listing readiness</p>
+                <p className="mt-0.5 text-[12px] text-ink-4">Complete the must-haves to publish</p>
               </div>
-              <span className="text-[11px] font-mono font-bold text-volt-deep">
-                {readinessScore}/{totalReadinessSteps}
-              </span>
+              <ProgressRing value={readinessPct} label={`${readinessScore}/${totalReadinessSteps}`} />
             </div>
 
-            <div className="w-full h-2 rounded-full bg-bone overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-volt to-volt-deep transition-all duration-300"
-                style={{ width: `${readinessPct}%` }}
-              />
-            </div>
-
-            <ul className="space-y-1.5 text-xs pt-1">
+            <ul className="mt-4 space-y-2">
               {listingReadinessItems.map((r) => (
-                <li
-                  key={r.key}
-                  className={cn(
-                    'flex items-center gap-2',
-                    r.done ? 'text-mint font-semibold' : 'text-ink-3',
-                    r.optional && !r.done && 'text-ink-4',
-                  )}
-                >
+                <li key={r.key} className="flex items-center gap-2.5 text-[13px]">
                   <span
                     className={cn(
-                      'w-4 h-4 rounded-full flex items-center justify-center text-[10px]',
-                      r.done
-                        ? 'bg-mint/15 text-mint'
-                        : r.optional
-                        ? 'bg-bone text-ink-4'
-                        : 'bg-bone text-ink-4',
+                      'flex size-5 shrink-0 items-center justify-center rounded-full',
+                      r.done ? 'bg-mint text-paper' : 'border border-dashed border-ink/20',
                     )}
                   >
-                    {r.done ? <CheckIcon size={10} /> : r.optional ? '○' : '○'}
+                    {r.done && <CheckIcon size={11} />}
                   </span>
-                  {r.label}
+                  <span className={cn(r.done ? 'text-ink' : 'text-ink-3')}>{r.label}</span>
                   {r.optional && (
-                    <span className="text-[9px] font-mono uppercase text-ink-4 tracking-wider">
-                      (optional)
+                    <span className="ml-auto font-mono text-[9px] uppercase tracking-[0.14em] text-ink-4">
+                      Optional
                     </span>
                   )}
                 </li>
               ))}
             </ul>
-          </Surface>
+          </div>
 
           {/* Tips card */}
-          <div className="p-4 bg-paper border border-ink/10 space-y-2.5">
-            <div className="text-[10px] font-mono text-copper uppercase tracking-wider font-bold flex items-center gap-1.5">
-              <SparklesIcon size={11} className="text-copper" /> Listing tips
+          <div className="rounded-2xl border border-copper/20 bg-copper-soft/25 p-5">
+            <div className="flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-copper-deep">
+              <SparklesIcon size={12} /> Listing tips
             </div>
-            <ul className="space-y-1.5 text-[11px] text-ink-3 leading-relaxed">
-              <li>· Use the mill-gate pack size (e.g. 50kg bag) for clearer commercial pricing</li>
-              <li>· Photos with packaging visible build 2.4× more buyer trust</li>
-              <li>· Add at least one bulk tier — buyers prefer stacking discounts</li>
+            <ul className="mt-3 space-y-2.5 text-[12px] leading-relaxed text-ink-3">
+              {[
+                'Use the mill-gate pack size (e.g. 50kg bag) for clearer commercial pricing.',
+                'Photos with packaging visible build more buyer trust.',
+                'Add at least one bulk tier — buyers prefer stacking discounts.',
+              ].map((tip) => (
+                <li key={tip} className="flex gap-2">
+                  <ChevronRightIcon size={13} className="mt-0.5 shrink-0 text-copper" />
+                  {tip}
+                </li>
+              ))}
             </ul>
           </div>
         </div>
@@ -1499,24 +1548,13 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
       {/* Sticky bottom action bar */}
       {!isSearch && (
-      <div className="sticky bottom-4 z-30 -mx-4 sm:mx-0">
-        <div className="bg-paper border border-ink/15 shadow-float rounded-2xl px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-3 text-xs">
-            <div
-              className={cn(
-                'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
-                canPublish
-                  ? 'bg-ink text-volt'
-                  : 'bg-ink/10 text-ink-3',
-              )}
-            >
-              {canPublish ? <CheckCircle2Icon size={14} /> : <AlertCircleIcon size={14} />}
-            </div>
+      <div className="sticky bottom-4 z-30">
+        <div className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-paper/90 px-4 py-3 shadow-[0_24px_60px_-28px_rgba(12,14,11,0.55)] backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <ProgressRing value={readinessPct} label={canPublish ? '' : `${readinessScore}`} done={canPublish} />
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4">
-                Listing progress
-              </div>
-              <div className="font-semibold text-ink-1">
+              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-4">Listing progress</div>
+              <div className="text-[13px] font-semibold text-ink">
                 {canPublish
                   ? isEdit
                     ? 'Ready to save changes'
@@ -1527,18 +1565,20 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
           </div>
 
           <div className="flex items-center gap-2 sm:shrink-0">
-            <Link to="/supplier/products" className="hidden sm:inline-flex">
-              <Button variant="ghost">Cancel</Button>
+            <Link
+              to="/supplier/products"
+              className="hidden h-11 items-center rounded-xl px-4 text-[13px] font-semibold text-ink-3 transition-colors hover:bg-bone hover:text-ink sm:inline-flex"
+            >
+              Cancel
             </Link>
             <Button
               type="button"
               onClick={() => void handleSubmit()}
               loading={isSubmitting}
               disabled={!canPublish}
-              className="font-bold uppercase tracking-wider"
+              className="h-11 flex-1 rounded-xl px-5 font-semibold sm:flex-none"
             >
-              {isEdit ? 'Save changes' : isAttach ? 'Publish wholesale rate' : 'Publish wholesale product'}
-              <ArrowRightIcon size={14} />
+              {isEdit ? 'Save changes' : isAttach ? 'Publish wholesale rate' : 'Publish product'}
             </Button>
           </div>
         </div>
@@ -1550,7 +1590,36 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
 /* ---------- Local helpers ---------- */
 
+function ProgressRing({ value, label, done }: { value: number; label: string; done?: boolean }) {
+  const r = 16;
+  const c = 2 * Math.PI * r;
+  return (
+    <span className="relative flex size-10 shrink-0 items-center justify-center">
+      <svg viewBox="0 0 40 40" className="absolute inset-0 -rotate-90" aria-hidden>
+        <circle cx="20" cy="20" r={r} fill="none" strokeWidth="3.5" className="stroke-ink/[0.08]" />
+        <circle
+          cx="20"
+          cy="20"
+          r={r}
+          fill="none"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - Math.min(Math.max(value, 0), 100) / 100)}
+          className={cn('transition-[stroke-dashoffset] duration-500', done ? 'stroke-mint' : 'stroke-volt-deep')}
+        />
+      </svg>
+      {done ? (
+        <CheckIcon size={14} className="text-mint" />
+      ) : (
+        <span className="font-mono text-[10px] font-bold text-ink">{label}</span>
+      )}
+    </span>
+  );
+}
+
 function SectionCard({
+  id,
   step,
   eyebrow,
   title,
@@ -1561,6 +1630,7 @@ function SectionCard({
   actions,
   children,
 }: {
+  id?: string;
   step: number;
   eyebrow: string;
   title: string;
@@ -1572,33 +1642,35 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <Surface className="p-6 rounded-2xl space-y-5 animate-fade-in">
-      <div className="flex items-start justify-between gap-3 pb-3 border-b border-ink/10">
-        <div className="flex items-start gap-3 min-w-0">
-          <div
+    <section
+      id={id ? `section-${id}` : undefined}
+      className="scroll-mt-24 rounded-2xl border border-ink/[0.08] bg-paper shadow-[0_1px_2px_rgba(12,14,11,0.04)] animate-fade-in"
+    >
+      <header className="flex items-start justify-between gap-4 border-b border-ink/[0.06] px-5 pb-5 pt-5 sm:px-6 sm:pt-6">
+        <div className="flex min-w-0 items-start gap-4">
+          <span
             className={cn(
-              'w-8 h-8 rounded-full font-mono font-bold text-xs flex items-center justify-center shrink-0 shadow-xs',
-              complete ? 'bg-mint text-paper' : 'bg-ink text-volt',
+              'flex size-10 shrink-0 items-center justify-center rounded-xl font-mono text-[13px] font-bold transition-colors',
+              complete ? 'bg-mint/10 text-mint ring-1 ring-inset ring-mint/25' : 'bg-ink text-volt',
             )}
           >
-            {complete ? <CheckCircle2Icon size={14} /> : step}
-          </div>
+            {complete ? <CheckIcon size={16} /> : String(step).padStart(2, '0')}
+          </span>
           <div className="min-w-0">
-            <div className="vyro-kicker text-copper">{eyebrow}</div>
-            <h2 className="mt-1 text-lg font-bold text-ink-1">{title}</h2>
-            {sub && <p className="text-xs text-ink-3 mt-0.5 max-w-xl">{sub}</p>}
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-copper">{eyebrow}</div>
+            <h2 className="mt-1 font-display text-lg font-bold leading-snug tracking-tight text-ink sm:text-xl">{title}</h2>
+            {sub && <p className="mt-1 max-w-xl text-[13px] leading-relaxed text-ink-3">{sub}</p>}
           </div>
         </div>
-        <div className="shrink-0 flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {countLabel && (
             <span
               className={cn(
-                'hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider border',
-                countTone === 'mint' && 'bg-mint/15 text-mint border-mint/30',
-                countTone === 'ink' && 'bg-ink/10 text-ink-3 border-ink/20',
-                countTone === 'volt' && 'bg-volt/15 text-ink-1 border-volt/30',
-                countTone === 'amber' && 'bg-amber/15 text-amber border-amber/30',
-                !countTone && 'bg-ink/10 text-ink-3 border-ink/20',
+                'hidden items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset sm:inline-flex',
+                countTone === 'mint' && 'bg-mint/10 text-mint ring-mint/25',
+                countTone === 'volt' && 'bg-volt/15 text-ink ring-volt/30',
+                countTone === 'amber' && 'bg-amber/10 text-amber ring-amber/25',
+                (countTone === 'ink' || !countTone) && 'bg-ink/[0.04] text-ink-3 ring-ink/10',
               )}
             >
               {countLabel}
@@ -1606,9 +1678,9 @@ function SectionCard({
           )}
           {actions}
         </div>
-      </div>
-      {children}
-    </Surface>
+      </header>
+      <div className="space-y-5 p-5 sm:p-6">{children}</div>
+    </section>
   );
 }
 
@@ -1687,7 +1759,7 @@ function PresetField({
             type="button"
             onClick={() => onChange(p.value)}
             className={cn(
-              'px-2 py-0.5 text-[11px] font-mono rounded-md border transition-all',
+              'rounded-full border px-2.5 py-1 text-[11px] font-mono transition-all',
               value === p.value
                 ? 'bg-ink text-volt font-bold border-ink'
                 : 'bg-paper text-ink-3 border-ink/10 hover:border-ink/30',
@@ -1733,12 +1805,12 @@ function TierCard({
   const cm = colorMap[color];
 
   return (
-    <div className="p-3.5 rounded-xl border border-ink/10 bg-paper-subtle/30 space-y-3">
+    <div className="space-y-3 rounded-xl border border-ink/10 bg-bone/40 p-4">
       <div className="flex items-center justify-between">
         <span className="text-xs font-bold text-ink-1">
           {label} · {name}
         </span>
-        <span className={cn('text-[10px] font-mono px-1.5 py-0.5 font-bold border', cm.bg, cm.text, cm.border)}>
+        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-mono font-bold', cm.bg, cm.text, cm.border)}>
           {pctValue}% OFF
         </span>
       </div>
@@ -1800,13 +1872,13 @@ function FulfillmentOption({
           ? tone === 'volt'
             ? 'border-volt/40 bg-volt/[0.06]'
             : 'border-copper/40 bg-copper/[0.06]'
-          : 'border-ink/10 bg-paper-subtle/20 opacity-70',
+          : 'border-ink/10 bg-paper opacity-70',
         !locked && 'cursor-pointer hover:opacity-100',
       )}
     >
       <div
         className={cn(
-          'size-9 flex items-center justify-center shrink-0',
+          'flex size-10 shrink-0 items-center justify-center rounded-xl',
           active
             ? tone === 'volt'
               ? 'bg-volt/20 text-volt-deep'
@@ -1820,15 +1892,15 @@ function FulfillmentOption({
         <div className="flex items-center gap-2">
           <p className="text-xs font-bold text-ink-1">{title}</p>
           {locked && (
-            <span className="text-[9px] font-mono uppercase tracking-wider bg-mint/15 text-mint border border-mint/30 px-1.5 py-0.5 font-bold">
+            <span className="rounded-full bg-mint/10 px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider text-mint ring-1 ring-inset ring-mint/25">
               Always on
             </span>
           )}
           {!locked && (
             <span
               className={cn(
-                'text-[9px] font-mono uppercase tracking-wider font-bold px-1.5 py-0.5',
-                active ? 'bg-mint/15 text-mint' : 'bg-ink/10 text-ink-3',
+                'rounded-full px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider',
+                active ? 'bg-mint/10 text-mint' : 'bg-ink/[0.06] text-ink-3',
               )}
             >
               {active ? 'On' : 'Off'}
@@ -1887,44 +1959,56 @@ function FormStepper({
   sections: ReadonlyArray<{ key: string; label: string; hint: string; icon: React.ComponentType<{ size?: number; className?: string }> }>;
   state: { key: string; done: boolean }[];
 }) {
+  const activeIndex = sections.findIndex((x) => !state.find((y) => y.key === x.key)?.done);
   return (
-    <ol className="flex items-start w-full">
+    <ol className={cn('grid gap-x-3 gap-y-4', sections.length > 3 ? 'grid-cols-3 md:grid-cols-6' : 'grid-cols-3')}>
       {sections.map((s, i) => {
-        const done = state.find((x) => x.key === s.key)?.done;
-        const isActive = !done && (i === sections.findIndex((x) => !state.find((y) => y.key === x.key)?.done));
+        const done = Boolean(state.find((x) => x.key === s.key)?.done);
+        const isActive = i === activeIndex;
+        const Icon = s.icon;
         return (
-          <li key={s.key} className="flex-1 min-w-0 flex items-start">
-            <div className="flex flex-col items-start gap-1.5 min-w-0 w-full">
-              <div className="flex items-center w-full">
+          <li key={s.key} className="min-w-0">
+            <button
+              type="button"
+              onClick={() =>
+                document.getElementById(`section-${s.key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }
+              className="group w-full text-left"
+            >
+              <span className="block h-1 overflow-hidden rounded-full bg-paper/10">
                 <span
                   className={cn(
-                    'relative z-[1] size-2.5 rotate-45 shrink-0',
-                    done ? 'bg-mint' : isActive ? 'bg-volt animate-mark-pulse' : 'bg-mist',
+                    'block h-full rounded-full transition-all duration-500',
+                    done ? 'w-full bg-mint' : isActive ? 'w-1/2 bg-volt' : 'w-0',
                   )}
                 />
-                {i < sections.length - 1 && (
-                  <span className="relative mx-2 h-px flex-1 overflow-hidden bg-ink/15">
-                    <span
-                      className={cn(
-                        'absolute inset-y-0 left-0 w-1/2 bg-volt',
-                        done && 'w-full',
-                      )}
-                    />
-                  </span>
-                )}
-              </div>
-              <div className="min-w-0 pr-3">
-                <div
+              </span>
+              <span className="mt-3 flex items-center gap-2.5">
+                <span
                   className={cn(
-                    'text-[10px] font-mono font-bold tracking-wide uppercase',
-                    done ? 'text-mint' : isActive ? 'text-ink' : 'text-ink-4',
+                    'flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors',
+                    done
+                      ? 'bg-mint/20 text-mint'
+                      : isActive
+                        ? 'bg-volt text-ink'
+                        : 'bg-paper/[0.06] text-paper/40 group-hover:text-paper/70',
                   )}
                 >
-                  0{i + 1} · {s.label}
-                </div>
-                <div className="text-[9px] text-ink-4 mt-0.5 truncate">{s.hint}</div>
-              </div>
-            </div>
+                  {done ? <CheckIcon size={13} /> : <Icon size={13} />}
+                </span>
+                <span className="min-w-0">
+                  <span
+                    className={cn(
+                      'block truncate text-[12px] font-semibold',
+                      done || isActive ? 'text-paper' : 'text-paper/55 group-hover:text-paper/80',
+                    )}
+                  >
+                    {s.label}
+                  </span>
+                  <span className="hidden truncate text-[10px] text-paper/40 lg:block">{s.hint}</span>
+                </span>
+              </span>
+            </button>
           </li>
         );
       })}

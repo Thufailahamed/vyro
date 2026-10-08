@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { api, ApiError } from '@/lib/api';
-import { Button, ErrorBanner, PageSection } from '@/components/ui';
+import { ErrorBanner } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@vyro/ui';
@@ -22,8 +22,7 @@ import {
   MinusIcon,
   SparklesIcon,
 } from '@/components/icons';
-import { FlowLine } from '@/components/brand/FlowLine';
-import { MetricNumber, ProductImage, Surface } from '@/components/brand/Surface';
+import { ProductImage } from '@/components/brand/Surface';
 import { resolveCatalogImage } from '@/lib/catalogImages';
 import { SupplierStarsLine } from '@/reviews/SupplierStarsLine';
 import { SupplierReviewsPanel } from '@/reviews/SupplierReviewsPanel';
@@ -45,10 +44,10 @@ function availabilityLabel(status: string | undefined): { label: string; tone: '
 }
 
 const toneClass: Record<'good' | 'warn' | 'bad' | 'neutral', string> = {
-  good: 'text-mint border-mint/40 bg-mint/5',
-  warn: 'text-amber border-amber/40 bg-amber/5',
-  bad: 'text-rose border-rose/40 bg-rose/5',
-  neutral: 'text-ink-3 border-line bg-paper',
+  good: 'text-mint bg-mint/10',
+  warn: 'text-amber bg-amber/10',
+  bad: 'text-rose bg-rose/10',
+  neutral: 'text-ink-3 bg-ink/5',
 };
 
 interface Offer {
@@ -188,34 +187,83 @@ export function ProductDetailPage() {
     setQty((prev) => ({ ...prev, [offerId]: next }));
   }
 
-  if (isLoading) return <div className="h-64 bg-mist animate-pulse" />;
+  if (isLoading) {
+    return (
+      <div className="grid lg:grid-cols-[1.15fr_1fr] gap-10" aria-busy>
+        <div className="aspect-[4/3] rounded-3xl bg-mist animate-pulse" />
+        <div className="space-y-4 pt-4">
+          <div className="h-4 w-40 rounded-full bg-mist animate-pulse" />
+          <div className="h-12 w-3/4 rounded-xl bg-mist animate-pulse" />
+          <div className="h-4 w-full rounded-full bg-mist animate-pulse" />
+          <div className="h-48 rounded-3xl bg-mist animate-pulse" />
+        </div>
+      </div>
+    );
+  }
   if (!data) {
     return (
-      <div className="py-16">
-        <h2 className="vyro-display text-3xl">Product not found</h2>
-        <Link to="/search" className="mt-4 inline-block text-copper">
-          ← Catalog
+      <div className="mx-auto max-w-md py-24 text-center">
+        <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-bone text-ink-4">
+          <PackageIcon size={24} />
+        </span>
+        <h2 className="mt-5 font-display text-3xl font-bold tracking-[-0.03em]">Product not found</h2>
+        <p className="mt-2 text-sm text-ink-4">This lot may have been delisted or the link is out of date.</p>
+        <Link
+          to="/search"
+          className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl bg-ink px-5 text-sm font-medium text-paper hover:bg-ink-2 transition-colors"
+        >
+          <ArrowLeftIcon size={14} /> Back to catalog
         </Link>
       </div>
     );
   }
 
-  return (
-    <div className="space-y-8">
-      <Link to="/search" className="inline-flex items-center gap-1.5 text-xs text-ink-4 hover:text-ink transition-colors">
-        <ArrowLeftIcon size={14} /> Wholesale Catalog
-      </Link>
+  const unit = data.product.unit;
+  const lowestMoq = data.offers.length ? Math.min(...data.offers.map((o) => o.offer.minOrderQty)) : null;
+  const verifiedCount = data.offers.filter((o) => o.supplier.verificationStatus === 'verified').length;
+  const orderHref = user ? '/onboarding/business' : `/login?next=${encodeURIComponent(`/products/${id}`)}`;
 
-      <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-8 items-start">
-        <div className="space-y-3">
+  const sortOptions: Array<{ key: typeof sortBy; label: string }> = [
+    { key: 'recommended', label: 'Recommended' },
+    { key: 'price_asc', label: 'Lowest price' },
+    { key: 'lead_asc', label: 'Fastest' },
+    { key: 'moq_asc', label: 'Lowest MOQ' },
+  ];
+
+  return (
+    <div className="space-y-10 sm:space-y-14">
+      {/* Breadcrumb */}
+      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-ink-4 min-w-0">
+        <Link to="/search" className="inline-flex items-center gap-1.5 hover:text-ink transition-colors shrink-0">
+          <ArrowLeftIcon size={14} /> Catalog
+        </Link>
+        <span aria-hidden>/</span>
+        <span className="text-ink truncate">{data.product.name}</span>
+      </nav>
+
+      {/* PRODUCT HERO */}
+      <div className="grid lg:grid-cols-[1.1fr_1fr] gap-6 lg:gap-8 items-stretch">
+        {/* Gallery — stretches to the height of the summary column */}
+        <div className="relative isolate h-80 sm:h-[28rem] lg:h-auto lg:min-h-[26rem] overflow-hidden rounded-3xl bg-bone ring-1 ring-ink/[0.06]">
           <ProductImage
             src={activeImage || data.product.imageUrl || data.product.images?.[0]?.url}
             alt={data.product.name}
             seed={data.product.id}
-            className="h-80 sm:h-96 w-full shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08)] bg-bone"
+            priority
+            className="absolute inset-0 h-full w-full"
           />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-void/50 to-transparent" aria-hidden />
+          {data.offers.length > 0 && (
+            <span className="absolute top-4 left-4 inline-flex items-center gap-2 rounded-full bg-paper/90 px-3 py-1.5 text-xs font-medium text-ink backdrop-blur-md shadow-sm">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-mint opacity-60 animate-ping" />
+                <span className="relative inline-flex size-2 rounded-full bg-mint" />
+              </span>
+              {data.offers.length} live {data.offers.length === 1 ? 'offer' : 'offers'}
+            </span>
+          )}
           {data.product.images && data.product.images.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="absolute bottom-4 left-4 flex max-w-[calc(100%-2rem)] gap-2 overflow-x-auto rounded-2xl bg-paper/20 p-1.5 ring-1 ring-inset ring-paper/25 backdrop-blur-md">
               {data.product.images.map((img, i) => {
                 const src = resolveCatalogImage(data.product.id, img.url, i) ?? img.url;
                 const current =
@@ -228,660 +276,724 @@ export function ProductDetailPage() {
                     key={img.id}
                     type="button"
                     onClick={() => setActiveImage(src)}
-                    className={`relative shrink-0 w-16 h-16 overflow-hidden border-2 transition-all rounded-lg ${
-                      isSelected ? 'border-ink shadow-sm scale-105' : 'border-transparent opacity-60 hover:opacity-100'
+                    aria-label={`Show image ${i + 1}`}
+                    aria-pressed={isSelected}
+                    className={`relative shrink-0 size-14 sm:size-16 overflow-hidden rounded-xl transition-all duration-240 ${
+                      isSelected ? 'ring-2 ring-paper' : 'opacity-60 hover:opacity-100'
                     }`}
                   >
-                    <img src={src} alt={img.altText || data.product.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                    <img src={src} alt={img.altText || data.product.name} decoding="async" className="w-full h-full object-cover" />
                   </button>
                 );
               })}
             </div>
           )}
         </div>
-        <div className="space-y-5">
+
+        {/* Summary */}
+        <div className="flex flex-col gap-5">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="vyro-kicker">{data.product.unit}</span>
-              <span className="text-xs text-ink-4">•</span>
-              <span className="text-xs uppercase tracking-wider text-ink-3 font-mono">Commercial Wholesale</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-ink px-2.5 py-1 text-[11px] font-medium text-volt">{unit}</span>
+              <span className="rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-3 ring-1 ring-inset ring-ink/10">
+                Commercial wholesale
+              </span>
+              {data.product.brand && (
+                <span className="text-xs text-ink-4">
+                  by <span className="font-semibold text-ink">{data.product.brand}</span>
+                </span>
+              )}
             </div>
-            <h1 className="mt-2 vyro-display text-4xl sm:text-5xl text-balance">{data.product.name}</h1>
-            {data.product.brand && (
-              <div className="mt-1 text-xs uppercase tracking-[0.14em] text-copper font-medium">
-                Brand: <span className="font-semibold text-ink">{data.product.brand}</span>
-              </div>
-            )}
+            <h1 className="mt-4 font-display text-4xl sm:text-5xl lg:text-[2.75rem] xl:text-5xl font-extrabold tracking-[-0.045em] leading-[1.02] text-ink text-balance">
+              {data.product.name}
+            </h1>
             {data.product.description && (
-              <p className="mt-3 text-sm text-ink-3 leading-relaxed">
-                {data.product.description}
-              </p>
+              <p className="mt-3 max-w-xl text-base text-ink-3 leading-relaxed text-pretty">{data.product.description}</p>
             )}
           </div>
 
+          {/* Price card */}
           {data.priceStats.count > 0 && (
-            <div className="p-4 bg-bone border border-line flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <div className="text-xs uppercase tracking-[0.14em] text-ink-4">Starting rate from</div>
-                <MetricNumber size="md" className="text-ink mt-0.5">{formatLKR(data.priceStats.min)}</MetricNumber>
-                <p className="mt-1 text-xs text-ink-4">{data.priceStats.count} live supplier quotes verified</p>
+            <div className="relative isolate overflow-hidden rounded-3xl bg-ink p-6 sm:p-7 text-paper shadow-[0_30px_60px_-30px_rgba(12,14,11,0.6)]">
+              <div className="absolute -right-20 -top-20 -z-10 size-64 rounded-full bg-volt/[0.12] blur-3xl" aria-hidden />
+              <div className="flex flex-wrap items-end justify-between gap-5">
+                <div>
+                  <div className="text-xs text-paper/50">Best price from</div>
+                  <div className="mt-1.5 flex items-baseline gap-2">
+                    <span className="vyro-metric text-4xl sm:text-[2.75rem] leading-none text-volt">{formatLKR(data.priceStats.min)}</span>
+                    <span className="text-sm text-paper/45">/ {unit}</span>
+                  </div>
+                  {data.priceStats.max > data.priceStats.min && (
+                    <p className="mt-2 text-xs text-paper/45">
+                      Market range {formatLKR(data.priceStats.min)} – {formatLKR(data.priceStats.max)}
+                    </p>
+                  )}
+                </div>
+                <a
+                  href="#supplier-comparison"
+                  className="group inline-flex h-11 items-center gap-2 rounded-xl bg-paper px-5 text-sm font-semibold text-ink transition-colors duration-180 hover:bg-volt"
+                >
+                  Compare {data.offers.length} {data.offers.length === 1 ? 'offer' : 'offers'}
+                  <ArrowLeftIcon size={14} className="-rotate-90 transition-transform duration-180 group-hover:translate-y-0.5" />
+                </a>
               </div>
-              <a
-                href="#supplier-comparison"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider bg-ink text-volt px-3.5 py-2 hover:bg-charcoal transition-colors"
-              >
-                Compare Offers ({data.offers.length}) ↓
-              </a>
+
+              <dl className="mt-6 grid grid-cols-3 divide-x divide-paper/10 rounded-2xl bg-paper/[0.05] ring-1 ring-inset ring-paper/10">
+                <div className="p-3.5 sm:p-4 min-w-0">
+                  <dt className="text-[11px] text-paper/45">Fastest</dt>
+                  <dd className="mt-1 text-sm font-semibold truncate">
+                    {fastestOffer ? `${fastestOffer.offer.leadTimeDays} ${fastestOffer.offer.leadTimeDays === 1 ? 'day' : 'days'}` : '—'}
+                  </dd>
+                </div>
+                <div className="p-3.5 sm:p-4 min-w-0">
+                  <dt className="text-[11px] text-paper/45">Lowest MOQ</dt>
+                  <dd className="mt-1 text-sm font-semibold truncate">{lowestMoq != null ? `${lowestMoq} ${unit}` : '—'}</dd>
+                </div>
+                <div className="p-3.5 sm:p-4 min-w-0">
+                  <dt className="text-[11px] text-paper/45">Verified</dt>
+                  <dd className="mt-1 text-sm font-semibold truncate">
+                    {verifiedCount} of {data.offers.length}
+                  </dd>
+                </div>
+              </dl>
             </div>
           )}
 
-          <div className="pt-2">
-            <FlowLine
-              nodes={[
-                { label: 'Product Specs', state: 'done' },
-                { label: `Compare ${data.offers.length} Quotes`, state: 'active' },
-                { label: 'Cart & PO', state: 'idle' },
-              ]}
+          {/* Assurances */}
+          <ul className="grid grid-cols-3 divide-x divide-ink/[0.07] rounded-2xl bg-paper ring-1 ring-ink/[0.06]">
+            {[
+              { icon: <ShieldCheckIcon size={15} />, title: 'Verified suppliers' },
+              { icon: <TruckIcon size={15} />, title: 'Tracked delivery' },
+              { icon: <FileTextIcon size={15} />, title: 'Automatic POs' },
+            ].map((a) => (
+              <li key={a.title} className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 px-2 py-3 text-center">
+                <span className="text-copper shrink-0">{a.icon}</span>
+                <span className="text-[11px] sm:text-xs font-medium text-ink-2 leading-tight">{a.title}</span>
+              </li>
+            ))}
+          </ul>
+
+          {/* Account gates */}
+          {!user && (
+            <GateCard
+              tone="copper"
+              title="Sign in to order from certified mills"
+              body="Unlock trade credit, automated purchase orders and direct dispatch."
+              to={`/login?next=${encodeURIComponent(`/products/${id}`)}`}
+              cta="Sign in"
             />
-          </div>
+          )}
+          {user && !businessId && (
+            <GateCard
+              tone="amber"
+              title="Register your business to issue POs"
+              body="Required for wholesale tax compliance and dock delivery."
+              to="/onboarding/business"
+              cta="Complete profile"
+            />
+          )}
         </div>
       </div>
 
       <ErrorBanner message={err} />
 
-      {!user && (
-        <Surface className="p-5 flex items-center justify-between gap-4 border-l-4 border-l-copper">
-          <div>
-            <p className="text-sm font-medium text-ink">Sign in to place wholesale orders with certified mills.</p>
-            <p className="text-xs text-ink-4 mt-0.5">Unlock verified trade credit, automated purchase orders, and direct vendor dispatch.</p>
-          </div>
-          <Link to={`/login?next=${encodeURIComponent(`/products/${id}`)}`}>
-            <Button size="sm">Sign in</Button>
-          </Link>
-        </Surface>
-      )}
-      {user && !businessId && (
-        <Surface className="p-5 flex items-center justify-between gap-4 border-l-4 border-l-amber">
-          <div>
-            <p className="text-sm font-medium text-ink">Register your business entity to issue purchase orders.</p>
-            <p className="text-xs text-ink-4 mt-0.5">Required for wholesale tax compliance and warehouse dock delivery.</p>
-          </div>
-          <Link to="/onboarding/business">
-            <Button size="sm">Complete profile</Button>
-          </Link>
-        </Surface>
-      )}
-
       {/* SUPPLIER COMPARISON ENGINE */}
-      <section id="supplier-comparison" className="space-y-6 pt-2">
-        {businessId && (
-          <Link to="/rfqs/new" className="block rounded-2xl border border-line bg-paper p-4 hover:border-ink transition-colors">
-            <span className="text-xs uppercase tracking-widest text-ink-4">Large quantity?</span>
-            <span className="block text-lg font-semibold">Need 500kg+? Request a custom supplier quote →</span>
-          </Link>
-        )}
-        <ErrorBanner message={err} />
-        <PageSection
-          eyebrow="Offers"
-          title="Supplier comparison"
-          actions={<span className="text-xs text-ink-4 font-mono">Algorithmic quote ranking • Real-time inventory status</span>}
-        >
-          {/* Quick Decision Benchmark Header */}
-          {data.offers.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-              {/* Benchmark 1: Best Price */}
-              {bestPriceOffer && (
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setSortBy('price_asc')}
-                  className={`p-4 border transition-all cursor-pointer text-left ${
-                    sortBy === 'price_asc'
-                      ? 'border-ink bg-paper shadow-sm ring-1 ring-ink'
-                      : 'border-line bg-paper/60 hover:bg-paper hover:border-ink/40'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 bg-ink text-volt">
-                      <SparklesIcon size={10} /> Best Unit Price
-                    </span>
-                    <span className="text-[10px] text-ink-4 font-mono">Rank #1</span>
-                  </div>
-                  <div className="mt-2.5 flex items-baseline gap-1.5">
-                    <MetricNumber size="sm" className="text-ink">
-                      {formatLKR(bestPriceOffer.offer.priceCents)}
-                    </MetricNumber>
-                    <span className="text-xs text-ink-4">/ {data.product.unit}</span>
-                  </div>
-                  <div className="mt-1 text-xs font-medium text-ink truncate">{bestPriceOffer.supplier.name}</div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-ink-4">
-                    <span>MOQ {bestPriceOffer.offer.minOrderQty} {data.product.unit}</span>
-                    <span>•</span>
-                    <span>{bestPriceOffer.offer.leadTimeDays}d lead</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Benchmark 2: Fastest Delivery */}
-              {fastestOffer && (
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setSortBy('lead_asc')}
-                  className={`p-4 border transition-all cursor-pointer text-left ${
-                    sortBy === 'lead_asc'
-                      ? 'border-ink bg-paper shadow-sm ring-1 ring-ink'
-                      : 'border-line bg-paper/60 hover:bg-paper hover:border-ink/40'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 bg-mint/15 text-mint border border-mint/30">
-                      <ClockIcon size={10} /> Fastest Dispatch
-                    </span>
-                    <span className="text-[10px] text-ink-4 font-mono">Speed Leader</span>
-                  </div>
-                  <div className="mt-2.5 flex items-baseline gap-1.5">
-                    <span className="text-xl font-display font-semibold text-ink">
-                      {fastestOffer.offer.leadTimeDays} {fastestOffer.offer.leadTimeDays === 1 ? 'Day' : 'Days'} Lead
-                    </span>
-                  </div>
-                  <div className="mt-1 text-xs font-medium text-ink truncate">{fastestOffer.supplier.name}</div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-ink-4">
-                    <span>{formatLKR(fastestOffer.offer.priceCents)} / {data.product.unit}</span>
-                    <span>•</span>
-                    <span>Express Fulfillment</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Benchmark 3: Price Spread & Value */}
-              <div className="p-4 border border-line bg-paper/60 flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 bg-copper/10 text-copper border border-copper/30">
-                    <TrendingUpIcon size={10} /> Market Spread
-                  </span>
-                  <span className="text-[10px] text-ink-4 font-mono">{data.offers.length} Live Quotes</span>
-                </div>
-                <div className="mt-2.5 flex items-baseline gap-1.5">
-                  <span className="text-sm font-semibold text-ink">
-                    {formatLKR(data.priceStats.min)} – {formatLKR(data.priceStats.max)}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-ink-4 leading-normal">
-                  {maxPriceCents > (bestPriceOffer?.offer?.priceCents ?? 0)
-                    ? `Save up to ${formatLKR(maxPriceCents - (bestPriceOffer?.offer?.priceCents ?? 0))} / ${data.product.unit} between competing suppliers.`
-                    : 'Transparent wholesale mill gate pricing with zero middleman margin.'}
-                </p>
-              </div>
+      <section id="supplier-comparison" className="scroll-mt-24 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-t border-ink/10 pt-10 sm:pt-14">
+          <div>
+            <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-ink-4">
+              <span className="size-1.5 rounded-full bg-copper" aria-hidden />
+              Offers
             </div>
+            <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-[-0.04em] text-ink">Compare suppliers</h2>
+            <p className="mt-2 text-sm text-ink-4">Ranked by price, speed and reliability · live inventory status</p>
+          </div>
+          {businessId && (
+            <Link
+              to="/rfqs/new"
+              className="group inline-flex items-center gap-3 self-start sm:self-end rounded-2xl bg-paper py-2.5 pl-3 pr-4 ring-1 ring-ink/[0.08] transition-all duration-240 hover:ring-ink/25 hover:shadow-[0_12px_30px_-16px_rgba(12,14,11,0.3)]"
+            >
+              <span className="flex size-9 items-center justify-center rounded-xl bg-volt text-ink">
+                <PackageIcon size={16} />
+              </span>
+              <span className="leading-tight">
+                <span className="block text-[11px] text-ink-4">Buying 500kg+?</span>
+                <span className="block text-sm font-semibold text-ink">Request a custom quote</span>
+              </span>
+              <ArrowLeftIcon size={14} className="rotate-180 text-ink-4 transition-transform duration-180 group-hover:translate-x-0.5" />
+            </Link>
           )}
+        </div>
 
-          {/* Controls Toolbar: Filters & View Switcher */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-line">
-            {/* Filter Pills */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs text-ink-4 mr-1">Sort by:</span>
-              <button
-                type="button"
-                onClick={() => setSortBy('recommended')}
-                className={`px-2.5 py-1 text-xs font-medium transition-colors border ${
-                  sortBy === 'recommended'
-                    ? 'bg-ink text-volt border-ink'
-                    : 'bg-paper text-ink-3 border-line hover:border-ink/40'
-                }`}
-              >
-                Recommended ({data.offers.length})
-              </button>
-              <button
-                type="button"
+        {/* Quick decision benchmarks */}
+        {data.offers.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {bestPriceOffer && (
+              <BenchmarkCard
+                active={sortBy === 'price_asc'}
                 onClick={() => setSortBy('price_asc')}
-                className={`px-2.5 py-1 text-xs font-medium transition-colors border ${
-                  sortBy === 'price_asc'
-                    ? 'bg-ink text-volt border-ink'
-                    : 'bg-paper text-ink-3 border-line hover:border-ink/40'
-                }`}
-              >
-                Lowest Price
-              </button>
-              <button
-                type="button"
+                label="Best unit price"
+                icon={<SparklesIcon size={12} />}
+                accent="volt"
+                value={
+                  <>
+                    <span className="vyro-metric text-2xl">{formatLKR(bestPriceOffer.offer.priceCents)}</span>
+                    <span className="text-xs text-ink-4"> / {unit}</span>
+                  </>
+                }
+                supplier={bestPriceOffer.supplier.name}
+                meta={`MOQ ${bestPriceOffer.offer.minOrderQty} ${unit} · ${bestPriceOffer.offer.leadTimeDays}d lead`}
+              />
+            )}
+            {fastestOffer && (
+              <BenchmarkCard
+                active={sortBy === 'lead_asc'}
                 onClick={() => setSortBy('lead_asc')}
-                className={`px-2.5 py-1 text-xs font-medium transition-colors border ${
-                  sortBy === 'lead_asc'
-                    ? 'bg-ink text-volt border-ink'
-                    : 'bg-paper text-ink-3 border-line hover:border-ink/40'
-                }`}
-              >
-                Fastest Lead Time
-              </button>
-              <button
-                type="button"
-                onClick={() => setSortBy('moq_asc')}
-                className={`px-2.5 py-1 text-xs font-medium transition-colors border ${
-                  sortBy === 'moq_asc'
-                    ? 'bg-ink text-volt border-ink'
-                    : 'bg-paper text-ink-3 border-line hover:border-ink/40'
-                }`}
-              >
-                Lowest MOQ
-              </button>
-            </div>
-
-            {/* View Switcher */}
-            <div className="flex items-center gap-1 self-end sm:self-auto border border-line bg-paper p-0.5">
-              <button
-                type="button"
-                onClick={() => setViewMode('cards')}
-                className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium transition-colors ${
-                  viewMode === 'cards' ? 'bg-bone text-ink font-semibold shadow-xs' : 'text-ink-4 hover:text-ink'
-                }`}
-                title="Cards view"
-              >
-                <LayoutGridIcon size={13} />
-                <span>Cards</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('table')}
-                className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium transition-colors ${
-                  viewMode === 'table' ? 'bg-bone text-ink font-semibold shadow-xs' : 'text-ink-4 hover:text-ink'
-                }`}
-                title="Comparison matrix table view"
-              >
-                <FileTextIcon size={13} />
-                <span>Matrix Table</span>
-              </button>
+                label="Fastest dispatch"
+                icon={<ClockIcon size={12} />}
+                accent="mint"
+                value={
+                  <span className="font-display text-2xl font-bold tracking-[-0.03em]">
+                    {fastestOffer.offer.leadTimeDays} {fastestOffer.offer.leadTimeDays === 1 ? 'day' : 'days'}
+                  </span>
+                }
+                supplier={fastestOffer.supplier.name}
+                meta={`${formatLKR(fastestOffer.offer.priceCents)} / ${unit}`}
+              />
+            )}
+            <div className="rounded-2xl bg-paper p-5 ring-1 ring-ink/[0.06]">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-copper/10 px-2.5 py-1 text-[11px] font-semibold text-copper-deep">
+                <TrendingUpIcon size={12} /> Market spread
+              </span>
+              <div className="mt-4 text-base font-semibold text-ink">
+                {formatLKR(data.priceStats.min)} – {formatLKR(data.priceStats.max)}
+              </div>
+              <p className="mt-1.5 text-xs text-ink-4 leading-relaxed">
+                {maxPriceCents > (bestPriceOffer?.offer?.priceCents ?? 0)
+                  ? `Save up to ${formatLKR(maxPriceCents - (bestPriceOffer?.offer?.priceCents ?? 0))} / ${unit} by choosing the right supplier.`
+                  : 'Transparent mill-gate pricing with zero middleman margin.'}
+              </p>
             </div>
           </div>
+        )}
 
-          {/* OFFERS PRESENTATION */}
-          {sortedOffers.length === 0 ? (
-            <Surface className="p-10 text-center text-ink-4">No active offers available for this product.</Surface>
-          ) : viewMode === 'table' ? (
-            /* Matrix Table View */
-            <div className="overflow-x-auto border border-line vyro-surface mt-4">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-bone text-ink-3 uppercase tracking-wider text-[10px] border-b border-line">
-                  <tr>
-                    <th className="p-3.5 font-semibold">Rank & Supplier</th>
-                    <th className="p-3.5 font-semibold">Origin</th>
-                    <th className="p-3.5 font-semibold">Lead Time</th>
-                    <th className="p-3.5 font-semibold">Availability</th>
-                    <th className="p-3.5 font-semibold">Unit Price</th>
-                    <th className="p-3.5 font-semibold">Order Qty</th>
-                    <th className="p-3.5 font-semibold">Subtotal</th>
-                    <th className="p-3.5 font-semibold text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line bg-paper text-ink">
-                  {sortedOffers.map((row) => {
-                    const selectedQty = qty[row.offer.id] ?? row.offer.minOrderQty;
-                    const isBestPrice = row.offer.id === bestPriceId;
-                    const isFastest = row.offer.id === fastestId;
-                    const isValue = row.offer.id === valueId;
-                    const subtotal = row.offer.priceCents * selectedQty;
-                    const avail = availabilityLabel(row.offer.availabilityStatus);
+        {/* Toolbar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-1 overflow-x-auto rounded-full bg-paper p-1 ring-1 ring-ink/[0.07]" role="group" aria-label="Sort offers">
+            {sortOptions.map((o) => (
+              <button
+                key={o.key}
+                type="button"
+                aria-pressed={sortBy === o.key}
+                onClick={() => setSortBy(o.key)}
+                className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors duration-180 ${
+                  sortBy === o.key ? 'bg-ink text-paper' : 'text-ink-3 hover:text-ink hover:bg-bone'
+                }`}
+              >
+                {o.label}
+                {o.key === 'recommended' && <span className="ml-1 opacity-50">{data.offers.length}</span>}
+              </button>
+            ))}
+          </div>
 
-                    return (
-                      <tr
-                        key={row.offer.id}
-                        className={`hover:bg-bone/40 transition-colors ${
-                          isBestPrice ? 'bg-volt/5' : ''
-                        }`}
-                      >
-                        <td className="p-3.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-semibold text-ink-3 w-5">#{row.rank}</span>
-                            <div>
-                              <div className="font-semibold text-sm text-ink flex items-center gap-2">
-                                {row.supplier.name}
-                                {row.ranking?.rank === 1 && (
-                                  <span className="px-1.5 py-0.5 bg-volt/20 text-volt text-[10px] font-mono font-bold uppercase tracking-wider">
-                                    Best match
-                                  </span>
-                                )}
-                              </div>
-                              <SupplierStarsLine supplierId={row.supplier.id} />
-                              {row.ranking?.reasons && row.ranking.reasons.length > 0 && (
-                                <div className="text-[10px] text-copper font-mono mt-0.5">
-                                  #{row.ranking.rank} · {row.ranking.reasons.join(' + ')}
-                                </div>
+          <div className="flex items-center gap-1 self-end sm:self-auto rounded-full bg-paper p-1 ring-1 ring-ink/[0.07]" role="group" aria-label="View">
+            {(
+              [
+                { key: 'cards', label: 'Cards', icon: <LayoutGridIcon size={13} /> },
+                { key: 'table', label: 'Table', icon: <FileTextIcon size={13} /> },
+              ] as const
+            ).map((v) => (
+              <button
+                key={v.key}
+                type="button"
+                aria-pressed={viewMode === v.key}
+                onClick={() => setViewMode(v.key)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors duration-180 ${
+                  viewMode === v.key ? 'bg-bone text-ink shadow-sm' : 'text-ink-4 hover:text-ink'
+                }`}
+              >
+                {v.icon}
+                {v.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* OFFERS */}
+        {sortedOffers.length === 0 ? (
+          <div className="rounded-3xl bg-paper p-12 text-center ring-1 ring-ink/[0.06]">
+            <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-bone text-ink-4">
+              <PackageIcon size={20} />
+            </span>
+            <p className="mt-4 text-sm font-medium text-ink">No active offers right now</p>
+            <p className="mt-1 text-xs text-ink-4">Check back soon, or request a custom quote from suppliers.</p>
+          </div>
+        ) : viewMode === 'table' ? (
+          <div className="overflow-x-auto rounded-3xl bg-paper ring-1 ring-ink/[0.07]">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-ink/[0.07] text-[11px] text-ink-4">
+                <tr>
+                  <th className="px-5 py-4 font-medium">Supplier</th>
+                  <th className="px-4 py-4 font-medium">Origin</th>
+                  <th className="px-4 py-4 font-medium">Lead time</th>
+                  <th className="px-4 py-4 font-medium">Availability</th>
+                  <th className="px-4 py-4 font-medium">Unit price</th>
+                  <th className="px-4 py-4 font-medium">Quantity</th>
+                  <th className="px-4 py-4 font-medium">Subtotal</th>
+                  <th className="px-5 py-4 font-medium text-right">
+                    <span className="sr-only">Action</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink/[0.06] text-ink">
+                {sortedOffers.map((row) => {
+                  const selectedQty = qty[row.offer.id] ?? row.offer.minOrderQty;
+                  const isBestPrice = row.offer.id === bestPriceId;
+                  const isFastest = row.offer.id === fastestId;
+                  const isValue = row.offer.id === valueId;
+                  const subtotal = row.offer.priceCents * selectedQty;
+                  const avail = availabilityLabel(row.offer.availabilityStatus);
+
+                  return (
+                    <tr key={row.offer.id} className={`transition-colors hover:bg-bone/50 ${isBestPrice ? 'bg-volt/[0.06]' : ''}`}>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <SupplierAvatar name={row.supplier.name} rank={row.rank ?? row.ranking?.rank} />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+                              <span className="truncate">{row.supplier.name}</span>
+                              {row.supplier.verificationStatus === 'verified' && (
+                                <ShieldCheckIcon size={13} className="text-mint shrink-0" aria-label="Verified" />
                               )}
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                {isBestPrice && <Award>Best price</Award>}
-                                {isValue && <Award copper>Best value</Award>}
-                                {isFastest && <Award>Fastest</Award>}
-                                {row.supplier.verificationStatus === 'verified' && (
-                                  <span className="inline-flex items-center gap-0.5 text-[10px] text-mint font-medium">
-                                    <ShieldCheckIcon size={11} /> Verified
-                                  </span>
-                                )}
-                                <TrustSealBadge
-                                  active={!!(row.supplier as any).trustSealed}
-                                  memberSinceYear={(row.supplier as any).memberSinceYear ?? null}
-                                  expiresAt={(row.supplier as any).trustSealExpiresAt ?? null}
-                                />
-                              </div>
                             </div>
+                            <SupplierStarsLine supplierId={row.supplier.id} />
+                            <div className="mt-1 flex flex-wrap items-center gap-1">
+                              {isBestPrice && <Award>Best price</Award>}
+                              {isValue && <Award copper>Best value</Award>}
+                              {isFastest && <Award mint>Fastest</Award>}
+                              <TrustSealBadge
+                                active={!!(row.supplier as any).trustSealed}
+                                memberSinceYear={(row.supplier as any).memberSinceYear ?? null}
+                                expiresAt={(row.supplier as any).trustSealExpiresAt ?? null}
+                              />
+                            </div>
+                            {row.ranking?.reasons && row.ranking.reasons.length > 0 && (
+                              <div className="mt-1 text-[10px] text-ink-4">{row.ranking.reasons.join(' · ')}</div>
+                            )}
                           </div>
-                        </td>
-                        <td className="p-3.5 text-ink-3">
-                          <div className="flex items-center gap-1">
-                            <MapPinIcon size={12} className="text-ink-4" />
-                            <span>{row.supplier.city || 'Western Province'}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-ink-3 whitespace-nowrap">{row.supplier.city || 'Western Province'}</td>
+                      <td className="px-4 py-4 whitespace-nowrap font-medium">{row.offer.leadTimeDays}d</td>
+                      <td className="px-4 py-4">
+                        <AvailabilityPill tone={avail.tone}>{avail.label}</AvailabilityPill>
+                        {row.offer.trackInventory && row.offer.availableQty != null && (
+                          <div className="mt-1 text-[10px] text-ink-4">{row.offer.availableQty} available</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="vyro-metric text-sm">{formatLKR(row.offer.priceCents)}</div>
+                        <div className="text-[10px] text-ink-4">per {unit}</div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <QtyStepper
+                          compact
+                          value={selectedQty}
+                          min={row.offer.minOrderQty}
+                          onStep={(d) => handleQtyStep(row.offer.id, d, row.offer.minOrderQty)}
+                          onChange={(v) => handleQtyChange(row.offer.id, v, row.offer.minOrderQty)}
+                        />
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="vyro-metric text-sm font-semibold">{formatLKR(subtotal)}</div>
+                        <div className="text-[10px] text-ink-4">
+                          {selectedQty} × {unit}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        {businessId ? (
+                          <button
+                            type="button"
+                            onClick={() => add(businessId, row.offer.id, selectedQty)}
+                            disabled={row.offer.availabilityStatus === 'out_of_stock' || submittingId === row.offer.id}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-ink px-3.5 text-xs font-semibold text-paper transition-colors hover:bg-ink-2 disabled:opacity-40"
+                          >
+                            <ShoppingCartIcon size={13} />
+                            {submittingId === row.offer.id ? 'Adding…' : row.offer.availabilityStatus === 'out_of_stock' ? 'Out' : 'Add'}
+                          </button>
+                        ) : (
+                          <Link
+                            to={orderHref}
+                            className="inline-flex h-9 items-center rounded-xl px-3.5 text-xs font-semibold text-ink ring-1 ring-inset ring-ink/15 hover:bg-ink hover:text-paper transition-colors"
+                          >
+                            {user ? 'Profile' : 'Sign in'}
+                          </Link>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {sortedOffers.map((row) => {
+              const selectedQty = qty[row.offer.id] ?? row.offer.minOrderQty;
+              const isBestPrice = row.offer.id === bestPriceId;
+              const isFastest = row.offer.id === fastestId;
+              const isValue = row.offer.id === valueId;
+              const subtotal = row.offer.priceCents * selectedQty;
+              const avail = availabilityLabel(row.offer.availabilityStatus);
+              const priceDiffVsMax = maxPriceCents - row.offer.priceCents;
+              const savingsPct = maxPriceCents > 0 ? Math.round((priceDiffVsMax / maxPriceCents) * 100) : 0;
+              const volumeTiers = [
+                { minQty: row.offer.tier1MinQty, pct: row.offer.tier1DiscountPct },
+                { minQty: row.offer.tier2MinQty, pct: row.offer.tier2DiscountPct },
+                { minQty: row.offer.tier3MinQty, pct: row.offer.tier3DiscountPct },
+              ].filter((t): t is { minQty: number; pct: number } => (t.minQty ?? 0) > 0 && (t.pct ?? 0) > 0);
+              const outOfStock = row.offer.availabilityStatus === 'out_of_stock';
+
+              return (
+                <article
+                  key={row.offer.id}
+                  className={`relative overflow-hidden rounded-3xl bg-paper transition-shadow duration-240 hover:shadow-[0_24px_50px_-28px_rgba(12,14,11,0.35)] ${
+                    isBestPrice ? 'ring-2 ring-volt' : 'ring-1 ring-ink/[0.07]'
+                  }`}
+                >
+                  <div className="grid lg:grid-cols-[1fr_auto]">
+                    {/* Supplier + facts */}
+                    <div className="p-5 sm:p-7 min-w-0">
+                      <div className="flex items-start gap-4">
+                        <SupplierAvatar name={row.supplier.name} rank={row.rank ?? row.ranking?.rank} large />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {isBestPrice && <Award>Best price</Award>}
+                            {isValue && <Award copper>Best value</Award>}
+                            {isFastest && <Award mint>Fastest delivery</Award>}
+                            {row.supplier.verificationStatus === 'verified' && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-mint/10 px-2 py-0.5 text-[10px] font-semibold text-mint">
+                                <ShieldCheckIcon size={11} /> Verified
+                              </span>
+                            )}
+                            <TrustSealBadge
+                              active={!!(row.supplier as any).trustSealed}
+                              memberSinceYear={(row.supplier as any).memberSinceYear ?? null}
+                              expiresAt={(row.supplier as any).trustSealExpiresAt ?? null}
+                            />
                           </div>
-                        </td>
-                        <td className="p-3.5">
-                          <div className="flex items-center gap-1 font-medium">
-                            <TruckIcon size={12} className="text-ink-4" />
-                            <span>{row.offer.leadTimeDays}d dispatch</span>
+                          <h3 className="mt-2 font-display text-xl sm:text-2xl font-bold tracking-[-0.03em] text-ink">{row.supplier.name}</h3>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-4">
+                            {row.supplier.address && <span className="truncate">{row.supplier.address}</span>}
+                            <SupplierStarsLine supplierId={row.supplier.id} />
                           </div>
-                        </td>
-                        <td className="p-3.5">
-                          <span className={`inline-flex items-center px-1.5 py-0.5 border text-[10px] uppercase tracking-wider font-medium ${toneClass[avail.tone]}`}>
-                            {avail.label}
-                          </span>
+                        </div>
+                      </div>
+
+                      <dl className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <Fact icon={<MapPinIcon size={13} />} label="Origin">
+                          {row.supplier.city || 'Western Province'}
+                          {row.supplier.district ? `, ${row.supplier.district}` : ''}
+                        </Fact>
+                        <Fact icon={<TruckIcon size={13} />} label="Lead time">
+                          {row.offer.leadTimeDays} {row.offer.leadTimeDays === 1 ? 'day' : 'days'}
+                        </Fact>
+                        <Fact icon={<PackageIcon size={13} />} label="Min. order">
+                          {row.offer.minOrderQty} {unit}
+                        </Fact>
+                        <Fact icon={<ClockIcon size={13} />} label="Stock">
+                          <AvailabilityPill tone={avail.tone}>{avail.label}</AvailabilityPill>
                           {row.offer.trackInventory && row.offer.availableQty != null && (
-                            <div className="text-[10px] text-ink-4 font-mono mt-0.5">
-                              {row.offer.availableQty} avail.
-                            </div>
+                            <span className="ml-1.5 text-[10px] font-normal text-ink-4">{row.offer.availableQty} left</span>
                           )}
-                        </td>
-                        <td className="p-3.5 font-mono">
-                          <div className="font-semibold text-sm">{formatLKR(row.offer.priceCents)}</div>
-                          <div className="text-[10px] text-ink-4">per {data.product.unit}</div>
-                        </td>
-                        <td className="p-3.5">
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleQtyStep(row.offer.id, -1, row.offer.minOrderQty)}
-                              disabled={selectedQty <= row.offer.minOrderQty}
-                              className="w-7 h-7 flex items-center justify-center border border-line bg-paper text-ink hover:bg-bone disabled:opacity-40"
-                              title="Decrease quantity"
-                            >
-                              <MinusIcon size={12} />
-                            </button>
-                            <input
-                              type="number"
-                              min={row.offer.minOrderQty}
+                        </Fact>
+                      </dl>
+
+                      {(priceDiffVsMax > 0 || volumeTiers.length > 0 || (priceDiffVsMax === 0 && isFastest)) && (
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                          {priceDiffVsMax > 0 && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-mint/10 px-3 py-1 text-xs text-mint">
+                              <span className="font-semibold">Save {formatLKR(priceDiffVsMax)}</span>/ {unit} · −{savingsPct}% vs highest quote
+                            </span>
+                          )}
+                          {volumeTiers.map((t, i) => (
+                            <span key={i} className="inline-flex items-center rounded-full bg-bone px-2.5 py-1 text-[11px] text-ink-3">
+                              {t.minQty}+ {unit} · <span className="ml-1 font-semibold text-ink">−{t.pct}%</span>
+                            </span>
+                          ))}
+                          {priceDiffVsMax === 0 && isFastest && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-bone px-3 py-1 text-xs text-ink-3">
+                              <ClockIcon size={12} /> Fastest option for urgent replenishment
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Price + order panel */}
+                    <div
+                      className={`flex flex-col justify-between gap-5 border-t lg:border-t-0 lg:border-l p-5 sm:p-7 lg:w-[22rem] ${
+                        isBestPrice ? 'border-volt/40 bg-volt/[0.07]' : 'border-ink/[0.07] bg-bone/40'
+                      }`}
+                    >
+                      <div>
+                        <div className="text-[11px] text-ink-4">Wholesale price</div>
+                        <div className="mt-1 flex items-baseline gap-1.5">
+                          <span className="vyro-metric text-3xl leading-none text-ink">{formatLKR(row.offer.priceCents)}</span>
+                          <span className="text-xs text-ink-4">/ {unit}</span>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between rounded-xl bg-paper px-3 py-2 text-xs ring-1 ring-ink/[0.06]">
+                          <span className="text-ink-4">
+                            Subtotal · {selectedQty} {unit}
+                          </span>
+                          <span className="vyro-metric font-semibold text-ink">{formatLKR(subtotal)}</span>
+                        </div>
+                      </div>
+
+                      {businessId ? (
+                        <div className="space-y-2.5">
+                          <div className="flex items-center gap-2">
+                            <QtyStepper
                               value={selectedQty}
-                              onChange={(e) => handleQtyChange(row.offer.id, Number(e.target.value), row.offer.minOrderQty)}
-                              className="w-14 h-7 text-center font-mono text-xs border border-line bg-paper"
+                              min={row.offer.minOrderQty}
+                              onStep={(d) => handleQtyStep(row.offer.id, d, row.offer.minOrderQty)}
+                              onChange={(v) => handleQtyChange(row.offer.id, v, row.offer.minOrderQty)}
                             />
                             <button
                               type="button"
-                              onClick={() => handleQtyStep(row.offer.id, 1, row.offer.minOrderQty)}
-                              className="w-7 h-7 flex items-center justify-center border border-line bg-paper text-ink hover:bg-bone"
-                              title="Increase quantity"
+                              onClick={() => add(businessId, row.offer.id, selectedQty)}
+                              disabled={outOfStock || submittingId === row.offer.id}
+                              className="inline-flex h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-ink px-4 text-sm font-semibold text-paper transition-colors duration-180 hover:bg-ink-2 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                              <PlusIcon size={12} />
+                              <ShoppingCartIcon size={15} />
+                              {submittingId === row.offer.id ? 'Adding…' : outOfStock ? 'Out of stock' : 'Add to cart'}
                             </button>
                           </div>
-                          <div className="text-xs text-ink-4 mt-0.5">Min {row.offer.minOrderQty}</div>
-                        </td>
-                        <td className="p-3.5 font-mono">
-                          <div className="font-semibold text-sm text-ink">{formatLKR(subtotal)}</div>
-                          <div className="text-[10px] text-ink-4">{selectedQty} {data.product.unit}s</div>
-                        </td>
-                        <td className="p-3.5 text-right">
-                          {businessId ? (
-                            <Button
-                              size="sm"
-                              onClick={() => add(businessId, row.offer.id, selectedQty)}
-                              loading={submittingId === row.offer.id}
-                              disabled={row.offer.availabilityStatus === 'out_of_stock'}
-                              icon={<ShoppingCartIcon size={13} />}
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleQtyChange(row.offer.id, row.offer.minOrderQty, row.offer.minOrderQty)}
+                              className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                                selectedQty === row.offer.minOrderQty ? 'bg-ink text-paper' : 'bg-paper text-ink-3 ring-1 ring-inset ring-ink/10 hover:ring-ink/30'
+                              }`}
                             >
-                              {row.offer.availabilityStatus === 'out_of_stock' ? 'Out' : 'Add'}
-                            </Button>
-                          ) : (
-                            <Link to={user ? '/onboarding/business' : `/login?next=${encodeURIComponent(`/products/${id}`)}`}>
-                              <Button size="sm" variant="secondary">{user ? 'Profile' : 'Order'}</Button>
-                            </Link>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            /* Cards View */
-            <div className="space-y-4 mt-4">
-              {sortedOffers.map((row) => {
-                const selectedQty = qty[row.offer.id] ?? row.offer.minOrderQty;
-                const isBestPrice = row.offer.id === bestPriceId;
-                const isFastest = row.offer.id === fastestId;
-                const isValue = row.offer.id === valueId;
-                const subtotal = row.offer.priceCents * selectedQty;
-                const avail = availabilityLabel(row.offer.availabilityStatus);
-                const priceDiffVsMax = maxPriceCents - row.offer.priceCents;
-                const savingsPct = maxPriceCents > 0 ? Math.round((priceDiffVsMax / maxPriceCents) * 100) : 0;
-                const volumeTiers = [
-                  { minQty: row.offer.tier1MinQty, pct: row.offer.tier1DiscountPct },
-                  { minQty: row.offer.tier2MinQty, pct: row.offer.tier2DiscountPct },
-                  { minQty: row.offer.tier3MinQty, pct: row.offer.tier3DiscountPct },
-                ].filter(
-                  (t): t is { minQty: number; pct: number } =>
-                    (t.minQty ?? 0) > 0 && (t.pct ?? 0) > 0,
-                );
-
-                return (
-                  <Surface
-                    key={row.offer.id}
-                    kind={isBestPrice ? 'elevated' : 'flat'}
-                    className={`p-5 sm:p-6 transition-all ${
-                      isBestPrice
-                        ? 'border-l-4 border-l-volt bg-paper shadow-sm'
-                        : 'border-l-4 border-l-transparent'
-                    }`}
-                  >
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                      {/* Left: Supplier Details & Badges */}
-                      <div className="flex-1 min-w-0 space-y-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono text-xs font-semibold px-2 py-0.5 bg-bone text-ink-3 border border-line">
-                            Rank #{row.rank}
-                          </span>
-                          {isBestPrice && <Award>Best price</Award>}
-                          {isValue && <Award copper>Best value</Award>}
-                          {isFastest && <Award>Fastest delivery</Award>}
-                          {row.supplier.verificationStatus === 'verified' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 border text-[10px] uppercase tracking-wider font-semibold border-mint/40 bg-mint/5 text-mint">
-                              <ShieldCheckIcon size={11} /> Verified Mill
-                            </span>
-                          )}
-                        </div>
-
-                        <div>
-                          <h3 className="font-display text-xl sm:text-2xl text-ink tracking-tight">
-                            {row.supplier.name}
-                          </h3>
-                          {row.supplier.address && (
-                            <p className="text-xs text-ink-4 mt-0.5">{row.supplier.address}</p>
-                          )}
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-ink-3">
-                          <span className="inline-flex items-center gap-1 text-ink">
-                            <MapPinIcon size={13} className="text-copper" />
-                            {row.supplier.city || 'Western Province'}{row.supplier.district ? `, ${row.supplier.district}` : ''}
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-ink">
-                            <TruckIcon size={13} className="text-ink-4" />
-                            {row.offer.leadTimeDays} {row.offer.leadTimeDays === 1 ? 'day' : 'days'} lead time
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-ink">
-                            <PackageIcon size={13} className="text-ink-4" />
-                            Min. order {row.offer.minOrderQty} {data.product.unit}
-                          </span>
-                          <span className={`inline-flex items-center px-2 py-0.5 border text-[10px] uppercase tracking-wider font-medium ${toneClass[avail.tone]}`}>
-                            {avail.label}
-                          </span>
-                          {row.offer.trackInventory && row.offer.availableQty != null && (
-                            <span className="inline-flex items-center gap-1 text-ink-4 font-mono text-[10px]">
-                              · {row.offer.availableQty} {data.product.unit}s available
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Comparative Insight Pill */}
-                        {priceDiffVsMax > 0 && (
-                          <div className="inline-flex items-center gap-1.5 text-xs text-mint bg-mint/5 px-2.5 py-1 border border-mint/20">
-                            <span className="font-semibold">Save {formatLKR(priceDiffVsMax)}</span>
-                            <span>per {data.product.unit} (-{savingsPct}%) compared to highest quote</span>
-                          </div>
-                        )}
-                        {/* Volume tier table */}
-                        {volumeTiers.length > 0 && (
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            {volumeTiers.map((t, i) => (
-                              <span
-                                key={i}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 border border-line bg-bone text-[10px] font-mono text-ink-3"
+                              MOQ
+                            </button>
+                            {[10, 25, 50].map((n) => (
+                              <button
+                                key={n}
+                                type="button"
+                                onClick={() => handleQtyStep(row.offer.id, n, row.offer.minOrderQty)}
+                                className="rounded-full bg-paper px-2.5 py-1 text-[11px] font-medium text-ink-3 ring-1 ring-inset ring-ink/10 transition-colors hover:ring-ink/30"
                               >
-                                {t.minQty}+ {data.product.unit}s · −{t.pct}%
-                              </span>
+                                +{n}
+                              </button>
                             ))}
                           </div>
-                        )}
-                        {priceDiffVsMax === 0 && isFastest && (
-                          <div className="inline-flex items-center gap-1.5 text-xs text-ink-3 bg-bone px-2.5 py-1 border border-line">
-                            <ClockIcon size={12} className="text-ink-4" />
-                            <span>Fastest dispatch option for urgent replenishment</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Right: Pricing, Live Subtotal & Order Controls */}
-                      <div className="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-end justify-between gap-4 pt-4 lg:pt-0 border-t lg:border-t-0 border-line">
-                        <div className="text-left lg:text-right">
-                          <div className="text-[11px] uppercase tracking-[0.14em] text-ink-4 font-mono">Wholesale Price</div>
-                          <div className="flex items-baseline gap-1 lg:justify-end">
-                            <MetricNumber size="md" className="text-ink">
-                              {formatLKR(row.offer.priceCents)}
-                            </MetricNumber>
-                            <span className="text-xs text-ink-4 font-normal">/ {data.product.unit}</span>
-                          </div>
-                          <div className="text-xs text-ink-3 mt-1">
-                            Estimated Subtotal:{' '}
-                            <span className="font-mono font-semibold text-ink">{formatLKR(subtotal)}</span>
-                            <span className="text-ink-4 ml-1">({selectedQty} {data.product.unit}s)</span>
-                          </div>
                         </div>
-
-                        {businessId ? (
-                          <div className="w-full sm:w-auto flex flex-col gap-2.5">
-                            {/* Industrial Stepper Controls */}
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center border border-line bg-paper shadow-inner">
-                                <button
-                                  type="button"
-                                  onClick={() => handleQtyStep(row.offer.id, -1, row.offer.minOrderQty)}
-                                  disabled={selectedQty <= row.offer.minOrderQty}
-                                  className="w-9 h-9 flex items-center justify-center text-ink hover:bg-bone disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                  title="Decrease quantity"
-                                >
-                                  <MinusIcon size={14} />
-                                </button>
-                                <input
-                                  type="number"
-                                  min={row.offer.minOrderQty}
-                                  value={selectedQty}
-                                  onChange={(e) => handleQtyChange(row.offer.id, Number(e.target.value), row.offer.minOrderQty)}
-                                  className="w-16 h-9 text-center font-mono font-semibold text-sm border-x border-line bg-transparent focus:outline-none"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleQtyStep(row.offer.id, 1, row.offer.minOrderQty)}
-                                  className="w-9 h-9 flex items-center justify-center text-ink hover:bg-bone transition-colors"
-                                  title="Increase quantity"
-                                >
-                                  <PlusIcon size={14} />
-                                </button>
-                              </div>
-
-                              <Button
-                                onClick={() => add(businessId, row.offer.id, selectedQty)}
-                                loading={submittingId === row.offer.id}
-                                disabled={row.offer.availabilityStatus === 'out_of_stock'}
-                                icon={<ShoppingCartIcon size={15} />}
-                                className="whitespace-nowrap"
-                              >
-                                {row.offer.availabilityStatus === 'out_of_stock' ? 'Out of stock' : 'Add to Cart'}
-                              </Button>
-                            </div>
-
-                            {/* Quick Preset Volume Chips */}
-                            <div className="flex items-center gap-1.5 text-[11px]">
-                              <span className="text-ink-4">Presets:</span>
-                              <button
-                                type="button"
-                                onClick={() => handleQtyChange(row.offer.id, row.offer.minOrderQty, row.offer.minOrderQty)}
-                                className={`px-1.5 py-0.5 border text-[10px] font-mono transition-colors ${
-                                  selectedQty === row.offer.minOrderQty
-                                    ? 'bg-ink text-volt border-ink'
-                                    : 'border-line text-ink-3 hover:bg-bone'
-                                }`}
-                              >
-                                MOQ ({row.offer.minOrderQty})
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleQtyStep(row.offer.id, 10, row.offer.minOrderQty)}
-                                className="px-1.5 py-0.5 border border-line text-[10px] font-mono text-ink-3 hover:bg-bone transition-colors"
-                              >
-                                +10
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleQtyStep(row.offer.id, 25, row.offer.minOrderQty)}
-                                className="px-1.5 py-0.5 border border-line text-[10px] font-mono text-ink-3 hover:bg-bone transition-colors"
-                              >
-                                +25
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleQtyStep(row.offer.id, 50, row.offer.minOrderQty)}
-                                className="px-1.5 py-0.5 border border-line text-[10px] font-mono text-ink-3 hover:bg-bone transition-colors"
-                              >
-                                +50
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="w-full sm:w-auto">
-                            <Link to={user ? '/onboarding/business' : `/login?next=${encodeURIComponent(`/products/${id}`)}`} className="block">
-                              <Button size="sm" variant="secondary" className="w-full">
-                                {user ? 'Complete profile' : 'Sign in to order'}
-                              </Button>
-                            </Link>
-                          </div>
-                        )}
-                      </div>
+                      ) : (
+                        <Link
+                          to={orderHref}
+                          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-ink px-4 text-sm font-semibold text-paper transition-colors hover:bg-ink-2"
+                        >
+                          {user ? 'Complete profile to order' : 'Sign in to order'}
+                        </Link>
+                      )}
                     </div>
-                  </Surface>
-                );
-              })}
-            </div>
-          )}
-        </PageSection>
-        {sortedOffers.length > 0 && sortedOffers[0] && (
-          <PageSection title="Supplier reviews">
-            <SupplierReviewsPanel supplierId={sortedOffers[0].supplier.id} />
-          </PageSection>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         )}
       </section>
+
+      {sortedOffers.length > 0 && sortedOffers[0] && (
+        <section className="space-y-6 border-t border-ink/10 pt-10 sm:pt-14">
+          <div>
+            <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-ink-4">
+              <span className="size-1.5 rounded-full bg-copper" aria-hidden />
+              Reviews
+            </div>
+            <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-[-0.04em] text-ink">
+              What buyers say about {sortedOffers[0].supplier.name}
+            </h2>
+          </div>
+          <SupplierReviewsPanel supplierId={sortedOffers[0].supplier.id} />
+        </section>
+      )}
     </div>
   );
 }
 
-function Award({ children, copper }: { children: string; copper?: boolean }) {
+function Award({ children, copper, mint }: { children: string; copper?: boolean; mint?: boolean }) {
+  const cls = copper ? 'bg-copper text-paper' : mint ? 'bg-mint text-paper' : 'bg-ink text-volt';
+  return <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}>{children}</span>;
+}
+
+function AvailabilityPill({ tone, children }: { tone: keyof typeof toneClass; children: string }) {
   return (
-    <span className={`text-[10px] font-semibold uppercase tracking-[0.14em] px-2 py-0.5 ${copper ? 'bg-copper text-paper' : 'bg-ink text-volt'}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${toneClass[tone]}`}>
+      <span className="size-1.5 rounded-full bg-current" aria-hidden />
       {children}
     </span>
+  );
+}
+
+function SupplierAvatar({ name, rank, large }: { name: string; rank?: number | undefined; large?: boolean }) {
+  const initials = name
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+  return (
+    <span className="relative shrink-0">
+      <span
+        className={`flex items-center justify-center rounded-2xl bg-ink font-display font-bold text-volt ${large ? 'size-12 text-base' : 'size-9 text-xs rounded-xl'}`}
+      >
+        {initials}
+      </span>
+      {rank != null && (
+        <span className="absolute -bottom-1 -right-1 flex size-5 items-center justify-center rounded-full bg-paper text-[10px] font-bold text-ink ring-1 ring-ink/10">
+          {rank}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function Fact({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
+  return (
+    <div className="rounded-xl bg-bone/60 px-3 py-2.5 min-w-0">
+      <dt className="flex items-center gap-1.5 text-[11px] text-ink-4">
+        {icon}
+        {label}
+      </dt>
+      <dd className="mt-1 text-xs font-semibold text-ink truncate">{children}</dd>
+    </div>
+  );
+}
+
+function BenchmarkCard({
+  active,
+  onClick,
+  label,
+  icon,
+  accent,
+  value,
+  supplier,
+  meta,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  icon: ReactNode;
+  accent: 'volt' | 'mint';
+  value: ReactNode;
+  supplier: string;
+  meta: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`rounded-2xl p-5 text-left transition-all duration-240 ${
+        active ? 'bg-paper ring-2 ring-ink shadow-[0_16px_40px_-24px_rgba(12,14,11,0.4)]' : 'bg-paper ring-1 ring-ink/[0.06] hover:ring-ink/20'
+      }`}
+    >
+      <span
+        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+          accent === 'volt' ? 'bg-ink text-volt' : 'bg-mint/10 text-mint'
+        }`}
+      >
+        {icon} {label}
+      </span>
+      <div className="mt-4 text-ink">{value}</div>
+      <div className="mt-1.5 text-sm font-medium text-ink truncate">{supplier}</div>
+      <div className="mt-0.5 text-xs text-ink-4">{meta}</div>
+    </button>
+  );
+}
+
+function QtyStepper({
+  value,
+  min,
+  onStep,
+  onChange,
+  compact,
+}: {
+  value: number;
+  min: number;
+  onStep: (delta: number) => void;
+  onChange: (v: number) => void;
+  compact?: boolean;
+}) {
+  const btn = compact ? 'size-7' : 'size-11';
+  return (
+    <div className={`inline-flex items-center rounded-xl bg-paper ring-1 ring-ink/10 ${compact ? '' : 'shrink-0'}`}>
+      <button
+        type="button"
+        onClick={() => onStep(-1)}
+        disabled={value <= min}
+        aria-label="Decrease quantity"
+        className={`${btn} flex items-center justify-center rounded-l-xl text-ink transition-colors hover:bg-bone disabled:opacity-30 disabled:cursor-not-allowed`}
+      >
+        <MinusIcon size={compact ? 12 : 14} />
+      </button>
+      <input
+        type="number"
+        min={min}
+        value={value}
+        aria-label="Quantity"
+        onChange={(e) => onChange(Number(e.target.value))}
+        className={`${compact ? 'w-12 h-7 text-xs' : 'w-14 h-11 text-sm'} rounded-none bg-transparent text-center font-mono font-semibold focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+      />
+      <button
+        type="button"
+        onClick={() => onStep(1)}
+        aria-label="Increase quantity"
+        className={`${btn} flex items-center justify-center rounded-r-xl text-ink transition-colors hover:bg-bone`}
+      >
+        <PlusIcon size={compact ? 12 : 14} />
+      </button>
+    </div>
+  );
+}
+
+function GateCard({
+  tone,
+  title,
+  body,
+  to,
+  cta,
+}: {
+  tone: 'copper' | 'amber';
+  title: string;
+  body: string;
+  to: string;
+  cta: string;
+}) {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl bg-paper p-5 ring-1 ring-ink/[0.07]">
+      <div className="flex items-start gap-3">
+        <span
+          className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${tone === 'copper' ? 'bg-copper/10 text-copper' : 'bg-amber/10 text-amber'}`}
+        >
+          <ShieldCheckIcon size={16} />
+        </span>
+        <div>
+          <p className="text-sm font-semibold text-ink">{title}</p>
+          <p className="mt-0.5 text-xs text-ink-4">{body}</p>
+        </div>
+      </div>
+      <Link
+        to={to}
+        className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-ink px-4 text-sm font-semibold text-paper transition-colors hover:bg-ink-2"
+      >
+        {cta}
+      </Link>
+    </div>
   );
 }

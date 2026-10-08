@@ -11,18 +11,18 @@ export function SupplierReviewsPanel({ supplierId }: { supplierId: string }): JS
   return (
     <div className="space-y-6">
       {/* Top Scorecard & Breakdown Banner */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 p-5 bg-sand/20 border border-ink/10 rounded-xl">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 sm:p-7 bg-paper ring-1 ring-ink/[0.07] rounded-3xl">
         {/* Left Column: Overall Metric */}
-        <div className="lg:col-span-4 flex flex-col justify-between space-y-3 pb-4 lg:pb-0 lg:border-r border-ink/10 lg:pr-5">
+        <div className="lg:col-span-4 flex flex-col justify-between space-y-3 pb-4 lg:pb-0 lg:border-r border-ink/[0.07] lg:pr-6">
           <div>
-            <div className="text-[11px] font-mono uppercase tracking-wider text-ink-4">
-              Commercial Reputation Score
+            <div className="text-xs text-ink-4">
+              Reputation score
             </div>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-4xl sm:text-5xl font-extrabold font-mono text-ink tracking-tight">
+              <span className="font-display text-5xl sm:text-6xl font-extrabold text-ink tracking-[-0.05em] leading-none">
                 {summary.avg != null ? summary.avg.toFixed(1) : '—'}
               </span>
-              <span className="text-sm font-mono text-ink-4">/ 5.0</span>
+              <span className="text-sm text-ink-4">/ 5.0</span>
             </div>
             <div className="mt-2">
               <RatingStars avg={summary.avg} count={summary.count} size="md" />
@@ -30,7 +30,7 @@ export function SupplierReviewsPanel({ supplierId }: { supplierId: string }): JS
           </div>
 
           <div className="pt-2">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-paper border border-ink/10 text-xs text-ink-3">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bone text-xs font-medium text-ink-3">
               <ShieldCheckIcon size={14} className="text-copper shrink-0" />
               <span>
                 {summary.count > 0
@@ -42,9 +42,9 @@ export function SupplierReviewsPanel({ supplierId }: { supplierId: string }): JS
         </div>
 
         {/* Middle Column: Star Distribution */}
-        <div className="lg:col-span-5 flex flex-col justify-center pb-4 lg:pb-0 lg:border-r border-ink/10 lg:pr-5">
-          <div className="text-[11px] font-mono uppercase tracking-wider text-ink-4 mb-2">
-            Rating Distribution
+        <div className="lg:col-span-5 flex flex-col justify-center pb-4 lg:pb-0 lg:border-r border-ink/[0.07] lg:pr-6">
+          <div className="text-xs text-ink-4 mb-3">
+            Rating distribution
           </div>
           {summary.count > 0 ? (
             <RatingDistribution counts={summary.distribution} total={summary.count} />
@@ -62,20 +62,20 @@ export function SupplierReviewsPanel({ supplierId }: { supplierId: string }): JS
 
         {/* Right Column: Platform Trust Safeguards */}
         <div className="lg:col-span-3 flex flex-col justify-center space-y-2.5">
-          <div className="text-[11px] font-mono uppercase tracking-wider text-ink-4">
-            Buyer Trust Standards
+          <div className="text-xs text-ink-4">
+            Buyer trust standards
           </div>
           <div className="space-y-2 text-xs text-ink-3">
             <div className="flex items-start gap-1.5">
-              <CheckCircleIcon size={14} className="text-volt shrink-0 mt-0.5" />
+              <CheckCircleIcon size={14} className="text-volt-deep shrink-0 mt-0.5" />
               <span>100% verified purchases only</span>
             </div>
             <div className="flex items-start gap-1.5">
-              <CheckCircleIcon size={14} className="text-volt shrink-0 mt-0.5" />
+              <CheckCircleIcon size={14} className="text-volt-deep shrink-0 mt-0.5" />
               <span>Packaging & delivery tracking</span>
             </div>
             <div className="flex items-start gap-1.5">
-              <CheckCircleIcon size={14} className="text-volt shrink-0 mt-0.5" />
+              <CheckCircleIcon size={14} className="text-volt-deep shrink-0 mt-0.5" />
               <span>Direct supplier response channel</span>
             </div>
           </div>

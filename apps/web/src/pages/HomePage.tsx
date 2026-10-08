@@ -18,6 +18,7 @@ import {
 } from '@/components/icons';
 import { FlowCanvas } from '@/components/brand/FlowLine';
 import { BrandMark } from '@/components/brand/BrandMark';
+import { SkylineSection } from '@/components/brand/SkylineSection';
 import { CatalogSearch } from '@/components/CatalogSearch';
 import { CATALOG_IMAGES } from '@/lib/catalogImages';
 import { renderTrustStats } from '@/lib/trustStats';
@@ -1004,6 +1005,9 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* 10. THE BLOCK: hover to light the whole skyline */}
+      <SkylineSection />
     </div>
   );
 }

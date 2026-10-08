@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button, StatusBadge } from '@/components/ui';
-import { FlowLine } from '@/components/brand/FlowLine';
-import { MetricNumber, Surface } from '@/components/brand/Surface';
+import { ProductImage, Surface } from '@/components/brand/Surface';
 import {
   PackageIcon,
   TruckIcon,
@@ -13,22 +12,21 @@ import {
   ArrowRightIcon,
   SparklesIcon,
   MapPinIcon,
-  ClockIcon,
   RefreshCwIcon,
   LayersIcon,
   CheckCircle2Icon,
-  AlertTriangleIcon,
   BanknoteIcon,
   UsersIcon,
   FileTextIcon,
   ChevronRightIcon,
   TargetIcon,
   ExternalLinkIcon,
+  PlusIcon,
 } from '@/components/icons';
-import { formatCompactLKR, formatLKR } from '@/lib/format';
+import { formatCompactLKR, formatLKR, greetingForNow } from '@/lib/format';
 import { useSupplierId } from './useSupplierId';
 import { SupplierLoadingState, SupplierErrorState } from './SupplierPageState';
-import { SupplierHero, HeroStatusPill, heroActionClass } from './SupplierHero';
+import { HeroStatusPill } from './SupplierHero';
 import { SupplierReviewsPanel } from '@/reviews/SupplierReviewsPanel';
 import { StorefrontSettingsSection } from './StorefrontSettingsSection';
 import { cn } from '@vyro/ui';
@@ -210,6 +208,77 @@ export function SupplierDashboardPage() {
   };
 
   const isVerified = supplierDetails?.verificationStatus === 'verified';
+  const facilityName = supplierName || supplierDetails?.name || 'Wholesale supplier facility';
+  const pendingValueCents = pendingOrders.reduce((s, o) => s + (o.totalCents ?? 0), 0);
+
+  const stages: PipelineStage[] = [
+    {
+      label: 'Listed',
+      value: String(offerList.length),
+      sub: offerList.length ? 'SKUs live' : 'Add your first SKU',
+      to: '/supplier/products',
+      icon: PackageIcon,
+      state: offerList.length ? 'done' : 'idle',
+    },
+    {
+      label: 'Incoming',
+      value: String(pendingOrders.length),
+      sub: pendingOrders.length ? 'Awaiting dispatch' : 'Queue clear',
+      to: '/supplier/orders',
+      icon: StoreIcon,
+      state: pendingOrders.length ? 'active' : orderList.length ? 'done' : 'idle',
+    },
+    {
+      label: 'In transit',
+      value: String(inTransitOrders.length),
+      sub: 'Consignments en route',
+      to: '/supplier/deliveries',
+      icon: TruckIcon,
+      state: inTransitOrders.length ? 'done' : 'idle',
+    },
+    {
+      label: 'Delivered',
+      value: String(completedOrders.length),
+      sub: 'GRN confirmed',
+      to: '/supplier/orders',
+      icon: CheckCircle2Icon,
+      state: completedOrders.length ? 'done' : 'idle',
+    },
+    {
+      label: 'Paid out',
+      value: formatCompactLKR(revenueCents),
+      sub: payList.length ? `${payList.length} payout${payList.length === 1 ? '' : 's'}` : 'Settles on GRN',
+      to: '/supplier/payments',
+      icon: BanknoteIcon,
+      state: payList.length ? 'done' : 'idle',
+    },
+  ];
+
+  const attention: Array<{ tone: 'amber' | 'rose' | 'volt'; title: string; body: string; to: string; cta: string }> = [];
+  if (pendingOrders.length > 0)
+    attention.push({
+      tone: 'volt',
+      title: `${pendingOrders.length} PO${pendingOrders.length === 1 ? '' : 's'} ready to stage`,
+      body: `${formatCompactLKR(pendingValueCents)} waiting on your dispatch dock.`,
+      to: '/supplier/orders',
+      cta: 'Open dispatch console',
+    });
+  if (disputedOrders.length > 0)
+    attention.push({
+      tone: 'rose',
+      title: `${disputedOrders.length} disputed order${disputedOrders.length === 1 ? '' : 's'}`,
+      body: 'Respond promptly to protect your trust score.',
+      to: '/supplier/orders',
+      cta: 'Review disputes',
+    });
+  if (lowStockCount > 0)
+    attention.push({
+      tone: 'amber',
+      title: `${lowStockCount} SKU${lowStockCount === 1 ? '' : 's'} low or out of stock`,
+      body: outOfStockCount ? `${outOfStockCount} hidden from buyers until restocked.` : 'Restock to keep buyers ordering.',
+      to: '/supplier/inventory',
+      cta: 'Update stock',
+    });
 
   return (
     <div className="space-y-6 animate-fade-in max-w-7xl mx-auto">
@@ -218,427 +287,334 @@ export function SupplierDashboardPage() {
         <KycCallout status={supplierDetails?.verificationStatus ?? 'pending'} />
       )}
 
-      {/* Industrial Hero Header */}
-      <SupplierHero
-        icon={StoreIcon}
-        kicker={`Facility ${supplierId.slice(0, 12)} · ${role}`}
-        title={supplierName || supplierDetails?.name || 'Wholesale Supplier Facility'}
-        description={
-          <span className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-            {supplierDetails?.district && (
-              <span className="inline-flex items-center gap-1.5">
-                <MapPinIcon size={13} className="text-volt" />
-                {supplierDetails.city ? `${supplierDetails.city}, ` : ''}
-                {supplierDetails.district} Terminal
+      {/* ── Hero ─────────────────────────────────────────── */}
+      <Surface kind="ink" className="grain rounded-2xl shadow-soft-lg">
+        <div className="pointer-events-none absolute -top-32 -right-16 size-96 rounded-full bg-volt/[0.12] blur-3xl" aria-hidden />
+        <div className="pointer-events-none absolute -bottom-36 -left-20 size-80 rounded-full bg-copper/25 blur-3xl" aria-hidden />
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(to_right,#FAF7F0_1px,transparent_1px),linear-gradient(to_bottom,#FAF7F0_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_at_top_right,black,transparent_70%)]"
+          aria-hidden
+        />
+        <div className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[1.3fr_1fr] lg:items-stretch">
+          <div className="flex min-w-0 flex-col">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-2 rounded-full border border-volt/25 bg-volt/10 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-volt">
+                <StoreIcon size={12} />
+                Supplier hub
               </span>
-            )}
-            {supplierDetails?.businessTypeName && (
-              <span className="inline-flex items-center gap-1.5">
-                <LayersIcon size={13} />
-                {supplierDetails.businessTypeName}
-              </span>
-            )}
-            <span className="inline-flex items-center gap-1.5">
-              <ClockIcon size={13} /> Live sync · 30s
-            </span>
-          </span>
-        }
-        status={
-          <HeroStatusPill
-            tone={isVerified ? 'mint' : 'volt'}
-            label={isVerified ? 'Verified Wholesale Hub' : 'Audited Facility Registered'}
-          />
-        }
-        actions={
-          <>
-            <button
-              type="button"
-              onClick={handleRefresh}
-              className={heroActionClass}
-              title="Refresh operational feeds"
-            >
-              <RefreshCwIcon size={13} className={profileQuery.isFetching ? 'animate-spin text-volt' : ''} />
-              Sync
-            </button>
-            <Link to="/supplier/leads" className={heroActionClass} data-testid="dashboard-leads-link">
-              <TargetIcon size={13} />
-              Leads Inbox
-            </Link>
-            <Link to="/supplier/orders" className={heroActionClass}>
-              <PackageIcon size={13} />
-              Dispatch Console
-              {pendingOrders.length > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 rounded-md bg-volt text-ink font-mono font-bold text-[10px]">
-                  {pendingOrders.length}
+              <HeroStatusPill
+                tone={isVerified ? 'mint' : 'amber'}
+                label={isVerified ? 'Verified wholesale hub' : 'Verification pending'}
+              />
+              {role && (
+                <span className="rounded-full border border-paper/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-paper/50">
+                  {role}
                 </span>
               )}
-            </Link>
-            <Link
-              to={`/suppliers/${supplierDetails?.slug || 'test'}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={heroActionClass}
-              title="View public storefront"
-            >
-              <StoreIcon size={13} className="text-volt" />
-              See Storefront
-              <ExternalLinkIcon size={11} className="opacity-75" />
-            </Link>
-            <Link
-              to="/supplier/products/new"
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-volt px-3 text-xs font-bold text-ink uppercase tracking-wider transition-colors hover:bg-volt-glow"
-            >
-              Add Wholesale Product
-              <ArrowRightIcon size={13} />
-            </Link>
-          </>
-        }
-        footer={
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full">
-            <HeroStat
-              label="Active Listings"
-              value={String(offerList.length)}
-              sub={lowStockCount > 0 ? `${lowStockCount} low / out` : `${activeOffers} in stock`}
-              tone="volt"
-            />
-            <HeroStat
-              label="Pipeline Value"
-              value={formatCompactLKR(pipelineValueCents)}
-              sub={`${orderList.length} POs this period`}
-              tone="paper"
-            />
-            <HeroStat
-              label="Pending Dispatch"
-              value={String(pendingOrders.length)}
-              sub={pendingOrders.length === 0 ? 'All clear' : 'Awaiting action'}
-              tone={pendingOrders.length > 0 ? 'amber' : 'mint'}
-            />
-            <HeroStat
-              label="Settled Revenue"
-              value={formatCompactLKR(revenueCents)}
-              sub={payList.length === 0 ? 'Awaiting payouts' : `${payList.length} payments`}
-              tone="mint"
-            />
-          </div>
-        }
-      />
+            </div>
 
-      {/* Facility Activation Roadmap (when 0 listings) */}
-      {offerList.length === 0 && (
-        <Surface kind="elevated" className="p-6 sm:p-8 space-y-6 border-l-4 border-l-volt">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="size-10 rounded-lg bg-volt/25 text-ink flex items-center justify-center font-bold shrink-0">
-                <SparklesIcon size={20} />
+            <p className="mt-6 text-[15px] text-paper/55">{greetingForNow()} 👋</p>
+            <h1 className="vyro-display mt-1 text-3xl font-bold leading-[1.04] tracking-tight text-paper sm:text-[2.75rem] text-balance">
+              {facilityName}
+            </h1>
+
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-paper/55">
+              {supplierDetails?.district && (
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPinIcon size={13} className="text-volt" />
+                  {supplierDetails.city ? `${supplierDetails.city}, ` : ''}
+                  {supplierDetails.district}
+                </span>
+              )}
+              {supplierDetails?.businessTypeName && (
+                <span className="inline-flex items-center gap-1.5">
+                  <LayersIcon size={13} />
+                  {supplierDetails.businessTypeName}
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-mint animate-pulse" /> Live · refreshes every 30s
+              </span>
+            </div>
+
+            <div className="mt-auto flex flex-wrap items-center gap-2 pt-7">
+              <Link
+                to="/supplier/products/new"
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-volt px-4 text-[13px] font-bold text-ink shadow-[0_8px_24px_-10px_rgba(198,220,74,0.7)] transition-colors hover:bg-volt-glow"
+              >
+                <PlusIcon size={14} />
+                Add product
+              </Link>
+              <Link
+                to={`/suppliers/${supplierDetails?.slug || supplierId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-paper/15 bg-paper/5 px-4 text-[13px] font-semibold text-paper/85 transition-colors hover:bg-paper/10 hover:text-paper"
+              >
+                <StoreIcon size={14} className="text-volt" />
+                View storefront
+                <ExternalLinkIcon size={11} className="opacity-60" />
+              </Link>
+              <Link
+                to="/supplier/leads"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-paper/15 bg-paper/5 px-4 text-[13px] font-semibold text-paper/85 transition-colors hover:bg-paper/10 hover:text-paper"
+                data-testid="dashboard-leads-link"
+              >
+                <TargetIcon size={14} />
+                Leads
+              </Link>
+              <button
+                type="button"
+                onClick={handleRefresh}
+                className="flex size-10 items-center justify-center rounded-xl border border-paper/15 bg-paper/5 text-paper/70 transition-colors hover:bg-paper/10 hover:text-paper"
+                title="Refresh operational feeds"
+                aria-label="Refresh operational feeds"
+              >
+                <RefreshCwIcon size={14} className={profileQuery.isFetching ? 'animate-spin text-volt' : ''} />
+              </button>
+            </div>
+          </div>
+
+          {/* Dispatch focus panel */}
+          <Link
+            to="/supplier/orders"
+            className="group flex flex-col justify-between rounded-xl border border-paper/10 bg-paper/[0.04] p-5 backdrop-blur-sm transition-colors hover:border-paper/20 hover:bg-paper/[0.06]"
+          >
+            <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.16em] text-paper/45">
+              <span>Dispatch queue</span>
+              <span className={cn('inline-flex items-center gap-1.5', pendingOrders.length ? 'text-volt' : 'text-mint')}>
+                <span className={cn('size-1.5 rounded-full', pendingOrders.length ? 'bg-volt animate-pulse' : 'bg-mint')} />
+                {pendingOrders.length ? 'Action needed' : 'All clear'}
+              </span>
+            </div>
+            <div className="mt-5 flex items-end gap-3">
+              <span className="font-display text-6xl font-bold leading-none tracking-tight text-paper">
+                {pendingOrders.length}
+              </span>
+              <span className="pb-1.5 text-[13px] leading-snug text-paper/55">
+                purchase order{pendingOrders.length === 1 ? '' : 's'}
+                <br />
+                awaiting dispatch
+              </span>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-4 border-t border-paper/10 pt-4">
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper/40">Queue value</div>
+                <div className="mt-1 font-mono text-lg font-semibold text-volt">{formatCompactLKR(pendingValueCents)}</div>
               </div>
               <div>
-                <div className="vyro-kicker text-volt-deep">Facility Activation Checklist</div>
-                <h2 className="font-display text-xl text-ink font-semibold mt-0.5">
-                  Get your facility live on Sri Lanka's direct wholesale network
-                </h2>
+                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper/40">En route</div>
+                <div className="mt-1 font-mono text-lg font-semibold text-paper">{inTransitOrders.length}</div>
               </div>
             </div>
-            <Link to="/supplier/products/new">
-              <Button className="bg-volt text-ink hover:bg-volt-glow font-bold uppercase tracking-wider text-xs whitespace-nowrap">
-                Publish First Product →
-              </Button>
-            </Link>
-          </div>
-
-          <p className="text-xs text-ink-3 leading-relaxed max-w-3xl">
-            Commercial kitchens, supermarket chains, and regional grocers search VYRO daily for mill-direct rates. Complete these steps to receive automated purchase orders directly to your dispatch dock.
-          </p>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
-            <ActivationStep
-              n={1}
-              title="List Products"
-              hint="Select rice, tea, sugar, oil, or packaging from catalog."
-              cta="Add Products"
-              to="/supplier/products/new"
-            />
-            <ActivationStep
-              n={2}
-              title="Set Mill-Gate Rates"
-              hint="Configure unit prices & volume tiers in LKR."
-              cta="Configure Pricing"
-              to="/supplier/pricing"
-            />
-            <ActivationStep
-              n={3}
-              title="Depot Inventory"
-              hint="Set stock status & dispatch turnaround hours."
-              cta="Update Stock"
-              to="/supplier/inventory"
-            />
-            <ActivationStep
-              n={4}
-              title="Settlement Bank"
-              hint="Link commercial bank account for automated payouts."
-              cta="Link Payout Account"
-              to="/supplier/settings"
-            />
-          </div>
-        </Surface>
-      )}
-
-      {/* Operational Lifecycle Pipeline */}
-      <Surface kind="ink" className="p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-[10px] font-mono text-volt uppercase tracking-wider font-bold">
-              Facility Order Fulfillment Pipeline
-            </div>
-            <h2 className="font-display text-lg text-paper font-semibold mt-0.5">
-              End-to-end dock-to-payout lifecycle
-            </h2>
-          </div>
-          <div className="text-[11px] font-mono text-paper/60 hidden sm:block">
-            {pendingOrders.length} pending · {inTransitOrders.length} en route · {completedOrders.length} delivered
-          </div>
-        </div>
-        <FlowLine
-          tone="paper"
-          nodes={[
-            {
-              label: 'Catalog Offering',
-              hint: offerList.length > 0 ? `${offerList.length} SKUs published` : 'Pending setup',
-              state: offerList.length > 0 ? 'done' : 'idle',
-            },
-            {
-              label: 'Mill-Gate Pricing',
-              hint: offerList.length > 0 ? 'Live in LKR' : 'Awaiting rate card',
-              state: offerList.length > 0 ? 'done' : 'idle',
-            },
-            {
-              label: 'Depot Staging',
-              hint: lowStockCount > 0 ? `${lowStockCount} stock warnings` : 'Depot active',
-              state: offerList.length > 0 ? 'done' : 'idle',
-            },
-            {
-              label: 'Incoming POs',
-              hint: pendingOrders.length > 0 ? `${pendingOrders.length} require staging` : 'Queue clear',
-              state: pendingOrders.length > 0 ? 'active' : orderList.length > 0 ? 'done' : 'idle',
-            },
-            {
-              label: 'Dock GRN & Payout',
-              hint: payList.length > 0 ? formatCompactLKR(revenueCents) : 'Automated bank payout',
-              state: payList.length > 0 ? 'done' : 'idle',
-            },
-          ]}
-        />
-        {/* Pipeline stage cards beneath flow line */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2">
-          <PipelineStat
-            label="Active SKUs"
-            value={String(offerList.length)}
-            tone={offerList.length > 0 ? 'mint' : 'amber'}
-          />
-          <PipelineStat
-            label="Stock warnings"
-            value={String(lowStockCount)}
-            tone={lowStockCount > 0 ? 'rose' : 'mint'}
-            sub={outOfStockCount > 0 ? `${outOfStockCount} out of stock` : 'All healthy'}
-          />
-          <PipelineStat
-            label="In staging"
-            value={String(pendingOrders.length)}
-            tone={pendingOrders.length > 0 ? 'amber' : 'mint'}
-          />
-          <PipelineStat
-            label="In transit"
-            value={String(inTransitOrders.length)}
-            tone={inTransitOrders.length > 0 ? 'copper' : 'paper'}
-          />
-          <PipelineStat
-            label="Delivered"
-            value={String(completedOrders.length)}
-            tone={completedOrders.length > 0 ? 'volt' : 'paper'}
-          />
+            <span className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-paper text-[13px] font-semibold text-ink transition-colors group-hover:bg-volt">
+              Open dispatch console
+              <ArrowRightIcon size={13} className="transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </Link>
         </div>
       </Surface>
 
-      {/* 4 Executive KPI Tiles */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ── KPI row ──────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiTile
           to="/supplier/orders"
-          label="Incoming POs"
-          value={pendingOrders.length}
-          sub={pendingOrders.length === 1 ? '1 awaiting dispatch' : `${pendingOrders.length} awaiting dispatch`}
-          icon={<StoreIcon size={16} />}
-          accent={pendingOrders.length > 0 ? 'copper' : 'ink'}
-          footer={inTransitOrders.length > 0 ? `${inTransitOrders.length} en route` : 'No en-route'}
-        />
-        <KpiTile
-          to="/supplier/deliveries"
-          label="In Freight Transit"
-          value={inTransitOrders.length}
-          sub={inTransitOrders.length === 1 ? '1 consignment en route' : `${inTransitOrders.length} consignments en route`}
-          icon={<TruckIcon size={16} />}
-          accent="volt"
-          footer="Live truck tracking"
+          label="Pipeline value"
+          value={formatCompactLKR(pipelineValueCents)}
+          sub={`${orderList.length} PO${orderList.length === 1 ? '' : 's'} this period`}
+          icon={BanknoteIcon}
         />
         <KpiTile
           to="/supplier/payments"
-          label="Settled Revenue"
-          value={revenueCents}
-          isCurrency
+          label="Settled revenue"
+          value={formatCompactLKR(revenueCents)}
           sub={revenueCents === 0 ? 'Settles upon GRN' : `${payList.length} payment${payList.length === 1 ? '' : 's'}`}
-          icon={<ShieldCheckIcon size={16} />}
-          accent="mint"
-          footer="Automated bank payout"
+          icon={ShieldCheckIcon}
+          tone="mint"
         />
         <KpiTile
           to="/supplier/products"
-          label="Active Listings"
-          value={offerList.length}
-          sub={lowStockCount > 0 ? `${lowStockCount} stock warnings` : 'All warehouse stock active'}
-          icon={<PackageIcon size={16} />}
-          accent="amber"
-          footer={`${activeOffers} in stock`}
+          label="Active listings"
+          value={String(offerList.length)}
+          sub={lowStockCount > 0 ? `${lowStockCount} need restock` : `${activeOffers} in stock`}
+          icon={PackageIcon}
+          tone={lowStockCount > 0 ? 'amber' : 'ink'}
+          meter={offerList.length ? (activeOffers / offerList.length) * 100 : undefined}
+        />
+        <KpiTile
+          to="/supplier/customers"
+          label="Commercial buyers"
+          value={String(custList.length)}
+          sub={topCustomers[0] ? `Top: ${topCustomers[0].name || 'buyer'}` : 'No buyers yet'}
+          icon={UsersIcon}
         />
       </div>
 
-      {/* Two-column: Incoming orders table + Top customers */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Incoming Purchase Orders */}
-        <Surface kind="flat" className="lg:col-span-8 p-0 overflow-hidden border border-ink/10 shadow-sm">
-          <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-ink/10 bg-mist/20">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="size-9 rounded-lg bg-ink text-volt flex items-center justify-center shrink-0">
-                <PackageIcon size={16} />
-              </div>
-              <div className="min-w-0">
-                <h2 className="font-display text-lg text-ink font-semibold leading-tight">
-                  Incoming Purchase Orders
+      {/* ── Activation checklist (0 listings) ───────────── */}
+      {offerList.length === 0 && (
+        <section className="rounded-2xl border border-volt/40 bg-gradient-to-br from-volt/[0.12] via-paper to-paper p-6 sm:p-7">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-ink text-volt">
+                <SparklesIcon size={20} />
+              </span>
+              <div>
+                <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-volt-deep">
+                  Activation checklist
+                </div>
+                <h2 className="mt-1 font-display text-xl font-bold tracking-tight text-ink">
+                  Go live on Sri Lanka’s direct wholesale network
                 </h2>
-                <p className="text-[11px] text-ink-4 mt-0.5">
-                  Latest wholesale buyer POs routed to your facility
+                <p className="mt-1 max-w-2xl text-[13px] text-ink-3">
+                  Kitchens, supermarket chains and regional grocers search VYRO daily for mill-direct rates.
                 </p>
               </div>
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-ink text-volt shrink-0">
-                {orderList.length} Total
-              </span>
             </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center rounded-full bg-ink/[0.05] p-1 text-xs">
-                {(
-                  [
-                    { id: 'all', label: `All (${orderList.length})` },
-                    { id: 'pending', label: `Pending (${pendingOrders.length})` },
-                    { id: 'in_transit', label: `In Transit (${inTransitOrders.length})` },
-                    { id: 'completed', label: `Delivered (${completedOrders.length})` },
-                  ] as const
-                ).map((t) => {
-                  const active = orderFilter === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => setOrderFilter(t.id)}
-                      className={cn(
-                        'px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors',
-                        active ? 'bg-ink text-paper font-semibold shadow-sm' : 'text-ink-3 hover:text-ink',
-                      )}
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <Link
-                to="/supplier/orders"
-                className="text-xs text-copper font-semibold hover:underline inline-flex items-center gap-1 ml-1"
-              >
-                Dispatch Console
-                <ChevronRightIcon size={12} />
-              </Link>
-            </div>
+            <Link
+              to="/supplier/products/new"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-ink px-4 text-[13px] font-semibold text-paper transition-colors hover:bg-charcoal"
+            >
+              Publish first product <ArrowRightIcon size={13} />
+            </Link>
           </div>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <ActivationStep n={1} title="List products" hint="Rice, tea, sugar, oil or packaging from the catalog." cta="Add products" to="/supplier/products/new" />
+            <ActivationStep n={2} title="Set mill-gate rates" hint="Unit prices and volume tiers in LKR." cta="Configure pricing" to="/supplier/pricing" />
+            <ActivationStep n={3} title="Depot inventory" hint="Stock status and dispatch turnaround." cta="Update stock" to="/supplier/inventory" />
+            <ActivationStep n={4} title="Settlement bank" hint="Link a bank account for automated payouts." cta="Link payout account" to="/supplier/settings" />
+          </div>
+        </section>
+      )}
+
+      {/* ── Fulfilment pipeline ─────────────────────────── */}
+      <section className="rounded-2xl border border-ink/[0.08] bg-paper p-5 shadow-[0_1px_2px_rgba(12,14,11,0.04)] sm:p-6">
+        <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-copper">Fulfilment pipeline</div>
+            <h2 className="mt-1 font-display text-lg font-bold tracking-tight text-ink">Dock-to-payout lifecycle</h2>
+          </div>
+          <span className="font-mono text-[11px] text-ink-4">
+            {pendingOrders.length} pending · {inTransitOrders.length} en route · {completedOrders.length} delivered
+          </span>
+        </header>
+        <ol className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {stages.map((s, i) => (
+            <PipelineStep key={s.label} stage={s} index={i} last={i === stages.length - 1} />
+          ))}
+        </ol>
+      </section>
+
+      {/* ── Orders + side rail ──────────────────────────── */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <section className="overflow-hidden rounded-2xl border border-ink/[0.08] bg-paper shadow-[0_1px_2px_rgba(12,14,11,0.04)] lg:col-span-8">
+          <header className="flex flex-col gap-4 border-b border-ink/[0.06] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div>
+              <h2 className="font-display text-lg font-bold tracking-tight text-ink">Incoming purchase orders</h2>
+              <p className="mt-0.5 text-[12px] text-ink-4">Latest wholesale POs routed to your facility</p>
+            </div>
+            <div className="flex items-center gap-1 overflow-x-auto rounded-xl bg-ink/[0.04] p-1 [scrollbar-width:none]">
+              {(
+                [
+                  { id: 'all', label: 'All', count: orderList.length },
+                  { id: 'pending', label: 'Pending', count: pendingOrders.length },
+                  { id: 'in_transit', label: 'Transit', count: inTransitOrders.length },
+                  { id: 'completed', label: 'Delivered', count: completedOrders.length },
+                ] as const
+              ).map((t) => {
+                const active = orderFilter === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setOrderFilter(t.id)}
+                    aria-pressed={active}
+                    className={cn(
+                      'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-[12px] font-medium transition-all',
+                      active ? 'bg-paper text-ink shadow-sm ring-1 ring-ink/[0.06]' : 'text-ink-3 hover:text-ink',
+                    )}
+                  >
+                    {t.label}
+                    <span className={cn('font-mono text-[10px]', active ? 'text-ink-3' : 'text-ink-4')}>{t.count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </header>
 
           {filteredOrders.length === 0 ? (
-            <div className="p-12 text-center space-y-4">
-              <div className="size-14 mx-auto rounded-xl bg-mist flex items-center justify-center text-ink-4">
-                <PackageIcon size={26} />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-display text-base text-ink font-semibold">
-                  {orderFilter === 'all'
-                    ? 'No purchase orders in queue'
-                    : `No orders currently matching "${orderFilter.replace('_', ' ')}"`}
-                </h3>
-                <p className="text-xs text-ink-4 max-w-md mx-auto leading-relaxed">
-                  {orderFilter === 'all'
-                    ? 'When commercial buyers place wholesale purchase orders against your catalog items, they will appear here with instant dispatch and GRN tracking.'
-                    : 'Try switching filters to view other operational stages.'}
-                </p>
-              </div>
+            <div className="flex flex-col items-center px-6 py-14 text-center">
+              <span className="flex size-12 items-center justify-center rounded-2xl bg-bone text-ink-4">
+                <PackageIcon size={22} />
+              </span>
+              <h3 className="mt-4 text-[14px] font-semibold text-ink">
+                {orderFilter === 'all' ? 'No purchase orders yet' : 'Nothing in this stage'}
+              </h3>
+              <p className="mt-1 max-w-sm text-[12px] leading-relaxed text-ink-4">
+                {orderFilter === 'all'
+                  ? 'When buyers order against your catalog, POs appear here with dispatch and GRN tracking.'
+                  : 'Switch filters to view other stages.'}
+              </p>
               {offerList.length === 0 && (
-                <div className="pt-2">
-                  <Link to="/supplier/products/new">
-                    <Button
-                      size="sm"
-                      className="bg-volt text-ink hover:bg-volt-glow text-xs uppercase font-bold tracking-wider"
-                    >
-                      + Add Wholesale Product
-                    </Button>
-                  </Link>
-                </div>
+                <Link
+                  to="/supplier/products/new"
+                  className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-xl bg-ink px-4 text-[12px] font-semibold text-paper hover:bg-charcoal"
+                >
+                  <PlusIcon size={13} className="text-volt" /> Add wholesale product
+                </Link>
               )}
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 border-b border-ink/10 bg-bone/60">
-                  <tr>
-                    <th className="text-left px-6 py-3 font-bold">PO Number</th>
-                    <th className="text-left px-6 py-3 font-bold">Status</th>
-                    <th className="text-left px-6 py-3 font-bold">Destination Terminal</th>
-                    <th className="text-right px-6 py-3 font-bold">Gross Amount</th>
-                    <th className="text-right px-6 py-3 font-bold">Action</th>
+              <table className="w-full min-w-[620px] text-sm">
+                <thead>
+                  <tr className="border-b border-ink/[0.06] bg-bone/40 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-4">
+                    <th className="px-6 py-3 text-left font-medium">Purchase order</th>
+                    <th className="px-4 py-3 text-left font-medium">Status</th>
+                    <th className="px-4 py-3 text-left font-medium">Destination</th>
+                    <th className="px-4 py-3 text-right font-medium">Amount</th>
+                    <th className="px-6 py-3" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-ink/5">
+                <tbody className="divide-y divide-ink/[0.05]">
                   {filteredOrders.map((o) => (
-                    <tr key={o.id} className="hover:bg-bone/40 transition-colors group">
-                      <td className="px-6 py-4">
-                        <Link
-                          to="/supplier/orders"
-                          className="font-mono text-xs font-bold text-ink group-hover:text-copper transition-colors"
-                        >
-                          {o.poNumber || o.id.slice(0, 12)}
+                    <tr key={o.id} className="group transition-colors hover:bg-bone/40">
+                      <td className="px-6 py-3.5">
+                        <Link to="/supplier/orders" className="flex items-center gap-3">
+                          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-ink/[0.05] text-ink-3">
+                            <FileTextIcon size={15} />
+                          </span>
+                          <span>
+                            <span className="block font-mono text-[12px] font-bold text-ink transition-colors group-hover:text-copper-deep">
+                              {o.poNumber || o.id.slice(0, 12)}
+                            </span>
+                            <span className="text-[11px] text-ink-4">
+                              {new Date(o.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              {o.itemCount ? ` · ${o.itemCount} item${o.itemCount === 1 ? '' : 's'}` : ''}
+                            </span>
+                          </span>
                         </Link>
-                        <div className="text-[10px] text-ink-4 mt-0.5">
-                          {new Date(o.createdAt).toLocaleDateString('en-GB', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
-                        </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3.5">
                         <StatusBadge status={o.status} />
                       </td>
-                      <td className="px-6 py-4 text-xs text-ink-2">
-                        {o.deliveryCity ? (
-                          <span>
-                            {o.deliveryCity}
-                            {o.deliveryDistrict ? `, ${o.deliveryDistrict}` : ''}
-                          </span>
-                        ) : (
-                          <span className="text-ink-4">Standard Commercial Dock</span>
-                        )}
+                      <td className="px-4 py-3.5 text-[12px] text-ink-2">
+                        <span className="inline-flex items-center gap-1.5">
+                          <MapPinIcon size={12} className="text-ink-4" />
+                          {o.deliveryCity
+                            ? `${o.deliveryCity}${o.deliveryDistrict ? `, ${o.deliveryDistrict}` : ''}`
+                            : 'Dock pickup'}
+                        </span>
                       </td>
-                      <td className="px-6 py-4 text-right font-mono text-sm font-semibold text-ink">
+                      <td className="px-4 py-3.5 text-right font-mono text-[13px] font-semibold text-ink tabular-nums">
                         {formatLKR(o.totalCents ?? 0)}
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-3.5 text-right">
                         <Link
                           to="/supplier/orders"
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-ink hover:text-copper transition-colors px-2.5 py-1 rounded-full bg-bone border border-ink/10 hover:border-ink"
+                          className="inline-flex size-8 items-center justify-center rounded-lg text-ink-4 transition-colors hover:bg-ink hover:text-paper"
+                          aria-label="Manage order"
                         >
-                          <span>Manage</span>
-                          <ArrowRightIcon size={12} />
+                          <ChevronRightIcon size={15} />
                         </Link>
                       </td>
                     </tr>
@@ -647,64 +623,93 @@ export function SupplierDashboardPage() {
               </table>
             </div>
           )}
-        </Surface>
+          <Link
+            to="/supplier/orders"
+            className="flex items-center justify-between border-t border-ink/[0.06] bg-bone/30 px-6 py-3 text-[12px] font-semibold text-ink-3 transition-colors hover:text-ink"
+          >
+            <span>
+              {orderList.length} PO{orderList.length === 1 ? '' : 's'} total
+            </span>
+            <span className="inline-flex items-center gap-1">
+              Dispatch console <ArrowRightIcon size={12} />
+            </span>
+          </Link>
+        </section>
 
-        {/* Right column: Top customers + alerts */}
-        <div className="lg:col-span-4 space-y-4">
-          {/* Top customers */}
-          <Surface kind="flat" className="p-0 overflow-hidden border border-ink/10 shadow-sm">
-            <div className="px-5 py-4 border-b border-ink/10 bg-mist/20 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="size-8 rounded-md bg-copper/10 text-copper flex items-center justify-center">
-                  <UsersIcon size={15} />
-                </div>
-                <div>
-                  <h2 className="font-display text-sm text-ink font-semibold leading-tight">
-                    Top Commercial Buyers
-                  </h2>
-                  <p className="text-[10px] text-ink-4 mt-0.5">By settled LKR volume</p>
-                </div>
-              </div>
-              <Link
-                to="/supplier/customers"
-                className="text-[10px] font-mono uppercase tracking-wider text-copper hover:underline inline-flex items-center gap-1"
+        {/* Side rail */}
+        <div className="space-y-4 lg:col-span-4">
+          {/* Needs attention */}
+          <section className="rounded-2xl border border-ink/[0.08] bg-paper p-5">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-[15px] font-bold text-ink">Needs attention</h2>
+              <span
+                className={cn(
+                  'rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold',
+                  attention.length ? 'bg-amber/10 text-amber' : 'bg-mint/10 text-mint',
+                )}
               >
-                All
-                <ChevronRightIcon size={10} />
-              </Link>
+                {attention.length || 'All clear'}
+              </span>
             </div>
-            {topCustomers.length === 0 ? (
-              <div className="p-6 text-center text-xs text-ink-4">
-                No buyers yet. Active customers will appear here as orders are placed.
+            {attention.length === 0 ? (
+              <div className="mt-4 flex items-center gap-3 rounded-xl bg-mint/[0.07] p-3.5 text-[12px] text-ink-3">
+                <CheckCircle2Icon size={18} className="shrink-0 text-mint" />
+                Nothing waiting on you — stock is healthy and the queue is clear.
               </div>
             ) : (
-              <ul className="divide-y divide-ink/5">
-                {topCustomers.map((c, i) => {
+              <ul className="mt-4 space-y-2">
+                {attention.map((a) => (
+                  <li key={a.title}>
+                    <Link
+                      to={a.to}
+                      className="group flex items-start gap-3 rounded-xl border border-ink/[0.06] p-3.5 transition-colors hover:border-ink/20 hover:bg-bone/40"
+                    >
+                      <span
+                        className={cn(
+                          'mt-1 size-2 shrink-0 rounded-full',
+                          a.tone === 'rose' && 'bg-rose animate-pulse',
+                          a.tone === 'amber' && 'bg-amber',
+                          a.tone === 'volt' && 'bg-volt-deep',
+                        )}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[13px] font-semibold text-ink">{a.title}</span>
+                        <span className="mt-0.5 block text-[12px] text-ink-4">{a.body}</span>
+                        <span className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-copper group-hover:text-copper-deep">
+                          {a.cta} <ChevronRightIcon size={11} />
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Top buyers */}
+          <RailCard title="Top buyers" sub="By settled LKR volume" to="/supplier/customers" linkLabel="All buyers">
+            {topCustomers.length === 0 ? (
+              <p className="py-4 text-center text-[12px] text-ink-4">Buyers appear here as orders are placed.</p>
+            ) : (
+              <ul className="space-y-3">
+                {topCustomers.map((c) => {
                   const max = topCustomers[0]?.totalCents ?? 1;
                   const pct = max > 0 ? Math.min(100, (c.totalCents / max) * 100) : 0;
+                  const name = c.name || c.businessId.slice(0, 12);
                   return (
-                    <li key={c.businessId} className="px-5 py-3 hover:bg-bone/40 transition-colors">
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="w-5 h-5 rounded-sm bg-ink text-volt flex items-center justify-center text-[10px] font-mono font-bold shrink-0">
-                            {i + 1}
-                          </span>
-                          <span className="text-xs font-semibold text-ink-1 truncate">
-                            {c.name || c.businessId.slice(0, 12)}
-                          </span>
-                        </div>
-                        <span className="font-mono text-[11px] font-semibold text-ink-1 shrink-0">
-                          {formatCompactLKR(c.totalCents)}
+                    <li key={c.businessId}>
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-copper-soft/60 text-[11px] font-bold text-copper-deep">
+                          {name.charAt(0).toUpperCase()}
                         </span>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{name}</span>
+                        <span className="shrink-0 font-mono text-[12px] font-semibold text-ink">{formatCompactLKR(c.totalCents)}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 rounded-full bg-ink/[0.07] overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-copper to-volt"
-                            style={{ width: `${pct}%` }}
-                          />
+                      <div className="ml-[2.375rem] mt-1.5 flex items-center gap-2">
+                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-ink/[0.06]">
+                          <div className="h-full rounded-full bg-copper" style={{ width: `${pct}%` }} />
                         </div>
-                        <span className="text-[10px] font-mono text-ink-4 shrink-0">
+                        <span className="shrink-0 font-mono text-[10px] text-ink-4">
                           {c.totalOrders} PO{c.totalOrders === 1 ? '' : 's'}
                         </span>
                       </div>
@@ -713,162 +718,58 @@ export function SupplierDashboardPage() {
                 })}
               </ul>
             )}
-          </Surface>
+          </RailCard>
 
-          {/* Top products */}
-          <Surface kind="flat" className="p-0 overflow-hidden border border-ink/10 shadow-sm">
-            <div className="px-5 py-4 border-b border-ink/10 bg-mist/20 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="size-8 rounded-md bg-volt/15 text-volt-deep flex items-center justify-center">
-                  <LayersIcon size={15} />
-                </div>
-                <div>
-                  <h2 className="font-display text-sm text-ink font-semibold leading-tight">
-                    Top Performing SKUs
-                  </h2>
-                  <p className="text-[10px] text-ink-4 mt-0.5">By revenue generated</p>
-                </div>
-              </div>
-              <Link
-                to="/supplier/products"
-                className="text-[10px] font-mono uppercase tracking-wider text-copper hover:underline inline-flex items-center gap-1"
-              >
-                Catalog
-                <ChevronRightIcon size={10} />
-              </Link>
-            </div>
+          {/* Top SKUs */}
+          <RailCard title="Top SKUs" sub="By revenue generated" to="/supplier/products" linkLabel="Catalog">
             {topProducts.length === 0 ? (
-              <div className="p-6 text-center text-xs text-ink-4">
-                Publish wholesale products to start tracking top performers.
-              </div>
+              <p className="py-4 text-center text-[12px] text-ink-4">Publish products to track top performers.</p>
             ) : (
-              <ul className="divide-y divide-ink/5">
-                {topProducts.map((p, i) => (
-                  <li key={p.id} className="px-5 py-3 flex items-center gap-3 hover:bg-bone/40 transition-colors">
-                    <span className="w-5 h-5 rounded-sm bg-ink text-volt flex items-center justify-center text-[10px] font-mono font-bold shrink-0">
-                      {i + 1}
+              <ul className="space-y-1">
+                {topProducts.map((p) => (
+                  <li key={p.id} className="flex items-center gap-3 rounded-lg py-1.5">
+                    <span className="size-9 shrink-0 overflow-hidden rounded-lg bg-bone ring-1 ring-ink/[0.06]">
+                      <ProductImage src={p.productImage} alt={p.productName ?? 'Product'} seed={p.productId ?? p.id} className="h-full w-full object-cover" />
                     </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-semibold text-ink-1 truncate">
-                        {p.productName || 'Unnamed product'}
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] text-ink-4 mt-0.5">
-                        <span className="font-mono">
-                          {p.unitsSold ?? 0} units
-                        </span>
-                        <span>·</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-medium text-ink">{p.productName || 'Unnamed product'}</span>
+                      <span className="flex items-center gap-1.5 text-[11px] text-ink-4">
                         <span
                           className={cn(
-                            'font-mono font-semibold uppercase',
-                            p.availabilityStatus === 'out_of_stock'
-                              ? 'text-rose'
-                              : p.availabilityStatus === 'low'
-                              ? 'text-amber'
-                              : 'text-mint',
+                            'size-1.5 rounded-full',
+                            p.availabilityStatus === 'out_of_stock' ? 'bg-rose' : p.availabilityStatus === 'low' ? 'bg-amber' : 'bg-mint',
                           )}
-                        >
-                          {p.availabilityStatus?.replace(/_/g, ' ')}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="font-mono text-xs font-semibold text-ink-1">
-                        {formatCompactLKR(p.revenueCents ?? 0)}
-                      </div>
-                    </div>
+                        />
+                        {p.unitsSold ?? 0} units
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-mono text-[12px] font-semibold text-ink">{formatCompactLKR(p.revenueCents ?? 0)}</span>
                   </li>
                 ))}
               </ul>
             )}
-          </Surface>
-
-          {/* Operational alerts */}
-          {(lowStockCount > 0 || disputedOrders.length > 0) && (
-            <Surface kind="flat" className="p-0 overflow-hidden border border-amber/30 shadow-sm">
-              <div className="px-5 py-4 border-b border-amber/20 bg-amber/5 flex items-center gap-2.5">
-                <div className="size-8 rounded-md bg-amber/15 text-amber flex items-center justify-center">
-                  <AlertTriangleIcon size={15} />
-                </div>
-                <div>
-                  <h2 className="font-display text-sm text-ink font-semibold leading-tight">
-                    Operational Alerts
-                  </h2>
-                  <p className="text-[10px] text-ink-4 mt-0.5">Action required to keep ops healthy</p>
-                </div>
-              </div>
-              <ul className="divide-y divide-ink/5">
-                {lowStockCount > 0 && (
-                  <li className="px-5 py-3 flex items-start gap-3">
-                    <span className="size-2 rounded-full bg-amber mt-1.5 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-semibold text-ink-1">
-                        {lowStockCount} SKU{lowStockCount === 1 ? '' : 's'} running low
-                      </div>
-                      <p className="text-[11px] text-ink-3 mt-0.5">
-                        Update stock levels to keep commercial buyers ordering from your facility.
-                      </p>
-                      <Link
-                        to="/supplier/inventory"
-                        className="text-[11px] font-semibold text-copper hover:underline inline-flex items-center gap-1 mt-1"
-                      >
-                        Update stock
-                        <ChevronRightIcon size={10} />
-                      </Link>
-                    </div>
-                  </li>
-                )}
-                {disputedOrders.length > 0 && (
-                  <li className="px-5 py-3 flex items-start gap-3">
-                    <span className="size-2 rounded-full bg-rose mt-1.5 shrink-0 animate-pulse" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-semibold text-ink-1">
-                        {disputedOrders.length} disputed order
-                        {disputedOrders.length === 1 ? '' : 's'} need attention
-                      </div>
-                      <p className="text-[11px] text-ink-3 mt-0.5">
-                        Review buyer-raised disputes and respond promptly to maintain your trust score.
-                      </p>
-                      <Link
-                        to="/supplier/orders"
-                        className="text-[11px] font-semibold text-copper hover:underline inline-flex items-center gap-1 mt-1"
-                      >
-                        View disputes
-                        <ChevronRightIcon size={10} />
-                      </Link>
-                    </div>
-                  </li>
-                )}
-              </ul>
-            </Surface>
-          )}
+          </RailCard>
         </div>
       </div>
 
-      {/* Operational Quick Action Grid */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <div className="vyro-kicker text-copper">Operational Modules</div>
-          <span className="text-[10px] font-mono text-ink-4 uppercase tracking-wider">
-            {NAV_LINKS.length} modules
-          </span>
-        </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {NAV_LINKS.map((l) => (
-            <ActionCard key={l.to} {...l} />
-          ))}
-        </div>
+      {/* ── Modules ──────────────────────────────────────── */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {NAV_LINKS.map((l) => (
+          <ActionCard key={l.to} {...l} />
+        ))}
       </div>
 
       {/* Reviews */}
-      <Surface className="p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="vyro-kicker text-copper">Buyer Reviews & Reputation</div>
-          <span className="text-[10px] font-mono text-ink-4 uppercase tracking-wider">
-            Verified Commercial Orders
-          </span>
-        </div>
+      <section className="rounded-2xl border border-ink/[0.08] bg-paper p-5 sm:p-6">
+        <header className="mb-4 flex items-end justify-between gap-3">
+          <div>
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-copper">Reputation</div>
+            <h2 className="mt-1 font-display text-lg font-bold tracking-tight text-ink">Buyer reviews</h2>
+          </div>
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-4">Verified orders only</span>
+        </header>
         <SupplierReviewsPanel supplierId={supplierId} />
-      </Surface>
+      </section>
 
       {/* Storefront section */}
       <StorefrontSettingsSection
@@ -877,25 +778,16 @@ export function SupplierDashboardPage() {
         supplierId={supplierId}
       />
 
-      {/* Footer Status Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-ink-4 pt-4 border-t border-ink/10 gap-2">
-        <div className="flex items-center gap-2">
-          <span className="size-2 rounded-full bg-volt inline-block animate-pulse" />
-          <span>VYRO Wholesale Supplier Operations · Secure Commercial Console</span>
-        </div>
-        <div className="flex items-center gap-4 font-mono text-[11px]">
-          <span>
-            {custList.length} commercial {custList.length === 1 ? 'buyer' : 'buyers'} on record
-          </span>
-          <span className="text-ink-5">·</span>
-          <span>
-            {offerList.length} {offerList.length === 1 ? 'SKU' : 'SKUs'} published
-          </span>
-          <span className="text-ink-5">·</span>
-          <span>
-            {orderList.length} {orderList.length === 1 ? 'PO' : 'POs'} processed
-          </span>
-        </div>
+      {/* Footer status bar */}
+      <div className="flex flex-col items-center justify-between gap-2 border-t border-ink/[0.08] pt-4 text-[11px] text-ink-4 sm:flex-row">
+        <span className="inline-flex items-center gap-2">
+          <span className="size-1.5 rounded-full bg-mint animate-pulse" />
+          Secure supplier console · live sync
+        </span>
+        <span className="font-mono">
+          {custList.length} buyer{custList.length === 1 ? '' : 's'} · {offerList.length} SKU{offerList.length === 1 ? '' : 's'} ·{' '}
+          {orderList.length} PO{orderList.length === 1 ? '' : 's'}
+        </span>
       </div>
     </div>
   );
@@ -904,39 +796,101 @@ export function SupplierDashboardPage() {
 /* ---------- Local helpers ---------- */
 
 const NAV_LINKS = [
-  {
-    to: '/supplier/products',
-    title: 'Product Catalog',
-    hint: 'Add staple commodities, manage wholesale SKUs, and upload high-res packaging photos.',
-    cta: 'Manage Catalog',
-    icon: PackageIcon,
-    accent: 'copper' as const,
-  },
-  {
-    to: '/supplier/pricing',
-    title: 'Pricing & MOQs',
-    hint: 'Configure mill-gate pricing, bulk discount brackets, and minimum order requirements.',
-    cta: 'Configure Tiers',
-    icon: SparklesIcon,
-    accent: 'volt' as const,
-  },
-  {
-    to: '/supplier/deliveries',
-    title: 'Fleet & Logistics',
-    hint: 'Assign delivery drivers, register truck license plates, and track electronic GRN receipts.',
-    cta: 'Dispatch Staging',
-    icon: TruckIcon,
-    accent: 'copper' as const,
-  },
-  {
-    to: '/supplier/payments',
-    title: 'Payouts & SVAT',
-    hint: 'Review completed order settlements, download digital tax invoices, and manage bank accounts.',
-    cta: 'View Settlement',
-    icon: ShieldCheckIcon,
-    accent: 'volt' as const,
-  },
+  { to: '/supplier/products', title: 'Product catalog', hint: 'SKUs, packaging photos and listings.', icon: PackageIcon },
+  { to: '/supplier/pricing', title: 'Pricing & MOQs', hint: 'Mill-gate rates and bulk discount tiers.', icon: SparklesIcon },
+  { to: '/supplier/deliveries', title: 'Fleet & logistics', hint: 'Drivers, trucks and electronic GRNs.', icon: TruckIcon },
+  { to: '/supplier/payments', title: 'Payouts & SVAT', hint: 'Settlements, tax invoices and bank accounts.', icon: ShieldCheckIcon },
 ];
+
+type PipelineStage = {
+  label: string;
+  value: string;
+  sub: string;
+  to: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  state: 'done' | 'active' | 'idle';
+};
+
+function PipelineStep({ stage, index, last }: { stage: PipelineStage; index: number; last: boolean }) {
+  const Icon = stage.icon;
+  const active = stage.state === 'active';
+  return (
+    <li className="relative">
+      <Link
+        to={stage.to}
+        className={cn(
+          'group block h-full rounded-xl border p-4 transition-all hover:-translate-y-0.5',
+          active
+            ? 'border-ink bg-ink text-paper shadow-[0_16px_32px_-20px_rgba(12,14,11,0.7)]'
+            : 'border-ink/[0.08] bg-bone/40 hover:border-ink/20 hover:bg-paper',
+        )}
+      >
+        <div className="flex items-center justify-between">
+          <span
+            className={cn(
+              'flex size-8 items-center justify-center rounded-lg',
+              active
+                ? 'bg-volt text-ink'
+                : stage.state === 'done'
+                  ? 'bg-mint/10 text-mint'
+                  : 'bg-ink/[0.05] text-ink-4',
+            )}
+          >
+            <Icon size={15} />
+          </span>
+          <span className={cn('font-mono text-[10px]', active ? 'text-paper/40' : 'text-ink-5')}>
+            0{index + 1}
+          </span>
+        </div>
+        <div
+          className={cn(
+            'mt-4 truncate font-display text-2xl font-bold leading-none tracking-tight tabular-nums',
+            active ? 'text-paper' : stage.state === 'idle' ? 'text-ink-4' : 'text-ink',
+          )}
+        >
+          {stage.value}
+        </div>
+        <div className={cn('mt-2 text-[12px] font-semibold', active ? 'text-paper' : 'text-ink-2')}>{stage.label}</div>
+        <div className={cn('mt-0.5 truncate text-[11px]', active ? 'text-paper/55' : 'text-ink-4')}>{stage.sub}</div>
+      </Link>
+      {!last && (
+        <span
+          className="pointer-events-none absolute -right-[7px] top-1/2 z-10 hidden size-3 -translate-y-1/2 rotate-45 border-r border-t border-ink/15 bg-paper lg:block"
+          aria-hidden
+        />
+      )}
+    </li>
+  );
+}
+
+function RailCard({
+  title,
+  sub,
+  to,
+  linkLabel,
+  children,
+}: {
+  title: string;
+  sub: string;
+  to: string;
+  linkLabel: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-ink/[0.08] bg-paper p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-display text-[15px] font-bold text-ink">{title}</h2>
+          <p className="mt-0.5 text-[11px] text-ink-4">{sub}</p>
+        </div>
+        <Link to={to} className="inline-flex shrink-0 items-center gap-0.5 text-[12px] font-semibold text-ink-3 hover:text-ink">
+          {linkLabel} <ChevronRightIcon size={12} />
+        </Link>
+      </div>
+      {children}
+    </section>
+  );
+}
 
 function KycCallout({ status }: { status?: string }) {
   if (status === 'approved' || status === 'verified') return null;
@@ -945,17 +899,17 @@ function KycCallout({ status }: { status?: string }) {
   return (
     <div
       className={cn(
-        'flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl border-l-4',
+        'flex flex-col gap-4 rounded-2xl border p-4 sm:flex-row sm:items-center sm:p-5',
         isRejected
-          ? 'bg-rose/10 border-l-rose border border-rose/30'
+          ? 'border-rose/25 bg-rose/[0.07]'
           : isNeeds
-          ? 'bg-copper/10 border-l-copper border border-copper/30'
-          : 'bg-amber/10 border-l-amber border border-amber/30',
+          ? 'border-copper/25 bg-copper/[0.07]'
+          : 'border-amber/25 bg-amber/[0.07]',
       )}
     >
       <div
         className={cn(
-          'size-10 rounded-lg flex items-center justify-center shrink-0',
+          'flex size-10 shrink-0 items-center justify-center rounded-xl',
           isRejected ? 'bg-rose text-paper' : isNeeds ? 'bg-copper text-paper' : 'bg-amber text-ink',
         )}
       >
@@ -1002,125 +956,59 @@ function KycCallout({ status }: { status?: string }) {
   );
 }
 
-function HeroStat({
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  tone: 'volt' | 'mint' | 'amber' | 'paper';
-}) {
-  const toneClass = {
-    volt: 'text-volt',
-    mint: 'text-mint',
-    amber: 'text-amber',
-    paper: 'text-paper',
-  }[tone];
-  return (
-    <div>
-      <div className="text-[10px] font-mono text-paper/50 uppercase tracking-wider font-bold">
-        {label}
-      </div>
-      <div className={cn('vyro-metric text-2xl sm:text-3xl font-bold mt-1', toneClass)}>
-        {value}
-      </div>
-      <div className="text-[10px] text-paper/50 mt-0.5">{sub}</div>
-    </div>
-  );
-}
-
 function KpiTile({
   to,
   label,
   value,
   sub,
-  icon,
-  accent,
-  footer,
-  isCurrency,
+  icon: Icon,
+  tone = 'ink',
+  meter,
 }: {
   to: string;
   label: string;
-  value: number | string;
+  value: string;
   sub: string;
-  icon: React.ReactNode;
-  accent: 'volt' | 'mint' | 'amber' | 'rose' | 'copper' | 'ink';
-  footer: string;
-  isCurrency?: boolean;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  tone?: 'ink' | 'mint' | 'amber';
+  meter?: number | undefined;
 }) {
-  const accentText = {
-    volt: 'text-volt-deep',
-    mint: 'text-mint',
-    amber: 'text-amber',
-    rose: 'text-rose',
-    copper: 'text-copper-deep',
-    ink: 'text-ink',
-  }[accent];
-  const accentBg = {
-    volt: 'bg-volt/15 text-volt-deep',
-    mint: 'bg-mint/15 text-mint',
-    amber: 'bg-amber/15 text-amber',
-    rose: 'bg-rose/15 text-rose',
-    copper: 'bg-copper/15 text-copper-deep',
-    ink: 'bg-ink/10 text-ink',
-  }[accent];
-  const display = isCurrency && typeof value === 'number' ? formatCompactLKR(value) : value;
   return (
     <Link
       to={to}
-      className="p-5 vyro-surface hover:border-ink/30 transition-all group block hover:shadow-md"
+      className="group block rounded-2xl border border-ink/[0.08] bg-paper p-5 shadow-[0_1px_2px_rgba(12,14,11,0.04)] transition-all hover:-translate-y-0.5 hover:border-ink/20 hover:shadow-[0_16px_32px_-24px_rgba(12,14,11,0.5)]"
     >
-      <div className="flex items-center justify-between">
-        <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">
-          {label}
-        </div>
-        <div className={cn('size-7 rounded-lg flex items-center justify-center', accentBg)}>{icon}</div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-4">{label}</span>
+        <span
+          className={cn(
+            'flex size-8 items-center justify-center rounded-lg transition-colors',
+            tone === 'mint' && 'bg-mint/10 text-mint',
+            tone === 'amber' && 'bg-amber/10 text-amber',
+            tone === 'ink' && 'bg-ink/[0.05] text-ink-3 group-hover:bg-ink group-hover:text-volt',
+          )}
+        >
+          <Icon size={15} />
+        </span>
       </div>
-      <MetricNumber size="lg" className={cn('mt-2', accentText)}>
-        {display}
-      </MetricNumber>
-      <div className="text-[11px] text-ink-3 mt-1">{sub}</div>
-      <div className="mt-3 pt-3 border-t border-ink/10 flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-ink-4">
-        <span>{footer}</span>
-        <ChevronRightIcon
-          size={12}
-          className="text-ink-4 group-hover:text-copper group-hover:translate-x-0.5 transition-all"
-        />
+      <div
+        className={cn(
+          'mt-4 truncate font-display text-[1.9rem] font-bold leading-none tracking-tight tabular-nums',
+          tone === 'mint' ? 'text-mint' : tone === 'amber' ? 'text-amber' : 'text-ink',
+        )}
+      >
+        {value}
+      </div>
+      {meter !== undefined && (
+        <div className="mt-3 h-1 overflow-hidden rounded-full bg-ink/[0.06]">
+          <div className="h-full rounded-full bg-mint" style={{ width: `${Math.min(meter, 100)}%` }} />
+        </div>
+      )}
+      <div className="mt-2 flex items-center justify-between gap-2 text-[12px] text-ink-4">
+        <span className="truncate">{sub}</span>
+        <ChevronRightIcon size={13} className="shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:text-ink" />
       </div>
     </Link>
-  );
-}
-
-function PipelineStat({
-  label,
-  value,
-  tone,
-  sub,
-}: {
-  label: string;
-  value: string;
-  tone: 'mint' | 'amber' | 'rose' | 'copper' | 'volt' | 'paper';
-  sub?: string;
-}) {
-  const toneClass = {
-    mint: 'text-mint',
-    amber: 'text-amber',
-    rose: 'text-rose',
-    copper: 'text-copper',
-    volt: 'text-volt',
-    paper: 'text-paper',
-  }[tone];
-  return (
-    <div className="p-3 rounded-lg bg-paper/[0.04] border border-paper/10">
-      <div className="text-[9px] font-mono text-paper/50 uppercase tracking-wider font-bold">
-        {label}
-      </div>
-      <div className={cn('vyro-metric text-xl font-bold mt-1', toneClass)}>{value}</div>
-      {sub && <div className="text-[9px] text-paper/40 mt-0.5">{sub}</div>}
-    </div>
   );
 }
 
@@ -1138,19 +1026,17 @@ function ActivationStep({
   to: string;
 }) {
   return (
-    <div className="p-4 rounded-xl bg-paper border border-ink/10 space-y-2 relative hover:border-ink/30 transition-colors">
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-volt/15 text-[10px] font-mono text-volt-deep uppercase tracking-wider font-bold">
-        Step {n}
+    <Link
+      to={to}
+      className="group block rounded-xl border border-ink/[0.08] bg-paper p-4 transition-all hover:-translate-y-0.5 hover:border-ink/25"
+    >
+      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-volt-deep">Step 0{n}</span>
+      <h3 className="mt-1.5 text-[14px] font-semibold text-ink">{title}</h3>
+      <p className="mt-1 text-[12px] leading-relaxed text-ink-4">{hint}</p>
+      <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-copper group-hover:text-copper-deep">
+        {cta} <ArrowRightIcon size={12} />
       </span>
-      <h3 className="font-display text-sm font-semibold text-ink">{title}</h3>
-      <p className="text-[11px] text-ink-4 leading-relaxed">{hint}</p>
-      <Link
-        to={to}
-        className="text-xs text-copper font-semibold block pt-1 hover:underline inline-flex items-center gap-1"
-      >
-        {cta} →
-      </Link>
-    </div>
+    </Link>
   );
 }
 
@@ -1158,52 +1044,26 @@ function ActionCard({
   to,
   title,
   hint,
-  cta,
   icon: Icon,
-  accent,
 }: {
   to: string;
   title: string;
   hint: string;
-  cta: string;
   icon: typeof PackageIcon;
-  accent: 'volt' | 'copper' | 'mint' | 'amber';
 }) {
-  const accentText = {
-    volt: 'text-volt-deep group-hover:text-volt-deep',
-    copper: 'text-copper group-hover:text-copper-deep',
-    mint: 'text-mint',
-    amber: 'text-amber',
-  }[accent];
-  const accentBg = {
-    volt: 'bg-volt/15 text-volt-deep',
-    copper: 'bg-copper/15 text-copper-deep',
-    mint: 'bg-mint/15 text-mint',
-    amber: 'bg-amber/15 text-amber',
-  }[accent];
   return (
     <Link
       to={to}
-      className="p-5 vyro-surface hover:border-ink/30 transition-all block space-y-2 group"
+      className="group flex items-center gap-3.5 rounded-2xl border border-ink/[0.08] bg-paper p-4 transition-all hover:-translate-y-0.5 hover:border-ink/20"
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className={cn('size-8 rounded-lg flex items-center justify-center', accentBg)}>
-            <Icon size={15} />
-          </div>
-          <div className={cn('font-display font-semibold text-sm text-ink', accentText, 'transition-colors')}>
-            {title}
-          </div>
-        </div>
-        <ChevronRightIcon
-          size={14}
-          className="text-ink-4 group-hover:text-copper group-hover:translate-x-0.5 transition-all"
-        />
-      </div>
-      <p className="text-xs text-ink-3 leading-relaxed line-clamp-2">{hint}</p>
-      <span className="text-xs text-copper font-semibold inline-flex items-center gap-1 pt-1">
-        {cta} →
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-ink/[0.05] text-ink-3 transition-colors group-hover:bg-ink group-hover:text-volt">
+        <Icon size={17} />
       </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-semibold text-ink">{title}</span>
+        <span className="block truncate text-[12px] text-ink-4">{hint}</span>
+      </span>
+      <ChevronRightIcon size={14} className="shrink-0 text-ink-4 transition-transform group-hover:translate-x-0.5 group-hover:text-ink" />
     </Link>
   );
 }

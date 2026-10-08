@@ -347,3 +347,24 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Hairline "block" (home page): towers draw in hairline at rest and fill with colour as they light. */
+:root {
+  --block-tone-0: var(--vyro-volt);
+  --block-tone-1: #c98a5c;
+  --block-tone-2: #6fb6e8;
+  --block-tone-3: #e8836f;
+}
+[data-hairline="block"] svg path {
+  transition: stroke 260ms var(--ease-vyro), fill 420ms var(--ease-vyro);
+}
+[data-hairline="block"] [data-tone="0"] { --tone: var(--block-tone-0); }
+[data-hairline="block"] [data-tone="1"] { --tone: var(--block-tone-1); }
+[data-hairline="block"] [data-tone="2"] { --tone: var(--block-tone-2); }
+[data-hairline="block"] [data-tone="3"] { --tone: var(--block-tone-3); }
+[data-hairline="block"] [data-part="slab"] { --tone: #2c2f29; }
+[data-hairline="block"] [data-part="park"] { --tone: #5fae6a; }
+[data-hairline="block"] .sil.hi:not(.nf) { fill: var(--tone); }
+/* a setback crown is the tower's lighter top */
+[data-hairline="block"] [data-tone] > g + g .sil.hi { fill: color-mix(in srgb, var(--tone) 55%, white); }
+[data-hairline="block"] [data-tone] .sil.hi ~ path { stroke: color-mix(in srgb, var(--tone) 45%, black); }

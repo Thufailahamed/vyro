@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { RepeatOfferAnalyticsResponse } from '@vyro/validation';
 import { formatCompactLKR } from '@/lib/format';
-import { MetricNumber } from '@/components/brand/Surface';
 import { SparklesIcon } from '@/components/icons';
 
 export function RepeatOfferTile({ supplierId }: { supplierId: string }) {
@@ -17,18 +16,18 @@ export function RepeatOfferTile({ supplierId }: { supplierId: string }) {
   });
   if (!q.data) return null;
   return (
-    <div className="vyro-surface p-5 space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Repeat Offers (30d)</span>
-        <span className="flex size-8 items-center justify-center rounded-lg bg-mint/15 text-mint">
+    <div className="rounded-2xl border border-ink/[0.08] bg-paper p-5 shadow-[0_1px_2px_rgba(12,14,11,0.04)]">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-4">Repeat offers · 30d</span>
+        <span className="flex size-8 items-center justify-center rounded-lg bg-volt/15 text-volt-deep">
           <SparklesIcon size={15} />
         </span>
       </div>
-      <MetricNumber size="md" className="text-ink">
+      <div className="mt-4 font-display text-[2rem] font-bold leading-none tracking-tight text-ink tabular-nums">
         {q.data.triggeredCount}
-      </MetricNumber>
-      <div className="text-xs text-ink-4">
-        orders with discount · {formatCompactLKR(q.data.totalSavingsCents)} savings extended
+      </div>
+      <div className="mt-2 text-[12px] text-ink-4">
+        Discounted orders · {formatCompactLKR(q.data.totalSavingsCents)} saved
       </div>
     </div>
   );
