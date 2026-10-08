@@ -33,7 +33,7 @@ interface InvoiceDetail {
 
 /**
  * Buyer invoice — the web renders the server's HTML snapshot in an iframe.
- * Native renders the same data and offers the printable HTML via share sheet.
+ * Native renders the same data and offers the printable PDF via share sheet.
  */
 export function InvoiceScreen() {
   const { id: poId, invoiceId } = useLocalSearchParams<{ id: string; invoiceId: string }>();
@@ -50,7 +50,7 @@ export function InvoiceScreen() {
     const number = q.data?.invoice.number ?? invoiceId;
     setSharing(true);
     try {
-      await shareApiFile(`/invoices/${encodeURIComponent(number!)}/html`, `${number}.html`, 'text/html');
+      await shareApiFile(`/invoices/${encodeURIComponent(number!)}/pdf`, `${number}.pdf`, 'application/pdf');
     } catch (e) {
       toast.error('Could not open invoice', errorMessage(e));
     } finally {
@@ -94,7 +94,7 @@ export function InvoiceScreen() {
       title={invoice.number}
       subtitle={`Issued ${formatDateTime(invoice.issuedAt)}${invoice.dueAt ? ` · due ${formatDateTime(invoice.dueAt)}` : ''}`}
       onRefresh={() => q.refetch()}
-      footer={<Button title="Share / print invoice" icon={Share2} size="lg" full loading={sharing} onPress={share} />}
+      footer={<Button title="Share invoice PDF" icon={Share2} size="lg" full loading={sharing} onPress={share} />}
     >
       <InkHero seed={`invoice-${invoice.id}`} style={{ gap: 6 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -118,7 +118,7 @@ export function InvoiceScreen() {
       <Section kicker="Lines" title={`Items (${items.length})`} icon={FileText}>
         {items.length === 0 ? (
           <Text variant="bodySm" color="ink4">
-            Line detail is inside the printable invoice — share it above.
+            Line detail is inside the invoice PDF — share it above.
           </Text>
         ) : (
           <View>
