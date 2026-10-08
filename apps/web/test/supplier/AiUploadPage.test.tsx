@@ -20,7 +20,7 @@ describe('AiUploadPage (staging entry)', () => {
   it('renders the upload form with the supported-file hint', () => {
     const html = render(createElement(AiUploadLanding, { supplierId: 'sup-1' }));
     expect(html).toMatch(/Upload products with AI/);
-    expect(html).toMatch(/CSV export/);
+    expect(html).toMatch(/CSV or TSV export/);
     expect(html).toMatch(/nothing goes live/i);
   });
 
