@@ -467,6 +467,7 @@ Seed one business, one supplier, one catalog category, two products/offers, one 
 5. A non-PO-linked upload returns no candidates and a non-null selected `productId` is rejected; no alias is learned.
 6. Two lines in one review with the same normalized description but different selected products both save, but neither selection overwrites/creates an alias for that conflicting description.
 7. The UI-generated `Untitled line` placeholder is not learned as an alias.
+8. If `upsertInvoiceProductAlias` throws after `saveReviewedLines`, the review route still returns 200 and the corrected line remains saved.
 
 - [ ] **Step 2: Add candidate query helper**
 
