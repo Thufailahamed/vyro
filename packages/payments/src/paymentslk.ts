@@ -36,6 +36,9 @@ export function paymentsLkStatusCode(eventType: string): number | undefined {
     case 'checkout.expired':
     case 'payment.expired':
       return 0;
+    case 'payment.cancelled':
+    case 'checkout.cancelled':
+      return -4;
     case 'refund.completed':
       return 3;
     case 'refund.failed':
@@ -55,6 +58,9 @@ export function paymentsLkEventToType(vendorType: string | undefined): WebhookEv
       return 'payment.failed';
     case 'checkout.expired':
       return 'payment.expired';
+    case 'payment.cancelled':
+    case 'checkout.cancelled':
+      return 'payment.cancelled';
     case 'refund.completed':
       return 'refund.completed';
     case 'refund.failed':

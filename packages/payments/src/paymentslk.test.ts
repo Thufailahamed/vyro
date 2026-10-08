@@ -98,6 +98,21 @@ describe('payments.lk webhook verification', () => {
     expect(cardEv.statusCode).toBe(4);
   });
 
+  it('maps cancelled events to payment.cancelled', async () => {
+    const mk = (vendorType: string) =>
+      JSON.stringify({ id: 'evt_c', type: vendorType, data: { reference: 'p1' } });
+    const parse = async (s: string) => gateway().parseWebhook(s, signed(s));
+
+    const cancelled = await parse(mk('payment.cancelled'));
+    expect(cancelled.type).toBe('payment.cancelled');
+    expect(cancelled.statusCode).toBe(-4);
+
+    const checkoutCancelled = await parse(mk('checkout.cancelled'));
+    expect(checkoutCancelled.type).toBe('payment.cancelled');
+
+    expect(paymentsLkEventToType('payment.cancelled')).toBe('payment.cancelled');
+  });
+
   it('maps unknown vendor events to "unknown"', async () => {
     const raw = JSON.stringify({ id: 'evt_x', type: 'something.new', data: { reference: 'p1' } });
     const ev = await gateway().parseWebhook(raw, signed(raw));
