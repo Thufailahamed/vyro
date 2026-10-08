@@ -91,10 +91,14 @@ export function AcceptOrderSheet({
 
   const m = useMutation({
     mutationFn: () =>
-      api.post<AcceptResponse>(`/purchase-orders/${poId}/accept`, {
-        ...(payload.length ? { lines: payload } : {}),
-        ...(note.trim() ? { note: note.trim() } : {}),
-      }),
+      api.post<AcceptResponse>(
+        `/purchase-orders/${poId}/accept`,
+        {
+          ...(payload.length ? { lines: payload } : {}),
+          ...(note.trim() ? { note: note.trim() } : {}),
+        },
+        { idempotencyKey: true },
+      ),
     onSuccess: async (r) => {
       toast.success(
         r.partial ? 'Order partially accepted' : 'Order accepted',

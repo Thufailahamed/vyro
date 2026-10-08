@@ -20,7 +20,11 @@ export function useTransition() {
   const toast = useToast();
   return useMutation({
     mutationFn: (v: { poId: string; to: string; reason?: string }) =>
-      api.post(`/purchase-orders/${v.poId}/transition`, { to: v.to, ...(v.reason ? { reason: v.reason } : {}) }),
+      api.post(
+        `/purchase-orders/${v.poId}/transition`,
+        { to: v.to, ...(v.reason ? { reason: v.reason } : {}) },
+        { idempotencyKey: true },
+      ),
     onSuccess: async (_, v) => {
       toast.success(`Order ${v.to === 'cancelled' ? 'cancelled' : v.to === 'rejected' ? 'rejected' : `advanced to ${humanize(v.to).toLowerCase()}`}`);
       await invalidate(v.poId);

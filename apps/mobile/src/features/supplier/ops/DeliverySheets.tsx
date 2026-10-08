@@ -64,7 +64,7 @@ export function PodSheet({
         if (photo) appendFile(form, 'file', photo);
         await api.upload(`/deliveries/${poId}/pod`, form);
       }
-      await api.post(`/purchase-orders/${poId}/transition`, { to: 'delivered' });
+      await api.post(`/purchase-orders/${poId}/transition`, { to: 'delivered' }, { idempotencyKey: true });
     },
     onSuccess: async () => {
       toast.success('Marked delivered', 'The buyer has been asked to confirm receipt.');
