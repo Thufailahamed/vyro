@@ -25,7 +25,8 @@
     "./businessTypes": "./src/businessTypes.ts",
     "./supplierTypes": "./src/supplierTypes.ts",
     "./wholesale": "./src/wholesale.ts",
-    "./orderLifecycle": "./src/orderLifecycle.ts"
+    "./orderLifecycle": "./src/orderLifecycle.ts",
+    "./productUpload": "./src/productUpload.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
