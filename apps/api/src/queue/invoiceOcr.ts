@@ -70,6 +70,16 @@ async function processUpload(env: Env, uploadId: string): Promise<void> {
       totalCents: result.totalCents ?? null,
     })
     .where(eq(invoiceUploads.id, uploadId));
+
+  // Doc-intel v2 phase A: PO-linked uploads self-serve reconciliation.
+  // Stage OCR line items (rule-categorized) and run the 3-way matcher; the
+  // helper degrades to reconciliationStatus 'failed' — never throws here.
+  if (row.purchaseOrderId && row.businessId && newStatus === 'ready' && result.items.length > 0) {
+    const { persistOcrLines } = await import('../modules/documents/autoStage');
+    const { reconcileIfLinked } = await import('../modules/documents/reconcile');
+    await persistOcrLines(env, { id: uploadId, businessId: row.businessId }, result.items);
+    await reconcileIfLinked(env, uploadId);
+  }
 }
 
 async function markFailed(env: Env, uploadId: string, message: string): Promise<void> {
