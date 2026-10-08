@@ -152,6 +152,23 @@ describe('payments.lk webhook route', () => {
     expect(pay.expiredAt).toBeGreaterThan(0);
   });
 
+  it('cancels a pending payment on payment.cancelled', async () => {
+    const { getDb } = await import('@vyro/db');
+    const schema = await import('@vyro/db/schema');
+    const { newId } = await import('@vyro/shared');
+    const db = getDb(env.DB);
+    const now = Date.now();
+    const pay4 = newId();
+    await db.insert(schema.payments).values({ id: pay4, purchaseOrderId: ids.po, businessId: ids.biz, supplierId: ids.sup, method: 'online', provider: 'payments_lk', status: 'pending', amountCents: 10000, feeCents: 250, netCents: 9750, currency: 'LKR', createdAt: now, updatedAt: now });
+    const raw = JSON.stringify({ id: 'evt_cxl_1', type: 'payment.cancelled', data: { reference: pay4, id: 'ch_cxl_1' } });
+    const r = await post('/api/webhooks/payments-lk', raw, { 'content-type': 'application/json' });
+    expect(r.status).toBe(200);
+    const pay = (await db.select().from(schema.payments).where(eq(schema.payments.id, pay4)).get()) as any;
+    expect(pay.status).toBe('cancelled');
+    expect(pay.statusReason).toBe('gateway:payment.cancelled');
+    expect(pay.cancelledAt).toBeGreaterThan(0);
+  });
+
   it('finalizes a processing refund on refund.completed', async () => {
     const { getDb } = await import('@vyro/db');
     const schema = await import('@vyro/db/schema');
