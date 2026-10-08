@@ -16,6 +16,12 @@ import { businessMembers, supplierMembers, purchaseOrders, orderEvents } from '@
 import { and, eq } from 'drizzle-orm';
 import { ensureDelivery, findDeliveryByPo, updateDelivery } from './repository';
 import { recordAudit } from '../supplierProducts/repository';
+import {
+  assertIdempotencyMatch,
+  getIdempotencyResponse,
+  hashRequestBody,
+  storeIdempotencyResponse,
+} from '../../lib/idempotency';
 import { listDeliveriesForSupplier, requireSupplierMember } from './listRepository';
 import { notifyOrderParties } from '../notifications/dispatcher';
 import { NotificationType, newId } from '@vyro/shared';
@@ -75,6 +81,17 @@ router.post('/:poId/transitions', session(), async (c) => {
 
   if (role !== 'supplier' && role !== 'admin') {
     throw httpError(403, 'FORBIDDEN', 'Only supplier/admin update deliveries');
+  }
+
+  const idemKey = c.req.header('Idempotency-Key');
+  const requestHash = hashRequestBody({ poId: c.req.param('poId'), body: parsed.data });
+  if (idemKey) {
+    const hit = await getIdempotencyResponse(c.env.DB, ctx.userId, idemKey);
+    if (hit) {
+      await assertIdempotencyMatch(c.env.DB, ctx.userId, idemKey, requestHash);
+      c.status(hit.statusCode as 200);
+      return c.json(JSON.parse(hit.responseJson));
+    }
   }
 
   await ensureDelivery(c.env.DB, c.req.param('poId'));
@@ -221,7 +238,11 @@ router.post('/:poId/transitions', session(), async (c) => {
     console.error('[delivery.transition] notify failed', err);
   }
 
-  return c.json({ ok: true });
+  const responseBody = { ok: true as const };
+  if (idemKey) {
+    await storeIdempotencyResponse(c.env.DB, ctx.userId, idemKey, requestHash, 200, JSON.stringify(responseBody));
+  }
+  return c.json(responseBody);
 });
 
 /** Tracking details (carrier, tracking no., recipient) without a status change. */
