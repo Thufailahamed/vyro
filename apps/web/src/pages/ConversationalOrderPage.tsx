@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import { firstBusinessId } from '@/lib/activeBusiness';
 import { Button } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
 import { useToast } from '@vyro/ui';
@@ -17,6 +19,8 @@ interface MessageBubble {
 export function ConversationalOrderPage() {
   const toast = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const activeBusinessId = firstBusinessId(user);
   const [inputMsg, setInputMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -67,13 +71,17 @@ export function ConversationalOrderPage() {
   }
 
   async function handleConfirmDraft(draft: OrderDraft) {
+    if (!activeBusinessId) {
+      toast.show(toast.error('No business profile found. Complete business onboarding first.'));
+      return;
+    }
     setConfirming(true);
     try {
       const res = await api.post<{ ok: boolean; poIds: string[]; totalCents: number }>(
         '/conversational/confirm',
         {
           draftId: draft.id,
-          businessId: 'default',
+          businessId: activeBusinessId,
         },
       );
       toast.show(toast.success('Purchase Order placed successfully!'));
