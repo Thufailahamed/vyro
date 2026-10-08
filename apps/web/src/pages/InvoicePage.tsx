@@ -41,6 +41,7 @@ export function InvoicePage() {
   }
 
   const htmlUrl = `${apiBase}/invoices/${encodeURIComponent(data.invoice.number)}/html`;
+  const pdfUrl = `${apiBase}/invoices/${encodeURIComponent(data.invoice.number)}/pdf`;
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -61,8 +62,8 @@ export function InvoicePage() {
             <a href={htmlUrl} target="_blank" rel="noopener noreferrer">
               <Button variant="secondary">Open HTML</Button>
             </a>
-            <a href={htmlUrl} download={`${data.invoice.number}.html`}>
-              <Button>Download (print to PDF)</Button>
+            <a href={pdfUrl} download={`${data.invoice.number}.pdf`}>
+              <Button>Download PDF</Button>
             </a>
           </div>
         </div>

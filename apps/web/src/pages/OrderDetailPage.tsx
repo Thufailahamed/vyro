@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePageTitle } from '@/lib/usePageTitle';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, apiBase } from '@/lib/api';
 import {
   Button,
   ErrorBanner,
@@ -969,6 +969,12 @@ export function OrderDetailPage() {
                         {invoiceTypeLabel(inv.type)}
                       </div>
                     </Link>
+                    <a
+                      href={`${apiBase}/invoices/${encodeURIComponent(inv.number)}/pdf`}
+                      className="text-[10px] font-semibold text-copper hover:underline shrink-0"
+                    >
+                      PDF
+                    </a>
                     <span className="font-mono font-semibold text-ink-1 shrink-0">
                       {inv.type === 'credit_note' ? '−' : ''}
                       {formatLKR(inv.totalCents)}

@@ -6,8 +6,11 @@ import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
 import { and, eq } from 'drizzle-orm';
 import {
+  businesses,
   businessMembers,
+  invoices,
   purchaseOrders,
+  suppliers,
   type Invoice,
 } from '@vyro/db/schema';
 import { isSupplierMember } from '../payments/membership';
@@ -17,6 +20,7 @@ import {
   listInvoiceItems,
   listInvoicesForPo,
 } from './repository';
+import { renderInvoicePdf } from './pdf';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -80,6 +84,29 @@ router.get('/:id/html', session(), async (c) => {
   c.header('Content-Type', 'text/html; charset=utf-8');
   c.header('Content-Disposition', `inline; filename="${invoice.number}.html"`);
   return c.body(invoice.htmlSnapshot);
+});
+
+router.get('/:id/pdf', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const invoice = await loadInvoiceByIdOrNumber(c.env.DB, c.req.param('id'));
+  if (!invoice) throw httpError(404, 'NOT_FOUND', 'Invoice not found');
+  const po = await loadPoForInvoice(c.env.DB, invoice);
+  if (!po) throw httpError(404, 'NOT_FOUND', 'PO missing');
+  await assertInvoiceAccess(c.env.DB, ctx, po);
+
+  const db = getDb(c.env.DB);
+  const biz = await db.select().from(businesses).where(eq(businesses.id, invoice.businessId)).get();
+  const sup = await db.select().from(suppliers).where(eq(suppliers.id, invoice.supplierId)).get();
+  if (!biz || !sup) throw httpError(404, 'NOT_FOUND', 'Invoice parties missing');
+
+  const items = await listInvoiceItems(c.env.DB, invoice.id);
+  const pdf = await renderInvoicePdf({ invoice, items, business: biz, supplier: sup, po: { poNumber: po.poNumber } });
+  await db.update(invoices).set({ pdfGeneratedAt: Date.now() }).where(eq(invoices.id, invoice.id)).run();
+
+  c.header('Content-Type', 'application/pdf');
+  c.header('Content-Disposition', `attachment; filename="${invoice.number}.pdf"`);
+  return c.body(pdf);
 });
 
 export default router;
