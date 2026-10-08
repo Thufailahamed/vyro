@@ -23,6 +23,12 @@ import {
 import { OrderStatus, allowedTransitions, type ActorRole } from '@vyro/shared';
 import { partialAcceptSchema } from '@vyro/validation/orderLifecycle';
 import { applyTransition } from '../orders/lifecycle';
+import {
+  assertIdempotencyMatch,
+  getIdempotencyResponse,
+  hashRequestBody,
+  storeIdempotencyResponse,
+} from '../../lib/idempotency';
 import { acceptOrder } from '../orders/partialAccept';
 import { getPaymentSummary, getPaymentSummaries } from '../payments/summary';
 import { getLifecycleConfig, DAY_MS } from '../orders/config';
@@ -177,13 +183,32 @@ router.post('/:id/transition', session(), async (c) => {
     actorRole = 'supplier';
   } else throw httpError(403, 'FORBIDDEN', 'No access');
 
+  const idemKey = c.req.header('Idempotency-Key');
+  const requestHash = hashRequestBody({
+    poId: po.id,
+    to: parsed.data.to,
+    reason: parsed.data.reason ?? null,
+  });
+  if (idemKey) {
+    const hit = await getIdempotencyResponse(c.env.DB, ctx.userId, idemKey);
+    if (hit) {
+      await assertIdempotencyMatch(c.env.DB, ctx.userId, idemKey, requestHash);
+      c.status(hit.statusCode as 200);
+      return c.json(JSON.parse(hit.responseJson));
+    }
+  }
+
   const out = await applyTransition(c.env, {
     poId: po.id,
     to: parsed.data.to as never,
     actor: { role: actorRole, userId: ctx.userId },
     reason: parsed.data.reason ?? null,
   });
-  return c.json({ ok: true, status: out.to, refunds: out.refunds });
+  const body = { ok: true as const, status: out.to, refunds: out.refunds };
+  if (idemKey) {
+    await storeIdempotencyResponse(c.env.DB, ctx.userId, idemKey, requestHash, 200, JSON.stringify(body));
+  }
+  return c.json(body);
 });
 
 router.post('/:id/accept', session(), async (c) => {

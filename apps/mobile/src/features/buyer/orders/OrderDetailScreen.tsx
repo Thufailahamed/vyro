@@ -113,8 +113,15 @@ export function OrderDetailScreen() {
     return sum + Math.round(it.unitPriceCents * it.quantity * (it.discountPctSnapshot / 100));
   }, 0);
 
+  const idemKey = () =>
+    globalThis.crypto?.randomUUID?.() ?? `vyro-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const transition = useMutation({
-    mutationFn: (v: { to: string; reason?: string }) => api.post(`/purchase-orders/${id}/transition`, { to: v.to, ...(v.reason ? { reason: v.reason } : {}) }),
+    mutationFn: (v: { to: string; reason?: string }) =>
+      api.post(
+        `/purchase-orders/${id}/transition`,
+        { to: v.to, ...(v.reason ? { reason: v.reason } : {}) },
+        { idempotencyKey: idemKey() },
+      ),
     onSuccess: (_d, v) => {
       toast.success(v.to === 'completed' ? 'Receipt confirmed' : v.to === 'disputed' ? 'Dispute opened' : `Order ${statusLabel(v.to).toLowerCase()}`);
       setExitSheet(null);

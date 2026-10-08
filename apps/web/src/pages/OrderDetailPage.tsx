@@ -241,7 +241,11 @@ export function OrderDetailPage() {
   async function transitionWithReason(to: 'cancelled' | 'disputed', reason: string) {
     setErr('');
     setSuccessMsg('');
-    await api.post(`/purchase-orders/${id}/transition`, { to, reason });
+    await api.post(
+      `/purchase-orders/${id}/transition`,
+      { to, reason },
+      { idempotencyKey: crypto.randomUUID() },
+    );
     await refetch();
     void qc.invalidateQueries({ queryKey: ['payments', id] });
     setSuccessMsg(
@@ -262,7 +266,11 @@ export function OrderDetailPage() {
     setErr('');
     setConfirming(true);
     try {
-      await api.post(`/purchase-orders/${id}/transition`, { to: 'completed' });
+      await api.post(
+        `/purchase-orders/${id}/transition`,
+        { to: 'completed' },
+        { idempotencyKey: crypto.randomUUID() },
+      );
       await refetch();
       void qc.invalidateQueries({ queryKey: ['payments', id] });
       setSuccessMsg('Receipt confirmed. Funds released to the supplier.');
