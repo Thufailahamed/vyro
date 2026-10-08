@@ -114,3 +114,49 @@ describe('POST /api/documents/upload-direct with purchaseOrderId', () => {
     expect(res.status).toBe(200);
   });
 });
+
+describe('GET /api/documents/by-po/:poId/auto-reconciliation', () => {
+  async function get(path: string) {
+    return app.fetch(new Request(`http://localhost${path}`), env);
+  }
+
+  it('seeds a persisted discrepancy result for hydration tests', async () => {
+    sessionCtx = buyerCtx();
+    const { getDb } = await import('@vyro/db');
+    const schema = await import('@vyro/db/schema');
+    const db = getDb(env.DB);
+    await db.update(schema.invoiceUploads)
+      .set({ reconciliationStatus: 'discrepancy', reconciliationJson: JSON.stringify({ netDifferenceCents: 1000 }) })
+      .where((await import('drizzle-orm')).eq(schema.invoiceUploads.id, ids.upload));
+    const res = await get(`/api/documents/by-po/${ids.poDelivered}/auto-reconciliation`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('discrepancy');
+    expect(body.payload.netDifferenceCents).toBe(1000);
+    expect(body.uploadId).toBe(ids.upload);
+  });
+
+  it('returns none for POs without uploads', async () => {
+    sessionCtx = buyerCtx();
+    // poDrafting exists but has no uploads. missing PO ids → 404 per route contract
+    const res = await get(`/api/documents/by-po/${ids.poDrafting}/auto-reconciliation`);
+    expect(res.status).toBe(200);
+    expect((await res.json()).status).toBe('none');
+  });
+
+  it('rejects POs of other businesses with 403', async () => {
+    sessionCtx = buyerCtx();
+    const { getDb } = await import('@vyro/db');
+    const schema = await import('@vyro/db/schema');
+    const db = getDb(env.DB);
+    const foreignPo = (await db.select().from(schema.purchaseOrders).all()).find((p: any) => p.businessId !== ids.biz) as any;
+    const res = await get(`/api/documents/by-po/${foreignPo.id}/auto-reconciliation`);
+    expect(res.status).toBe(403);
+  });
+
+  it('requires a session', async () => {
+    sessionCtx = null;
+    const res = await get(`/api/documents/by-po/${ids.poDelivered}/auto-reconciliation`);
+    expect(res.status).toBe(401);
+  });
+});

@@ -18,11 +18,44 @@ import {
 import { categorizeItems, type CategorySlug } from '@vyro/ai';
 import { getDb } from '@vyro/db';
 import { invoiceUploads, purchaseOrders } from '@vyro/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { queueSend } from '../../lib/queue';
 
 const router = new Hono<{ Bindings: Env }>();
 router.use('*', session());
+
+// Persisted auto-reconciliation for the order page card (doc-intel v2 A).
+// Reads the newest PO-linked upload's stored result — no matcher re-run.
+router.get('/by-po/:poId/auto-reconciliation', async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const poId = c.req.param('poId');
+  const db = getDb(c.env.DB);
+  const po = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, poId)).get();
+  if (!po) throw httpError(404, 'NOT_FOUND', 'Purchase order not found');
+  if (!ctx.businesses.some((b) => b.businessId === po.businessId)) {
+    throw httpError(403, 'FORBIDDEN', 'Not your purchase order');
+  }
+  const upload = await db
+    .select({
+      id: invoiceUploads.id,
+      status: invoiceUploads.reconciliationStatus,
+      json: invoiceUploads.reconciliationJson,
+      createdAt: invoiceUploads.createdAt,
+    })
+    .from(invoiceUploads)
+    .where(eq(invoiceUploads.purchaseOrderId, poId))
+    .orderBy(desc(invoiceUploads.createdAt))
+    .limit(1)
+    .get();
+  if (!upload || upload.status === 'none') return c.json({ status: 'none' });
+  return c.json({
+    status: upload.status,
+    payload: upload.json ? JSON.parse(upload.json) : null,
+    uploadId: upload.id,
+    createdAt: upload.createdAt,
+  });
+});
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
 const MAX_BYTES = 10 * 1024 * 1024;
