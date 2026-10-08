@@ -1,4 +1,4 @@
-import { useEffect, useState, type JSX } from 'react';
+import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { SupplierHero } from './SupplierHero';
@@ -6,9 +6,8 @@ import { SupplierProductGrid, type StorefrontOffer } from './SupplierProductGrid
 import { StorefrontMeta } from './useStorefrontMeta';
 import { SupplierReviewsPanel } from '@/reviews/SupplierReviewsPanel';
 import { SponsoredSlot } from '../components/SponsoredSlot';
-import { TrustSignalBadges } from '../components/TrustSignalBadges';
 import type { TrustSignalView } from '../lib/trustApi';
-import { ShieldCheckIcon, ChevronRightIcon, ArrowRightIcon } from '@/components/icons';
+import { ShieldCheckIcon, ChevronRightIcon, ArrowRightIcon, ScaleIcon, FileTextIcon } from '@/components/icons';
 
 interface SponsoredUpsell {
   slotId: string;
@@ -87,157 +86,220 @@ export function StorefrontPage(): JSX.Element {
 
   if (!data) {
     return (
-      <div className="max-w-6xl mx-auto py-20 px-4 text-center space-y-3">
-        <div className="size-8 rounded-full border-2 border-copper border-t-transparent animate-spin mx-auto" />
-        <p className="text-sm font-mono text-ink-3">Loading storefront credentials & catalog…</p>
+      <div className="max-w-6xl mx-auto space-y-8 pb-12" aria-busy="true" aria-label="Loading storefront">
+        <div className="h-4 w-56 rounded bg-ink/5 animate-pulse" />
+        <div className="rounded-2xl border border-ink/10 bg-paper overflow-hidden">
+          <div className="h-28 sm:h-36 bg-ink/90 animate-pulse" />
+          <div className="px-5 sm:px-8 pb-8 space-y-4">
+            <div className="-mt-10 size-20 sm:size-24 rounded-2xl bg-ink-6 ring-4 ring-paper animate-pulse" />
+            <div className="h-3 w-40 rounded bg-ink/5 animate-pulse" />
+            <div className="h-10 w-72 max-w-full rounded bg-ink/10 animate-pulse" />
+            <div className="h-4 w-52 rounded bg-ink/5 animate-pulse" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="rounded-2xl border border-ink/10 bg-paper overflow-hidden">
+              <div className="aspect-[4/3] bg-bone animate-pulse" />
+              <div className="p-5 space-y-2">
+                <div className="h-3 w-24 rounded bg-ink/5 animate-pulse" />
+                <div className="h-5 w-3/4 rounded bg-ink/10 animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="sr-only">Loading storefront credentials & catalog…</p>
       </div>
     );
   }
 
+  const leadTimes = data.offers
+    .map((o) => o.leadTimeDays)
+    .filter((d): d is number => typeof d === 'number');
+  const fastestLeadDays = leadTimes.length ? Math.min(...leadTimes) : null;
+  const sponsored = (data.otherSuppliersSponsored ?? []).filter((s) => s.campaignId && s.productId);
+
   return (
-    <div className="space-y-8 max-w-6xl mx-auto animate-fade-in pb-12">
+    <div className="space-y-12 max-w-6xl mx-auto animate-fade-in pb-16">
       <StorefrontMeta name={data.supplier.name} city={data.supplier.city} productCount={data.offers.length} />
 
-      {/* Top Navigation & Breadcrumb */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-ink-4 pt-1">
-        <nav className="flex items-center gap-1.5 font-mono">
-          <Link to="/search" className="hover:text-ink transition-colors">
-            Marketplace
-          </Link>
-          <ChevronRightIcon size={12} className="opacity-40" />
-          <span className="text-ink-4">Suppliers</span>
-          <ChevronRightIcon size={12} className="opacity-40" />
-          <span className="text-ink font-semibold truncate max-w-[200px]">
-            {data.supplier.name}
-          </span>
-        </nav>
+      <div className="space-y-5">
+        {/* Top Navigation & Breadcrumb */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-ink-4 pt-1">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 font-mono">
+            <Link to="/search" className="hover:text-ink transition-colors">
+              Marketplace
+            </Link>
+            <ChevronRightIcon size={12} className="opacity-40" />
+            <span className="text-ink-4">Suppliers</span>
+            <ChevronRightIcon size={12} className="opacity-40" />
+            <span className="text-ink font-semibold truncate max-w-[200px]">
+              {data.supplier.name}
+            </span>
+          </nav>
 
-        <div className="inline-flex items-center gap-2 text-[11px] font-mono">
-          <span className="size-1.5 rounded-full bg-volt" />
-          <span>VYRO Verified Wholesale Node</span>
+          <div className="inline-flex items-center gap-2 text-[11px] font-mono">
+            <span className="size-1.5 rounded-full bg-volt shadow-[0_0_6px_rgba(198,220,74,0.9)]" />
+            <span>VYRO Verified Wholesale Node</span>
+          </div>
         </div>
+
+        {/* Supplier Identity Hero */}
+        <SupplierHero
+          name={data.supplier.name}
+          city={data.supplier.city}
+          district={data.supplier.district}
+          businessTypeName={data.supplier.businessTypeName}
+          productCount={data.offers.length}
+          fastestLeadDays={fastestLeadDays}
+          slug={data.supplier.slug}
+          verificationStatus={data.supplier.verificationStatus}
+          ratingAvg={data.supplier.ratingAvg}
+          ratingCount={data.supplier.ratingCount}
+          email={null}
+          trustSealed={data.supplier.trustSealed}
+          trustSealExpiresAt={data.supplier.trustSealExpiresAt}
+          memberSinceYear={data.supplier.memberSinceYear}
+          supplierSinceYear={data.supplier.supplierSinceYear}
+          supplierMemberYears={data.supplier.supplierMemberYears}
+          supplierSinceDate={data.supplier.supplierSinceDate}
+          trustSignals={data.trustSignals}
+        />
       </div>
 
-      {/* Supplier Identity Hero */}
-      <SupplierHero
-        name={data.supplier.name}
-        city={data.supplier.city}
-        district={data.supplier.district}
-        businessTypeName={data.supplier.businessTypeName}
-        productCount={data.offers.length}
-        slug={data.supplier.slug}
-        verificationStatus={data.supplier.verificationStatus}
-        ratingAvg={data.supplier.ratingAvg}
-        ratingCount={data.supplier.ratingCount}
-        email={null}
-        trustSealed={data.supplier.trustSealed}
-        trustSealExpiresAt={data.supplier.trustSealExpiresAt}
-        memberSinceYear={data.supplier.memberSinceYear}
-        supplierSinceYear={data.supplier.supplierSinceYear}
-        supplierMemberYears={data.supplier.supplierMemberYears}
-        supplierSinceDate={data.supplier.supplierSinceDate}
-      />
-
-      {/* Trust Signals Section */}
-      {data.trustSignals && (
-        <section aria-label="Trust signals">
-          <TrustSignalBadges view={data.trustSignals} size="full" />
-        </section>
-      )}
-
       {/* Published Products / Catalog Section */}
-      <section id="products" className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-ink/10">
-          <div>
-            <div className="vyro-kicker text-copper mb-0.5">Wholesale Inventory</div>
-            <h2 className="text-xl font-bold text-ink">
-              Published Product Lots & Active SKUs
-            </h2>
-          </div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sand/30 border border-ink/10 text-xs font-mono font-medium text-ink">
-            <span>{data.offers.length}</span>
-            <span className="text-ink-4">{data.offers.length === 1 ? 'lot listed' : 'lots listed'}</span>
-          </div>
-        </div>
+      <section id="products" className="space-y-6 scroll-mt-24">
+        <SectionHeader
+          index="01"
+          kicker="Wholesale Inventory"
+          title="Published Product Lots & Active SKUs"
+          aside={
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-paper border border-ink/10 text-xs font-mono font-medium text-ink">
+              <span className="font-bold">{data.offers.length}</span>
+              <span className="text-ink-4">{data.offers.length === 1 ? 'lot listed' : 'lots listed'}</span>
+            </div>
+          }
+        />
 
         <SupplierProductGrid offers={data.offers} />
       </section>
 
       {/* Buyer Reviews & Reputation Section */}
-      <section className="space-y-4 pt-4">
-        <div className="pb-2 border-b border-ink/10">
-          <div className="vyro-kicker text-copper mb-0.5">Commercial Track Record</div>
-          <h2 className="text-xl font-bold text-ink">
-            Buyer Reviews & Verification Score
-          </h2>
-        </div>
+      <section className="space-y-6">
+        <SectionHeader
+          index="02"
+          kicker="Commercial Track Record"
+          title="Buyer Reviews & Verification Score"
+        />
 
         <SupplierReviewsPanel supplierId={data.supplier.id} />
       </section>
 
       {/* Commercial Safeguards Banner */}
-      <section className="p-6 rounded-2xl border border-ink/10 bg-sand/20 space-y-4">
-        <div className="vyro-kicker text-copper">Wholesale Procurement Guarantee</div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
-              <ShieldCheckIcon size={14} className="text-volt" />
-              <span>Platform Escrow Protection</span>
+      <section className="relative overflow-hidden rounded-2xl bg-ink text-paper p-6 sm:p-10">
+        <div aria-hidden="true" className="absolute -top-32 -right-20 size-96 rounded-full bg-volt/15 blur-3xl" />
+        <div aria-hidden="true" className="absolute -bottom-40 -left-24 size-96 rounded-full bg-copper/20 blur-3xl" />
+
+        <div className="relative grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-8 lg:gap-12">
+          <div className="space-y-3">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-volt">
+              Wholesale Procurement Guarantee
             </div>
-            <p className="text-xs text-ink-3 leading-relaxed">
-              Payments remain in protected settlement escrow until delivery confirmation and cargo inspection.
+            <h2 className="font-display font-bold text-2xl sm:text-3xl leading-tight tracking-tight">
+              Every order is protected end to end.
+            </h2>
+            <p className="text-sm text-paper/60 leading-relaxed max-w-xs">
+              Buy from {data.supplier.name} with settlement, negotiation and invoicing handled by VYRO.
             </p>
           </div>
 
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
-              <span className="text-volt text-sm">⚡</span>
-              <span>Direct Bulk RFQ Processing</span>
-            </div>
-            <p className="text-xs text-ink-3 leading-relaxed">
-              Negotiate custom volume tiers, contract schedules, and localized freight dispatch directly.
-            </p>
-          </div>
-
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
-              <span className="text-volt text-sm">📑</span>
-              <span>Commercial Invoicing (LKR)</span>
-            </div>
-            <p className="text-xs text-ink-3 leading-relaxed">
-              Automated 3-way reconciliation with generated purchase orders, delivery notes, and tax invoices.
-            </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-px rounded-xl overflow-hidden bg-paper/10">
+            {GUARANTEES.map(({ icon: Icon, title, body }) => (
+              <div key={title} className="bg-ink/95 p-5 space-y-3">
+                <div className="size-9 rounded-lg bg-volt/10 border border-volt/20 flex items-center justify-center text-volt">
+                  <Icon size={17} />
+                </div>
+                <div className="text-sm font-semibold">{title}</div>
+                <p className="text-xs text-paper/55 leading-relaxed">{body}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Promoted / Sponsored Suppliers (if enabled) */}
-      {(data.otherSuppliersSponsored ?? []).filter((s) => s.campaignId && s.productId).length > 0 && (
-        <section className="space-y-4 pt-4">
-          <div className="vyro-kicker text-copper mb-2">Promoted Wholesale Suppliers</div>
+      {sponsored.length > 0 && (
+        <section className="space-y-4">
+          <div className="vyro-kicker text-copper">Promoted Wholesale Suppliers</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {(data.otherSuppliersSponsored ?? [])
-              .filter((s) => s.campaignId && s.productId)
-              .slice(0, 3)
-              .map((s) => (
-                <SponsoredSlot
-                  key={s.slotId}
-                  campaignId={s.campaignId!}
-                  surface={s.surface}
-                  position={s.position}
+            {sponsored.slice(0, 3).map((s) => (
+              <SponsoredSlot
+                key={s.slotId}
+                campaignId={s.campaignId!}
+                surface={s.surface}
+                position={s.position}
+              >
+                <Link
+                  to={`/products/${s.productId}`}
+                  className="group flex items-center justify-between bg-paper border border-ink/10 rounded-2xl p-5 hover:border-ink/20 hover:shadow-soft-md transition"
                 >
-                  <Link
-                    to={`/products/${s.productId}`}
-                    className="block bg-paper border border-ink/15 rounded-xl p-4 hover:border-copper/40 transition shadow-2xs"
-                  >
+                  <div>
                     <p className="text-sm font-semibold text-ink">Sponsored Product</p>
                     <p className="text-xs text-ink-4 mt-1 font-mono">Slot #{s.position}</p>
-                  </Link>
-                </SponsoredSlot>
-              ))}
+                  </div>
+                  <ArrowRightIcon size={16} className="text-ink-4 transition-transform group-hover:translate-x-0.5 group-hover:text-ink" />
+                </Link>
+              </SponsoredSlot>
+            ))}
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+const GUARANTEES = [
+  {
+    icon: ShieldCheckIcon,
+    title: 'Platform Escrow Protection',
+    body: 'Payments remain in protected settlement escrow until delivery confirmation and cargo inspection.',
+  },
+  {
+    icon: ScaleIcon,
+    title: 'Direct Bulk RFQ Processing',
+    body: 'Negotiate custom volume tiers, contract schedules, and localized freight dispatch directly.',
+  },
+  {
+    icon: FileTextIcon,
+    title: 'Commercial Invoicing (LKR)',
+    body: 'Automated 3-way reconciliation with generated purchase orders, delivery notes, and tax invoices.',
+  },
+];
+
+function SectionHeader({
+  index,
+  kicker,
+  title,
+  aside,
+}: {
+  index: string;
+  kicker: string;
+  title: string;
+  aside?: ReactNode;
+}): JSX.Element {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-4 border-b border-ink/10">
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[11px] text-ink-4">{index}</span>
+          <span className="h-px w-6 bg-copper/50" />
+          <span className="vyro-kicker text-copper">{kicker}</span>
+        </div>
+        <h2 className="font-display font-bold text-2xl sm:text-[1.75rem] leading-tight tracking-tight text-ink">
+          {title}
+        </h2>
+      </div>
+      {aside}
     </div>
   );
 }

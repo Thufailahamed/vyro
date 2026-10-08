@@ -1,15 +1,18 @@
-import { useState, type JSX } from 'react';
-import { RatingStars } from '@/reviews/RatingStars';
-import { TrustSealBadge } from '@/components/TrustSealBadge';
-import { MemberSinceBadge } from '@/components/MemberSinceBadge';
+import { useState, type JSX, type ReactNode } from 'react';
+import type { TrustSignalView } from '@/lib/trustApi';
 import {
   ShieldCheckIcon,
   PackageIcon,
-  TruckIcon,
   CopyIcon,
   CheckCheckIcon,
   ExternalLinkIcon,
-  FileTextIcon,
+  MapPinIcon,
+  ClockIcon,
+  CalendarIcon,
+  ArrowRightIcon,
+  CheckIcon,
+  TruckIcon,
+  BanknoteIcon,
 } from '@/components/icons';
 
 export interface SupplierHeroProps {
@@ -28,13 +31,42 @@ export interface SupplierHeroProps {
   businessTypeName?: string | null | undefined;
   district?: string | null | undefined;
   productCount?: number | undefined;
+  fastestLeadDays?: number | null | undefined;
   slug?: string | null | undefined;
+  trustSignals?: TrustSignalView | null | undefined;
+}
+
+function Chip({ icon, children, tone = 'plain', title }: { icon: ReactNode; children: ReactNode; tone?: 'plain' | 'volt' | 'gold'; title?: string }): JSX.Element {
+  const tones = {
+    plain: 'border-paper/15 bg-paper/[0.06] text-paper/80',
+    volt: 'border-volt/30 bg-volt/10 text-volt',
+    gold: 'border-amber/40 bg-amber/15 text-[#E9B872]',
+  };
+  return (
+    <span
+      title={title}
+      className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-full border text-[11px] font-medium backdrop-blur-sm ${tones[tone]}`}
+    >
+      {icon}
+      {children}
+    </span>
+  );
 }
 
 export function SupplierHero(props: SupplierHeroProps): JSX.Element {
   const [copied, setCopied] = useState(false);
   const isVerified = props.verificationStatus === 'verified';
   const initial = props.name ? props.name.trim().charAt(0).toUpperCase() : 'S';
+  const productCount = props.productCount ?? 0;
+  const sinceYear = props.supplierSinceYear ?? props.memberSinceYear ?? props.trustSignals?.memberSinceYear ?? null;
+  const memberYears = props.supplierMemberYears;
+  const hasRating = props.ratingCount > 0 && props.ratingAvg != null;
+  const ts = props.trustSignals;
+  const showOnTime = ts?.onTimePct != null && ts.onTimeSampleSize >= 5;
+  const location = props.city
+    ? `${props.city}${props.district && props.district !== props.city ? `, ${props.district}` : ''}`
+    : null;
+  const sealExp = props.trustSealExpiresAt ? new Date(props.trustSealExpiresAt).toLocaleDateString() : null;
 
   async function handleCopyLink() {
     try {
@@ -48,134 +80,186 @@ export function SupplierHero(props: SupplierHeroProps): JSX.Element {
     }
   }
 
+  const stats: { label: string; value: ReactNode; hint: string; icon: JSX.Element }[] = [
+    {
+      label: 'Active catalog',
+      value: productCount,
+      hint: productCount === 1 ? 'Published SKU' : 'Published SKUs',
+      icon: <PackageIcon size={14} />,
+    },
+    {
+      label: 'Fastest lead',
+      value: props.fastestLeadDays != null ? `${props.fastestLeadDays}d` : '—',
+      hint: 'Depot dispatch',
+      icon: <ClockIcon size={14} />,
+    },
+    {
+      label: 'Buyer rating',
+      value: hasRating ? (
+        <span className="inline-flex items-baseline gap-1.5">
+          {props.ratingAvg!.toFixed(1)}
+          <span className="text-base text-volt">★</span>
+        </span>
+      ) : (
+        'New'
+      ),
+      hint: hasRating
+        ? `${props.ratingCount} verified ${props.ratingCount === 1 ? 'review' : 'reviews'}`
+        : 'Awaiting first review',
+      icon: <span className="text-[12px] leading-none">★</span>,
+    },
+    {
+      label: 'On VYRO since',
+      value: sinceYear ?? '—',
+      hint: memberYears != null && memberYears > 0 ? `${memberYears} yrs trading` : 'New member',
+      icon: <CalendarIcon size={14} />,
+    },
+  ];
+
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-ink/10 bg-paper p-6 sm:p-8 space-y-6 shadow-xs">
-      {/* Subtle top accent bar */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-volt via-mint to-copper opacity-90" />
+    <section className="relative isolate overflow-hidden rounded-3xl bg-ink text-paper shadow-soft-lg ring-1 ring-ink/10">
+      {/* Atmosphere */}
+      <div aria-hidden="true" className="absolute inset-0 -z-10">
+        <div
+          className="absolute inset-0 opacity-[0.08]"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(250,247,240,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(250,247,240,0.6) 1px, transparent 1px)',
+            backgroundSize: '32px 32px',
+            maskImage: 'radial-gradient(ellipse 70% 80% at 75% 20%, black, transparent)',
+            WebkitMaskImage: 'radial-gradient(ellipse 70% 80% at 75% 20%, black, transparent)',
+          }}
+        />
+        <div className="absolute -top-40 -left-24 size-[28rem] rounded-full bg-volt/20 blur-[110px]" />
+        <div className="absolute -top-20 right-[-6rem] size-[26rem] rounded-full bg-copper/25 blur-[120px]" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-volt/50 to-transparent" />
+      </div>
 
-      {/* Main identity row */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        {/* Left: Avatar & Supplier Information */}
-        <div className="flex items-start gap-4 sm:gap-5 min-w-0">
-          <div className="size-16 sm:size-20 rounded-xl bg-ink text-volt font-mono font-extrabold text-2xl sm:text-3xl flex items-center justify-center border-2 border-volt/30 shadow-xs shrink-0 select-none">
-            {initial}
-          </div>
-
-          <div className="space-y-1.5 min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="vyro-kicker text-copper text-[11px]">
-                {props.businessTypeName || 'Wholesale Supplier Facility'}
-              </span>
+      <div className="px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
+        {/* Identity */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 lg:gap-10">
+          <div className="flex items-start sm:items-center gap-5 sm:gap-6 min-w-0">
+            <div className="relative shrink-0">
+              <div className="size-20 sm:size-28 rounded-2xl sm:rounded-[1.75rem] bg-gradient-to-br from-volt-glow to-volt text-ink font-display font-extrabold text-4xl sm:text-5xl flex items-center justify-center shadow-[0_20px_50px_-20px_rgba(198,220,74,0.7)] select-none">
+                {initial}
+              </div>
               {isVerified && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-mint/10 border border-mint/20 text-mint text-xs font-semibold">
-                  <span className="size-1.5 rounded-full bg-mint animate-pulse" />
-                  <span>✓ Verified</span>
+                <span
+                  className="absolute -bottom-1.5 -right-1.5 size-7 sm:size-8 rounded-full bg-paper text-ink flex items-center justify-center ring-4 ring-ink"
+                  title="Verified business"
+                >
+                  <CheckIcon size={15} strokeWidth={3} />
                 </span>
               )}
             </div>
 
-            <h1 className="font-display font-extrabold text-2xl sm:text-4xl text-ink tracking-tight truncate">
-              {props.name}
-            </h1>
-
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-ink-3">
-              {props.city && (
-                <span className="inline-flex items-center gap-1 font-medium text-ink-2">
-                  <span>📍</span>
-                  <span>
-                    {props.city}
-                    {props.district && props.district !== props.city ? `, ${props.district}` : ''}
+            <div className="min-w-0 space-y-2.5">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-copper-soft">
+                {props.businessTypeName || 'Wholesale Supplier Facility'}
+              </div>
+              <h1 className="font-display font-extrabold text-4xl sm:text-6xl leading-[0.9] tracking-tight text-paper break-words">
+                {props.name}
+              </h1>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-paper/60">
+                {location && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <MapPinIcon size={15} className="text-volt" />
+                    {location}
                   </span>
+                )}
+                <span className="inline-flex items-center gap-1.5">
+                  <ShieldCheckIcon size={15} className="text-volt" />
+                  Authenticated PO fulfillment
                 </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:flex items-center gap-2.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="inline-flex items-center justify-center gap-2 h-11 px-4 sm:px-5 rounded-full whitespace-nowrap border border-paper/20 bg-paper/5 text-sm font-medium text-paper hover:bg-paper/10 transition-colors cursor-pointer backdrop-blur-sm"
+              title="Copy public storefront link"
+            >
+              {copied ? (
+                <>
+                  <CheckCheckIcon size={15} className="text-volt" />
+                  <span className="text-volt">Link Copied</span>
+                </>
+              ) : (
+                <>
+                  <CopyIcon size={15} className="text-paper/70" />
+                  <span>Share Storefront</span>
+                </>
               )}
-              <TrustSealBadge
-                active={!!props.trustSealed}
-                memberSinceYear={props.memberSinceYear ?? null}
-                expiresAt={props.trustSealExpiresAt ?? null}
-              />
-              <MemberSinceBadge
-                sinceYear={props.supplierSinceYear ?? null}
-                memberYears={props.supplierMemberYears ?? null}
-                sinceDate={props.supplierSinceDate ?? null}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Reputation & Performance summary */}
-        <div className="flex flex-col sm:items-end justify-between gap-3 p-4 rounded-xl bg-sand/30 border border-ink/10 shrink-0">
-          <div className="flex sm:flex-col sm:items-end justify-between items-center gap-2">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4">
-              Wholesale Trust Record
-            </div>
-            <RatingStars avg={props.ratingAvg ?? 0} count={props.ratingCount ?? 0} size="md" />
-          </div>
-          <div className="text-xs font-mono text-ink-4 flex items-center gap-1.5">
-            <ShieldCheckIcon size={13} className="text-volt shrink-0" />
-            <span>Authenticated PO Fulfillment</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Operational Highlights Strip */}
-      <div className="pt-2 border-t border-ink/10 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-        <div className="flex items-center gap-2 p-2 rounded-lg bg-sand/20 border border-ink/5">
-          <PackageIcon size={15} className="text-copper shrink-0" />
-          <div className="truncate">
-            <span className="font-mono font-bold text-ink">{props.productCount ?? 1}</span>
-            <span className="text-ink-4 ml-1">Published {props.productCount === 1 ? 'SKU' : 'SKUs'}</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 p-2 rounded-lg bg-sand/20 border border-ink/5">
-          <TruckIcon size={15} className="text-volt shrink-0" />
-          <div className="truncate">
-            <span className="font-medium text-ink">Depot Dispatch</span>
-            <span className="text-ink-4 ml-1 hidden sm:inline">Available</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 p-2 rounded-lg bg-sand/20 border border-ink/5">
-          <ShieldCheckIcon size={15} className="text-mint shrink-0" />
-          <div className="truncate">
-            <span className="font-medium text-ink">Escrow Protected</span>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={handleCopyLink}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-ink/15 bg-paper hover:bg-sand/40 text-xs font-medium text-ink transition-colors shadow-2xs cursor-pointer"
-            title="Copy public storefront link"
-          >
-            {copied ? (
-              <>
-                <CheckCheckIcon size={13} className="text-volt" />
-                <span className="text-volt font-semibold">Link Copied</span>
-              </>
+            </button>
+            {props.email ? (
+              <a
+                href={`mailto:${props.email}`}
+                className="inline-flex items-center justify-center gap-2 h-11 px-4 sm:px-5 rounded-full whitespace-nowrap bg-volt text-ink text-sm font-semibold hover:bg-volt-glow transition-colors"
+              >
+                <span>Contact Facility</span>
+                <ExternalLinkIcon size={14} />
+              </a>
             ) : (
-              <>
-                <CopyIcon size={13} className="text-ink-3" />
-                <span>Share Storefront</span>
-              </>
+              <a
+                href="#products"
+                className="group inline-flex items-center justify-center gap-2 h-11 px-4 sm:px-5 rounded-full whitespace-nowrap bg-volt text-ink text-sm font-semibold hover:bg-volt-glow transition-colors"
+              >
+                <span>Browse catalog</span>
+                <ArrowRightIcon size={15} className="transition-transform group-hover:translate-x-0.5" />
+              </a>
             )}
-          </button>
+          </div>
+        </div>
+
+        {/* Trust chips */}
+        <div className="mt-7 flex flex-wrap items-center gap-2" aria-label="Supplier trust signals">
+          {(isVerified || ts?.kyc) && (
+            <Chip tone="volt" icon={<CheckIcon size={12} strokeWidth={3} />}>
+              Verified business
+            </Chip>
+          )}
+          {props.trustSealed && (
+            <Chip
+              tone="gold"
+              icon={<ShieldCheckIcon size={12} />}
+              title={sealExp ? `TrustSEAL verified · expires ${sealExp}` : 'TrustSEAL verified supplier'}
+            >
+              TrustSEAL
+            </Chip>
+          )}
+          {ts?.disputeFree && <Chip icon={<ShieldCheckIcon size={12} />}>Dispute-free</Chip>}
+          {showOnTime && (
+            <Chip icon={<TruckIcon size={12} />}>
+              {Math.round(ts!.onTimePct!)}% on-time · {ts!.onTimeSampleSize} orders
+            </Chip>
+          )}
+          <Chip icon={<BanknoteIcon size={12} />}>Escrow protected</Chip>
         </div>
       </div>
 
-      {/* Optional Contact Button */}
-      {props.email && (
-        <div className="pt-1">
-          <a
-            href={`mailto:${props.email}`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-ink text-paper text-xs sm:text-sm font-semibold rounded-lg hover:bg-ink/90 transition shadow-xs"
+      {/* Stat strip */}
+      <dl className="grid grid-cols-2 lg:grid-cols-4 border-t border-paper/10 bg-paper/[0.03]">
+        {stats.map((s, i) => (
+          <div
+            key={s.label}
+            className={`px-5 sm:px-8 lg:px-10 py-5 border-paper/10 ${i % 2 === 1 ? 'border-l' : ''} ${i >= 2 ? 'border-t lg:border-t-0' : ''} ${i === 2 ? 'lg:border-l' : ''}`}
           >
-            <span>Contact Facility</span>
-            <ExternalLinkIcon size={13} />
-          </a>
-        </div>
-      )}
+            <dt className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-paper/45">
+              <span className="text-copper-soft">{s.icon}</span>
+              {s.label}
+            </dt>
+            <dd className="mt-2">
+              <div className="font-display font-bold text-2xl sm:text-3xl leading-none tracking-tight text-paper">
+                {s.value}
+              </div>
+              <div className="mt-1.5 text-xs text-paper/45 truncate">{s.hint}</div>
+            </dd>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }

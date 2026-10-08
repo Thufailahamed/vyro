@@ -1,26 +1,23 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Badge, Button, Input } from '@/components/ui';
-import { Surface, MetricNumber } from '@/components/brand/Surface';
+import { Button } from '@/components/ui';
+import { Surface } from '@/components/brand/Surface';
 import {
   PackageIcon,
   SearchIcon,
-  CheckCircle2Icon,
-  AlertTriangleIcon,
-  XCircleIcon,
   RefreshCwIcon,
   PlusIcon,
   ExternalLinkIcon,
-  TrendingUpIcon,
   WarehouseIcon,
   ClockIcon,
+  XIcon,
 } from '@/components/icons';
 import { useToast } from '@vyro/ui';
 import { useSupplierId } from './useSupplierId';
 import { SupplierErrorState, SupplierLoadingState } from './SupplierPageState';
-import { SupplierHero, HeroStatusPill, heroActionClass } from './SupplierHero';
 
 type Offer = {
   id: string;
@@ -58,15 +55,15 @@ type Product = {
   imageUrl?: string | null;
 };
 
-const TONE = {
-  in_stock: 'success' as const,
-  low: 'warning' as const,
-  out_of_stock: 'danger' as const,
-};
-
 const LABEL = { in_stock: 'In stock', low: 'Low stock', out_of_stock: 'Out of stock' };
 
 const ORDER: Offer['availabilityStatus'][] = ['in_stock', 'low', 'out_of_stock'];
+
+const STATUS_STYLE: Record<Offer['availabilityStatus'], { dot: string; bar: string; text: string }> = {
+  in_stock: { dot: 'bg-mint', bar: 'bg-mint', text: 'text-mint' },
+  low: { dot: 'bg-amber', bar: 'bg-amber', text: 'text-amber' },
+  out_of_stock: { dot: 'bg-rose', bar: 'bg-rose', text: 'text-rose' },
+};
 
 export function SupplierInventoryPage() {
   const { supplierId } = useSupplierId();
@@ -172,164 +169,142 @@ export function SupplierInventoryPage() {
     );
   }
 
+  const total = list.length;
+  const statusMeta: { id: Offer['availabilityStatus']; count: number; blurb: string }[] = [
+    { id: 'in_stock', count: counts.in_stock ?? 0, blurb: 'Visible in search · instant PO checkout' },
+    { id: 'low', count: counts.low ?? 0, blurb: 'Urgency badge shown to bulk buyers' },
+    { id: 'out_of_stock', count: counts.out_of_stock ?? 0, blurb: 'Checkout suppressed · no penalties' },
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Executive Header */}
-      <SupplierHero
-        icon={WarehouseIcon}
-        kicker="Depot Warehousing · Stock Control"
-        title="Stock & Inventory Control"
-        description="Maintain real-time availability states across SKUs to prevent backorders and ensure fast fulfillment."
-        status={
-          list.length > 0 ? (
-            <HeroStatusPill label="Depot Synchronized" tone="mint" />
-          ) : (
-            <HeroStatusPill label="Zero Depot Inventory" tone="amber" />
-          )
-        }
-        actions={
-          <>
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={offers.isFetching}
-              className={heroActionClass}
-              title="Refresh warehouse inventory"
-            >
-              <RefreshCwIcon size={13} className={offers.isFetching ? 'animate-spin' : ''} />
-              Refresh
-            </button>
-            <Link to="/search" target="_blank" rel="noreferrer" className={heroActionClass}>
-              <ExternalLinkIcon size={13} />
-              Catalog View
-            </Link>
-            <Link
-              to="/supplier/products/new"
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-volt px-3 text-xs font-bold text-ink transition-colors hover:bg-volt-glow"
-            >
-              <PlusIcon size={13} />
-              Add Product
-            </Link>
-          </>
-        }
-        footer={
-          <>
-            <span>Availability states publish to buyers instantly</span>
-            <span className="text-paper/40">
-              {counts.in_stock ?? 0} in stock · {counts.low ?? 0} low · {counts.out_of_stock ?? 0} out
-            </span>
-          </>
-        }
-      />
-
-      {/* Executive 4-Card Warehouse Inventory KPI Matrix */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="vyro-surface p-5 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">In Stock</span>
-            <span className="flex size-8 items-center justify-center rounded-lg bg-mint/15 text-mint">
-              <CheckCircle2Icon size={15} />
-            </span>
-          </div>
-          <MetricNumber size="md" className="text-mint">
-            {counts.in_stock ?? 0}
-          </MetricNumber>
-          <div className="text-xs text-ink-4">Fulfillable · open for instant checkout</div>
+      {/* Hero: identity, actions & availability composition */}
+      <section className="relative isolate overflow-hidden rounded-3xl bg-ink text-paper shadow-soft-lg">
+        <div aria-hidden="true" className="absolute inset-0 -z-10">
+          <div
+            className="absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(250,247,240,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(250,247,240,0.6) 1px, transparent 1px)',
+              backgroundSize: '32px 32px',
+              maskImage: 'radial-gradient(ellipse 60% 80% at 85% 10%, black, transparent)',
+              WebkitMaskImage: 'radial-gradient(ellipse 60% 80% at 85% 10%, black, transparent)',
+            }}
+          />
+          <div className="absolute -top-40 right-[-4rem] size-[26rem] rounded-full bg-volt/15 blur-[120px]" />
+          <div className="absolute -bottom-48 -left-24 size-[28rem] rounded-full bg-copper/25 blur-[120px]" />
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-volt/50 to-transparent" />
         </div>
 
-        <div className="vyro-surface p-5 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Low Stock</span>
-            <span className="flex size-8 items-center justify-center rounded-lg bg-amber/15 text-amber">
-              <AlertTriangleIcon size={15} />
-            </span>
-          </div>
-          <MetricNumber size="md" className={counts.low ? 'text-amber' : 'text-ink-4'}>
-            {counts.low ?? 0}
-          </MetricNumber>
-          <div className="text-xs text-ink-4">Threshold · prompt replenishment</div>
-        </div>
-
-        <div className="vyro-surface p-5 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Depleted / Out</span>
-            <span className="flex size-8 items-center justify-center rounded-lg bg-rose/10 text-rose">
-              <XCircleIcon size={15} />
-            </span>
-          </div>
-          <MetricNumber size="md" className={counts.out_of_stock ? 'text-rose' : 'text-ink-4'}>
-            {counts.out_of_stock ?? 0}
-          </MetricNumber>
-          <div className="text-xs text-ink-4">Hidden from cart · prevents stockouts</div>
-        </div>
-
-        <div className="vyro-surface p-5 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Depot Fill Health</span>
-            <span className="flex size-8 items-center justify-center rounded-lg bg-volt/15 text-volt-deep">
-              <TrendingUpIcon size={15} />
-            </span>
-          </div>
-          <MetricNumber size="md" className="text-ink">
-            {fillRatePct}%
-          </MetricNumber>
-          <div className="text-xs text-ink-4">Availability · {list.length} line items</div>
-        </div>
-      </div>
-
-      {/* Depot Inventory Protocol & SLAs Surface */}
-      <Surface kind="ink" className="p-6 relative overflow-hidden grain">
-        <div className="flex items-start gap-4">
-          <div className="size-10 rounded-lg bg-volt/15 border border-volt/30 flex items-center justify-center text-volt shrink-0 mt-0.5">
-            <WarehouseIcon size={20} />
-          </div>
-          <div className="space-y-3 flex-1">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-              <div className="text-xs font-mono uppercase tracking-[0.16em] text-volt font-bold">
-                Depot Inventory Protocol & Availability SLAs
+        <div className="px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
+          <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6">
+            <div className="min-w-0 space-y-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-volt">
+                  <WarehouseIcon size={14} />
+                  Depot warehousing
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-paper/15 bg-paper/5 px-2.5 py-1 text-[11px] text-paper/70">
+                  <span className={`size-1.5 rounded-full ${total > 0 ? 'bg-mint animate-pulse' : 'bg-amber'}`} />
+                  {total > 0 ? 'Depot synchronized' : 'Zero depot inventory'}
+                </span>
               </div>
-              <span className="text-[11px] font-mono text-paper/60">Live B2B Order Desk Sync</span>
+              <h1 className="font-display font-extrabold text-3xl sm:text-5xl leading-[0.95] tracking-tight">
+                Stock &amp; Inventory
+              </h1>
+              <p className="max-w-xl text-sm leading-relaxed text-paper/55">
+                Availability states publish to buyers instantly. Keep them accurate to prevent backorders and protect
+                your fulfillment score.
+              </p>
             </div>
-            <p className="text-xs text-paper/80 leading-relaxed max-w-4xl">
-              Availability states directly control purchase order checkout. When inventory changes in your facility,
-              toggle the status below to ensure order accuracy and maintain 99%+ fulfillment scores:
-            </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-              <div className="bg-paper/5 border border-paper/10 p-3.5 rounded-xl">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-mint font-bold flex items-center gap-1">
-                  <CheckCircle2Icon size={12} />
-                  In Stock (Fulfillable)
-                </div>
-                <div className="text-[11px] text-paper/70 mt-1">
-                  Visible in search, instant PO generation, dispatched within promised lead time.
-                </div>
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={offers.isFetching}
+                className="inline-flex size-11 items-center justify-center rounded-full border border-paper/15 bg-paper/5 text-paper/80 transition-colors hover:bg-paper/10 hover:text-paper disabled:opacity-50 cursor-pointer"
+                title="Refresh warehouse inventory"
+                aria-label="Refresh warehouse inventory"
+              >
+                <RefreshCwIcon size={16} className={offers.isFetching ? 'animate-spin' : ''} />
+              </button>
+              <Link
+                to="/search"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-paper/15 bg-paper/5 px-5 text-sm font-medium text-paper/85 transition-colors hover:bg-paper/10 hover:text-paper"
+              >
+                <ExternalLinkIcon size={15} />
+                Catalog view
+              </Link>
+              <Link
+                to="/supplier/products/new"
+                className="inline-flex h-11 items-center gap-2 rounded-full bg-volt px-5 text-sm font-semibold text-ink transition-colors hover:bg-volt-glow"
+              >
+                <PlusIcon size={16} />
+                Add product
+              </Link>
+            </div>
+          </div>
+
+          {/* Availability composition */}
+          <div className="mt-8 grid grid-cols-1 lg:grid-cols-[minmax(0,15rem)_1fr] gap-6 lg:gap-10 border-t border-paper/10 pt-7">
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-paper/45">Depot fill health</div>
+              <div className="mt-2 flex items-baseline gap-1 font-display font-extrabold tracking-tight">
+                <span className="text-5xl sm:text-6xl leading-none">{fillRatePct}</span>
+                <span className="text-2xl text-volt">%</span>
               </div>
-
-              <div className="bg-paper/5 border border-paper/10 p-3.5 rounded-xl">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-amber font-bold flex items-center gap-1">
-                  <AlertTriangleIcon size={12} />
-                  Low Stock (Threshold)
-                </div>
-                <div className="text-[11px] text-paper/70 mt-1">
-                  Alert badge shows on product page to signal urgency for bulk buyers to reserve.
-                </div>
+              <div className="mt-2 text-xs text-paper/50">
+                {counts.in_stock ?? 0} of {total} line {total === 1 ? 'item' : 'items'} fulfillable
               </div>
+            </div>
 
-              <div className="bg-paper/5 border border-paper/10 p-3.5 rounded-xl">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-rose font-bold flex items-center gap-1">
-                  <XCircleIcon size={12} />
-                  Out of Stock
-                </div>
-                <div className="text-[11px] text-paper/70 mt-1">
-                  Checkout suppressed instantly. Prevents unfulfillable orders and cancellation penalties.
-                </div>
+            <div className="space-y-4 min-w-0">
+              <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-paper/10" aria-hidden="true">
+                {total > 0 &&
+                  statusMeta.map((s) =>
+                    s.count > 0 ? (
+                      <div
+                        key={s.id}
+                        className={`${STATUS_STYLE[s.id].bar} h-full first:rounded-l-full last:rounded-r-full`}
+                        style={{ width: `${(s.count / total) * 100}%` }}
+                      />
+                    ) : null,
+                  )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {statusMeta.map((s) => {
+                  const active = statusFilter === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setStatusFilter(active ? 'all' : s.id)}
+                      aria-pressed={active}
+                      className={`group text-left rounded-xl border px-4 py-3 transition-colors cursor-pointer ${
+                        active ? 'border-paper/30 bg-paper/10' : 'border-paper/10 bg-paper/[0.03] hover:bg-paper/[0.07]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-2 text-xs font-medium text-paper/80">
+                          <span className={`size-2 rounded-full ${STATUS_STYLE[s.id].dot}`} />
+                          {LABEL[s.id]}
+                        </span>
+                        <span className={`font-display text-xl font-bold leading-none ${s.count ? 'text-paper' : 'text-paper/35'}`}>
+                          {s.count}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 text-[11px] leading-snug text-paper/45">{s.blurb}</div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
         </div>
-      </Surface>
-
+      </section>
       {/* When NO inventory exists: Onboarding Launchpad */}
       {list.length === 0 ? (
         <div className="space-y-6">
@@ -461,205 +436,231 @@ export function SupplierInventoryPage() {
           </Surface>
         </div>
       ) : (
-        /* When inventory items exist: Filters & Enhanced Stock Table */
-        <div className="space-y-4">
-          {/* Filters Bar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="relative w-full sm:w-80">
-              <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search inventory by commodity name, SKU…"
-                className="pl-9 text-xs"
-              />
+        /* When inventory items exist: Inventory table card */
+        <section className="overflow-hidden rounded-2xl border border-ink/10 bg-paper shadow-soft-md">
+          {/* Toolbar */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-5 py-4 sm:px-6 border-b border-ink/10">
+            <div className="flex items-center gap-3 min-w-0">
+              <div>
+                <h2 className="font-display text-lg font-bold text-ink leading-tight">Inventory lines</h2>
+                <p className="text-xs text-ink-4">
+                  {filteredList.length === list.length
+                    ? `${list.length} ${list.length === 1 ? 'SKU' : 'SKUs'} in your depot`
+                    : `Showing ${filteredList.length} of ${list.length}`}
+                </p>
+              </div>
             </div>
-            <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full overflow-x-auto scrollbar-none">
-              {(
-                [
-                  { id: 'all', label: `All (${list.length})` },
-                  { id: 'in_stock', label: `In stock (${counts.in_stock ?? 0})` },
-                  { id: 'low', label: `Low stock (${counts.low ?? 0})` },
-                  { id: 'out_of_stock', label: `Out of stock (${counts.out_of_stock ?? 0})` },
-                ] as const
-              ).map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setStatusFilter(tab.id as 'all' | Offer['availabilityStatus'])}
-                  className={`h-8 px-3.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
-                    statusFilter === tab.id
-                      ? 'bg-ink text-paper shadow-sm'
-                      : 'text-ink-3 hover:text-ink'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="relative sm:w-72">
+                <SearchIcon size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-4" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search name, SKU or brand…"
+                  aria-label="Search inventory"
+                  className="h-10 w-full rounded-full border border-ink/10 bg-bone/60 pl-10 pr-4 text-sm text-ink placeholder:text-ink-4 outline-none transition focus:border-ink/30 focus:bg-paper focus:ring-4 focus:ring-volt/25"
+                />
+              </div>
+              <div className="inline-flex items-center gap-0.5 rounded-full bg-bone p-1 overflow-x-auto scrollbar-none">
+                {(
+                  [
+                    { id: 'all', label: 'All', count: list.length },
+                    { id: 'in_stock', label: 'In stock', count: counts.in_stock ?? 0 },
+                    { id: 'low', label: 'Low', count: counts.low ?? 0 },
+                    { id: 'out_of_stock', label: 'Out', count: counts.out_of_stock ?? 0 },
+                  ] as const
+                ).map((tab) => {
+                  const active = statusFilter === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setStatusFilter(tab.id)}
+                      className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3.5 text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                        active ? 'bg-paper text-ink shadow-soft-sm ring-1 ring-ink/10' : 'text-ink-3 hover:text-ink'
+                      }`}
+                    >
+                      {tab.id !== 'all' && <span className={`size-1.5 rounded-full ${STATUS_STYLE[tab.id].dot}`} />}
+                      {tab.label}
+                      <span className={`font-mono text-[11px] ${active ? 'text-ink-3' : 'text-ink-4'}`}>{tab.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Inventory Table Surface */}
-          <Surface kind="elevated" className="overflow-hidden">
-            {filteredList.length === 0 ? (
-              <div className="p-12 text-center space-y-3">
-                <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-ink/[0.06] text-ink-4">
-                  <WarehouseIcon size={22} />
-                </div>
-                <p className="text-sm font-medium text-ink-3">No inventory items match your search.</p>
-                <p className="text-xs text-ink-4">Try clearing the search query or adjusting your filters.</p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setStatusFilter('all');
-                  }}
-                >
-                  Reset all filters
-                </Button>
+          {filteredList.length === 0 ? (
+            <div className="px-6 py-16 text-center">
+              <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl border border-ink/10 bg-bone text-ink-4">
+                <WarehouseIcon size={24} />
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-bone/60 text-ink-4 border-b border-ink/10 text-[10px] font-mono uppercase tracking-[0.14em]">
-                    <tr>
-                      <th className="text-left px-5 py-3.5 font-bold">Depot Commodity</th>
-                      <th className="text-left px-4 py-3.5 font-bold">Depot SKU</th>
-                      <th className="text-left px-4 py-3.5 font-bold">Live Status</th>
-                      <th className="text-right px-4 py-3.5 font-bold">On-hand / Free</th>
-                      <th className="text-right px-4 py-3.5 font-bold">MOQ & Dispatch Lead</th>
-                      <th className="text-right px-5 py-3.5 font-bold">1-Click Availability State</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-ink/5">
-                    {filteredList.map((o) => {
-                      const product = nameMap.get(o.productId);
-                      const free = o.availableQty ?? null;
-                      const onHand = o.stockQty ?? 0;
-                      const reserved = o.reservedQty ?? 0;
-                      const tracked = !!o.trackInventory;
-                      return (
-                        <tr key={o.id} className="hover:bg-bone/40 transition-colors">
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              {product?.imageUrl ? (
-                                <img
-                                  src={product.imageUrl}
-                                  alt={product.name}
-                                  className="size-10 rounded-lg border border-ink/10 object-cover shrink-0 bg-bone"
-                                />
-                              ) : (
-                                <div className="size-10 rounded-lg bg-ink/[0.06] flex items-center justify-center text-ink-4 shrink-0">
-                                  <PackageIcon size={16} />
-                                </div>
-                              )}
-                              <div className="min-w-0">
-                                <div className="font-semibold text-ink truncate hover:text-copper transition-colors">
-                                  {product?.name ?? 'Standard Commodity'}
-                                </div>
-                                <div className="text-xs text-ink-4 flex items-center gap-2 mt-0.5">
-                                  {product?.brand && <span className="font-medium text-ink-3">{product.brand}</span>}
-                                  {product?.packSize && <span>· {product.packSize}</span>}
-                                  {product?.unit && (
-                                    <span className="uppercase text-[10px] bg-ink/5 px-1.5 py-0.5 rounded font-mono">
-                                      {product.unit}
-                                    </span>
-                                  )}
-                                </div>
+              <p className="font-display text-lg font-bold text-ink">No inventory lines match</p>
+              <p className="mt-1 text-sm text-ink-4">Try clearing the search or switching the status filter.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setStatusFilter('all');
+                }}
+                className="mt-5 inline-flex h-9 items-center rounded-full border border-ink/15 px-4 text-xs font-semibold text-ink hover:bg-bone transition-colors cursor-pointer"
+              >
+                Reset filters
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[880px] text-sm">
+                <thead>
+                  <tr className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">
+                    <th className="text-left px-6 py-3 font-medium">Commodity</th>
+                    <th className="text-left px-4 py-3 font-medium">Depot SKU</th>
+                    <th className="text-left px-4 py-3 font-medium">Stock level</th>
+                    <th className="text-left px-4 py-3 font-medium">MOQ · Lead</th>
+                    <th className="text-right px-6 py-3 font-medium">Availability</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredList.map((o) => {
+                    const product = nameMap.get(o.productId);
+                    const onHand = o.stockQty ?? 0;
+                    const reserved = o.reservedQty ?? 0;
+                    const free = o.availableQty ?? Math.max(onHand - reserved, 0);
+                    const tracked = !!o.trackInventory;
+                    const threshold = o.lowStockThreshold ?? 0;
+                    const freePct = onHand > 0 ? Math.min(100, (free / onHand) * 100) : 0;
+                    const belowThreshold = tracked && threshold > 0 && free <= threshold;
+                    return (
+                      <tr key={o.id} className="group border-t border-ink/[0.06] transition-colors hover:bg-bone/50">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3.5">
+                            {product?.imageUrl ? (
+                              <img
+                                src={product.imageUrl}
+                                alt={product.name}
+                                className="size-12 rounded-xl border border-ink/10 object-cover shrink-0 bg-bone"
+                              />
+                            ) : (
+                              <div className="size-12 rounded-xl border border-ink/10 bg-gradient-to-br from-bone to-mist/70 flex items-center justify-center text-ink-4 shrink-0">
+                                <PackageIcon size={18} />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <div className="font-semibold text-ink truncate max-w-[16rem]">
+                                {product?.name ?? 'Standard Commodity'}
+                              </div>
+                              <div className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-4">
+                                {product?.brand && <span className="font-medium text-ink-3">{product.brand}</span>}
+                                {product?.brand && product?.packSize && <span>·</span>}
+                                {product?.packSize && <span>{product.packSize}</span>}
+                                {product?.unit && (
+                                  <span className="rounded bg-ink/5 px-1.5 py-0.5 font-mono text-[10px] uppercase">
+                                    {product.unit}
+                                  </span>
+                                )}
                               </div>
                             </div>
-                          </td>
-                          <td className="px-4 py-4 font-mono text-xs text-ink-3">
-                            {o.supplierSku ? (
-                              <span className="bg-bone px-1.5 py-0.5 border border-ink/10 rounded-md font-mono">
-                                {o.supplierSku}
-                              </span>
-                            ) : (
-                              <span className="text-ink-4 italic">Standard SKU</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-4">
-                            <Badge variant={TONE[o.availabilityStatus]}>{LABEL[o.availabilityStatus]}</Badge>
-                          </td>
-                          <td className="px-4 py-4 text-right text-xs text-ink-3">
-                            {tracked ? (
-                              <div className="flex flex-col items-end gap-0.5 font-mono">
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          {o.supplierSku ? (
+                            <span className="rounded-md border border-ink/10 bg-bone px-2 py-1 font-mono text-[11px] text-ink-2">
+                              {o.supplierSku}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-ink-4">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4">
+                          {tracked ? (
+                            <div className="w-44 space-y-1.5">
+                              <div className="flex items-baseline justify-between gap-2">
                                 <button
                                   type="button"
                                   onClick={() => setStockOfferId(o.id)}
-                                  className="font-semibold text-ink hover:text-copper transition-colors"
+                                  className="font-mono text-sm font-semibold text-ink hover:text-copper transition-colors cursor-pointer"
                                   title="Edit stock"
                                 >
-                                  {onHand.toLocaleString()} on-hand
+                                  {onHand.toLocaleString()}
+                                  <span className="ml-1 font-sans text-[11px] font-normal text-ink-4">on-hand</span>
                                 </button>
-                                <span className="text-[11px] text-ink-4">
-                                  {free?.toLocaleString() ?? 0} free · {reserved.toLocaleString()} reserved
-                                </span>
                                 <button
                                   type="button"
                                   onClick={() => setMovementsOfferId(o.id)}
-                                  className="text-[10px] text-copper hover:underline uppercase tracking-wider mt-0.5"
+                                  className="text-[11px] font-medium text-copper hover:text-copper-deep cursor-pointer"
                                 >
-                                  Ledger →
+                                  Ledger
                                 </button>
                               </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setStockOfferId(o.id)}
-                                className="text-[11px] text-ink-4 hover:text-copper transition-colors uppercase tracking-wider"
-                              >
-                                Track stock →
-                              </button>
-                            )}
-                          </td>
-                          <td className="px-4 py-4 text-right text-xs text-ink-3">
-                            <div className="flex items-center justify-end gap-1.5 font-mono">
-                              <span className="font-semibold text-ink">MOQ {o.minOrderQty} {product?.unit ?? 'units'}</span>
-                              <span className="text-ink-4">·</span>
-                              <span className="bg-mist/60 px-1.5 py-0.5 rounded border border-ink/10 flex items-center gap-1">
-                                <ClockIcon size={11} className="text-ink-4" />
-                                {o.leadTimeDays}d lead
-                              </span>
+                              <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/[0.07]">
+                                <div
+                                  className={`h-full rounded-full ${belowThreshold ? 'bg-amber' : 'bg-mint'}`}
+                                  style={{ width: `${freePct}%` }}
+                                />
+                              </div>
+                              <div className="font-mono text-[11px] text-ink-4">
+                                {free.toLocaleString()} free · {reserved.toLocaleString()} reserved
+                              </div>
                             </div>
-                          </td>
-                          <td className="px-5 py-4 text-right">
-                            <div className="inline-flex items-center gap-0.5 rounded-full bg-ink/[0.05] p-0.5">
-                              {ORDER.map((s) => {
-                                const isCurrent = s === o.availabilityStatus;
-                                return (
-                                  <button
-                                    key={s}
-                                    type="button"
-                                    disabled={isCurrent || setStatus.isPending}
-                                    onClick={() => setStatus.mutate({ id: o.id, status: s })}
-                                    className={
-                                      'px-3 py-1 text-xs font-medium rounded-full transition-colors ' +
-                                      (isCurrent
-                                        ? s === 'in_stock'
-                                          ? 'bg-mint text-ink font-semibold cursor-default shadow-xs'
-                                          : s === 'low'
-                                            ? 'bg-amber text-ink font-semibold cursor-default shadow-xs'
-                                            : 'bg-rose text-paper font-semibold cursor-default shadow-xs'
-                                        : 'text-ink-3 hover:text-ink')
-                                    }
-                                  >
-                                    {LABEL[s]}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Surface>
-        </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setStockOfferId(o.id)}
+                              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dashed border-ink/20 px-3 text-xs font-medium text-ink-3 transition-colors hover:border-copper/50 hover:text-copper cursor-pointer"
+                            >
+                              <PlusIcon size={12} />
+                              Track stock
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="text-xs font-medium text-ink">
+                            {o.minOrderQty} {product?.unit ?? 'units'} min
+                          </div>
+                          <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-ink-4">
+                            <ClockIcon size={11} />
+                            {o.leadTimeDays}d dispatch
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div
+                            role="radiogroup"
+                            aria-label="Availability state"
+                            className="inline-flex items-center gap-0.5 rounded-full bg-bone p-1"
+                          >
+                            {ORDER.map((s) => {
+                              const isCurrent = s === o.availabilityStatus;
+                              return (
+                                <button
+                                  key={s}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={isCurrent}
+                                  disabled={isCurrent || setStatus.isPending}
+                                  onClick={() => setStatus.mutate({ id: o.id, status: s })}
+                                  className={`inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs whitespace-nowrap transition-all ${
+                                    isCurrent
+                                      ? `bg-paper font-semibold shadow-soft-sm ring-1 ring-ink/10 cursor-default ${STATUS_STYLE[s].text}`
+                                      : 'font-medium text-ink-4 hover:text-ink cursor-pointer disabled:cursor-wait'
+                                  }`}
+                                >
+                                  <span
+                                    className={`size-1.5 rounded-full ${isCurrent ? STATUS_STYLE[s].dot : 'bg-ink/20'}`}
+                                  />
+                                  {LABEL[s]}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       )}
 
       {/* Stock editor modal */}
@@ -706,78 +707,122 @@ function StockEditorModal({
   const [tracked, setTracked] = useState<boolean>(!!offer.trackInventory);
   const [note, setNote] = useState<string>('');
 
-  return (
-    <div className="fixed inset-0 z-50 bg-ink/50 flex items-center justify-center p-4" role="dialog">
-      <div className="bg-paper border border-ink/10 rounded-xl shadow-soft w-full max-w-md p-5 space-y-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="font-display text-lg font-bold">Stock control</h2>
-            <p className="text-xs text-ink-4 mt-0.5">{unit}</p>
+  const fieldClass =
+    'mt-1.5 h-11 w-full rounded-xl border border-ink/10 bg-bone/60 px-3.5 text-sm text-ink outline-none transition focus:border-ink/30 focus:bg-paper focus:ring-4 focus:ring-volt/25';
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="stock-editor-title"
+    >
+      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-ink/10 bg-paper shadow-soft-lg">
+        <header className="flex items-start justify-between gap-4 border-b border-ink/10 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-ink text-volt">
+              <WarehouseIcon size={18} />
+            </div>
+            <div>
+              <h2 id="stock-editor-title" className="font-display text-lg font-bold leading-tight text-ink">
+                Stock control
+              </h2>
+              <p className="text-xs text-ink-4">Quantities in {unit}</p>
+            </div>
           </div>
-          <button onClick={onClose} className="text-ink-4 hover:text-ink text-sm">Close</button>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="col-span-2 inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full">
-            {(['set', 'adjust'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                className={`flex-1 h-7 rounded-full text-xs font-medium transition-colors ${
-                  mode === m ? 'bg-ink text-paper shadow-sm' : 'text-ink-3 hover:text-ink'
-                }`}
-              >
-                {m === 'set' ? 'Set absolute' : 'Adjust ±'}
-              </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex size-8 items-center justify-center rounded-full text-ink-4 transition-colors hover:bg-bone hover:text-ink cursor-pointer"
+          >
+            <XIcon size={16} />
+          </button>
+        </header>
+
+        <div className="space-y-5 px-6 py-5">
+          <div className="grid grid-cols-3 divide-x divide-ink/10 rounded-xl border border-ink/10 bg-bone/50 text-center">
+            {[
+              { k: 'On-hand', v: offer.stockQty ?? 0 },
+              { k: 'Reserved', v: offer.reservedQty ?? 0 },
+              { k: 'Free', v: offer.availableQty ?? '—' },
+            ].map((x) => (
+              <div key={x.k} className="px-2 py-3">
+                <div className="font-mono text-lg font-semibold text-ink">{x.v}</div>
+                <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">{x.k}</div>
+              </div>
             ))}
           </div>
-          <label className="flex items-center gap-2 text-xs px-2 col-span-1">
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="inline-flex items-center gap-0.5 rounded-full bg-bone p-1">
+              {(['set', 'adjust'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={`h-8 rounded-full px-4 text-xs font-medium transition-all cursor-pointer ${
+                    mode === m ? 'bg-paper text-ink shadow-soft-sm ring-1 ring-ink/10' : 'text-ink-3 hover:text-ink'
+                  }`}
+                >
+                  {m === 'set' ? 'Set absolute' : 'Adjust ±'}
+                </button>
+              ))}
+            </div>
+            <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-ink-2">
+              <input
+                type="checkbox"
+                checked={tracked}
+                onChange={(e) => setTracked(e.target.checked)}
+                className="size-4 accent-ink"
+              />
+              Track inventory
+            </label>
+          </div>
+
+          <label className="block text-xs font-medium text-ink-3">
+            Quantity {mode === 'adjust' ? '(delta, e.g. -5 or 20)' : '(absolute on-hand)'}
             <input
-              type="checkbox"
-              checked={tracked}
-              onChange={(e) => setTracked(e.target.checked)}
-              className="accent-copper"
+              type="number"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className={`${fieldClass} font-mono`}
+              min={mode === 'set' ? 0 : -1000000}
             />
-            Track
           </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block text-xs font-medium text-ink-3">
+              Low-stock threshold
+              <input
+                type="number"
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+                className={`${fieldClass} font-mono`}
+                min={0}
+              />
+            </label>
+            <label className="block text-xs font-medium text-ink-3">
+              Note <span className="font-normal text-ink-4">(optional)</span>
+              <input
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Reason for change"
+                className={fieldClass}
+              />
+            </label>
+          </div>
         </div>
-        <label className="block text-xs">
-          <span className="text-ink-3">Quantity ({mode === 'adjust' ? 'delta' : 'absolute'})</span>
-          <Input
-            type="number"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            className="mt-1 font-mono"
-            min={mode === 'set' ? 0 : -1000000}
-          />
-          <span className="text-[10px] text-ink-4 mt-1 block">
-            On-hand {offer.stockQty ?? 0} · Reserved {offer.reservedQty ?? 0} · Free {offer.availableQty ?? '—'}
-          </span>
-        </label>
-        <label className="block text-xs">
-          <span className="text-ink-3">Low-stock threshold</span>
-          <Input
-            type="number"
-            value={threshold}
-            onChange={(e) => setThreshold(e.target.value)}
-            className="mt-1 font-mono"
-            min={0}
-          />
-        </label>
-        <label className="block text-xs">
-          <span className="text-ink-3">Note (optional)</span>
-          <Input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Why?"
-            className="mt-1"
-          />
-        </label>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
-          <Button
-            variant="primary"
-            size="sm"
+
+        <footer className="flex justify-end gap-2 border-t border-ink/10 bg-bone/40 px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 items-center rounded-full border border-ink/15 px-5 text-sm font-medium text-ink transition-colors hover:bg-paper cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
             disabled={submitting}
             onClick={() => {
               const qty = Number(quantity);
@@ -792,12 +837,14 @@ function StockEditorModal({
               if (note) body.note = note;
               onSubmit(body);
             }}
+            className="inline-flex h-10 items-center rounded-full bg-ink px-5 text-sm font-semibold text-paper transition-colors hover:bg-ink-2 disabled:opacity-60 cursor-pointer"
           >
-            {submitting ? 'Saving…' : 'Save'}
-          </Button>
-        </div>
+            {submitting ? 'Saving…' : 'Save stock'}
+          </button>
+        </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -814,53 +861,92 @@ function MovementsDrawer({
   loading: boolean;
   onClose: () => void;
 }) {
-  return (
-    <div className="fixed inset-0 z-50 bg-ink/50 flex items-stretch justify-end" role="dialog">
-      <div className="bg-paper border-l border-ink/10 w-full max-w-lg h-full flex flex-col">
-        <header className="px-5 py-4 border-b border-ink/10 flex items-center justify-between">
-          <div>
-            <h2 className="font-display text-lg font-bold">Stock ledger</h2>
-            <p className="text-xs text-ink-4 mt-0.5">{product?.name ?? '—'}</p>
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-stretch justify-end bg-ink/60 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="stock-ledger-title"
+    >
+      <div className="flex h-full w-full max-w-lg flex-col border-l border-ink/10 bg-paper shadow-soft-lg">
+        <header className="flex items-start justify-between gap-4 border-b border-ink/10 px-6 py-5">
+          <div className="min-w-0">
+            <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-copper">Stock ledger</div>
+            <h2 id="stock-ledger-title" className="mt-1 truncate font-display text-xl font-bold text-ink">
+              {product?.name ?? '—'}
+            </h2>
+            <p className="mt-1 font-mono text-xs text-ink-4">
+              {offer.stockQty ?? 0} on-hand · {offer.reservedQty ?? 0} reserved
+            </p>
           </div>
-          <button onClick={onClose} className="text-ink-4 hover:text-ink text-sm">Close</button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-4 transition-colors hover:bg-bone hover:text-ink cursor-pointer"
+          >
+            <XIcon size={16} />
+          </button>
         </header>
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto px-6 py-5">
           {loading ? (
-            <div className="h-20 vyro-surface animate-pulse" />
+            <div className="space-y-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-16 rounded-xl bg-bone animate-pulse" />
+              ))}
+            </div>
           ) : movements.length === 0 ? (
-            <p className="text-sm text-ink-4">No movements yet.</p>
+            <div className="py-16 text-center">
+              <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl border border-ink/10 bg-bone text-ink-4">
+                <ClockIcon size={20} />
+              </div>
+              <p className="text-sm font-medium text-ink">No movements yet</p>
+              <p className="mt-1 text-xs text-ink-4">Stock adjustments and order reservations will appear here.</p>
+            </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] uppercase tracking-wider text-ink-4 font-mono">
-                  <th className="text-left py-2">When</th>
-                  <th className="text-left py-2">Reason</th>
-                  <th className="text-right py-2">Δ qty</th>
-                  <th className="text-right py-2">Δ reserved</th>
-                  <th className="text-right py-2">After</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/10">
-                {movements.map((m) => (
-                  <tr key={m.id}>
-                    <td className="py-2 text-[11px] text-ink-4">{new Date(m.createdAt).toLocaleString('en-GB')}</td>
-                    <td className="py-2 text-xs">{m.reason}</td>
-                    <td className={`py-2 text-right font-mono ${m.qtyDelta > 0 ? 'text-mint' : m.qtyDelta < 0 ? 'text-rose' : 'text-ink-4'}`}>
-                      {m.qtyDelta > 0 ? '+' : ''}{m.qtyDelta}
-                    </td>
-                    <td className={`py-2 text-right font-mono ${m.reservedDelta > 0 ? 'text-amber' : m.reservedDelta < 0 ? 'text-ink-4' : 'text-ink-4'}`}>
-                      {m.reservedDelta > 0 ? '+' : ''}{m.reservedDelta}
-                    </td>
-                    <td className="py-2 text-right font-mono text-[11px]">
-                      {m.stockQtyAfter} on-hand · {m.reservedQtyAfter} reserved
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ol className="relative space-y-2 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-ink/10">
+              {movements.map((m) => (
+                <li key={m.id} className="relative flex gap-4">
+                  <span
+                    className={`relative z-10 mt-4 size-[23px] shrink-0 rounded-full border-4 border-paper ${
+                      m.qtyDelta > 0 ? 'bg-mint' : m.qtyDelta < 0 ? 'bg-rose' : 'bg-amber'
+                    }`}
+                  />
+                  <div className="flex-1 rounded-xl border border-ink/[0.08] bg-paper px-4 py-3 transition-colors hover:bg-bone/40">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium capitalize text-ink">{m.reason.replace(/_/g, ' ')}</div>
+                        <div className="mt-0.5 text-[11px] text-ink-4">
+                          {new Date(m.createdAt).toLocaleString('en-GB')}
+                        </div>
+                      </div>
+                      <div className="text-right font-mono">
+                        <div
+                          className={`text-sm font-semibold ${m.qtyDelta > 0 ? 'text-mint' : m.qtyDelta < 0 ? 'text-rose' : 'text-ink-4'}`}
+                        >
+                          {m.qtyDelta > 0 ? '+' : ''}
+                          {m.qtyDelta}
+                        </div>
+                        {m.reservedDelta !== 0 && (
+                          <div className="text-[11px] text-amber">
+                            {m.reservedDelta > 0 ? '+' : ''}
+                            {m.reservedDelta} reserved
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-2 border-t border-ink/[0.06] pt-2 font-mono text-[11px] text-ink-4">
+                      After: {m.stockQtyAfter} on-hand · {m.reservedQtyAfter} reserved
+                      {m.note ? <span className="font-sans"> — {m.note}</span> : null}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
