@@ -24,6 +24,30 @@ export const ReconciliationRequestSchema = z
   .strict();
 export type ReconciliationRequest = z.infer<typeof ReconciliationRequestSchema>;
 
+export const AiMatchSuggestionSchema = z.object({
+  invoiceItemIndex: z.number().int().min(0),
+  poItemId: z.string().min(1),
+  productName: z.string().min(1).max(200),
+  confidence: z.number().min(0).max(1),
+  reason: z.string().min(1).max(160),
+});
+export type AiMatchSuggestion = z.infer<typeof AiMatchSuggestionSchema>;
+
+export const AiMatchOverrideSchema = z.object({
+  invoiceItemIndex: z.number().int().min(0),
+  poItemId: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+  reason: z.string().min(1).max(160),
+});
+export type AiMatchOverride = z.infer<typeof AiMatchOverrideSchema>;
+
+export const AliasMatchOverrideSchema = z.object({
+  invoiceItemIndex: z.number().int().min(0),
+  poItemId: z.string().min(1),
+  reason: z.string().min(1).max(160),
+});
+export type AliasMatchOverride = z.infer<typeof AliasMatchOverrideSchema>;
+
 export const ReconciliationLineStatusSchema = z.enum([
   'matched',
   'price_variance',
@@ -45,6 +69,10 @@ export const ReconciliationLineSchema = z.object({
   status: ReconciliationLineStatusSchema,
   varianceCents: z.number().int(),
   discrepancyReason: z.string().optional(),
+  matchSource: z.enum(['alias', 'deterministic', 'ai']).optional(),
+  matchConfidence: z.number().min(0).max(1).optional(),
+  matchExplanation: z.string().max(160).optional(),
+  aiSuggestion: AiMatchSuggestionSchema.omit({ invoiceItemIndex: true }).optional(),
 });
 export type ReconciliationLine = z.infer<typeof ReconciliationLineSchema>;
 
@@ -93,6 +121,8 @@ export type ReconciliationClaimRequest = z.infer<typeof ReconciliationClaimReque
 export interface PoItemInput {
   id: string;
   productNameSnapshot: string;
+  productId?: string | undefined;
+  unit?: string | undefined;
   quantity: number;
   unitPriceCents: number;
   lineTotalCents: number;
@@ -116,4 +146,21 @@ export interface MatcherInput {
   poItems: PoItemInput[];
   delivery?: DeliveryInput | null;
   invoice: InvoiceData;
+  aliasMatchOverrides?: AliasMatchOverride[];
+  aiMatchOverrides?: AiMatchOverride[];
+  aiSuggestions?: AiMatchSuggestion[];
+}
+
+export interface DeterministicMatch {
+  invoiceItemIndex: number;
+  poItemId: string;
+  confidence: number;
+  source: 'alias' | 'deterministic';
+  reason?: string | undefined;
+}
+
+export interface DeterministicMatchPlan {
+  matches: DeterministicMatch[];
+  unmatchedInvoiceIndexes: number[];
+  remainingPoItemIds: string[];
 }

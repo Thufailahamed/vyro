@@ -10,6 +10,7 @@ import type { ThreeWayReconciliationResult } from '@vyro/ai';
 export interface AutoReconciliation {
   status: string;
   payload: ThreeWayReconciliationResult | null;
+  uploadId?: string;
 }
 
 interface ThreeWayReconciliationCardProps {
@@ -123,6 +124,14 @@ export function ThreeWayReconciliationCard({
           >
             Upload supplier invoice
           </Link>
+          {autoReconciliation?.uploadId && result?.lines.some((line) => line.aiSuggestion) && (
+            <Link
+              to={`/invoices/${autoReconciliation.uploadId}/review`}
+              className="text-xs text-amber-700 underline hover:text-amber-900"
+            >
+              Review invoice lines
+            </Link>
+          )}
           <Button
             onClick={handleRunAudit}
             loading={loading}
@@ -215,7 +224,25 @@ export function ThreeWayReconciliationCard({
               <tbody className="divide-y divide-line/40">
                 {result.lines.map((l, i) => (
                   <tr key={i}>
-                    <td className="p-2 font-medium text-ink">{l.description}</td>
+                    <td className="p-2 font-medium text-ink">
+                      <div>{l.description}</div>
+                      {l.matchSource === 'ai' && (
+                        <div className="mt-1 text-[10px] font-medium text-blue-700">
+                          AI match · {Math.round((l.matchConfidence ?? 0) * 100)}%
+                        </div>
+                      )}
+                      {l.matchExplanation && l.matchSource === 'ai' && (
+                        <div className="mt-0.5 text-[10px] font-normal text-ink-4">
+                          {l.matchExplanation}
+                        </div>
+                      )}
+                      {l.aiSuggestion && (
+                        <div className="mt-1 text-[10px] font-normal text-amber-800">
+                          Possible PO match: {l.aiSuggestion.productName} ·{' '}
+                          {Math.round(l.aiSuggestion.confidence * 100)}% — {l.aiSuggestion.reason}
+                        </div>
+                      )}
+                    </td>
                     <td className="p-2 font-mono">
                       {l.poQuantity ?? '—'} @{' '}
                       {l.poUnitPriceCents ? `Rs. ${(l.poUnitPriceCents / 100).toLocaleString()}` : '—'}

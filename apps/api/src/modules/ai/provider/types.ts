@@ -7,6 +7,8 @@ export interface ChatOptions {
   maxTokens?: number;
   responseFormatJson?: boolean;
   signal?: AbortSignal;
+  /** Set false when one task must issue at most one Worker AI request. */
+  retry?: boolean;
   model?: string;
 }
 

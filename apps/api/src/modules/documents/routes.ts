@@ -14,8 +14,10 @@ import {
   saveReviewedLines,
   recordCategoryCorrection,
   listMappingsForBusiness,
+  listInvoiceMatchCandidates,
+  upsertInvoiceProductAlias,
 } from './repository';
-import { categorizeItems, type CategorySlug } from '@vyro/ai';
+import { categorizeItems, normalizeInvoiceAlias, type CategorySlug } from '@vyro/ai';
 import { getDb } from '@vyro/db';
 import { invoiceUploads, purchaseOrders } from '@vyro/db/schema';
 import { eq, desc } from 'drizzle-orm';
@@ -143,7 +145,19 @@ router.get('/:id', async (c) => {
   const id = c.req.param('id');
   const row = await getUpload(c.env, businessId, id);
   if (!row) throw httpError(404, 'NOT_FOUND', 'Upload not found');
-  return c.json({ upload: row });
+  let matchCandidates: Array<{ productId: string; productName: string; unit: string | null }> = [];
+  if (row.purchaseOrderId) {
+    const linkedPo = await getDb(c.env.DB)
+      .select({ businessId: purchaseOrders.businessId })
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.id, row.purchaseOrderId))
+      .get();
+    if (!linkedPo || linkedPo.businessId !== businessId) {
+      throw httpError(403, 'FORBIDDEN', 'Invoice is not linked to your purchase order');
+    }
+    matchCandidates = await listInvoiceMatchCandidates(c.env, row.purchaseOrderId);
+  }
+  return c.json({ upload: { ...row, matchCandidates } });
 });
 
 const reviewSchema = z
@@ -185,6 +199,26 @@ router.post('/:id/review', async (c) => {
   const existing = await getUpload(c.env, businessId, id);
   if (!existing) throw httpError(404, 'NOT_FOUND', 'Upload not found');
 
+  let linkedSupplierId: string | null = null;
+  if (existing.purchaseOrderId) {
+    const linkedPo = await getDb(c.env.DB)
+      .select({ businessId: purchaseOrders.businessId, supplierId: purchaseOrders.supplierId })
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.id, existing.purchaseOrderId))
+      .get();
+    if (!linkedPo || linkedPo.businessId !== businessId) {
+      throw httpError(403, 'FORBIDDEN', 'Invoice is not linked to your purchase order');
+    }
+    linkedSupplierId = linkedPo.supplierId;
+  }
+  const matchCandidates = existing.purchaseOrderId
+    ? await listInvoiceMatchCandidates(c.env, existing.purchaseOrderId)
+    : [];
+  const allowedProductIds = new Set(matchCandidates.map((candidate) => candidate.productId));
+  if (parsed.data.lines.some((line) => line.productId != null && !allowedProductIds.has(line.productId))) {
+    throw httpError(400, 'VALIDATION_ERROR', 'Selected product must be on this purchase order');
+  }
+
   const mappings = await listMappingsForBusiness(c.env, businessId);
   const descriptions = parsed.data.lines.map((l) => ({ description: l.description }));
   const autoByDesc = new Map<string, string>();
@@ -216,6 +250,44 @@ router.post('/:id/review', async (c) => {
     lines: linesWithSource,
     ...(parsed.data.totalCents !== undefined ? { totalCents: parsed.data.totalCents } : {}),
   });
+
+  // Learn exact supplier aliases only from an explicit PO product selection.
+  // If duplicate normalized descriptions in one invoice select different PO
+  // products, leave that alias unchanged instead of learning an arbitrary row.
+  if (linkedSupplierId) {
+    const aliasSelections = new Map<string, string>();
+    const conflictingAliases = new Set<string>();
+    for (const line of parsed.data.lines) {
+      if (!line.productId || line.description.trim().toLowerCase() === 'untitled line') continue;
+      const normalizedAlias = normalizeInvoiceAlias(line.description);
+      if (!normalizedAlias) continue;
+      const previousProductId = aliasSelections.get(normalizedAlias);
+      if (previousProductId && previousProductId !== line.productId) {
+        conflictingAliases.add(normalizedAlias);
+      } else {
+        aliasSelections.set(normalizedAlias, line.productId);
+      }
+    }
+    for (const [normalizedAlias, productId] of aliasSelections) {
+      if (conflictingAliases.has(normalizedAlias)) continue;
+      try {
+        await upsertInvoiceProductAlias(c.env, {
+          businessId,
+          supplierId: linkedSupplierId,
+          normalizedAlias,
+          productId,
+          sourceUploadId: id,
+          createdByUserId: ctx.userId,
+        });
+      } catch {
+        // Alias memory is best-effort; a successful invoice review stays saved.
+        console.warn('[documents] invoice product alias persistence failed', {
+          uploadId: id,
+          code: 'ALIAS_PERSIST_FAILED',
+        });
+      }
+    }
+  }
 
   for (let i = 0; i < parsed.data.lines.length; i++) {
     const src = linesWithSource[i]!.categorySource;

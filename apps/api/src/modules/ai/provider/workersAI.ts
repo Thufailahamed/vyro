@@ -30,10 +30,12 @@ export class WorkersAIProvider implements AIProvider {
     if (opts?.temperature !== undefined) payload.temperature = opts.temperature;
     if (opts?.maxTokens !== undefined) payload.max_tokens = opts.maxTokens;
     if (opts?.responseFormatJson) payload.response_format = { type: 'json_object' };
+    if (this.env.VYRO_AI_GATEWAY) payload.gateway = { id: this.env.VYRO_AI_GATEWAY };
 
     const started = Date.now();
     let lastErr: unknown;
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const maxAttempts = opts?.retry === false ? 1 : 2;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         const res = await this.env.AI!.run(model, payload);
         const latencyMs = Date.now() - started;

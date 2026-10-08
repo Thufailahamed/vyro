@@ -5,6 +5,7 @@ import { api, ApiError } from '@/lib/api';
 import { Button, PageHeader } from '@/components/ui';
 import { AlertCircleIcon, CheckCircleIcon, SaveIcon, RefreshCwIcon } from '@/components/icons';
 import { CategoryBadge } from '@/ai/CategoryBadge';
+import { InvoicePoProductSelect, type InvoiceProductCandidate } from '@/components/invoices/InvoicePoProductSelect';
 
 interface LineItem {
   id: string;
@@ -16,6 +17,7 @@ interface LineItem {
   totalCents: number | null;
   categorySlug: string | null;
   categorySource: 'rule' | 'default' | 'manual';
+  productId: string | null;
 }
 interface Upload {
   id: string;
@@ -25,6 +27,8 @@ interface Upload {
   totalCents: number | null;
   items: LineItem[];
   rawExtractionJson: string | null;
+  purchaseOrderId: string | null;
+  matchCandidates: InvoiceProductCandidate[];
 }
 
 const SLUGS = ['food', 'packaging', 'cleaning', 'office', 'equipment', 'other'] as const;
@@ -41,6 +45,7 @@ function emptyLine(lineNumber: number): LineItem {
     totalCents: null,
     categorySlug: 'other',
     categorySource: 'manual',
+    productId: null,
   };
 }
 
@@ -71,6 +76,7 @@ export function InvoiceReviewPage() {
     setSaved(false);
   }, [upload?.id, upload?.items, upload?.totalCents]);
 
+  const showProductColumn = Boolean(upload?.purchaseOrderId) && (upload?.matchCandidates.length ?? 0) > 0;
   const dirty = useMemo(() => {
     if (!upload) return false;
     if ((upload.totalCents ?? 0) !== totalCents) return true;
@@ -78,7 +84,7 @@ export function InvoiceReviewPage() {
     for (let i = 0; i < lines.length; i++) {
       const a = lines[i]!;
       const b = upload.items[i]!;
-      if (a.description !== b.description || a.totalCents !== b.totalCents || a.categorySlug !== b.categorySlug) return true;
+      if (a.description !== b.description || a.totalCents !== b.totalCents || a.categorySlug !== b.categorySlug || (a.productId ?? null) !== (b.productId ?? null)) return true;
     }
     return false;
   }, [upload, lines, totalCents]);
@@ -109,6 +115,7 @@ export function InvoiceReviewPage() {
           unitPriceCents: l.unitPriceCents,
           totalCents: l.totalCents,
           categorySlug: (l.categorySlug ?? 'other') as Slug,
+          productId: l.productId ?? null,
         })),
       });
       setSaved(true);
@@ -146,15 +153,16 @@ export function InvoiceReviewPage() {
       <div className="bg-paper border border-ink/15">
         <table className="w-full text-xs">
           <thead className="bg-bone text-[10px] font-mono uppercase tracking-wider text-ink-4">
-            <tr>
-              <th className="p-2 text-left w-12">#</th>
-              <th className="p-2 text-left">Description</th>
-              <th className="p-2 text-left w-20">Qty</th>
-              <th className="p-2 text-left w-20">Unit</th>
-              <th className="p-2 text-right w-28">Unit Rs.</th>
-              <th className="p-2 text-right w-28">Line Rs.</th>
-              <th className="p-2 text-left w-40">Category</th>
-            </tr>
+              <tr>
+                <th className="p-2 text-left w-12">#</th>
+                <th className="p-2 text-left">Description</th>
+                <th className="p-2 text-left w-20">Qty</th>
+                <th className="p-2 text-left w-20">Unit</th>
+                <th className="p-2 text-right w-28">Unit Rs.</th>
+                <th className="p-2 text-right w-28">Line Rs.</th>
+                <th className="p-2 text-left w-40">Category</th>
+                {showProductColumn && <th className="p-2 text-left w-48">PO product</th>}
+              </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {lines.map((l, i) => (
@@ -210,10 +218,19 @@ export function InvoiceReviewPage() {
                     <CategoryBadge slug={l.categorySlug} source={l.categorySource} />
                   </div>
                 </td>
+                {showProductColumn && (
+                  <td className="p-2">
+                    <InvoicePoProductSelect
+                      value={l.productId ?? null}
+                      candidates={upload.matchCandidates}
+                      onChange={(productId) => updateLine(i, { productId })}
+                    />
+                  </td>
+                )}
               </tr>
             ))}
             {lines.length === 0 && (
-              <tr><td colSpan={7} className="p-6 text-center text-ink-4">No lines detected. Add rows manually below.</td></tr>
+              <tr><td colSpan={showProductColumn ? 8 : 7} className="p-6 text-center text-ink-4">No lines detected. Add rows manually below.</td></tr>
             )}
           </tbody>
         </table>

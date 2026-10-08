@@ -181,7 +181,7 @@ In `matcher.ts`:
 
 1. Export `planDeterministicMatches(poItems, invoiceItems)`.
 2. Copy the exact current greedy Jaccard selection into that helper: tokenize descriptions with the existing tokenizer, select the highest remaining score, accept at `score >= 0.35`, reserve each selected PO item once, and return the per-invoice index + score.
-3. Make `matchThreeWayReconciliation` use the plan for its default assignments. At each invoice index, prefer a supplied `aiMatchOverride` only when its `poItemId` exists in `poItems` and has not already been consumed; otherwise use that index’s deterministic plan entry; otherwise emit the existing `unexpected_item` line.
+3. Make `matchThreeWayReconciliation` use the plan for its default assignments. At each invoice index, prefer a supplied `aiMatchOverride` only when its index is unresolved, its `poItemId` is in `deterministicPlan.remainingPoItemIds`, exists in `poItems`, and has not already been consumed; otherwise use that index’s deterministic plan entry; otherwise emit the existing `unexpected_item` line. Apply the same unresolved-index/remaining-PO validation to suggestions.
 4. Attach `matchSource: 'ai'`, `matchConfidence`, and `matchExplanation` to applied AI lines; attach `matchSource: 'deterministic'` and the Jaccard score to existing deterministic matches.
 5. For an unmatched invoice line, attach a validated `aiSuggestion` for that exact `invoiceItemIndex` if present. Do not consume its suggested PO item; it must still produce the existing `missing_item` line.
 6. Keep all price, quantity, variance, total, delivery, and recommendation calculations unchanged.
@@ -262,9 +262,10 @@ const deterministicPlan = {
 1. `VYRO_AI_RECONCILE_MATCHING` unset/false → `attempted:false`, no `AI.run`.
 2. Enabled with response `{"matches":[{"invoiceItemIndex":0,"poItemId":"poi-rice","confidence":0.98,"alternativeConfidence":0.10,"reason":"Abbreviation and size match."}]}` → one override; model receives the configured model, JSON mode, and gateway ID.
 3. Confidence `0.80` or margin below `0.15` → no override, one suggestion with reason.
-4. Unknown PO ID, duplicate PO ID, invoice index not in `unmatchedInvoiceIndexes`, malformed JSON, and thrown Worker binding → never produces an override; provider errors return empty result rather than throw.
+4. Unknown PO ID, duplicate PO ID/index, or an index not in `unmatchedInvoiceIndexes` anywhere in the response → fail closed for the entire response (no override or suggestion), including a mixed response with one valid and one invalid entry.
 5. More than 50 unresolved lines or serialized prompt above 12,000 characters → skip call.
 6. Deterministic plan with no unresolved indexes → skip call.
+7. A Worker call that never resolves times out at 8 seconds; a rejected Worker call is attempted once, then returns empty overrides/suggestions (no provider retry).
 
 Run: `cd apps/api && pnpm exec vitest run test/ai/reconciliationLineMatcher.test.ts`
 Expected: FAIL because the module/function is not implemented.
@@ -302,7 +303,7 @@ Add a provider test that `env.AI.run` gets `gateway: { id: 'gateway-test' }` whe
 
 1. Return no-op stats when feature flag is not exactly `'true'`, `env.AI` is absent, no deterministic-unmatched invoice lines remain, more than 50 invoice lines remain unresolved, or prompt serialization exceeds 12,000 characters.
 2. Build one JSON-only request containing only unresolved invoice indexes/descriptions/units and the remaining PO candidates’ IDs/product-name snapshots/current units (when the linked catalog product still exists). Include instructions: use product identity only; ignore price/quantity while matching; choose one provided ID or `null`; never invent a PO item; include `confidence`, `alternativeConfidence`, and `reason`.
-3. Call `new WorkersAIProvider(env).chat([{ role:'system', content:… }, { role:'user', content: JSON.stringify(input) }], { model: env.VYRO_AI_RECONCILE_MODEL ?? '@cf/zai-org/glm-5.3-flash', responseFormatJson:true, temperature:0, maxTokens:1200 })`.
+3. Call `new WorkersAIProvider(env).chat([{ role:'system', content:… }, { role:'user', content: JSON.stringify(input) }], { model: env.VYRO_AI_RECONCILE_MODEL ?? '@cf/zai-org/glm-5.3-flash', responseFormatJson:true, temperature:0, maxTokens:1200, retry:false })`. `WorkersAIProvider` normally retries once; `retry:false` enforces one model request for this task.
 4. Parse content with a local Zod schema:
 
 ```ts
@@ -317,8 +318,8 @@ const AiResponseSchema = z.object({
 }).strict();
 ```
 
-5. Validate that each index is in the unresolved set and each non-null ID is in `remainingPoItemIds`. Sort valid candidates by confidence descending, then accept a candidate only if no earlier accepted override uses that PO ID. If `confidence >= 0.95` and `confidence - alternativeConfidence >= 0.15`, return an `AiMatchOverride`; otherwise return an `AiMatchSuggestion` populated with the matching PO item's `productNameSnapshot`. Null/no-candidate responses remain unmatched with no suggestion.
-6. Catch `AIUnavailableError`, timeout, JSON/Zod errors, and all other provider failures; return empty overrides/suggestions. Return model, provider name, latency, attempted/applied/suggestion counts, but never persist the prompt or raw model response.
+5. Validate every non-null ID is in `remainingPoItemIds` and every index is unresolved and appears only once. Any invalid index, unknown ID, duplicate index, or duplicate non-null PO ID invalidates the whole response and returns empty overrides/suggestions. For a valid response, sort candidates by confidence descending; apply at most one result per invoice index/PO item. If `confidence >= 0.95` and `confidence - alternativeConfidence >= 0.15`, return an `AiMatchOverride`; otherwise return an `AiMatchSuggestion` populated with the matching PO item's `productNameSnapshot`. Null/no-candidate responses remain unmatched with no suggestion.
+6. Race the provider call against an 8-second timeout and clear the timeout handle in `finally`. On timeout, `AIUnavailableError`, JSON/Zod errors, or other provider failures, return empty overrides/suggestions. Return model, provider name, latency, attempted/applied/suggestion counts, but never persist the prompt or raw model response.
 
 - [ ] **Step 4: Run resolver + provider tests and API typecheck**
 
@@ -358,6 +359,7 @@ Assert:
 2. With the flag unset/false, the same line stays `unexpected_item`, and the JSON-mode `AI.run` call is not made.
 3. With `invoiceData` supplied directly (no upload ID), `AI.run` is not called in JSON mode even when the feature flag is true.
 4. When the JSON-mode call throws or returns malformed JSON, the service returns the deterministic-only discrepancy result (not an exception).
+5. A same-business upload without `purchaseOrderId` remains deterministic-only; an upload owned by another business or linked to a different PO is rejected with 403 before AI dispatch.
 
 Use the database seed pattern from `apps/api/test/documents/reconcileLinked.test.ts`: include real `supplierProducts` rows because `purchase_order_items.supplier_product_id` has a foreign key; store actual generated PO item IDs for the mocked candidate response.
 
@@ -368,7 +370,7 @@ Expected: FAIL before service integration.
 
 In `runThreeWayReconciliation`:
 
-1. Track whether `invoiceData` actually came from `options.invoiceUploadId` (do not infer it merely from the option being present if `invoiceData` was directly supplied).
+1. Track whether `invoiceData` actually came from `options.invoiceUploadId` (do not infer it merely from the option being present if `invoiceData` was directly supplied). Before reading invoice lines, require `upload.businessId === po.businessId`; if `upload.purchaseOrderId` is non-null and differs from `po.id`, throw `httpError(403, 'FORBIDDEN', ...)`. A same-business unlinked upload may still reconcile deterministically, but it is not AI-eligible.
 2. When mapping PO items, left-join `purchaseOrderItems.supplierProductId` → `supplierProducts.id` → `products.id` to include `products.unit` as optional `PoItemInput.unit`; retain the stored `productNameSnapshot` as the primary identity text.
 3. After constructing `matcherInput`, if source is stored upload and flag is `'true'`, call `planDeterministicMatches(matcherInput.poItems, matcherInput.invoice.items)`, then `resolveUnmatchedInvoiceLines(env, matcherInput.poItems, matcherInput.invoice, plan)`.
 4. Set `matcherInput.aiMatchOverrides` and `matcherInput.aiSuggestions` from the resolver result. When the resolver skipped or failed, set neither (or empty arrays); the pure matcher reproduces today’s deterministic behavior.

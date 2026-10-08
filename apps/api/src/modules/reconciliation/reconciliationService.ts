@@ -3,6 +3,8 @@ import { getDb } from '@vyro/db';
 import {
   purchaseOrders,
   purchaseOrderItems,
+  supplierProducts,
+  products,
   deliveries,
   invoiceUploads,
   invoiceLineItems,
@@ -11,6 +13,9 @@ import {
 } from '@vyro/db/schema';
 import {
   matchThreeWayReconciliation,
+  normalizeInvoiceAlias,
+  planDeterministicMatches,
+  planInvoiceAliasMatches,
   type InvoiceData,
   type MatcherInput,
   type ReconciliationClaimRequest,
@@ -18,6 +23,8 @@ import {
   type ThreeWayReconciliationResult,
 } from '@vyro/ai';
 import { providerForTask } from '../ai/provider';
+import { resolveUnmatchedInvoiceLines } from './aiLineMatcher';
+import type { AiLineMatchStats } from './aiLineMatcher';
 import type { Env } from '../../env';
 import { httpError } from '../../lib/errors';
 import { newId } from '@vyro/shared';
@@ -44,8 +51,10 @@ export async function runThreeWayReconciliation(
 
   // 2. Load PO Items
   const poItemsRows = await db
-    .select()
+    .select({ item: purchaseOrderItems, productUnit: products.unit, productId: products.id })
     .from(purchaseOrderItems)
+    .leftJoin(supplierProducts, eq(purchaseOrderItems.supplierProductId, supplierProducts.id))
+    .leftJoin(products, eq(supplierProducts.productId, products.id))
     .where(eq(purchaseOrderItems.purchaseOrderId, orderId))
     .all();
 
@@ -62,6 +71,7 @@ export async function runThreeWayReconciliation(
 
   // 4. Resolve Invoice Data
   let invoiceData: InvoiceData | undefined = options.invoiceData;
+  let invoiceUploadId: string | undefined;
 
   if (!invoiceData && options.invoiceUploadId) {
     const upload = await db
@@ -70,6 +80,15 @@ export async function runThreeWayReconciliation(
       .where(eq(invoiceUploads.id, options.invoiceUploadId))
       .get();
     if (!upload) throw httpError(404, 'NOT_FOUND', 'Invoice upload not found');
+    if (upload.businessId !== po.businessId) {
+      throw httpError(403, 'FORBIDDEN', 'Invoice upload does not belong to this buyer');
+    }
+    if (upload.purchaseOrderId && upload.purchaseOrderId !== po.id) {
+      throw httpError(403, 'FORBIDDEN', 'Invoice upload is linked to a different purchase order');
+    }
+    // Same-business unlinked uploads remain available to the deterministic
+    // matcher, but AI matching is reserved for uploads attached to this PO.
+    if (upload.purchaseOrderId === po.id) invoiceUploadId = upload.id;
 
     const lines = await db
       .select()
@@ -110,9 +129,11 @@ export async function runThreeWayReconciliation(
       deliveryFeeCents: po.deliveryFeeCents,
       status: po.status,
     },
-    poItems: poItemsRows.map((r) => ({
+    poItems: poItemsRows.map(({ item: r, productUnit, productId }) => ({
       id: r.id,
       productNameSnapshot: r.productNameSnapshot,
+      ...(productId ? { productId } : {}),
+      ...(productUnit ? { unit: productUnit } : {}),
       quantity: r.quantity,
       unitPriceCents: r.unitPriceCents,
       lineTotalCents: r.lineTotalCents,
@@ -126,6 +147,44 @@ export async function runThreeWayReconciliation(
       : null,
     invoice: invoiceData,
   };
+
+  let aiMatchStats: AiLineMatchStats = {
+    attempted: false,
+    appliedCount: 0,
+    suggestionCount: 0,
+  };
+  let aliasMatchesApplied = 0;
+  if (invoiceUploadId) {
+    try {
+      const { listInvoiceProductAliases } = await import('../documents/repository');
+      const normalizedDescriptions = matcherInput.invoice.items
+        .map((item) => normalizeInvoiceAlias(item.description))
+        .filter((alias) => alias.length > 0);
+      const aliases = await listInvoiceProductAliases(env, po.businessId, po.supplierId, normalizedDescriptions);
+      const aliasOverrides = planInvoiceAliasMatches(matcherInput.poItems, matcherInput.invoice.items, aliases);
+      matcherInput.aliasMatchOverrides = aliasOverrides;
+      aliasMatchesApplied = aliasOverrides.length;
+    } catch {
+      matcherInput.aliasMatchOverrides = [];
+      aliasMatchesApplied = 0;
+    }
+  }
+  if (invoiceUploadId && env.VYRO_AI_RECONCILE_MATCHING === 'true') {
+    const deterministicPlan = planDeterministicMatches(
+      matcherInput.poItems,
+      matcherInput.invoice.items,
+      matcherInput.aliasMatchOverrides ?? [],
+    );
+    const aiMatches = await resolveUnmatchedInvoiceLines(
+      env,
+      matcherInput.poItems,
+      matcherInput.invoice,
+      deterministicPlan,
+    );
+    matcherInput.aiMatchOverrides = aiMatches.overrides;
+    matcherInput.aiSuggestions = aiMatches.suggestions;
+    aiMatchStats = aiMatches.stats;
+  }
 
   const matchResult = matchThreeWayReconciliation(matcherInput);
 
@@ -185,6 +244,12 @@ export async function runThreeWayReconciliation(
         invoiceTotalCents: invoiceData.totalCents,
         netDifferenceCents: matchResult.netDifferenceCents,
         discrepancyCount: discrepancies.length,
+        aiMatchingAttempted: aiMatchStats.attempted,
+        aiMatchingModel: aiMatchStats.model ?? null,
+        aiMatchingLatencyMs: aiMatchStats.latencyMs ?? null,
+        aiMatchesApplied: aiMatchStats.appliedCount,
+        aiSuggestions: aiMatchStats.suggestionCount,
+        aliasMatchesApplied,
       }),
       createdAt: Date.now(),
     });

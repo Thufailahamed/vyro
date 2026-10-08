@@ -25,6 +25,26 @@ describe('WorkersAIProvider', () => {
     );
   });
 
+  it('routes Workers AI calls through the configured AI Gateway', async () => {
+    const run = vi.fn().mockResolvedValue({ response: 'ok', usage: {} });
+    const p = new WorkersAIProvider({ ...makeEnv({ run }), VYRO_AI_GATEWAY: 'gateway-test' } as any);
+    await p.chat([{ role: 'user', content: 'hi' }], { model: '@cf/test/model' });
+    expect(run).toHaveBeenCalledWith(
+      '@cf/test/model',
+      expect.objectContaining({ gateway: { id: 'gateway-test' } }),
+    );
+  });
+
+  it('omits gateway options when no AI Gateway is configured', async () => {
+    const run = vi.fn().mockResolvedValue({ response: 'ok', usage: {} });
+    const p = new WorkersAIProvider(makeEnv({ run }));
+    await p.chat([{ role: 'user', content: 'hi' }], { model: '@cf/test/model' });
+    expect(run).toHaveBeenCalledWith(
+      '@cf/test/model',
+      expect.not.objectContaining({ gateway: expect.anything() }),
+    );
+  });
+
   it('falls back to narrate model when explicit model not provided', async () => {
     const run = vi.fn().mockResolvedValue({ response: 'ok', usage: {} });
     const p = new WorkersAIProvider(makeEnv({ run }));

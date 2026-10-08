@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { matchThreeWayReconciliation } from './matcher';
+import { matchThreeWayReconciliation, planDeterministicMatches } from './matcher';
 import type { MatcherInput } from './types';
 
 const baseInput: MatcherInput = {
@@ -52,6 +52,134 @@ const baseInput: MatcherInput = {
 };
 
 describe('matchThreeWayReconciliation', () => {
+  it('exposes deterministic pairs and unmatched invoice indexes', () => {
+    const plan = planDeterministicMatches(baseInput.poItems, [
+      baseInput.invoice.items[0]!,
+      { ...baseInput.invoice.items[1]!, description: 'WHT SGR 50KG' },
+    ]);
+
+    expect(plan.matches).toEqual([
+      { invoiceItemIndex: 0, poItemId: 'poi-1', confidence: 1, source: 'deterministic' },
+    ]);
+    expect(plan.unmatchedInvoiceIndexes).toEqual([1]);
+    expect(plan.remainingPoItemIds).toEqual(['poi-2']);
+  });
+
+  it('uses an AI override only for its indexed invoice line', () => {
+    const result = matchThreeWayReconciliation({
+      ...baseInput,
+      invoice: {
+        ...baseInput.invoice,
+        items: [
+          { ...baseInput.invoice.items[0]!, description: 'Samba Rice 50kg' },
+          { ...baseInput.invoice.items[1]!, description: 'WHT SGR 50KG' },
+        ],
+      },
+      aiMatchOverrides: [
+        { invoiceItemIndex: 1, poItemId: 'poi-2', confidence: 0.97, reason: 'Abbreviation and size match.' },
+      ],
+    });
+    const sugar = result.lines.find((line) => line.poItemId === 'poi-2');
+    expect(sugar?.status).toBe('matched');
+    expect(sugar?.matchSource).toBe('ai');
+    expect(sugar?.matchConfidence).toBe(0.97);
+    expect(sugar?.matchExplanation).toBe('Abbreviation and size match.');
+  });
+
+  it('keeps deterministic matches when an override targets an already resolved line', () => {
+    const result = matchThreeWayReconciliation({
+      ...baseInput,
+      aiMatchOverrides: [
+        { invoiceItemIndex: 0, poItemId: 'poi-2', confidence: 0.99, reason: 'Conflicting override.' },
+      ],
+    });
+    expect(result.lines.find((line) => line.poItemId === 'poi-1')?.matchSource).toBe('deterministic');
+    expect(result.lines.find((line) => line.poItemId === 'poi-2')?.matchSource).toBe('deterministic');
+  });
+
+  it('cannot steal a PO item reserved for a later deterministic match', () => {
+    const result = matchThreeWayReconciliation({
+      ...baseInput,
+      invoice: {
+        ...baseInput.invoice,
+        items: [
+          { ...baseInput.invoice.items[0]!, description: 'Forklift fee' },
+          { ...baseInput.invoice.items[1]!, description: 'White Sugar 50kg' },
+        ],
+      },
+      aiMatchOverrides: [
+        { invoiceItemIndex: 0, poItemId: 'poi-2', confidence: 0.99, reason: 'Incorrect competing match.' },
+      ],
+    });
+    expect(result.lines[0]!.status).toBe('unexpected_item');
+    expect(result.lines.find((line) => line.poItemId === 'poi-2')?.status).toBe('matched');
+    expect(result.lines.find((line) => line.poItemId === 'poi-2')?.matchSource).toBe('deterministic');
+  });
+
+  it('reserves exact alias matches before running token-Jaccard', () => {
+    const poItems = baseInput.poItems.map((item, index) => ({
+      ...item,
+      productId: index === 0 ? 'product-rice' : 'product-sugar',
+    }));
+    const result = matchThreeWayReconciliation({
+      ...baseInput,
+      poItems,
+      invoice: {
+        ...baseInput.invoice,
+        items: [
+          { ...baseInput.invoice.items[1]!, description: 'WHT SGR 50KG' },
+          baseInput.invoice.items[0]!,
+        ],
+      },
+      aliasMatchOverrides: [
+        { invoiceItemIndex: 0, poItemId: 'poi-2', reason: 'Previously confirmed supplier alias.' },
+      ],
+    });
+
+    expect(result.lines[0]?.poItemId).toBe('poi-2');
+    expect(result.lines[0]?.matchSource).toBe('alias');
+    expect(result.lines[0]?.matchConfidence).toBe(1);
+    expect(result.lines[0]?.matchExplanation).toBe('Previously confirmed supplier alias.');
+    expect(result.lines[1]?.poItemId).toBe('poi-1');
+    expect(result.lines[1]?.matchSource).toBe('deterministic');
+  });
+
+  it('keeps a below-threshold AI candidate unmatched and surfaces it as a suggestion', () => {
+    const result = matchThreeWayReconciliation({
+      ...baseInput,
+      invoice: {
+        ...baseInput.invoice,
+        items: [{ ...baseInput.invoice.items[0]!, description: 'BASM RCE 5K' }],
+      },
+      aiSuggestions: [
+        { invoiceItemIndex: 0, poItemId: 'poi-1', productName: 'Samba Rice 50kg', confidence: 0.72, reason: 'Possible rice pack match.' },
+      ],
+    });
+    const unexpected = result.lines.find((line) => line.status === 'unexpected_item');
+    expect(unexpected?.poItemId).toBeUndefined();
+    expect(unexpected?.aiSuggestion?.poItemId).toBe('poi-1');
+    expect(result.lines.find((line) => line.status === 'missing_item')?.poItemId).toBe('poi-1');
+  });
+
+  it('does not allow AI overrides to assign one PO item twice', () => {
+    const result = matchThreeWayReconciliation({
+      ...baseInput,
+      invoice: {
+        ...baseInput.invoice,
+        items: [
+          { ...baseInput.invoice.items[0]!, description: 'RICE A' },
+          { ...baseInput.invoice.items[1]!, description: 'RICE B' },
+        ],
+      },
+      aiMatchOverrides: [
+        { invoiceItemIndex: 0, poItemId: 'poi-1', confidence: 0.99, reason: 'Match A' },
+        { invoiceItemIndex: 1, poItemId: 'poi-1', confidence: 0.98, reason: 'Match B' },
+      ],
+    });
+    expect(result.lines.filter((line) => line.poItemId === 'poi-1')).toHaveLength(1);
+    expect(result.lines.some((line) => line.status === 'unexpected_item')).toBe(true);
+  });
+
   it('returns perfect_match when all lines and totals match exactly and delivery confirmed', () => {
     const res = matchThreeWayReconciliation(baseInput);
     expect(res.status).toBe('perfect_match');

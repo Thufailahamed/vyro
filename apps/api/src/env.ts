@@ -65,6 +65,10 @@ export interface Env {
   VYRO_AI_UPLOAD_VISION_MODEL?: string;
   /** Cheap text model used to map spreadsheet headers to the import schema. */
   VYRO_AI_UPLOAD_MAP_MODEL?: string;
+  /** Enables confidence-gated AI matching for persisted invoice uploads. Defaults off. */
+  VYRO_AI_RECONCILE_MATCHING?: string;
+  /** Cheap Workers AI text model used only for unresolved invoice lines. */
+  VYRO_AI_RECONCILE_MODEL?: string;
   /** Force routing: 'auto' (default) | 'workers' | 'gemini'. */
   VYRO_AI_PROVIDER?: string;
   /** Gemini API key (secret). Absence disables the Gemini path. */

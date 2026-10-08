@@ -52,6 +52,12 @@ overrides/suggestions so that item reservation and discrepancy calculation
 remain a single implementation. It exposes a deterministic match plan for
 the API layer rather than duplicating tokenization/Jaccard logic.
 
+Before reading invoice lines, the reconciliation service verifies that the
+upload belongs to the same buyer business as the requested PO. If the upload
+is already linked to a different PO, reject the request. A same-business
+upload with no `purchaseOrderId` remains usable through the existing manual
+reconciliation path, but it is never sent to AI matching.
+
 ## Model request and result contracts
 
 One request per reconciliation at most. Input is JSON containing:

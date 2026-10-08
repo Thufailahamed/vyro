@@ -55,6 +55,7 @@ export * from './adminImpersonations';
 export * from './dataExportRequests';
 export * from './auditExportSchedules';
 export * from './invoiceUploads';
+export * from './invoiceProductAliases';
 export * from './invoiceLineItems';
 export * from './categoryMappings';
 export * from './aiPreferences';

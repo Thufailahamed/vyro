@@ -218,9 +218,12 @@ export function OrderDetailPage() {
   const { data: autoRecon } = useQuery({
     queryKey: ['po-auto-recon', id],
     queryFn: () =>
-      api.get<{ status: string; payload: ThreeWayReconciliationResult | null }>(
-        `/documents/by-po/${id}/auto-reconciliation`,
-      ),
+      api.get<{
+        status: string;
+        payload: ThreeWayReconciliationResult | null;
+        uploadId?: string;
+        createdAt?: number;
+      }>(`/documents/by-po/${id}/auto-reconciliation`),
     enabled: !!id,
     retry: false,
   });
