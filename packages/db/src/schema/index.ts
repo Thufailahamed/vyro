@@ -8,6 +8,7 @@ export * from './supplierMembers';
 export * from './categories';
 export * from './products';
 export * from './productImages';
+export * from './productUploads';
 export * from './supplierProducts';
 export * from './stockMovements';
 export * from './carts';
