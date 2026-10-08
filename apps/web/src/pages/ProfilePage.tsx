@@ -367,11 +367,18 @@ export function ProfilePage() {
                       <p className="text-xs text-ink-4">Purchasing businesses, hotels & restaurants</p>
                     </div>
                   </div>
-                  <Link to="/onboarding/business">
-                    <Button variant="secondary" size="sm" className="text-xs uppercase tracking-wider font-bold">
-                      + Register
-                    </Button>
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link to="/addresses">
+                      <Button variant="ghost" size="sm" className="text-xs uppercase tracking-wider font-bold">
+                        Addresses
+                      </Button>
+                    </Link>
+                    <Link to="/onboarding/business">
+                      <Button variant="secondary" size="sm" className="text-xs uppercase tracking-wider font-bold">
+                        + Register
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
 
                 {user.memberships.length === 0 ? (

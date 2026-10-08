@@ -63,6 +63,7 @@ export function CheckoutPage() {
   const [businessId, setBusinessId] = useState<string | undefined>(memberships[0]?.businessId);
   const activeBusinessId = businessId ?? memberships[0]?.businessId;
   const [notes, setNotes] = useState('');
+  const [deliveryAddressId, setDeliveryAddressId] = useState<string | undefined>(undefined);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'paynow' | 'credit'>('paynow');
@@ -111,6 +112,27 @@ export function CheckoutPage() {
   const buyerKycLevel = businessDetail.data?.business?.kycLevel ?? 'none';
   const buyerIsForeign = buyerCountry !== 'LK';
   const kycMissing = buyerIsForeign && buyerKycLevel === 'none';
+
+  const addresses = useQuery({
+    queryKey: ['addresses', activeBusinessId],
+    queryFn: () =>
+      api.get<{
+        addresses: Array<{
+          id: string;
+          label: string;
+          contactName: string | null;
+          phone: string | null;
+          address: string;
+          city: string;
+          district: string;
+          isDefault: boolean;
+        }>;
+      }>(`/businesses/${activeBusinessId}/addresses`),
+    enabled: !!activeBusinessId,
+  });
+  const addressList = addresses.data?.addresses ?? [];
+  const effectiveAddressId =
+    deliveryAddressId ?? addressList.find((a) => a.isDefault)?.id ?? addressList[0]?.id;
 
   // Group items by supplier for multi-PO preview
   const grouped = useMemo(() => {
@@ -196,6 +218,7 @@ export function CheckoutPage() {
       const res = await api.post<{ poIds: string[]; count: number }>('/purchase-orders/checkout', {
         businessId: activeBusinessId,
         notes: notes.trim() || undefined,
+        ...(effectiveAddressId ? { deliveryAddressId: effectiveAddressId } : {}),
         paymentMethod,
         ...(paymentMethod === 'credit' ? { creditTerms } : {}),
       });
@@ -536,6 +559,50 @@ export function CheckoutPage() {
                     Instructions appended to every purchase order issued to suppliers
                   </p>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-ink-4">Deliver to</span>
+                  <Link to="/addresses" className="text-[11px] font-semibold text-emerald-700 hover:underline">
+                    Manage addresses
+                  </Link>
+                </div>
+                {addressList.length === 0 ? (
+                  <p className="text-[11px] text-ink-4">
+                    Using your registered business address. Save delivery addresses to choose a dock here.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {addressList.map((a) => (
+                      <label
+                        key={a.id}
+                        className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                          effectiveAddressId === a.id
+                            ? 'border-emerald-500 bg-emerald-500/5'
+                            : 'border-paper-subtle bg-paper-subtle/20 hover:border-ink-4'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="delivery-address"
+                          className="mt-1"
+                          checked={effectiveAddressId === a.id}
+                          onChange={() => setDeliveryAddressId(a.id)}
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-xs font-bold text-ink-1">
+                            {a.label}
+                            {a.isDefault ? ' (default)' : ''}
+                          </span>
+                          <span className="block text-[11px] text-ink-3 mt-0.5">
+                            {a.address}, {a.city}, {a.district}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3 pt-1">

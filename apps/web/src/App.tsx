@@ -32,6 +32,7 @@ const BuyerReturnsPage = lazy(() => import('./pages/ReturnsPage').then((m) => ({
 const AdminReturnsQueuePage = lazy(() => import('./admin/ReturnsQueuePage').then((m) => ({ default: m.ReturnsQueuePage })));
 const AdminOrderLifecycleSettingsPage = lazy(() => import('./admin/OrderLifecycleSettingsPage').then((m) => ({ default: m.OrderLifecycleSettingsPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
+const AddressesPage = lazy(() => import('./pages/AddressesPage').then((m) => ({ default: m.AddressesPage })));
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
 const LegalPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.LegalPage })));
@@ -164,6 +165,7 @@ export default function App() {
         <Route path="/orders/:poId/invoice/:invoiceId" element={<RequireAuth><InvoicePage /></RequireAuth>} />
         <Route path="/returns" element={<RequireBusiness><BuyerReturnsPage /></RequireBusiness>} />
         <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+        <Route path="/addresses" element={<RequireBusiness><AddressesPage /></RequireBusiness>} />
         <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
         <Route path="/ask" element={<RequireAuth><AskPage /></RequireAuth>} />
         <Route path="/ai" element={<RequireAuth><AiHomePage /></RequireAuth>} />
