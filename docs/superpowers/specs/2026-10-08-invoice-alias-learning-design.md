@@ -34,7 +34,10 @@ AI is considered.
    alias, the buyer's latest explicit product selection replaces the previous
    product mapping and emits an audit event with old/new product IDs and the
    source upload ID (not the raw invoice text).
-5. On future reconciliation for that business/supplier, exact alias matches
+5. If one review submission contains the same normalized description mapped
+   to different PO products, save the invoice lines but do not learn an alias
+   for that ambiguous description.
+6. On future reconciliation for that business/supplier, exact alias matches
    are checked first. An alias is usable only when its catalog product exists
    on the current PO; otherwise it is ignored and matching falls through.
 
@@ -124,6 +127,8 @@ from the purchase order when the invoice upload's optional supplierId is null.
 - Alias lookup errors fall back to deterministic Jaccard + Phase B; they do
   not fail reconciliation.
 - A stale alias whose product is not on the current PO is ignored.
+- The UI's `Untitled line` fallback for blank manually added lines is not
+  stored as an alias.
 - Audit action `invoice_product_alias.upsert` records `businessId`,
   `supplierId`, `sourceUploadId`, `previousProductId`, `productId`, and
   `actorUserId`; raw invoice descriptions are excluded from audit metadata.

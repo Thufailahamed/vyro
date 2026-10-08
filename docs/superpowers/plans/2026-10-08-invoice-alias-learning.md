@@ -241,6 +241,8 @@ Do not stem words, remove stop words, strip digits, or use fuzzy comparison for 
 - [ ] **Step 3: Implement alias planning**
 
 ```ts
+import type { InvoiceItemData, PoItemInput } from './types';
+
 export interface InvoiceProductAliasInput {
   normalizedAlias: string;
   productId: string;
@@ -458,11 +460,13 @@ Create `productAliasLearning.test.ts` with `makeD1`/`applyMigrations`, the Hono 
 
 Seed one business, one supplier, one catalog category, two products/offers, one delivered PO with both product items, and one linked invoice upload with a single line. Assert:
 
-1. `GET /api/documents/:id` returns only the PO’s distinct catalog products in `upload.matchCandidates`.
+1. `GET /api/documents/:id` returns only the PO’s distinct catalog products in `upload.matchCandidates`; a linked PO whose `businessId` differs from the upload's business is rejected, not exposed.
 2. `POST /:id/review` with line `productId` equal to a PO candidate saves `invoiceLineItems.productId` and creates an alias under `(businessId, supplierId)` for normalized line description.
 3. Re-submit the same normalized description with the other PO product selected → alias `productId` updates to the latest selection and an audit event records old/new product IDs (not the raw description).
 4. Submit a catalog `productId` that is not on the PO → 400; no alias is created.
 5. A non-PO-linked upload returns no candidates and a non-null selected `productId` is rejected; no alias is learned.
+6. Two lines in one review with the same normalized description but different selected products both save, but neither selection overwrites/creates an alias for that conflicting description.
+7. The UI-generated `Untitled line` placeholder is not learned as an alias.
 
 - [ ] **Step 2: Add candidate query helper**
 
@@ -492,9 +496,18 @@ export async function listInvoiceMatchCandidates(env: Env, purchaseOrderId: stri
 In `routes.ts` `GET /:id`, after `getUpload` and the not-found guard:
 
 ```ts
-  const matchCandidates = row.purchaseOrderId
-    ? await listInvoiceMatchCandidates(c.env, row.purchaseOrderId)
-    : [];
+  let matchCandidates: Array<{ productId: string; productName: string; unit: string | null }> = [];
+  if (row.purchaseOrderId) {
+    const linkedPo = await getDb(c.env.DB)
+      .select({ businessId: purchaseOrders.businessId })
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.id, row.purchaseOrderId))
+      .get();
+    if (!linkedPo || linkedPo.businessId !== businessId) {
+      throw httpError(403, 'FORBIDDEN', 'Invoice is not linked to your purchase order');
+    }
+    matchCandidates = await listInvoiceMatchCandidates(c.env, row.purchaseOrderId);
+  }
   return c.json({ upload: { ...row, matchCandidates } });
 ```
 
@@ -503,6 +516,18 @@ In `routes.ts` `GET /:id`, after `getUpload` and the not-found guard:
 In `POST /:id/review`, after `existing` is loaded:
 
 ```ts
+  let linkedSupplierId: string | null = null;
+  if (existing.purchaseOrderId) {
+    const linkedPo = await getDb(c.env.DB)
+      .select({ businessId: purchaseOrders.businessId, supplierId: purchaseOrders.supplierId })
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.id, existing.purchaseOrderId))
+      .get();
+    if (!linkedPo || linkedPo.businessId !== businessId) {
+      throw httpError(403, 'FORBIDDEN', 'Invoice is not linked to your purchase order');
+    }
+    linkedSupplierId = linkedPo.supplierId;
+  }
   const matchCandidates = existing.purchaseOrderId
     ? await listInvoiceMatchCandidates(c.env, existing.purchaseOrderId)
     : [];
@@ -512,7 +537,12 @@ In `POST /:id/review`, after `existing` is loaded:
   }
 ```
 
-After `saveReviewedLines(...)`, and before the category-correction loop completes, get the linked supplier from `purchaseOrders` using `existing.purchaseOrderId`; for each `parsed.data.lines[i]` with a non-null `productId` and non-empty `normalizeInvoiceAlias(description)`, call `upsertInvoiceProductAlias` with `businessId`, PO `supplierId`, `sourceUploadId:id`, and `createdByUserId:ctx.userId`. If an upsert fails, catch it per line and `console.warn` with only `uploadId` + an error label; do not log invoice text and do not roll back the review save. The helper returns `changed:false` for an unchanged selection and creates no audit row in that case.
+After `saveReviewedLines(...)`, and before the category-correction loop completes:
+
+1. For each submitted line with non-null `productId`, `linkedSupplierId`, and a non-empty normalized description, collect `normalizedAlias → productId` in a map. Skip the exact `Untitled line` fallback (case-insensitive) and aliases whose normalizer returns `''`.
+2. If the same normalized alias occurs with two different selected product IDs in this review submission, mark it conflicting and do not learn that alias from this submission.
+3. For every non-conflicting alias once, call `upsertInvoiceProductAlias` with `businessId`, `linkedSupplierId`, `sourceUploadId:id`, and `createdByUserId:ctx.userId`.
+4. If an upsert fails, catch it per alias and `console.warn` with only `uploadId` plus an error label; do not log invoice text and do not roll back the review save. The helper returns `changed:false` for an unchanged selection and creates no audit row in that case.
 
 - [ ] **Step 5: Run document tests + typecheck**
 
@@ -613,7 +643,7 @@ export function InvoicePoProductSelect({
 
 - [ ] **Step 3: Wire into InvoiceReviewPage**
 
-Extend `LineItem` with `productId: string | null`; extend `Upload` with `purchaseOrderId: string | null` and `matchCandidates: InvoiceProductCandidate[]`. In `emptyLine`, set `productId: null`. Include `productId` in the save payload. Add one `PO product` column only when `upload.purchaseOrderId` is present; render `InvoicePoProductSelect` for those linked invoice lines. Update the empty table `colSpan` from 7 to 8 when that column is present. Add `productId` to the `dirty` comparisons so changing only the selected product enables Save.
+Extend `LineItem` with `productId: string | null`; extend `Upload` with `purchaseOrderId: string | null`, `matchCandidates: InvoiceProductCandidate[]`, and each line's `productId`. Import `InvoicePoProductSelect` and `type InvoiceProductCandidate` from `@/components/invoices/InvoicePoProductSelect`. In `emptyLine`, set `productId: null`. Include `productId` in the save payload. Add one `PO product` column only when `upload.purchaseOrderId` is present and `upload.matchCandidates.length > 0`; render `InvoicePoProductSelect` for those linked invoice lines. Update the empty table `colSpan` from 7 to 8 when that column is present. Add `productId` to the `dirty` comparisons so changing only the selected product enables Save.
 
 - [ ] **Step 4: Run web tests + typecheck**
 
