@@ -2,6 +2,7 @@ import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 import { businesses } from './businesses';
 import { users } from './users';
 import { suppliers } from './suppliers';
+import { purchaseOrders } from './purchaseOrders';
 
 export const invoiceUploads = sqliteTable(
   'invoice_uploads',
@@ -10,6 +11,13 @@ export const invoiceUploads = sqliteTable(
     businessId: text('business_id').notNull().references(() => businesses.id),
     uploadedByUserId: text('uploaded_by_user_id').notNull().references(() => users.id),
     supplierId: text('supplier_id').references(() => suppliers.id),
+    purchaseOrderId: text('purchase_order_id').references(() => purchaseOrders.id),
+    reconciliationStatus: text('reconciliation_status', {
+      enum: ['none', 'passed', 'discrepancy', 'failed'],
+    })
+      .notNull()
+      .default('none'),
+    reconciliationJson: text('reconciliation_json'),
     status: text('status', {
       enum: ['pending', 'processing', 'ready', 'reviewed', 'failed', 'manual_required'],
     }).notNull(),
@@ -29,6 +37,7 @@ export const invoiceUploads = sqliteTable(
   (t) => ({
     businessIdx: index('invoice_uploads_business_idx').on(t.businessId, t.createdAt),
     statusIdx: index('invoice_uploads_status_idx').on(t.status),
+    poIdx: index('invoice_uploads_po_idx').on(t.purchaseOrderId, t.createdAt),
   }),
 );
 
