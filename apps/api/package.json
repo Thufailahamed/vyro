@@ -27,7 +27,7 @@
     "@vyro/validation": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.6.0",
-    "pdfkit": "^0.20.2",
+    "pdf-lib": "^1.17.1",
     "resend": "^6.30.0",
     "uuid": "^11.0.0",
     "zod": "^3.23.0"
@@ -35,7 +35,6 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.5.0",
     "@cloudflare/workers-types": "^4.20240909.0",
-    "@types/pdfkit": "^0.17.6",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0",
     "wrangler": "^4.20.0"

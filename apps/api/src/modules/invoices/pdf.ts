@@ -1,4 +1,4 @@
-import PDFDocument from 'pdfkit';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 export interface InvoicePdfData {
   invoice: {
@@ -27,51 +27,71 @@ const TITLES: Record<InvoicePdfData['invoice']['type'], string> = {
 
 const amount = (cents: number) => (cents / 100).toFixed(2);
 
-export function renderInvoicePdf(data: InvoicePdfData): Promise<ArrayBuffer> {
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 50 });
-    const chunks: Uint8Array[] = [];
-    doc.on('data', (c: Uint8Array) => chunks.push(c));
-    doc.on('end', () => {
-      const merged = new Uint8Array(chunks.reduce((n, c) => n + c.byteLength, 0));
-      let off = 0;
-      for (const c of chunks) {
-        merged.set(c, off);
-        off += c.byteLength;
-      }
-      resolve(merged.buffer);
-    });
-    doc.on('error', reject);
+export async function renderInvoicePdf(data: InvoicePdfData): Promise<ArrayBuffer> {
+  const doc = await PDFDocument.create();
+  const page = doc.addPage([595.28, 841.89]);
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
 
-    doc.fontSize(20).text(TITLES[data.invoice.type], { align: 'center' });
-    doc.moveDown();
-    doc
-      .fontSize(10)
-      .text(`Invoice: ${data.invoice.number}`)
-      .text(`Issued: ${new Date(data.invoice.issuedAt).toISOString().slice(0, 10)}`)
-      .text(`PO: ${data.po.poNumber}`)
-      .text(`Currency: ${data.invoice.currency}`);
-    doc.moveDown();
-    doc
-      .text(`Supplier: ${data.supplier.name}${data.invoice.supplierVatNo ? ` (VAT ${data.invoice.supplierVatNo})` : ''}`)
-      .text(`Buyer: ${data.business.name}${data.invoice.buyerTaxId ? ` (Tax ID ${data.invoice.buyerTaxId})` : ''}`);
-    doc.moveDown();
-    doc.fontSize(12).text('Items', { underline: true });
-    for (const item of data.items) {
-      doc
-        .fontSize(10)
-        .text(
-          `${item.description}  qty:${item.quantity}  unit:${amount(item.unitCents)}  total:${amount(item.lineTotalCents)}`,
-        );
-    }
-    doc.moveDown();
-    doc
-      .fontSize(10)
-      .text(`Subtotal: ${amount(data.invoice.subtotalCents)}`)
-      .text(`VAT: ${amount(data.invoice.vatCents)}`)
-      .text(`SSCL: ${amount(data.invoice.ssclCents)}`)
-      .fontSize(12)
-      .text(`Total: ${data.invoice.currency} ${amount(data.invoice.totalCents)}`);
-    doc.end();
+  const { width, height } = page.getSize();
+  let y = height - 50;
+
+  const title = TITLES[data.invoice.type] || 'INVOICE';
+  const titleWidth = fontBold.widthOfTextAtSize(title, 20);
+  page.drawText(title, {
+    x: (width - titleWidth) / 2,
+    y,
+    size: 20,
+    font: fontBold,
+    color: rgb(0, 0, 0),
   });
+  y -= 35;
+
+  const lines = [
+    `Invoice: ${data.invoice.number}`,
+    `Issued: ${new Date(data.invoice.issuedAt).toISOString().slice(0, 10)}`,
+    `PO: ${data.po.poNumber}`,
+    `Currency: ${data.invoice.currency}`,
+  ];
+  for (const line of lines) {
+    page.drawText(line, { x: 50, y, size: 10, font, color: rgb(0, 0, 0) });
+    y -= 15;
+  }
+  y -= 10;
+
+  const supplierLine = `Supplier: ${data.supplier.name}${data.invoice.supplierVatNo ? ` (VAT ${data.invoice.supplierVatNo})` : ''}`;
+  const buyerLine = `Buyer: ${data.business.name}${data.invoice.buyerTaxId ? ` (Tax ID ${data.invoice.buyerTaxId})` : ''}`;
+  page.drawText(supplierLine, { x: 50, y, size: 10, font, color: rgb(0, 0, 0) });
+  y -= 15;
+  page.drawText(buyerLine, { x: 50, y, size: 10, font, color: rgb(0, 0, 0) });
+  y -= 25;
+
+  page.drawText('Items', { x: 50, y, size: 12, font: fontBold, color: rgb(0, 0, 0) });
+  y -= 18;
+
+  for (const item of data.items) {
+    const itemText = `${item.description}  qty:${item.quantity}  unit:${amount(item.unitCents)}  total:${amount(item.lineTotalCents)}`;
+    page.drawText(itemText, { x: 50, y, size: 10, font, color: rgb(0, 0, 0) });
+    y -= 15;
+  }
+  y -= 15;
+
+  page.drawText(`Subtotal: ${amount(data.invoice.subtotalCents)}`, { x: 50, y, size: 10, font, color: rgb(0, 0, 0) });
+  y -= 15;
+  page.drawText(`VAT: ${amount(data.invoice.vatCents)}`, { x: 50, y, size: 10, font, color: rgb(0, 0, 0) });
+  y -= 15;
+  page.drawText(`SSCL: ${amount(data.invoice.ssclCents)}`, { x: 50, y, size: 10, font, color: rgb(0, 0, 0) });
+  y -= 20;
+  page.drawText(`Total: ${data.invoice.currency} ${amount(data.invoice.totalCents)}`, {
+    x: 50,
+    y,
+    size: 12,
+    font: fontBold,
+    color: rgb(0, 0, 0),
+  });
+
+  const pdfBytes = await doc.save();
+  const copy = new Uint8Array(pdfBytes.byteLength);
+  copy.set(pdfBytes);
+  return copy.buffer as ArrayBuffer;
 }
