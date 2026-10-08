@@ -5,7 +5,11 @@ const BINDING = {
   audit: 'AUDIT_QUEUE',
   notifications: 'NOTIFICATIONS_QUEUE',
   invoices: 'INVOICES_QUEUE',
-} as const satisfies Record<QueueName, keyof Pick<Env, 'AUDIT_QUEUE' | 'NOTIFICATIONS_QUEUE' | 'INVOICES_QUEUE'>>;
+  uploads: 'UPLOADS_QUEUE',
+} as const satisfies Record<
+  QueueName,
+  keyof Pick<Env, 'AUDIT_QUEUE' | 'NOTIFICATIONS_QUEUE' | 'INVOICES_QUEUE' | 'UPLOADS_QUEUE'>
+>;
 
 export async function queueSend(env: Env, queue: QueueName, payload: unknown): Promise<void> {
   const binding = env[BINDING[queue]] as Queue | undefined;

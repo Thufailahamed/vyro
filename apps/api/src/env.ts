@@ -8,6 +8,7 @@ export interface Env {
   AUDIT_QUEUE: Queue;
   NOTIFICATIONS_QUEUE: Queue;
   INVOICES_QUEUE: Queue;
+  UPLOADS_QUEUE: Queue;
   METRICS?: AnalyticsEngineDataset;
   ENVIRONMENT: string;
   WEB_ORIGIN: string;
@@ -58,6 +59,12 @@ export interface Env {
   VYRO_AI_NARRATE_MODEL?: string;
   /** Per-business daily token cap (soft). */
   VYRO_AI_DAILY_TOKEN_CAP?: string;
+  /** AI Gateway id — routes Workers AI calls through Cloudflare AI Gateway. */
+  VYRO_AI_GATEWAY?: string;
+  /** Vision model for AI product upload (photo/PDF price lists, product photos). */
+  VYRO_AI_UPLOAD_VISION_MODEL?: string;
+  /** Cheap text model used to map spreadsheet headers to the import schema. */
+  VYRO_AI_UPLOAD_MAP_MODEL?: string;
   /** Force routing: 'auto' (default) | 'workers' | 'gemini'. */
   VYRO_AI_PROVIDER?: string;
   /** Gemini API key (secret). Absence disables the Gemini path. */

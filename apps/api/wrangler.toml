@@ -60,6 +60,10 @@ queue = "notifications-dlq"
 binding = "INVOICES_QUEUE"
 queue = "invoices"
 
+[[queues.producers]]
+binding = "UPLOADS_QUEUE"
+queue = "product-uploads"
+
 [[queues.consumers]]
 queue = "audit"
 max_batch_size = 25
@@ -74,6 +78,11 @@ dead_letter_queue = "notifications-dlq"
 
 [[queues.consumers]]
 queue = "invoices"
+max_batch_size = 10
+max_batch_timeout = 30
+
+[[queues.consumers]]
+queue = "product-uploads"
 max_batch_size = 10
 max_batch_timeout = 30
 
@@ -92,6 +101,13 @@ VYRO_AI_ENABLED = "true"
 VYRO_AI_CLASSIFY_MODEL = "@cf/zai-org/glm-5.3-flash"
 VYRO_AI_NARRATE_MODEL = "@cf/zai-org/glm-5.3-flash"
 VYRO_AI_DAILY_TOKEN_CAP = "200000"
+# AI Gateway — set your real gateway id here; every Workers AI call routes
+# through it when this is non-empty.
+VYRO_AI_GATEWAY = "vyro-ai-gateway"
+# AI product upload models (vision for photo/PDF extraction, cheap text for
+# header mapping). Upgrade the vision model id without code changes.
+VYRO_AI_UPLOAD_VISION_MODEL = "@cf/llava-hf/llava-1.5-7b-hf"
+VYRO_AI_UPLOAD_MAP_MODEL = "@cf/zai-org/glm-5.3-flash"
 STATUS_PAGE_ORIGIN = "http://localhost:5173"
 OPS_EMAIL = "ops@example.test"
 # RESEND_API_KEY + RESEND_WEBHOOK_SECRET must be set as secrets (not in vars):
@@ -203,6 +219,9 @@ VYRO_AI_ENABLED = "true"
 VYRO_AI_CLASSIFY_MODEL = "@cf/zai-org/glm-5.3-flash"
 VYRO_AI_NARRATE_MODEL = "@cf/zai-org/glm-5.3-flash"
 VYRO_AI_DAILY_TOKEN_CAP = "200000"
+VYRO_AI_GATEWAY = "vyro-ai-gateway"
+VYRO_AI_UPLOAD_VISION_MODEL = "@cf/llava-hf/llava-1.5-7b-hf"
+VYRO_AI_UPLOAD_MAP_MODEL = "@cf/zai-org/glm-5.3-flash"
 STATUS_PAGE_ORIGIN = "https://status.vyro.lk"
 OPS_EMAIL = "ops@vyro.lk"
 # Cross-border wire beneficiary details. Set as secrets in production so they

@@ -2,7 +2,7 @@ import type { Env } from '../env';
 import { getDb } from '@vyro/db';
 import { queueEvents } from '@vyro/db/schema';
 
-export type QueueName = 'audit' | 'notifications' | 'invoices';
+export type QueueName = 'audit' | 'notifications' | 'invoices' | 'uploads';
 export type QueueEventKind = 'retry' | 'dlq' | 'manual';
 export type QueueMetricName =
   | 'queue.consume.start'

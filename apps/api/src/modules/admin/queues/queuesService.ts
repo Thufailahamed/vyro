@@ -24,8 +24,8 @@ function ulid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
 }
 
-function bindingFor(queue: QueueName): 'AUDIT_QUEUE' | 'NOTIFICATIONS_QUEUE' | 'INVOICES_QUEUE' {
-  return ({ audit: 'AUDIT_QUEUE', notifications: 'NOTIFICATIONS_QUEUE', invoices: 'INVOICES_QUEUE' } as const)[queue];
+function bindingFor(queue: QueueName): 'AUDIT_QUEUE' | 'NOTIFICATIONS_QUEUE' | 'INVOICES_QUEUE' | 'UPLOADS_QUEUE' {
+  return ({ audit: 'AUDIT_QUEUE', notifications: 'NOTIFICATIONS_QUEUE', invoices: 'INVOICES_QUEUE', uploads: 'UPLOADS_QUEUE' } as const)[queue];
 }
 
 export async function getHealth(env: Env): Promise<QueueHealth[]> {

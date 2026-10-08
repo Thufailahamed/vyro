@@ -105,6 +105,9 @@ export default {
     } else if (batch.queue === 'invoices') {
       const { handleInvoicesBatch } = await import('./queue/invoiceOcr');
       await handleInvoicesBatch(batch, env);
+    } else if (batch.queue === 'product-uploads') {
+      const { handleUploadsBatch } = await import('./queue/uploadOcr');
+      await handleUploadsBatch(batch as never, env);
     } else {
       // Unknown queue — drain silently.
       for (const msg of batch.messages) msg.ack();

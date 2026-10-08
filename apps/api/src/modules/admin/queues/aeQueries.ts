@@ -34,7 +34,7 @@ export async function queryQueueHealth(env: Env, fetchImpl: typeof fetch = fetch
   const sql = `
     timestamp > NOW() - INTERVAL '1' HOUR
     AND blob1 LIKE 'queue.%'
-    AND blob2 IN ('audit','notifications','invoices')
+    AND blob2 IN ('audit','notifications','invoices','uploads')
     GROUP BY blob2, blob3
     SELECT
       blob2 AS queue,
@@ -48,6 +48,7 @@ export async function queryQueueHealth(env: Env, fetchImpl: typeof fetch = fetch
     audit: { queue: 'audit', backlog: 0, ackLast1h: 0, errLast1h: 0, p50Ms: 0, p95Ms: 0 },
     notifications: { queue: 'notifications', backlog: 0, ackLast1h: 0, errLast1h: 0, p50Ms: 0, p95Ms: 0 },
     invoices: { queue: 'invoices', backlog: 0, ackLast1h: 0, errLast1h: 0, p50Ms: 0, p95Ms: 0 },
+    uploads: { queue: 'uploads', backlog: 0, ackLast1h: 0, errLast1h: 0, p50Ms: 0, p95Ms: 0 },
   };
   for (const r of rows) {
     const q = out[r.queue];
