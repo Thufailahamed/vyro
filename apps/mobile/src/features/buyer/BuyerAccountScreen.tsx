@@ -10,6 +10,7 @@ import {
   HelpCircle,
   Landmark,
   LogOut,
+  MapPin,
   Package,
   Receipt,
   Repeat,
@@ -46,6 +47,7 @@ const GROUPS: { label: string; links: Link[] }[] = [
   {
     label: 'Business',
     links: [
+      { icon: MapPin, label: 'Delivery addresses', to: '/buyer/addresses' },
       { icon: ShieldCheck, label: 'Verification (KYC)', to: '/buyer/kyc', tone: 'copper' },
       { icon: Bell, label: 'Notifications', to: '/notifications' },
     ],

@@ -142,6 +142,7 @@ they will exist.
 | `/buyer/checkout` | checkout |
 | `/buyer/payment-return` (`?orderId=&outcome=success|cancel`) | payment result |
 | `/buyer/kyc` | buyer KYC |
+| `/buyer/addresses` | delivery address book (list/add/edit/default/delete) |
 | `/buyer/order/[id]` | order detail |
 | `/buyer/order/[id]/invoice/[invoiceId]` | invoice |
 | `/buyer/order/conversational` | conversational ordering |

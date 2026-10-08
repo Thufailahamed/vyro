@@ -4,13 +4,14 @@
  * has no mobile equivalent — callers should surface a 'page not found'
  * toast instead of routing into a 404 screen.
  */
-const ROUTES: Array<[string, string]> = [
+const ROUTES: [string, string][] = [
   ['/products/', '/buyer/product/'],
   ['/suppliers/', '/buyer/store/'],
   ['/orders/', '/buyer/order/'],
   ['/orders', '/buyer/orders'],
   ['/cart', '/buyer/cart'],
   ['/search', '/buyer/catalog'],
+  ['/addresses', '/buyer/addresses'],
   ['/rfqs', '/buyer/rfqs'],
   ['/invoices', '/buyer/invoices'],
   ['/dashboard', '/buyer/ai'],
