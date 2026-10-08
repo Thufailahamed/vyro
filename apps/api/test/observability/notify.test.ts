@@ -1,4 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const { sendEmailMock } = vi.hoisted(() => ({ sendEmailMock: vi.fn() }));
+vi.mock('../../src/lib/email/client', () => ({ sendEmail: sendEmailMock }));
+
 import {
   notifySlack,
   notifyEmail,
@@ -12,6 +16,10 @@ const baseCtx = {
   threshold: 1500,
   window: '5m',
 };
+
+beforeEach(() => {
+  sendEmailMock.mockReset();
+});
 
 describe('notifySlack', () => {
   it('POSTs Block Kit payload to webhook', async () => {
@@ -51,24 +59,33 @@ describe('notifySlack', () => {
 });
 
 describe('notifyEmail', () => {
-  it('POSTs to Resend API', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response('{"id":"x"}', { status: 200 }),
-      );
+  it('sends the alert through the email client to OPS_EMAIL', async () => {
+    sendEmailMock.mockResolvedValueOnce({ ok: true, provider: 'resend', id: 'x' });
     const ok = await notifyEmail(
       {
         RESEND_API_KEY: 're_x',
         OPS_EMAIL: 'ops@example.test',
       } as any,
       baseCtx,
-      fetchMock as any,
     );
     expect(ok).toBe(true);
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(String(url)).toContain('resend.com');
-    expect(init.headers.Authorization).toBe('Bearer re_x');
+    expect(sendEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({ RESEND_API_KEY: 're_x' }),
+      expect.objectContaining({ to: 'ops@example.test' }),
+    );
+  });
+
+  it('retries once and returns false when the client keeps failing', async () => {
+    sendEmailMock.mockResolvedValue({ ok: false, provider: 'resend', error: 'boom' });
+    const ok = await notifyEmail(
+      {
+        RESEND_API_KEY: 're_x',
+        OPS_EMAIL: 'ops@example.test',
+      } as any,
+      baseCtx,
+    );
+    expect(ok).toBe(false);
+    expect(sendEmailMock).toHaveBeenCalledTimes(2);
   });
 
   it('returns false when RESEND_API_KEY missing', async () => {
@@ -77,5 +94,6 @@ describe('notifyEmail', () => {
       baseCtx,
     );
     expect(ok).toBe(false);
+    expect(sendEmailMock).not.toHaveBeenCalled();
   });
 });

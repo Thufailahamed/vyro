@@ -78,7 +78,7 @@ function mapStatus(t: string): string {
 
 router.post('/resend', async (c: Context<{ Bindings: Env }>) => {
   const raw = await c.req.text();
-  const sig = c.req.header('resend-signature');
+  const sig = c.req.header('resend-signature') ?? null;
   const env = c.env as Env;
   const r = await handleResendWebhook(env, raw, sig);
   return c.json(r.body as Record<string, unknown>, r.status as 200 | 401 | 500);
