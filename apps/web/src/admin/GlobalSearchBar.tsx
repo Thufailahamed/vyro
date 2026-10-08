@@ -29,7 +29,7 @@ export const GlobalSearchBar = forwardRef<HTMLInputElement>(function GlobalSearc
   return (
     <div ref={wrapperRef} className="relative w-full">
       <div className="relative flex items-center">
-        <span className="absolute left-2.5 pointer-events-none text-paper/35">
+        <span className="pointer-events-none absolute left-3 text-paper/35">
           <SearchIcon size={14} />
         </span>
         <input
@@ -43,15 +43,15 @@ export const GlobalSearchBar = forwardRef<HTMLInputElement>(function GlobalSearc
           onFocus={() => setOpen(true)}
           placeholder="Search controls..."
           aria-label="Global admin search"
-          className="w-full text-xs bg-paper/5 border border-paper/10 rounded-xs pl-8 pr-9 py-1.5 text-paper placeholder:text-paper/40 focus:outline-none focus:border-volt focus:bg-paper/10 transition-colors"
+          className="h-9 w-full rounded-[10px] bg-paper/[0.04] pl-8 pr-10 text-[13px] text-paper shadow-[inset_0_0_0_1px_rgba(250,247,240,0.08)] placeholder:text-paper/35 transition-all duration-200 hover:bg-paper/[0.06] focus:bg-paper/[0.07] focus:outline-none focus:shadow-[inset_0_0_0_1px_rgba(198,220,74,0.6),0_0_0_3px_rgba(198,220,74,0.12)]"
         />
-        <kbd className="absolute right-2 pointer-events-none font-mono text-[9px] px-1 py-0.2 rounded bg-paper/10 text-paper/40 border border-paper/10">
+        <kbd className="pointer-events-none absolute right-2 rounded-md bg-paper/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-paper/45 shadow-[inset_0_0_0_1px_rgba(250,247,240,0.1)]">
           ⌘K
         </kbd>
       </div>
 
       {open && q.length >= 2 ? (
-        <div className="absolute z-50 right-0 mt-1 w-96 max-h-96 overflow-y-auto bg-void border border-paper/10 rounded shadow-lg">
+        <div className="absolute left-0 z-50 mt-2 max-h-96 w-96 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl bg-[#121410]/95 shadow-[0_0_0_1px_rgba(250,247,240,0.1),0_24px_48px_-12px_rgba(0,0,0,0.6)] backdrop-blur-xl scrollbar-dark animate-fade-in">
           <SearchResultsView data={data ?? {}} onGo={go} />
         </div>
       ) : null}
@@ -149,7 +149,7 @@ function SearchResultsView({ data, onGo }: { data: SearchResults; onGo: (path: s
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="border-b border-paper/10 last:border-0">
-      <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-paper/40">{label}</div>
+      <div className="px-3 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-paper/35">{label}</div>
       {children}
     </div>
   );
@@ -159,7 +159,7 @@ function Row({ children, onClick }: { children: React.ReactNode; onClick: () => 
   return (
     <button
       onClick={onClick}
-      className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-paper/5 text-left text-paper"
+      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-paper transition-colors hover:bg-volt/[0.08] hover:text-volt"
     >
       {children}
     </button>

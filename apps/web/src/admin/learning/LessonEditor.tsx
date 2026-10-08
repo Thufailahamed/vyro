@@ -97,7 +97,7 @@ export function LessonEditor() {
       </div>
 
       <label className="block">
-        <span className="text-xs uppercase text-slate-500">Slug</span>
+        <span className="text-xs uppercase text-ink-4">Slug</span>
         <input
           className="mt-1 w-full rounded border px-2 py-1"
           value={form.slug}
@@ -106,7 +106,7 @@ export function LessonEditor() {
         />
       </label>
       <label className="block">
-        <span className="text-xs uppercase text-slate-500">Title</span>
+        <span className="text-xs uppercase text-ink-4">Title</span>
         <input
           className="mt-1 w-full rounded border px-2 py-1"
           value={form.title}
@@ -114,7 +114,7 @@ export function LessonEditor() {
         />
       </label>
       <label className="block">
-        <span className="text-xs uppercase text-slate-500">Summary</span>
+        <span className="text-xs uppercase text-ink-4">Summary</span>
         <input
           className="mt-1 w-full rounded border px-2 py-1"
           value={form.summary}
@@ -122,7 +122,7 @@ export function LessonEditor() {
         />
       </label>
       <label className="block">
-        <span className="text-xs uppercase text-slate-500">Body (Markdown)</span>
+        <span className="text-xs uppercase text-ink-4">Body (Markdown)</span>
         <textarea
           className="mt-1 w-full rounded border px-2 py-1 font-mono"
           rows={12}
@@ -133,7 +133,7 @@ export function LessonEditor() {
 
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
-          <span className="text-xs uppercase text-slate-500">Track</span>
+          <span className="text-xs uppercase text-ink-4">Track</span>
           <select
             className="mt-1 w-full rounded border px-2 py-1"
             value={form.track}
@@ -144,7 +144,7 @@ export function LessonEditor() {
           </select>
         </label>
         <label className="block">
-          <span className="text-xs uppercase text-slate-500">Order index</span>
+          <span className="text-xs uppercase text-ink-4">Order index</span>
           <input
             type="number"
             className="mt-1 w-full rounded border px-2 py-1"
@@ -178,7 +178,7 @@ export function LessonEditor() {
           type="button"
           onClick={onSave}
           disabled={create.isPending || update.isPending}
-          className="rounded bg-sky-600 px-3 py-1 text-white disabled:opacity-50"
+          className="rounded bg-sky-600 px-3 py-1 text-paper disabled:opacity-50"
         >
           Save lesson
         </button>

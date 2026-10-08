@@ -17,12 +17,14 @@ export type ProductRow = {
   moderationNotes: string | null;
   createdAt: number;
   updatedAt: number;
+  imageUrl?: string | null;
 };
 
 export type ProductDetail = {
   product: ProductRow;
   offers: unknown[];
   category: { id: string; name: string } | null;
+  images?: Array<{ id: string; url: string; altText: string | null }>;
   audit: Array<{ id: string; action: string; actorId: string; createdAt: number; before: string | null; after: string | null }>;
 };
 

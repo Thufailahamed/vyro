@@ -30,14 +30,13 @@ import {
   EmptyBlock,
   Panel,
   Pill,
-  StatCard,
-  StatGrid,
   TableCard,
   TableSkeleton,
   Tabs,
   Toolbar,
   controlClass,
 } from './ui';
+import { MetricStrip } from './catalogUi';
 
 type TreeNode = CategoryRow & { depth: number; children: TreeNode[] };
 
@@ -213,19 +212,22 @@ export function CategoryTreeEditor() {
 
   return (
     <div className="space-y-6">
-      <StatGrid cols={4}>
-        <StatCard label="Total categories" value={metrics.total} sub="Defined wholesale taxonomy" icon={<StoreIcon size={16} />} loading={q.isLoading} />
-        <StatCard
-          label="Active in store"
-          value={metrics.activeCount}
-          sub="Visible to sellers & buyers"
-          icon={<CheckCircleIcon size={16} />}
-          tone={metrics.activeCount > 0 ? 'success' : 'neutral'}
-          loading={q.isLoading}
-        />
-        <StatCard label="Root departments" value={metrics.rootCount} sub="Top-level categories" icon={<LayersIcon size={16} />} loading={q.isLoading} />
-        <StatCard label="Sub-categories" value={metrics.subCount} sub="Nested under departments" icon={<SparklesIcon size={16} />} loading={q.isLoading} />
-      </StatGrid>
+      <MetricStrip
+        loading={q.isLoading}
+        items={[
+          { label: 'Total categories', value: metrics.total, sub: 'Defined wholesale taxonomy', icon: <StoreIcon size={15} /> },
+          {
+            label: 'Active in store',
+            value: metrics.activeCount,
+            sub: 'Visible to sellers & buyers',
+            icon: <CheckCircleIcon size={15} />,
+            tone: 'success',
+            ratio: metrics.total ? metrics.activeCount / metrics.total : 0,
+          },
+          { label: 'Root departments', value: metrics.rootCount, sub: 'Top-level categories', icon: <LayersIcon size={15} />, tone: 'brand' },
+          { label: 'Sub-categories', value: metrics.subCount, sub: 'Nested under departments', icon: <SparklesIcon size={15} />, tone: 'brand' },
+        ]}
+      />
 
       {err ? (
         <Callout
@@ -246,6 +248,7 @@ export function CategoryTreeEditor() {
       {canWrite ? (
         isCreateOpen ? (
           <Panel
+            className="rounded-2xl"
             title="Add wholesale category"
             description="Categories created here are selected by sellers when publishing products and wholesale offers."
             icon={<PlusIcon size={16} />}
@@ -337,7 +340,7 @@ export function CategoryTreeEditor() {
             </form>
           </Panel>
         ) : (
-          <Card className="flex items-center justify-between gap-4">
+          <Card className="flex items-center justify-between gap-4 rounded-2xl">
             <div className="flex items-center gap-3">
               <span className="flex size-9 items-center justify-center rounded-lg bg-bone text-ink-3">
                 <PlusIcon size={16} />
@@ -357,6 +360,7 @@ export function CategoryTreeEditor() {
       ) : null}
 
       <TableCard
+        className="rounded-2xl"
         title="Category registry"
         toolbar={
           <Toolbar

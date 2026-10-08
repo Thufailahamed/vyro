@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { PageHeader } from '@/components/ui';
+
 import { formatLKR } from '@/lib/format';
 import { BusinessSuspendButton } from './BusinessSuspendButton';
 import {
@@ -16,6 +16,7 @@ import {
   ShoppingCartIcon,
   UserIcon,
 } from '@/components/icons';
+import { AdminPageHeader } from './ui';
 
 type Detail = {
   id: string;
@@ -96,7 +97,7 @@ export function BusinessDetailPage() {
       </div>
 
       {/* Executive Page Header */}
-      <PageHeader
+      <AdminPageHeader
         kicker={
           <div className="flex flex-wrap items-center gap-2">
             <span className="vyro-kicker text-copper">Registry</span>
@@ -109,7 +110,7 @@ export function BusinessDetailPage() {
           </div>
         }
         title={b.name}
-        sub="Commercial wholesale buyer entity authorized to issue institutional purchase orders and negotiate supplier pricing terms."
+        description="Commercial wholesale buyer entity authorized to issue institutional purchase orders and negotiate supplier pricing terms."
         actions={<BusinessSuspendButton businessId={b.id} status={b.status} />}
       />
 
@@ -122,7 +123,7 @@ export function BusinessDetailPage() {
           </div>
           <div className="flex items-center gap-2 pt-1">
             <span
-              className={`size-2.5 rounded-full ${isSuspended ? 'bg-rose animate-ping' : 'bg-emerald-500'}`}
+              className={`size-2.5 rounded-full ${isSuspended ? 'bg-rose animate-ping' : 'bg-mint'}`}
             />
             <span
               className={`vyro-display text-lg font-bold uppercase ${

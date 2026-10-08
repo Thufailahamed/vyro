@@ -33,7 +33,7 @@ export function CommandCenter({ variant = 'dark' }: { variant?: 'dark' | 'light'
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className={cn('h-[104px] rounded-xl animate-pulse', dark ? 'bg-paper/[0.06]' : 'bg-mist/60')}
+            className={cn('h-[112px] rounded-[14px] animate-pulse', dark ? 'bg-paper/[0.06]' : 'bg-mist/60')}
           />
         ))}
       </div>
@@ -59,29 +59,29 @@ export function CommandCenter({ variant = 'dark' }: { variant?: 'dark' | 'light'
             key={i.label}
             to={i.to}
             className={cn(
-              'group relative flex flex-col justify-between rounded-xl p-4 transition-colors duration-200',
+              'group relative flex flex-col justify-between overflow-hidden rounded-[14px] p-4 transition-all duration-240 ease-vyro hover:-translate-y-0.5',
               dark
                 ? hasIssue
-                  ? 'bg-rose/[0.14] shadow-[inset_0_0_0_1px_rgba(196,90,74,0.45)] hover:bg-rose/20'
-                  : 'bg-paper/[0.04] shadow-[inset_0_0_0_1px_rgba(250,247,240,0.08)] hover:bg-paper/[0.08]'
+                  ? 'bg-gradient-to-b from-rose/[0.2] to-rose/[0.08] shadow-[inset_0_0_0_1px_rgba(196,90,74,0.5),inset_0_1px_0_rgba(255,255,255,0.06),0_12px_30px_-14px_rgba(196,90,74,0.6)] hover:from-rose/[0.26]'
+                  : 'bg-gradient-to-b from-paper/[0.06] to-paper/[0.02] shadow-[inset_0_0_0_1px_rgba(250,247,240,0.08),inset_0_1px_0_rgba(250,247,240,0.06)] backdrop-blur-sm hover:from-paper/[0.09] hover:shadow-[inset_0_0_0_1px_rgba(198,220,74,0.3),inset_0_1px_0_rgba(250,247,240,0.08)]'
                 : hasIssue
                   ? 'bg-rose/5 shadow-[inset_0_0_0_1px_rgba(196,90,74,0.35)] hover:bg-rose/10'
                   : 'bg-paper shadow-[inset_0_0_0_1px_rgba(12,14,11,0.1)] hover:shadow-[inset_0_0_0_1px_rgba(12,14,11,0.3)]',
             )}
           >
-            <div className="flex items-center justify-between gap-2">
-              <span className={cn('text-xs font-medium truncate', dark ? 'text-paper/70' : 'text-ink-3')}>
+            <div className="flex items-start justify-between gap-2 sm:items-center">
+              <span className={cn('min-w-0 text-[13px] font-medium leading-tight sm:truncate', dark ? 'text-paper/75' : 'text-ink-3')}>
                 {i.label}
               </span>
               {hasIssue ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-rose/20 px-2 py-0.5 text-[10px] font-semibold text-rose">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose px-1.5 py-0.5 sm:px-2 text-[10px] font-semibold text-paper shadow-[0_0_12px_rgba(196,90,74,0.6)]">
                   <AlertCircleIcon size={11} />
-                  Action
+                  <span className="hidden sm:inline">Action</span>
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-mint">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-mint/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#5fb894]">
                   <CheckCircleIcon size={11} />
-                  Clear
+                  <span className="hidden sm:inline">Clear</span>
                 </span>
               )}
             </div>
@@ -89,8 +89,8 @@ export function CommandCenter({ variant = 'dark' }: { variant?: 'dark' | 'light'
             <div className="mt-3 flex items-end justify-between gap-2">
               <div
                 className={cn(
-                  'vyro-metric text-3xl leading-none',
-                  hasIssue ? 'text-rose' : dark ? 'text-paper' : 'text-ink',
+                  'vyro-metric text-[2rem] leading-none',
+                  hasIssue ? (dark ? 'text-[#f08a78]' : 'text-rose') : dark ? 'text-paper' : 'text-ink',
                 )}
               >
                 {i.value}
@@ -105,7 +105,7 @@ export function CommandCenter({ variant = 'dark' }: { variant?: 'dark' | 'light'
               />
             </div>
 
-            <div className={cn('mt-1.5 text-[11px] truncate', dark ? 'text-paper/40' : 'text-ink-4')}>{i.hint}</div>
+            <div className={cn('mt-2 truncate text-[11px]', dark ? 'text-paper/40' : 'text-ink-4')}>{i.hint}</div>
           </Link>
         );
       })}

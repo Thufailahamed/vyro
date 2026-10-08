@@ -59,16 +59,16 @@ function statusColor(status: string) {
       return 'bg-volt/15 text-volt-deep border-volt/30';
     case 'quotes_received':
     case 'under_review':
-      return 'bg-blue-50 text-blue-700 border-blue-200';
+      return 'bg-copper/10 text-copper-deep border-copper/30';
     case 'awarded':
     case 'converted_to_order':
-      return 'bg-mint/15 text-emerald-700 border-mint/30';
+      return 'bg-mint/15 text-mint border-mint/30';
     case 'expired':
     case 'cancelled':
     case 'closed':
       return 'bg-rose/10 text-rose border-rose/25';
     default:
-      return 'bg-slate-100 text-ink-4 border-ink/10';
+      return 'bg-bone text-ink-4 border-ink/10';
   }
 }
 
@@ -76,13 +76,13 @@ function statusDot(status: string) {
   switch (status.toLowerCase()) {
     case 'open':
     case 'quoting':
-      return 'bg-emerald-500 animate-pulse';
+      return 'bg-mint animate-pulse';
     case 'quotes_received':
     case 'under_review':
-      return 'bg-blue-500';
+      return 'bg-copper';
     case 'awarded':
     case 'converted_to_order':
-      return 'bg-emerald-600';
+      return 'bg-mint';
     case 'expired':
     case 'cancelled':
       return 'bg-rose';
@@ -279,12 +279,12 @@ export function AdminRfqsPage() {
             <span className="text-[11px] uppercase tracking-[0.14em] font-mono text-ink-4 font-semibold">
               Under Review
             </span>
-            <div className="size-8 bg-bone border border-ink/10 flex items-center justify-center shrink-0 text-blue-600">
+            <div className="size-8 bg-bone border border-ink/10 flex items-center justify-center shrink-0 text-copper-deep">
               <ScaleIcon size={16} />
             </div>
           </div>
           <div className="mt-3">
-            <MetricNumber size="lg" className="text-blue-600 font-bold">
+            <MetricNumber size="lg" className="text-copper-deep font-bold">
               {metrics.review}
             </MetricNumber>
             <div className="text-[11px] text-ink-4 mt-1">Quotes received & comparing</div>
@@ -437,7 +437,7 @@ export function AdminRfqsPage() {
       {/* ── 4. All Platform RFQs Registry Table ── */}
       <Surface className="border border-ink/15 bg-paper overflow-hidden shadow-sm space-y-0">
         {/* Table Header & Search Filter */}
-        <div className="p-5 border-b border-ink/10 bg-white space-y-4">
+        <div className="p-5 border-b border-ink/10 bg-paper space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="vyro-kicker text-copper">Platform Directory</div>
@@ -457,7 +457,7 @@ export function AdminRfqsPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by RFQ #, title, business, or city…"
-                className="w-full h-9 pl-9 pr-8 text-xs bg-slate-50 border border-ink/15 rounded-lg focus:outline-none focus:border-ink focus:bg-white transition-all"
+                className="w-full h-9 pl-9 pr-8 text-xs bg-bone/60 border border-ink/15 rounded-lg focus:outline-none focus:border-ink focus:bg-paper transition-all"
               />
               {search && (
                 <button
@@ -507,17 +507,17 @@ export function AdminRfqsPage() {
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="flex items-center justify-between gap-4 animate-pulse pt-3 first:pt-0">
                 <div className="space-y-1.5 flex-1">
-                  <div className="h-4 bg-slate-200 rounded w-1/3" />
-                  <div className="h-3 bg-slate-100 rounded w-1/4" />
+                  <div className="h-4 bg-mist rounded w-1/3" />
+                  <div className="h-3 bg-bone rounded w-1/4" />
                 </div>
-                <div className="h-5 bg-slate-100 rounded w-24" />
-                <div className="h-5 bg-slate-100 rounded w-20" />
+                <div className="h-5 bg-bone rounded w-24" />
+                <div className="h-5 bg-bone rounded w-20" />
               </div>
             ))}
           </div>
         ) : filteredRfqs.length === 0 ? (
           <div className="py-16 text-center space-y-3">
-            <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-ink-4 mx-auto">
+            <div className="w-12 h-12 rounded-xl bg-bone flex items-center justify-center text-ink-4 mx-auto">
               <FileTextIcon size={24} />
             </div>
             <h4 className="font-display text-base font-semibold text-ink">No RFQs found</h4>
@@ -543,7 +543,7 @@ export function AdminRfqsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-ink/10 text-ink-4 font-mono uppercase tracking-wider text-[10px]">
+                <tr className="bg-bone/80 border-b border-ink/10 text-ink-4 font-mono uppercase tracking-wider text-[10px]">
                   <th className="py-3 px-5">RFQ Reference & Title</th>
                   <th className="py-3 px-4">Purchasing Entity</th>
                   <th className="py-3 px-4">Delivery Location</th>
@@ -552,16 +552,16 @@ export function AdminRfqsPage() {
                   <th className="py-3 px-5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-ink/5 bg-white">
+              <tbody className="divide-y divide-ink/5 bg-paper">
                 {filteredRfqs.map((rfq) => {
                   const deadlineInfo = formatDeadline(rfq.deadline);
                   return (
-                    <tr key={rfq.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <tr key={rfq.id} className="hover:bg-bone/50 transition-colors group">
                       {/* Reference & Title */}
                       <td className="py-3.5 px-5">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-xs text-ink bg-slate-100 px-1.5 py-0.5 rounded border border-ink/5">
+                            <span className="font-mono font-bold text-xs text-ink bg-bone px-1.5 py-0.5 rounded border border-ink/5">
                               {rfq.rfqNumber}
                             </span>
                             <span className="text-[10px] font-mono text-ink-4">
@@ -647,7 +647,7 @@ export function AdminRfqsPage() {
                           </Link>
                           <Link
                             to={`/rfqs/${rfq.id}/compare`}
-                            className="p-1 rounded text-ink-4 hover:text-copper hover:bg-slate-100 transition-colors"
+                            className="p-1 rounded text-ink-4 hover:text-copper hover:bg-bone transition-colors"
                             title="Compare Quotes"
                           >
                             <ScaleIcon size={14} />
@@ -716,10 +716,10 @@ function EditThresholdsModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl border border-ink/10 shadow-2xl max-w-md w-full overflow-hidden"
+        className="bg-paper rounded-2xl border border-ink/10 shadow-2xl max-w-md w-full overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-ink/10 bg-slate-50/50 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-ink/10 bg-bone/50 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-copper/15 text-copper-deep flex items-center justify-center font-bold">
               <ScaleIcon size={16} />
@@ -734,7 +734,7 @@ function EditThresholdsModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-md text-ink-4 hover:text-ink hover:bg-slate-100 transition"
+            className="p-1 rounded-md text-ink-4 hover:text-ink hover:bg-bone transition"
           >
             <XIcon size={16} />
           </button>
@@ -758,7 +758,7 @@ function EditThresholdsModal({
               required
               value={valueLkr}
               onChange={(e) => setValueLkr(Number(e.target.value))}
-              className="w-full h-9 px-3 text-xs font-mono bg-slate-50 border border-ink/15 rounded-lg focus:outline-none focus:border-ink focus:bg-white transition-all"
+              className="w-full h-9 px-3 text-xs font-mono bg-bone/60 border border-ink/15 rounded-lg focus:outline-none focus:border-ink focus:bg-paper transition-all"
             />
             <p className="text-[10px] text-ink-4 mt-1">
               Qualifies cart for bulk negotiation when total exceeds Rs. {valueLkr.toLocaleString()}
@@ -775,7 +775,7 @@ function EditThresholdsModal({
               required
               value={qty}
               onChange={(e) => setQty(Number(e.target.value))}
-              className="w-full h-9 px-3 text-xs font-mono bg-slate-50 border border-ink/15 rounded-lg focus:outline-none focus:border-ink focus:bg-white transition-all"
+              className="w-full h-9 px-3 text-xs font-mono bg-bone/60 border border-ink/15 rounded-lg focus:outline-none focus:border-ink focus:bg-paper transition-all"
             />
             <p className="text-[10px] text-ink-4 mt-1">
               Qualifies cart when total item units exceed {qty} units

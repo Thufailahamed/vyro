@@ -183,9 +183,13 @@
   }
 
   .vyro-surface {
-    background: var(--vyro-paper);
-    border-radius: 12px;
-    box-shadow: inset 0 0 0 1px rgba(12, 14, 11, 0.08);
+    background: linear-gradient(180deg, #fcfaf5 0%, var(--vyro-paper) 100%);
+    border-radius: 14px;
+    box-shadow:
+      inset 0 0 0 1px rgba(12, 14, 11, 0.07),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
+      0 1px 2px -1px rgba(12, 14, 11, 0.06),
+      0 4px 14px -8px rgba(12, 14, 11, 0.08);
   }
 
   .vyro-elevated {
@@ -212,31 +216,32 @@
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
   }
 
   .admin-table thead th {
     position: sticky;
     top: 0;
     z-index: 1;
-    background: rgba(242, 238, 228, 0.7);
-    backdrop-filter: blur(6px);
-    padding: 0.625rem 1rem;
+    background: rgba(246, 243, 235, 0.92);
+    backdrop-filter: blur(8px);
+    padding: 0.6875rem 1rem;
     text-align: left;
-    font-size: 0.6875rem;
+    font-size: 0.65625rem;
     font-weight: 600;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #6e736a;
+    color: #868a80;
     white-space: nowrap;
-    border-bottom: 1px solid rgba(12, 14, 11, 0.08);
+    border-top: 1px solid rgba(12, 14, 11, 0.06);
+    border-bottom: 1px solid rgba(12, 14, 11, 0.07);
   }
 
   .admin-table tbody td {
-    padding: 0.875rem 1rem;
+    padding: 0.9375rem 1rem;
     vertical-align: middle;
     color: #1a1c18;
-    border-bottom: 1px solid rgba(12, 14, 11, 0.06);
+    border-bottom: 1px solid rgba(12, 14, 11, 0.055);
   }
 
   .admin-table thead th:first-child,
@@ -254,15 +259,20 @@
   }
 
   .admin-table tbody tr {
-    transition: background-color 140ms var(--ease-vyro);
+    position: relative;
+    transition: background-color 160ms var(--ease-vyro);
   }
 
   .admin-table tbody tr:hover {
-    background: rgba(242, 238, 228, 0.55);
+    background: linear-gradient(90deg, rgba(198, 220, 74, 0.07), rgba(242, 238, 228, 0.5) 40%);
+  }
+
+  .admin-table tbody tr:hover td:first-child {
+    box-shadow: inset 2px 0 0 0 var(--vyro-volt);
   }
 
   .admin-table tbody tr[data-selected='true'] {
-    background: rgba(198, 220, 74, 0.1);
+    background: rgba(198, 220, 74, 0.12);
   }
 
   .admin-table .num {
@@ -270,6 +280,56 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.02em;
+  }
+
+  /* Admin buttons — use on <button>/<Link>. Sizes via admin-btn-sm. */
+  .admin-btn {
+    @apply inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 text-[13px] font-semibold;
+    transition: background 180ms var(--ease-vyro), color 180ms var(--ease-vyro), box-shadow 180ms var(--ease-vyro), transform 180ms var(--ease-vyro);
+  }
+  .admin-btn:disabled { @apply cursor-not-allowed opacity-50; }
+  .admin-btn:active:not(:disabled) { transform: translateY(0.5px); }
+  .admin-btn-sm { @apply h-8 px-2.5 text-xs; }
+  .admin-btn-primary {
+    background: linear-gradient(180deg, #23261f 0%, var(--vyro-ink) 100%);
+    color: var(--vyro-paper);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 1px 2px rgba(12, 14, 11, 0.3), 0 6px 14px -8px rgba(12, 14, 11, 0.5);
+  }
+  .admin-btn-primary:hover:not(:disabled) { background: #2a2d26; }
+  .admin-btn-volt {
+    background: linear-gradient(180deg, #d4e86a 0%, var(--vyro-volt) 100%);
+    color: var(--vyro-ink);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.45), inset 0 0 0 1px rgba(122, 143, 34, 0.35), 0 6px 14px -8px rgba(122, 143, 34, 0.7);
+  }
+  .admin-btn-volt:hover:not(:disabled) { background: var(--vyro-volt); }
+  .admin-btn-secondary {
+    background: var(--vyro-paper);
+    color: var(--vyro-ink);
+    box-shadow: inset 0 0 0 1px rgba(12, 14, 11, 0.12), 0 1px 2px rgba(12, 14, 11, 0.05);
+  }
+  .admin-btn-secondary:hover:not(:disabled) { box-shadow: inset 0 0 0 1px rgba(12, 14, 11, 0.28), 0 2px 6px -2px rgba(12, 14, 11, 0.12); }
+  .admin-btn-ghost { color: #3f433c; }
+  .admin-btn-ghost:hover:not(:disabled) { background: rgba(12, 14, 11, 0.05); color: var(--vyro-ink); }
+  .admin-btn-danger {
+    background: #c45a4a;
+    color: #fff;
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15), 0 6px 14px -8px rgba(196, 90, 74, 0.8);
+  }
+  .admin-btn-danger:hover:not(:disabled) { background: #b14d3e; }
+
+  /* Admin canvas: soft vignette behind the content column. */
+  .admin-canvas {
+    background:
+      radial-gradient(1200px 520px at 85% -10%, rgba(198, 220, 74, 0.08), transparent 60%),
+      radial-gradient(900px 480px at 0% 0%, rgba(184, 122, 78, 0.05), transparent 60%),
+      var(--vyro-bone);
+  }
+
+  .admin-sidebar {
+    background:
+      radial-gradient(420px 260px at 0% 0%, rgba(198, 220, 74, 0.07), transparent 70%),
+      linear-gradient(180deg, #0d0f0c 0%, #080907 100%);
+    box-shadow: inset -1px 0 0 0 rgba(250, 247, 240, 0.06);
   }
 
   .nav-active {
@@ -323,6 +383,19 @@
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: rgba(12, 14, 11, 0.22) transparent;
+  }
+
+  .scrollbar-dark {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(250, 247, 240, 0.12) transparent;
+  }
+
+  .hairline-grid {
+    background-image:
+      linear-gradient(rgba(250, 247, 240, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(250, 247, 240, 0.045) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse 80% 70% at 70% 0%, #000 30%, transparent 75%);
   }
 }
 

@@ -27,14 +27,13 @@ import {
   EmptyBlock,
   Panel,
   Pill,
-  StatCard,
-  StatGrid,
   TableCard,
   TableSkeleton,
   Tabs,
   Toolbar,
   controlClass,
 } from './ui';
+import { MetricStrip } from './catalogUi';
 
 function slugify(text: string): string {
   return text
@@ -128,17 +127,27 @@ export function BusinessTypeEditor() {
 
   return (
     <div className="space-y-6">
-      <StatGrid cols={2} className="max-w-lg">
-        <StatCard label="Business types" value={metrics.total} sub="Total commerce classifications" icon={<SparklesIcon size={16} />} loading={q.isLoading} />
-        <StatCard
-          label="Active types"
-          value={metrics.activeCount}
-          sub="Available during onboarding"
-          icon={<CheckCircleIcon size={16} />}
-          tone={metrics.activeCount > 0 ? 'success' : 'neutral'}
-          loading={q.isLoading}
-        />
-      </StatGrid>
+      <MetricStrip
+        loading={q.isLoading}
+        items={[
+          { label: 'Business types', value: metrics.total, sub: 'Total commerce classifications', icon: <SparklesIcon size={15} /> },
+          {
+            label: 'Active types',
+            value: metrics.activeCount,
+            sub: 'Available during onboarding',
+            icon: <CheckCircleIcon size={15} />,
+            tone: 'success',
+            ratio: metrics.total ? metrics.activeCount / metrics.total : 0,
+          },
+          {
+            label: 'Inactive',
+            value: metrics.total - metrics.activeCount,
+            sub: 'Hidden from onboarding',
+            icon: <XIcon size={15} />,
+            tone: 'warning',
+          },
+        ]}
+      />
 
       {err ? (
         <Callout
@@ -159,6 +168,7 @@ export function BusinessTypeEditor() {
       {canWrite ? (
         isCreateOpen ? (
           <Panel
+            className="rounded-2xl"
             title="Add business type"
             description="Define business classification personas used for buyer and supplier profile registration."
             icon={<PlusIcon size={16} />}
@@ -223,7 +233,7 @@ export function BusinessTypeEditor() {
             </form>
           </Panel>
         ) : (
-          <Card className="flex items-center justify-between gap-4">
+          <Card className="flex items-center justify-between gap-4 rounded-2xl">
             <div className="flex items-center gap-3">
               <span className="flex size-9 items-center justify-center rounded-lg bg-bone text-ink-3">
                 <PlusIcon size={16} />
@@ -243,6 +253,7 @@ export function BusinessTypeEditor() {
       ) : null}
 
       <TableCard
+        className="rounded-2xl"
         title="Business type registry"
         toolbar={
           <Toolbar

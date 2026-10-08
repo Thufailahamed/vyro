@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { PageHeader, Surface, ErrorBanner, Button } from '@/components/ui';
+import { Surface, ErrorBanner, Button } from '@/components/ui';
 import { usePermission } from './lib/permissions';
 import {
   useAdminPaymentSearch,
@@ -9,6 +9,7 @@ import {
   type PaymentRow,
 } from './useAdminPaymentSearch';
 import { useAdminPaymentOptions, type PaymentOptions } from './useAdminPaymentOptions';
+import { AdminPageHeader } from './ui';
 
 const ALL_STATUSES: PaymentStatus[] = [
   'pending',
@@ -83,7 +84,7 @@ export function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Payments" sub="Cross-tenant payment search and detail" />
+      <AdminPageHeader title="Payments" description="Cross-tenant payment search and detail" />
 
       <Surface className="p-4 space-y-3">
         <div className="flex flex-wrap gap-3 items-end">

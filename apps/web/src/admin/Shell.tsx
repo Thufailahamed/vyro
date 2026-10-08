@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Link, NavLink, Outlet, useNavigate, Navigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { api, ApiError } from '@/lib/api';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { cn } from '@vyro/ui';
@@ -34,6 +34,8 @@ import {
   GraduationCapIcon,
   RefreshCwIcon,
   SettingsIcon,
+  ChevronRightIcon,
+  TargetIcon,
 } from '@/components/icons';
 
 export interface AdminUser {
@@ -121,22 +123,23 @@ interface NavSection {
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors duration-150 select-none',
+    'group relative flex h-9 items-center gap-3 rounded-[10px] px-3 text-[13px] font-medium transition-all duration-200 select-none',
     isActive
-      ? 'bg-paper/[0.09] text-paper before:absolute before:-left-3 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-full before:bg-volt'
-      : 'text-paper/55 hover:bg-paper/[0.05] hover:text-paper',
+      ? 'bg-gradient-to-r from-paper/[0.1] to-paper/[0.04] text-paper shadow-[inset_0_0_0_1px_rgba(250,247,240,0.07),inset_0_1px_0_rgba(250,247,240,0.06)] before:absolute before:-left-3 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-full before:bg-volt before:shadow-[0_0_12px_rgba(198,220,74,0.8)]'
+      : 'text-paper/50 hover:bg-paper/[0.045] hover:text-paper/90',
   );
 
 function NavSections({ sections, onNavigate }: { sections: NavSection[]; onNavigate?: () => void }) {
   return (
-    <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4 scrollbar-thin" aria-label="Admin">
+    <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4 scrollbar-dark" aria-label="Admin">
       {sections.map((section) => {
         const visibleItems = section.items.filter((item) => item.show !== false);
         if (visibleItems.length === 0) return null;
         return (
           <div key={section.title}>
-            <div className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-paper/30">
-              {section.title}
+            <div className="mb-2 flex items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-paper/30">
+              <span className="shrink-0">{section.title}</span>
+              <span className="h-px flex-1 bg-gradient-to-r from-paper/[0.08] to-transparent" aria-hidden />
             </div>
             <div className="space-y-0.5">
               {visibleItems.map((item) => (
@@ -151,8 +154,8 @@ function NavSections({ sections, onNavigate }: { sections: NavSection[]; onNavig
                     <>
                       <span
                         className={cn(
-                          'shrink-0 transition-colors duration-150',
-                          isActive ? 'text-volt' : 'text-paper/35 group-hover:text-paper/75',
+                          'shrink-0 transition-all duration-200',
+                          isActive ? 'text-volt drop-shadow-[0_0_6px_rgba(198,220,74,0.5)]' : 'text-paper/30 group-hover:text-paper/70',
                         )}
                       >
                         <item.icon size={16} />
@@ -178,7 +181,7 @@ function NavSections({ sections, onNavigate }: { sections: NavSection[]; onNavig
 function ControlWordmark() {
   return (
     <span className="flex items-center gap-2.5">
-      <span className="flex size-8 items-center justify-center rounded-lg bg-paper/[0.06] shadow-[inset_0_0_0_1px_rgba(250,247,240,0.08)]">
+      <span className="flex size-9 items-center justify-center rounded-[11px] bg-gradient-to-b from-paper/[0.1] to-paper/[0.03] shadow-[inset_0_0_0_1px_rgba(250,247,240,0.1),inset_0_1px_0_rgba(250,247,240,0.12),0_8px_20px_-8px_rgba(198,220,74,0.35)]">
         <BrandMark size={18} tone="volt" />
       </span>
       <span className="flex flex-col leading-none">
@@ -186,6 +189,86 @@ function ControlWordmark() {
         <span className="mt-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-volt">Control</span>
       </span>
     </span>
+  );
+}
+
+function useBreadcrumb(sections: NavSection[]) {
+  const { pathname } = useLocation();
+  let best: { section: string; item: NavItem } | null = null;
+  for (const section of sections) {
+    for (const item of section.items) {
+      const match = item.end ? pathname === item.to : pathname === item.to || pathname.startsWith(`${item.to}/`);
+      if (match && (!best || item.to.length > best.item.to.length)) best = { section: section.title, item };
+    }
+  }
+  const isDetail = best ? pathname.replace(/\/$/, '') !== best.item.to : false;
+  // Named sub-pages (e.g. /sponsored/plans) read better than a generic "Detail"; ids stay generic.
+  const rest = best && isDetail ? pathname.slice(best.item.to.length + 1).split('/')[0] ?? '' : '';
+  const detailLabel = /^[a-z][a-z-]*$/.test(rest) ? rest.replace(/-/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : 'Detail';
+  return { section: best?.section ?? 'Control', item: best?.item ?? null, isDetail, detailLabel };
+}
+
+function TopBar({
+  sections,
+  onHelp,
+}: {
+  sections: NavSection[];
+  onHelp: () => void;
+}) {
+  const crumb = useBreadcrumb(sections);
+  const today = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  return (
+    <div className="sticky top-0 z-30 hidden border-b border-ink/[0.06] bg-bone/75 backdrop-blur-xl backdrop-saturate-150 lg:block">
+      <div className="mx-auto flex h-14 max-w-stage items-center justify-between gap-4 px-8">
+        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-[13px]">
+          <Link to="/admin" className="text-ink-4 transition-colors hover:text-ink">
+            Control
+          </Link>
+          {crumb.item ? (
+            <>
+              <ChevronRightIcon size={13} className="shrink-0 text-ink-5" />
+              <span className="truncate text-ink-4">{crumb.section}</span>
+              <ChevronRightIcon size={13} className="shrink-0 text-ink-5" />
+              {crumb.isDetail ? (
+                <>
+                  <Link to={crumb.item.to} className="truncate text-ink-4 transition-colors hover:text-ink">
+                    {crumb.item.label}
+                  </Link>
+                  <ChevronRightIcon size={13} className="shrink-0 text-ink-5" />
+                  <span className="truncate font-semibold text-ink">{crumb.detailLabel}</span>
+                </>
+              ) : (
+                <span className="flex items-center gap-2 truncate font-semibold text-ink">
+                  <span className="text-ink-3">
+                    <crumb.item.icon size={14} />
+                  </span>
+                  {crumb.item.label}
+                </span>
+              )}
+            </>
+          ) : null}
+        </nav>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="hidden items-center gap-2 rounded-full bg-paper px-3 py-1 text-[11px] font-medium text-ink-3 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08)] xl:inline-flex">
+            <span className="relative flex size-1.5">
+              <span className="absolute inline-flex size-full rounded-full bg-mint opacity-60 motion-safe:animate-ping" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-mint" />
+            </span>
+            Live console
+          </span>
+          <span className="hidden text-[11px] font-medium text-ink-4 num-tabular md:inline">{today}</span>
+          <button
+            type="button"
+            onClick={onHelp}
+            className="flex size-8 items-center justify-center rounded-lg font-mono text-xs text-ink-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.1)] transition-colors hover:bg-paper hover:text-ink"
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts"
+          >
+            ?
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -238,6 +321,7 @@ export function AdminShell() {
             hasPermission(role, 'payout:read') ||
             hasPermission(role, 'ledger:read'),
         },
+        { to: '/admin/sponsored', label: 'Sponsored', icon: TargetIcon },
         {
           to: '/admin/accounts',
           label: 'Accounts',
@@ -342,10 +426,10 @@ export function AdminShell() {
   const initial = (user?.name || user?.email || 'A').charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-dvh bg-bone text-ink lg:flex">
+    <div className="admin-canvas min-h-dvh text-ink lg:flex">
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-dvh w-[17rem] shrink-0 select-none flex-col bg-void text-paper lg:flex">
-        <div className="flex h-16 shrink-0 items-center justify-between px-5">
+      <aside className="admin-sidebar sticky top-0 hidden h-dvh w-[17rem] shrink-0 select-none flex-col text-paper lg:flex">
+        <div className="flex h-[4.25rem] shrink-0 items-center justify-between px-5">
           <Link to="/admin" className="group" aria-label="VYRO Control overview">
             <ControlWordmark />
           </Link>
@@ -358,10 +442,10 @@ export function AdminShell() {
 
         {user ? <NavSections sections={sections} /> : <p className="flex-1 p-5 text-xs text-paper/40">Sign in to administer</p>}
 
-        <div className="shrink-0 space-y-3 border-t border-paper/[0.07] p-3">
+        <div className="shrink-0 space-y-2 border-t border-paper/[0.06] p-3">
           {user ? (
-            <div className="flex items-center gap-3 rounded-xl bg-paper/[0.04] p-2.5">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-volt text-sm font-bold text-ink">
+            <div className="flex items-center gap-3 rounded-xl bg-gradient-to-b from-paper/[0.06] to-paper/[0.02] p-2.5 shadow-[inset_0_0_0_1px_rgba(250,247,240,0.06)]">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-b from-volt-glow to-volt text-sm font-bold text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_6px_16px_-6px_rgba(198,220,74,0.6)]">
                 {initial}
               </div>
               <div className="min-w-0 flex-1">
@@ -400,7 +484,7 @@ export function AdminShell() {
 
       {/* Main */}
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between bg-void px-4 text-paper lg:hidden">
+        <header className="admin-sidebar sticky top-0 z-30 flex h-14 items-center justify-between px-4 text-paper lg:hidden">
           <button
             type="button"
             aria-label="Open navigation"
@@ -417,6 +501,7 @@ export function AdminShell() {
           <div className="flex items-center gap-1">{hasNotifPerm ? <BellButton /> : <span className="size-9" />}</div>
         </header>
 
+        {user ? <TopBar sections={sections} onHelp={() => shortcuts.setHelpOpen(true)} /> : null}
         <main id="main-content" className="mx-auto max-w-stage px-4 py-6 sm:px-8 sm:py-8">
           <Outlet />
         </main>
@@ -430,7 +515,7 @@ export function AdminShell() {
           onClick={() => setDrawerOpen(false)}
         >
           <div
-            className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-void text-paper shadow-5 animate-fade-in"
+            className="admin-sidebar absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col text-paper shadow-5 animate-fade-in"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-label="Admin navigation"

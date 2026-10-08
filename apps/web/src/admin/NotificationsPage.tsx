@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { PageHeader, Surface, ErrorBanner, Button, EmptyState } from '@/components/ui';
+import { Surface, ErrorBanner, Button, EmptyState } from '@/components/ui';
 import {
   BellIcon,
   CheckCircleIcon,
@@ -24,6 +24,7 @@ import {
   type AdminAlertSeverity,
   type AdminNotificationRow,
 } from './useAdminNotifications';
+import { AdminPageHeader } from './ui';
 
 const SEVERITIES: { id: AdminAlertSeverity; label: string; dot: string; badge: string }[] = [
   { id: 'critical', label: 'Critical', dot: 'bg-rose', badge: 'bg-rose/15 text-rose border-rose/30' },
@@ -106,10 +107,10 @@ export function NotificationsPage() {
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto pb-12">
       {/* Top Header */}
-      <PageHeader
+      <AdminPageHeader
         kicker="Operations & Alert Center"
         title="Admin Notifications"
-        sub="Live operational dispatches, system incidents, role-targeted broadcasts, and security telemetry."
+        description="Live operational dispatches, system incidents, role-targeted broadcasts, and security telemetry."
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
             <Button
@@ -157,7 +158,7 @@ export function NotificationsPage() {
       {/* 4 Executive KPI Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Unread Alerts */}
-        <Surface className="p-5 flex flex-col justify-between bg-white border border-ink/10 shadow-sm hover:border-ink/20 transition-all">
+        <Surface className="p-5 flex flex-col justify-between bg-paper border border-ink/10 shadow-sm hover:border-ink/20 transition-all">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">
@@ -184,7 +185,7 @@ export function NotificationsPage() {
         </Surface>
 
         {/* Critical Incidents */}
-        <Surface className="p-5 flex flex-col justify-between bg-white border border-ink/10 shadow-sm hover:border-ink/20 transition-all">
+        <Surface className="p-5 flex flex-col justify-between bg-paper border border-ink/10 shadow-sm hover:border-ink/20 transition-all">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">
@@ -211,7 +212,7 @@ export function NotificationsPage() {
         </Surface>
 
         {/* Warning Advisories */}
-        <Surface className="p-5 flex flex-col justify-between bg-white border border-ink/10 shadow-sm hover:border-ink/20 transition-all">
+        <Surface className="p-5 flex flex-col justify-between bg-paper border border-ink/10 shadow-sm hover:border-ink/20 transition-all">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">
@@ -238,7 +239,7 @@ export function NotificationsPage() {
         </Surface>
 
         {/* Staff Broadcast Channel */}
-        <Surface className="p-5 flex flex-col justify-between bg-white border border-ink/10 shadow-sm hover:border-ink/20 transition-all">
+        <Surface className="p-5 flex flex-col justify-between bg-paper border border-ink/10 shadow-sm hover:border-ink/20 transition-all">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">
@@ -269,7 +270,7 @@ export function NotificationsPage() {
       </div>
 
       {/* Filter and Control Bar */}
-      <Surface className="p-4 bg-white border border-ink/10 shadow-sm space-y-3">
+      <Surface className="p-4 bg-paper border border-ink/10 shadow-sm space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-4">
           {/* Severity Pills */}
           <div className="flex flex-wrap items-center gap-2">
@@ -384,7 +385,7 @@ export function NotificationsPage() {
       </Surface>
 
       {/* Notifications Card List */}
-      <Surface className="p-0 overflow-hidden bg-white border border-ink/10 shadow-sm">
+      <Surface className="p-0 overflow-hidden bg-paper border border-ink/10 shadow-sm">
         {items.length === 0 ? (
           <EmptyState
             icon={<BellIcon size={24} />}
@@ -449,7 +450,7 @@ function NotificationRowItem({
   return (
     <li
       className={`relative flex items-start gap-4 p-4.5 transition-colors ${
-        isRead ? 'bg-white opacity-70 hover:opacity-100 hover:bg-sand/15' : 'bg-sand/30 hover:bg-sand/45'
+        isRead ? 'bg-paper opacity-70 hover:opacity-100 hover:bg-sand/15' : 'bg-sand/30 hover:bg-sand/45'
       }`}
     >
       {/* Severity Indicator Bar */}
@@ -544,7 +545,7 @@ function NotificationRowItem({
           type="button"
           onClick={() => dismiss.mutate(row.id)}
           disabled={dismiss.isPending}
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-ink/15 text-ink-3 hover:text-ink hover:bg-white text-xs font-medium transition-colors shrink-0 cursor-pointer disabled:opacity-40"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-ink/15 text-ink-3 hover:text-ink hover:bg-paper text-xs font-medium transition-colors shrink-0 cursor-pointer disabled:opacity-40"
           title="Mark as read"
         >
           <CheckIcon size={13} />
@@ -595,7 +596,7 @@ function BroadcastDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-ink/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
-      <Surface className="w-full max-w-lg p-6 bg-white border border-ink/10 shadow-2xl rounded-2xl space-y-5">
+      <Surface className="w-full max-w-lg p-6 bg-paper border border-ink/10 shadow-2xl rounded-2xl space-y-5">
         <div className="flex items-center justify-between pb-3 border-b border-ink/10">
           <div>
             <h3 className="vyro-display text-xl text-ink">Broadcast Alert</h3>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import { PageHeader } from '@/components/ui';
+
 import { useToast } from '@vyro/ui';
 import { useAdminTable } from '@/lib/useAdminTable';
 import {
@@ -22,6 +22,7 @@ import {
 import { BulkActionBar } from './BulkActionBar';
 import { BulkConfirmDialog } from './BulkConfirmDialog';
 import { BulkResultDialog } from './BulkResultDialog';
+import { AdminPageHeader, Pill, StatCard, StatGrid } from './ui';
 
 type User = {
   id: string;
@@ -118,67 +119,31 @@ export function UsersPage() {
   };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
-      {/* Executive Page Header */}
-      <PageHeader
-        kicker={
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="vyro-kicker text-volt">Access Control</span>
-            <span className="text-ink-4">/</span>
-            <span className="text-[11px] font-mono text-ink-3">Identity Registry</span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider">
-              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Auth Directory
-            </span>
-          </div>
-        }
-        title="Users &amp; Personnel"
-        sub="Manage system identities, administrator access credentials, security suspensions, and linked organization memberships."
+    <div className="mx-auto max-w-7xl space-y-7 pb-20 animate-fade-in">
+      <AdminPageHeader
+        kicker="Access control · Identity registry"
+        title="Users & personnel"
+        description="Manage system identities, administrator access, security suspensions and linked organisation memberships."
         actions={
-          <span className="inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-mono font-bold bg-paper border border-ink/15 text-ink shadow-sm">
-            <UsersIcon size={14} className="text-volt-deep" />
-            <span>{list.length} Identities Loaded{table.hasMore ? '+' : ''}</span>
-          </span>
+          <Pill tone="neutral" icon={<UsersIcon size={12} />}>
+            {list.length}
+            {table.hasMore ? '+' : ''} identities loaded
+          </Pill>
         }
       />
 
-      {/* KPI Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            Total Loaded Users
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-ink">{list.length}</div>
-          <div className="text-[10px] text-ink-4">In current query scope</div>
-        </div>
-
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            Active Accounts
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-mint flex items-center gap-2">
-            <span>{activeCount}</span>
-            <span className="size-2 rounded-full bg-mint" />
-          </div>
-          <div className="text-[10px] text-ink-4">Normal operating state</div>
-        </div>
-
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            Suspended Accounts
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-rose">{suspendedCount}</div>
-          <div className="text-[10px] text-ink-4">Held by trust &amp; safety</div>
-        </div>
-
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            System Administrators
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-volt-deep">{adminCount}</div>
-          <div className="text-[10px] text-ink-4">Elevated control privileges</div>
-        </div>
-      </div>
+      <StatGrid>
+        <StatCard label="Loaded users" value={list.length} sub="In current query scope" icon={<UsersIcon size={17} />} />
+        <StatCard
+          label="Active accounts"
+          value={activeCount}
+          sub="Normal operating state"
+          tone="success"
+          status={<Pill tone="success" dot>Active</Pill>}
+        />
+        <StatCard label="Suspended" value={suspendedCount} sub="Held by trust & safety" tone={suspendedCount > 0 ? 'danger' : 'neutral'} />
+        <StatCard label="Administrators" value={adminCount} sub="Elevated control privileges" />
+      </StatGrid>
 
       {/* Search Input Bar */}
       <div className="max-w-md relative">

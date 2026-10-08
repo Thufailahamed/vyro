@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { PageHeader } from '@/components/ui';
+
 import { formatLKR } from '@/lib/format';
 import { AlertCircleIcon, ShieldCheckIcon } from './icons';
 import { CheckCircleIcon, ClockIcon, ArrowRightIcon } from '@/components/icons';
 import { DisputeResolutionPanel } from './DisputeResolutionPanel';
+import { AdminPageHeader } from './ui';
 
 interface Order {
   id: string;
@@ -28,7 +29,7 @@ export function DisputedPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Executive Page Header */}
-      <PageHeader
+      <AdminPageHeader
         kicker={
           <div className="flex flex-wrap items-center gap-2">
             <span className="vyro-kicker text-rose">Arbitration</span>
@@ -41,7 +42,7 @@ export function DisputedPage() {
           </div>
         }
         title="Disputed Orders"
-        sub="Mediate claims between verified buyers and suppliers regarding freight non-delivery, damaged agricultural goods, or short-shipped commercial orders."
+        description="Mediate claims between verified buyers and suppliers regarding freight non-delivery, damaged agricultural goods, or short-shipped commercial orders."
         actions={
           <span
             className={`inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-mono font-bold border shadow-sm ${

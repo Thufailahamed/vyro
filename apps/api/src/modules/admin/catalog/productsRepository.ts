@@ -1,6 +1,7 @@
 import { getDb } from '@vyro/db';
-import { products, categories, supplierProducts, adminAuditLogs } from '@vyro/db/schema';
-import { and, eq, like, lt, desc, isNull, isNotNull, or, sql } from 'drizzle-orm';
+import { products, categories, supplierProducts, adminAuditLogs, productImages } from '@vyro/db/schema';
+import { and, asc, eq, inArray, like, lt, desc, isNull, isNotNull, or, sql } from 'drizzle-orm';
+import { resolveImageUrl } from '../../products/routes';
 
 export type ProductRow = {
   id: string;
@@ -18,6 +19,7 @@ export type ProductRow = {
   moderationNotes: string | null;
   createdAt: number;
   updatedAt: number;
+  imageUrl?: string | null;
 };
 
 export async function listProducts(
@@ -73,7 +75,20 @@ export async function listProducts(
     .limit(limit + 1)
     .all();
   const hasMore = rows.length > limit;
-  const items = (hasMore ? rows.slice(0, limit) : rows).map((r) => ({
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const imageMap = new Map<string, string>();
+  if (page.length) {
+    const imgs = await db
+      .select({ productId: productImages.productId, r2Key: productImages.r2Key })
+      .from(productImages)
+      .where(inArray(productImages.productId, page.map((r) => r.id)))
+      .orderBy(asc(productImages.sortOrder))
+      .all();
+    for (const img of imgs) {
+      if (!imageMap.has(img.productId)) imageMap.set(img.productId, resolveImageUrl(img.r2Key));
+    }
+  }
+  const items = page.map((r) => ({
     id: r.id,
     name: r.name,
     description: r.description,
@@ -89,6 +104,7 @@ export async function listProducts(
     moderationNotes: r.moderationNotes,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
+    imageUrl: imageMap.get(r.id) ?? null,
   }));
   const nextCursor = hasMore ? String(items[items.length - 1]!.createdAt) : null;
   return { items, nextCursor };
@@ -106,7 +122,15 @@ export async function getProduct(d1: D1Database, id: string) {
   const category = row.categoryId
     ? ((await db.select().from(categories).where(eq(categories.id, row.categoryId)).get()) ?? null)
     : null;
-  return { product: row, offers, category };
+  const images = (
+    await db
+      .select()
+      .from(productImages)
+      .where(eq(productImages.productId, id))
+      .orderBy(asc(productImages.sortOrder))
+      .all()
+  ).map((img) => ({ id: img.id, url: resolveImageUrl(img.r2Key), altText: img.altText ?? null }));
+  return { product: row, offers, category, images };
 }
 
 export async function updateProduct(
