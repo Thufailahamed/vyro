@@ -38,3 +38,4 @@ export * from './sponsored';
 export * from './trust';
 export * from './wholesale';
 export * from './orderLifecycle';
+export * from './productUpload';
