@@ -4,6 +4,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
+import { useToast } from '@vyro/ui';
+import { startPaymentsAfterCheckout } from '@/lib/checkoutPayments';
 import { Button, ErrorBanner, Label, Badge } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import {
@@ -66,6 +68,7 @@ export function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<'paynow' | 'credit'>('paynow');
   const [creditTerms, setCreditTerms] = useState<'net14' | 'net30'>('net30');
   const navigate = useNavigate();
+  const toast = useToast();
 
   const creditFacility = useQuery({
     queryKey: ['credit-facility', activeBusinessId],
@@ -188,6 +191,7 @@ export function CheckoutPage() {
     e.preventDefault();
     setErr('');
     setLoading(true);
+    const checkoutKey = crypto.randomUUID();
     try {
       const res = await api.post<{ poIds: string[]; count: number }>('/purchase-orders/checkout', {
         businessId: activeBusinessId,
@@ -195,6 +199,25 @@ export function CheckoutPage() {
         paymentMethod,
         ...(paymentMethod === 'credit' ? { creditTerms } : {}),
       });
+
+      if (paymentMethod === 'paynow') {
+        await startPaymentsAfterCheckout(res.poIds, checkoutKey, {
+          createPayment: (poId, idempotencyKey) =>
+            api.post<{ id: string }>('/payments', { purchaseOrderId: poId, method: 'online' }, { idempotencyKey }),
+          startCheckout: (paymentId) =>
+            api.post<{ redirectUrl: string; isMock?: boolean }>(`/payments/${paymentId}/checkout`, {}),
+          navigate: (path) => navigate(path),
+          redirect: (url) => {
+            window.location.href = url;
+          },
+          notify: (kind, message) => {
+            if (kind === 'success') toast.success(message);
+            else toast.error(message);
+          },
+        });
+        return;
+      }
+
       if (res.poIds && res.poIds.length === 1) {
         navigate(`/orders/${res.poIds[0]}`);
       } else {
