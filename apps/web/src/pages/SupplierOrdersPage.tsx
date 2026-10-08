@@ -123,7 +123,11 @@ export function SupplierOrdersPage() {
   async function transition(poId: string, to: string, reason?: string) {
     setBusyId(poId);
     try {
-      await api.post(`/purchase-orders/${poId}/transition`, { to, ...(reason ? { reason } : {}) });
+      await api.post(
+        `/purchase-orders/${poId}/transition`,
+        { to, ...(reason ? { reason } : {}) },
+        { idempotencyKey: crypto.randomUUID() },
+      );
       toast.show(toast.success(`Order advanced to ${to.replace(/_/g, ' ')}`));
       await refreshOrder(poId);
     } catch (e) {
@@ -142,7 +146,7 @@ export function SupplierOrdersPage() {
   async function acceptInFull(poId: string) {
     setBusyId(poId);
     try {
-      await api.post(`/purchase-orders/${poId}/accept`, {});
+      await api.post(`/purchase-orders/${poId}/accept`, {}, { idempotencyKey: crypto.randomUUID() });
       toast.show(toast.success('Order accepted'));
       await refreshOrder(poId);
     } catch (e) {
@@ -647,7 +651,11 @@ export function SupplierOrdersPage() {
           poId={podPoId}
           onClose={() => setPodPoId(null)}
           onCaptured={async () => {
-            await api.post(`/purchase-orders/${podPoId}/transition`, { to: 'delivered' });
+            await api.post(
+              `/purchase-orders/${podPoId}/transition`,
+              { to: 'delivered' },
+              { idempotencyKey: crypto.randomUUID() },
+            );
             toast.show(toast.success('Marked delivered'));
             await refreshOrder(podPoId);
           }}

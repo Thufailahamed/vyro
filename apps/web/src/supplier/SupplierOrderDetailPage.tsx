@@ -78,7 +78,11 @@ export function SupplierOrderDetailPage() {
     setOk('');
     setBusyTo(to);
     try {
-      await api.post(`/purchase-orders/${id}/transition`, { to, ...(reason ? { reason } : {}) });
+      await api.post(
+        `/purchase-orders/${id}/transition`,
+        { to, ...(reason ? { reason } : {}) },
+        { idempotencyKey: crypto.randomUUID() },
+      );
       await refresh();
       setOk(`Order moved to ${statusLabel(to)}.`);
       toast.show(toast.success(`Order moved to ${statusLabel(to)}`));
@@ -342,7 +346,11 @@ export function SupplierOrderDetailPage() {
           onCaptured={async () => {
             setErr('');
             try {
-              await api.post(`/purchase-orders/${order.id}/transition`, { to: 'delivered' });
+              await api.post(
+                `/purchase-orders/${order.id}/transition`,
+                { to: 'delivered' },
+                { idempotencyKey: crypto.randomUUID() },
+              );
             } finally {
               await refresh();
             }
@@ -458,10 +466,14 @@ export function AcceptDialog({
         if (l.quantity < requested) return [{ itemId: it.id, quantity: l.quantity }];
         return [];
       });
-      const res = await api.post<{ partial: boolean }>(`/purchase-orders/${poId}/accept`, {
-        ...(payload.length ? { lines: payload } : {}),
-        ...(note.trim() ? { note: note.trim() } : {}),
-      });
+      const res = await api.post<{ partial: boolean }>(
+        `/purchase-orders/${poId}/accept`,
+        {
+          ...(payload.length ? { lines: payload } : {}),
+          ...(note.trim() ? { note: note.trim() } : {}),
+        },
+        { idempotencyKey: crypto.randomUUID() },
+      );
       await onAccepted(!!res?.partial);
       onClose();
     } catch (e) {
