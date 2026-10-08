@@ -165,12 +165,34 @@ router.get('/export', session(), async (c) => {
   });
 });
 
-router.post('/import', session(), async (c) => {
-  const ctx = c.get('ctx') as Ctx;
-  const parsed = supplierProductImportSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
-  const { supplierId, csv, dryRun } = parsed.data;
-  await requireSupplierMember(c.env.DB, supplierId, ctx.userId);
+export type ImportCaller = {
+  supplierId: string;
+  userId: string;
+  ip: string | null;
+  userAgent: string | null;
+};
+
+export type ImportSummary = {
+  rows: number;
+  created: number;
+  updated: number;
+  unchanged: number;
+  errors: number;
+};
+
+/**
+ * The single write path for supplier price lists. The /import route and the
+ * AI product upload commit route both call this; AI flows never touch
+ * supplier_products any other way.
+ */
+export async function runImport(
+  env: Pick<Env, 'NOTIFICATIONS_QUEUE'>,
+  d1: D1Database,
+  caller: ImportCaller,
+  csv: string,
+  dryRun: boolean,
+): Promise<{ dryRun: boolean; summary: ImportSummary; results: ImportRowResult[] }> {
+  const supplierId = caller.supplierId;
 
   const { headers, records, rowNumbers } = parseCsvRecords(csv);
   if (!headers.includes('price_lkr') && !headers.includes('stock_qty') && !headers.includes('active')) {
@@ -184,7 +206,7 @@ router.post('/import', session(), async (c) => {
     throw httpError(400, 'VALIDATION_ERROR', `Import up to ${MAX_IMPORT_ROWS} rows at a time (file has ${records.length}).`);
   }
 
-  const db = getDb(c.env.DB);
+  const db = getDb(d1);
   const offers = await db.select().from(supplierProducts).where(eq(supplierProducts.supplierId, supplierId)).all();
   const byId = new Map(offers.map((o) => [o.id, o]));
   const bySku = new Map(offers.filter((o) => o.supplierSku && !o.deletedAt).map((o) => [o.supplierSku!.toLowerCase(), o]));
@@ -203,9 +225,9 @@ router.post('/import', session(), async (c) => {
 
   // Creating a first-ever listing is gated on onboarding lessons, same as POST /.
   let trainingBlocked: string[] | null = null;
-  if (await isFeatureEnabled(c.env.DB, 'LEARNING_CENTER_ENABLED')) {
+  if (await isFeatureEnabled(d1, 'LEARNING_CENTER_ENABLED')) {
     const { getOnboardingGate } = await import('../learning/service');
-    const gate = await getOnboardingGate(c.env.DB, supplierId);
+    const gate = await getOnboardingGate(d1, supplierId);
     if (gate.required) trainingBlocked = gate.missing as unknown as string[];
   }
 
@@ -255,10 +277,10 @@ router.post('/import', session(), async (c) => {
           continue;
         }
         if (!dryRun) {
-          if (fieldChanges) await updateOffer(c.env.DB, offer.id, upd.data);
+          if (fieldChanges) await updateOffer(d1, offer.id, upd.data);
           if (stockChanges) {
-            await inventoryService.adjustStock(c.env.DB, c.env.NOTIFICATIONS_QUEUE, offer.id, {
-              mode: 'set', quantity: stockQty!, trackInventory: true, note: 'CSV import', actorUserId: ctx.userId,
+            await inventoryService.adjustStock(d1, env.NOTIFICATIONS_QUEUE, offer.id, {
+              mode: 'set', quantity: stockQty!, trackInventory: true, note: 'CSV import', actorUserId: caller.userId,
             });
           }
         }
@@ -286,8 +308,8 @@ router.post('/import', session(), async (c) => {
       let offerId: string | undefined;
       if (!dryRun) {
         const { supplierId: _s, ...rest } = crt.data;
-        offerId = await createOffer(c.env.DB, { supplierId, ...rest });
-        if (requestedActive === false) await updateOffer(c.env.DB, offerId, { active: false });
+        offerId = await createOffer(d1, { supplierId, ...rest });
+        if (requestedActive === false) await updateOffer(d1, offerId, { active: false });
       }
       created++;
       results.push({ row, status: 'created', productName: product.name, ...(offerId ? { offerId } : {}) });
@@ -298,17 +320,17 @@ router.post('/import', session(), async (c) => {
 
   const errors = results.filter((r) => r.status === 'error').length;
   if (!dryRun && (created > 0 || updated > 0)) {
-    await recordAudit(c.env.DB, {
-      actorUserId: ctx.userId,
+    await recordAudit(d1, {
+      actorUserId: caller.userId,
       action: 'supplier_product.import',
       resourceType: 'supplier',
       resourceId: supplierId,
       metadata: { rows: records.length, created, updated, errors },
-      ip: c.req.header('cf-connecting-ip') ?? null,
-      userAgent: c.req.header('user-agent') ?? null,
+      ip: caller.ip,
+      userAgent: caller.userAgent,
     });
   }
-  return c.json({
+  return {
     dryRun,
     summary: {
       rows: records.length,
@@ -318,7 +340,22 @@ router.post('/import', session(), async (c) => {
       errors,
     },
     results,
-  });
+  };
+}
+
+router.post('/import', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx;
+  const parsed = supplierProductImportSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
+  const { supplierId, csv, dryRun } = parsed.data;
+  await requireSupplierMember(c.env.DB, supplierId, ctx.userId);
+  const out = await runImport(c.env, c.env.DB, {
+    supplierId,
+    userId: ctx.userId,
+    ip: c.req.header('cf-connecting-ip') ?? null,
+    userAgent: c.req.header('user-agent') ?? null,
+  }, csv, dryRun);
+  return c.json(out);
 });
 
 
