@@ -417,7 +417,7 @@ export function CheckoutPage() {
           <p className="text-xs text-ink-3 max-w-sm mx-auto">
             Add wholesale commodities and commercial products from verified suppliers before proceeding to checkout.
           </p>
-          <Link to="/marketplace" className="inline-block pt-2">
+          <Link to="/search" className="inline-block pt-2">
             <Button variant="primary">Browse Marketplace Catalog</Button>
           </Link>
         </Surface>

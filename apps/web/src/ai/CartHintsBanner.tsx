@@ -23,7 +23,7 @@ export function CartHintsBanner({ businessId }: { businessId?: string }) {
 
   const { data } = useQuery({
     queryKey: ['ai-cart-hints', businessId],
-    queryFn: () => api.get<{ hints: CartHint[] }>(`/api/ai/cart-hints?businessId=${businessId ?? ''}`),
+    queryFn: () => api.get<{ hints: CartHint[] }>(`/ai/cart-hints?businessId=${businessId ?? ''}`),
     enabled: !!businessId,
     staleTime: 60_000,
     refetchOnWindowFocus: false,

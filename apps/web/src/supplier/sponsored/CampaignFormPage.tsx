@@ -4,8 +4,7 @@ import { useCreateCampaign } from '../../hooks/useSponsored';
 import { useSupplierId } from '../useSupplierId';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
-
-interface ProductRow { id: string; name: string }
+import { productOptionsFromOffers } from '../catalogListing';
 
 export function CampaignFormPage() {
   const { supplierId } = useSupplierId();
@@ -19,8 +18,13 @@ export function CampaignFormPage() {
   const products = useQuery({
     queryKey: ['supplierProducts', supplierId],
     queryFn: async () => {
-      const qs = new URLSearchParams({ supplierId, status: 'published' });
-      return api.get<ProductRow[]>(`/supplier/products?${qs.toString()}`);
+      const [offersRes, catalogRes] = await Promise.all([
+        api.get<{ offers: Array<{ id: string; productId: string; active: boolean; deletedAt: number | null }> }>(
+          `/supplier-products/by-supplier/${supplierId}`,
+        ),
+        api.get<{ products: Array<{ id: string; name: string }> }>('/products?limit=500'),
+      ]);
+      return productOptionsFromOffers(offersRes.offers, catalogRes.products);
     },
     enabled: !!supplierId,
   });

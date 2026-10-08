@@ -50,7 +50,7 @@ export function StorefrontPage(): JSX.Element {
     if (!slug) return;
     let cancelled = false;
     api
-      .get<StorefrontData>(`/api/suppliers/by-slug/${encodeURIComponent(slug)}`)
+      .get<StorefrontData>(`/suppliers/by-slug/${encodeURIComponent(slug)}`)
       .then((j) => {
         if (!cancelled) setData(j);
       })
@@ -74,7 +74,7 @@ export function StorefrontPage(): JSX.Element {
         </p>
         <div className="pt-2">
           <Link
-            to="/marketplace"
+            to="/search"
             className="inline-flex items-center gap-2 px-4 py-2 bg-ink text-paper text-xs font-semibold rounded-lg hover:bg-ink/90 transition shadow-xs"
           >
             <span>Return to Marketplace</span>
@@ -101,7 +101,7 @@ export function StorefrontPage(): JSX.Element {
       {/* Top Navigation & Breadcrumb */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-ink-4 pt-1">
         <nav className="flex items-center gap-1.5 font-mono">
-          <Link to="/marketplace" className="hover:text-ink transition-colors">
+          <Link to="/search" className="hover:text-ink transition-colors">
             Marketplace
           </Link>
           <ChevronRightIcon size={12} className="opacity-40" />

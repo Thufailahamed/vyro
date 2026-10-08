@@ -15,3 +15,11 @@ export function existingOfferForProduct<T extends { id: string; productId: strin
 ): T | undefined {
   return offers.find((offer) => offer.productId === productId);
 }
+
+export function productOptionsFromOffers(
+  offers: Array<{ productId: string; active: boolean; deletedAt: number | null }>,
+  products: Array<{ id: string; name: string }>,
+): Array<{ id: string; name: string }> {
+  const listed = new Set(offers.filter((o) => o.active && !o.deletedAt).map((o) => o.productId));
+  return products.filter((p) => listed.has(p.id)).map((p) => ({ id: p.id, name: p.name }));
+}

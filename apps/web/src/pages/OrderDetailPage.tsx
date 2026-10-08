@@ -1040,10 +1040,10 @@ export function OrderDetailPage() {
                 Disputes and refunds are reviewed by the Vyro trust team within 1–2 business days.
               </p>
               <Link
-                to="/support"
+                to="/ask"
                 className="text-[11px] font-semibold text-copper hover:underline inline-flex items-center gap-1 mt-1"
               >
-                Open a support ticket
+                Ask Vyro Assistant
                 <ChevronRightIcon size={10} />
               </Link>
             </div>
