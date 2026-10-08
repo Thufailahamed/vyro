@@ -224,12 +224,30 @@ router.post('/:id/accept', session(), async (c) => {
     requireSupplierRole(ctx, po.supplierId, PO_SUPPLIER_ROLES);
     role = 'supplier';
   }
+  const idemKey = c.req.header('Idempotency-Key');
+  const requestHash = hashRequestBody({
+    poId: po.id,
+    lines: parsed.data.lines ?? null,
+    note: parsed.data.note ?? null,
+  });
+  if (idemKey) {
+    const hit = await getIdempotencyResponse(c.env.DB, ctx.userId, idemKey);
+    if (hit) {
+      await assertIdempotencyMatch(c.env.DB, ctx.userId, idemKey, requestHash);
+      c.status(hit.statusCode as 200);
+      return c.json(JSON.parse(hit.responseJson));
+    }
+  }
+
   const out = await acceptOrder(c.env, {
     poId: po.id,
     actor: { role, userId: ctx.userId },
     lines: parsed.data.lines,
     note: parsed.data.note ?? null,
   });
+  if (idemKey) {
+    await storeIdempotencyResponse(c.env.DB, ctx.userId, idemKey, requestHash, 200, JSON.stringify(out));
+  }
   return c.json(out);
 });
 
