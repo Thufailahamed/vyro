@@ -209,6 +209,7 @@ router.delete('/admin/reviews/:reviewId', async (c) => {
 });
 
 router.get('/orders/:id/eligibility', async (c) => {
+  if (!(await isReviewsEnabled(c.env.DB))) return c.json({ canReview: false, reason: 'disabled' });
   const ctx = ctxOf(c);
   const allowedBusinessIds = ctx.businesses.map((b) => b.businessId).filter((x): x is string => !!x);
   const orderId = c.req.param('id');

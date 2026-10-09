@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from './api';
 
-type SloRule = {
+export type SloRule = {
   name: string;
   component: string;
   description: string;
@@ -12,54 +13,51 @@ type SloRule = {
   silenced: boolean;
 };
 
-export function useAlertRules(): SloRule[] | null {
-  const [rules, setRules] = useState<SloRule[] | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/admin/observability/alerts/rules', {
-      credentials: 'include',
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j: unknown) => {
-        if (
-          !cancelled &&
-          j &&
-          typeof j === 'object' &&
-          Array.isArray((j as { rules?: unknown }).rules)
-        ) {
-          setRules((j as { rules: SloRule[] }).rules);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return rules;
-}
+export type AlertHistoryRow = {
+  id: string;
+  title: string;
+  body: string | null;
+  severity: 'info' | 'warning' | 'critical';
+  sourceRef: string | null;
+  link: string | null;
+  createdAt: number;
+};
 
-export async function silenceRule(
-  ruleName: string,
-  durationMinutes: number,
-  reason: string,
-): Promise<unknown> {
-  const res = await fetch('/api/admin/observability/alerts/silence', {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ ruleName, durationMinutes, reason }),
+const keys = {
+  rules: ['admin', 'alerts', 'rules'] as const,
+  history: ['admin', 'alerts', 'history'] as const,
+};
+
+export function useAlertRules() {
+  return useQuery({
+    queryKey: keys.rules,
+    queryFn: async () => (await api.get<{ rules: SloRule[] }>('/admin/observability/alerts/rules')).rules,
   });
-  if (!res.ok) throw new Error('silence_failed');
-  return res.json();
 }
 
-export async function unsilenceRule(
-  ruleName: string,
-): Promise<unknown> {
-  const res = await fetch(
-    `/api/admin/observability/alerts/silence/${encodeURIComponent(ruleName)}`,
-    { method: 'DELETE', credentials: 'include' },
-  );
-  if (!res.ok) throw new Error('unsilence_failed');
-  return res.json();
+export function useAlertHistory(limit = 50) {
+  return useQuery({
+    queryKey: [...keys.history, limit],
+    queryFn: async () =>
+      (await api.get<{ rows: AlertHistoryRow[] }>(`/admin/observability/alerts/history?limit=${limit}`)).rows,
+    refetchInterval: 60_000,
+  });
+}
+
+export function useSilenceRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { ruleName: string; durationMinutes: number; reason: string }) =>
+      api.post('/admin/observability/alerts/silence', input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.rules }),
+  });
+}
+
+export function useUnsilenceRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ruleName: string) =>
+      api.del(`/admin/observability/alerts/silence/${encodeURIComponent(ruleName)}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.rules }),
+  });
 }

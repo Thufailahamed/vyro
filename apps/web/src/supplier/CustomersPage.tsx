@@ -1,26 +1,28 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { cn, useToast } from '@vyro/ui';
 import { api } from '@/lib/api';
-import { Input, Button, Badge } from '@/components/ui';
+import { Button, StatusBadge } from '@/components/ui';
 import { Surface, MetricNumber } from '@/components/brand/Surface';
 import {
-  StoreIcon,
-  SearchIcon,
-  Building2Icon,
-  CalendarIcon,
   ArrowRightIcon,
-  UsersIcon,
-  TrendingUpIcon,
   BanknoteIcon,
-  RefreshCwIcon,
+  Building2Icon,
+  ChevronRightIcon,
   PlusIcon,
+  RefreshCwIcon,
+  SearchIcon,
+  StoreIcon,
+  TrendingUpIcon,
+  UsersIcon,
+  XIcon,
 } from '@/components/icons';
 import { formatLKR } from '@/lib/format';
+import type { ConsoleOrder } from '@/components/orders/console';
 import { useSupplierId } from './useSupplierId';
 import { SupplierErrorState, SupplierLoadingState } from './SupplierPageState';
 import { SupplierHero, HeroStatusPill, heroActionClass } from './SupplierHero';
-import { useToast } from '@vyro/ui';
 
 type Customer = {
   businessId: string;
@@ -30,17 +32,97 @@ type Customer = {
   lastOrderAt: number;
 };
 
+type Segment = 'champion' | 'repeat' | 'new' | 'lapsing';
+type SortKey = 'spend' | 'orders' | 'recent';
+
+const DAY = 86_400_000;
+
+const SEGMENTS: Record<Segment, { label: string; hint: string; dot: string; chip: string }> = {
+  champion: {
+    label: 'Champion',
+    hint: '3+ orders, active in the last 45 days',
+    dot: 'bg-volt-deep',
+    chip: 'bg-volt-soft text-ink ring-volt-deep/30',
+  },
+  repeat: { label: 'Repeat', hint: 'Ordered more than once', dot: 'bg-mint', chip: 'bg-mint/[0.08] text-mint ring-mint/25' },
+  new: { label: 'New', hint: 'First order placed', dot: 'bg-copper', chip: 'bg-copper/[0.08] text-copper-deep ring-copper/25' },
+  lapsing: {
+    label: 'Lapsing',
+    hint: 'No order in 60+ days',
+    dot: 'bg-amber',
+    chip: 'bg-amber/[0.1] text-[#a86c28] ring-amber/30',
+  },
+};
+
+function segmentOf(c: Customer, now: number): Segment {
+  const days = (now - c.lastOrderAt) / DAY;
+  if (days > 60) return 'lapsing';
+  if (c.totalOrders >= 3 && days <= 45) return 'champion';
+  if (c.totalOrders >= 2) return 'repeat';
+  return 'new';
+}
+
+const RTF = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+function ago(ts: number, now = Date.now()) {
+  const days = Math.round((ts - now) / DAY);
+  if (Math.abs(days) < 1) return 'today';
+  if (Math.abs(days) < 30) return RTF.format(days, 'day');
+  if (Math.abs(days) < 365) return RTF.format(Math.round(days / 30), 'month');
+  return RTF.format(Math.round(days / 365), 'year');
+}
+
+const MONO_TONES = [
+  'from-[#E9EFC9] to-[#D6E28F] text-[#4C5A12]',
+  'from-[#F1E2D4] to-[#E2C3A6] text-copper-deep',
+  'from-[#DCEBE3] to-[#B7D6C6] text-[#2B6650]',
+  'from-[#EFE7D8] to-[#DCCDB1] text-[#6B5634]',
+];
+
+function Monogram({ name, seed, large }: { name: string; seed: string; large?: boolean }) {
+  const words = name.trim().split(/\s+/);
+  const letters = ((words[0]?.[0] ?? '') + (words[1]?.[0] ?? words[0]?.[1] ?? '')).toUpperCase() || '?';
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+  return (
+    <span
+      className={cn(
+        'flex shrink-0 items-center justify-center bg-gradient-to-br font-display font-bold tracking-[-0.02em] shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08),inset_0_1px_0_rgba(255,255,255,0.6)]',
+        large ? 'size-14 rounded-2xl text-lg' : 'size-10 rounded-[11px] text-[13px]',
+        MONO_TONES[Math.abs(h) % MONO_TONES.length],
+      )}
+      aria-hidden
+    >
+      {letters}
+    </span>
+  );
+}
+
+function SegmentPill({ segment }: { segment: Segment }) {
+  const s = SEGMENTS[segment];
+  return (
+    <span
+      title={s.hint}
+      className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset', s.chip)}
+    >
+      <span className={cn('size-1.5 rounded-full', s.dot)} aria-hidden />
+      {s.label}
+    </span>
+  );
+}
+
 export function SupplierCustomersPage() {
   const { supplierId } = useSupplierId();
   const toast = useToast();
   const [q, setQ] = useState('');
-  const [sortBy, setSortBy] = useState<'spend' | 'orders' | 'recent'>('spend');
+  const [sortBy, setSortBy] = useState<SortKey>('spend');
+  const [segment, setSegment] = useState<'all' | Segment>('all');
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const customers = useInfiniteQuery({
     queryKey: ['supplier', supplierId, 'customers'],
     queryFn: ({ pageParam }: { pageParam: string | null }) =>
       api.get<{ items: Customer[]; nextCursor: string | null }>(
-        `/suppliers/${supplierId}/customers?limit=20${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
+        `/suppliers/${supplierId}/customers?limit=50${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
       ),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
@@ -48,429 +130,524 @@ export function SupplierCustomersPage() {
     refetchInterval: 30_000,
   });
 
-  const list = (customers.data?.pages ?? []).flatMap((p) => p.items);
+  const now = Date.now();
+  const list = useMemo(() => (customers.data?.pages ?? []).flatMap((p) => p.items), [customers.data]);
+  const enriched = useMemo(() => list.map((c) => ({ ...c, segment: segmentOf(c, now) })), [list, now]);
 
-  const handleRefresh = async () => {
-    toast.info('Refreshing commercial accounts…');
-    await customers.refetch();
-    toast.success('Accounts synchronized');
-  };
+  const totalSpend = list.reduce((n, c) => n + c.totalCents, 0);
+  const totalOrders = list.reduce((n, c) => n + c.totalOrders, 0);
+  const repeat = list.filter((c) => c.totalOrders > 1).length;
+  const repeatRate = list.length ? Math.round((repeat / list.length) * 100) : 0;
+  const active30 = list.filter((c) => now - c.lastOrderAt <= 30 * DAY).length;
+  const topShare = totalSpend
+    ? Math.round((Math.max(0, ...list.map((c) => c.totalCents)) / totalSpend) * 100)
+    : 0;
 
-  const filtered = useMemo(() => {
-    return q ? list.filter((c) => c.name.toLowerCase().includes(q.toLowerCase())) : list;
-  }, [list, q]);
+  const segCounts = useMemo(() => {
+    const out: Record<Segment, number> = { champion: 0, repeat: 0, new: 0, lapsing: 0 };
+    for (const c of enriched) out[c.segment] += 1;
+    return out;
+  }, [enriched]);
 
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      if (sortBy === 'orders') return b.totalOrders - a.totalOrders;
-      if (sortBy === 'recent') return (b.lastOrderAt ?? 0) - (a.lastOrderAt ?? 0);
-      return b.totalCents - a.totalCents;
-    });
-  }, [filtered, sortBy]);
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return enriched
+      .filter((c) => (segment === 'all' || c.segment === segment) && (!needle || c.name.toLowerCase().includes(needle)))
+      .sort((a, b) => {
+        if (sortBy === 'orders') return b.totalOrders - a.totalOrders;
+        if (sortBy === 'recent') return b.lastOrderAt - a.lastOrderAt;
+        return b.totalCents - a.totalCents;
+      });
+  }, [enriched, q, segment, sortBy]);
 
-  const totalSpendCents = list.reduce((acc, c) => acc + c.totalCents, 0);
-  const avgSpendCents = list.length > 0 ? Math.round(totalSpendCents / list.length) : 0;
-  const repeatBuyersCount = list.filter((c) => c.totalOrders > 1).length;
-  const repeatRatio = list.length > 0 ? Math.round((repeatBuyersCount / list.length) * 100) : 0;
+  const open = openId ? enriched.find((c) => c.businessId === openId) ?? null : null;
 
-  if (customers.isLoading) return <SupplierLoadingState label="Loading commercial buyers" />;
+  if (customers.isLoading) return <SupplierLoadingState label="Loading customers" />;
   if (customers.isError) {
-    return (
-      <SupplierErrorState
-        message="Could not load commercial buyers."
-        onRetry={() => void customers.refetch()}
-      />
-    );
+    return <SupplierErrorState message="Could not load your customers." onRetry={() => void customers.refetch()} />;
   }
+
+  const refresh = async () => {
+    await customers.refetch();
+    toast.success('Customers up to date');
+  };
 
   return (
     <div className="space-y-6">
-      {/* Executive Header */}
       <SupplierHero
-        icon={StoreIcon}
-        kicker="Enterprise Accounts · Buyer Network"
-        title="Commercial Buyers & Accounts"
+        icon={UsersIcon}
+        kicker="Buyer network"
+        title="Customers"
         description={
           list.length === 0
-            ? 'Corporate retail, hospitality, and catering businesses procuring wholesale goods from your depot.'
-            : `${list.length} verified commercial business${list.length === 1 ? '' : 'es'} have placed purchase orders with your depot.`
+            ? 'Businesses that buy from your depot will appear here after their first purchase order.'
+            : `${list.length} ${list.length === 1 ? 'business buys' : 'businesses buy'} from your depot · ${active30} ordered in the last 30 days.`
         }
         status={
-          list.length > 0 ? (
-            <HeroStatusPill label="Active Client Base" tone="mint" />
-          ) : (
-            <HeroStatusPill label="Awaiting First Buyer" tone="amber" />
-          )
+          list.length > 0 ? <HeroStatusPill label={`${active30} active this month`} tone="mint" /> : <HeroStatusPill label="Awaiting first buyer" tone="amber" />
         }
         actions={
           <>
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={customers.isFetching}
-              className={heroActionClass}
-              title="Refresh accounts directory"
-            >
+            <button type="button" onClick={() => void refresh()} disabled={customers.isFetching} className={heroActionClass}>
               <RefreshCwIcon size={13} className={customers.isFetching ? 'animate-spin' : ''} />
               Refresh
             </button>
             <Link to="/supplier/orders" className={heroActionClass}>
-              Orders Console
+              Orders
               <ArrowRightIcon size={12} />
-            </Link>
-            <Link
-              to="/supplier/products/new"
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-volt px-3 text-xs font-bold text-ink transition-colors hover:bg-volt-glow"
-            >
-              <PlusIcon size={13} />
-              Add Product
             </Link>
           </>
         }
         footer={
-          <>
-            <span>Accounts appear after their first settled purchase order</span>
-            <span className="text-paper/40">
-              {repeatBuyersCount} repeat buyers · {repeatRatio}% repeat rate
-            </span>
-          </>
+          list.length > 0 ? (
+            <>
+              <span>Excludes cancelled orders</span>
+              <span className="text-paper/40">
+                Top customer = {topShare}% of revenue{topShare >= 50 ? ' · high concentration' : ''}
+              </span>
+            </>
+          ) : undefined
         }
       />
 
-      {/* Harmonious 4-Card Client Intelligence Matrix */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="vyro-surface p-5 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Total Accounts</span>
-            <span className="flex size-8 items-center justify-center rounded-lg bg-ink/[0.06] text-ink-3">
-              <StoreIcon size={15} />
-            </span>
-          </div>
-          <MetricNumber size="md" className="text-ink">
-            {list.length}
-          </MetricNumber>
-          <div className="text-xs text-ink-4">
-            {list.length > 0 ? 'Verified base · wholesale buyers' : 'New depot · no buyers yet'}
-          </div>
-        </div>
-
-        <div className="vyro-surface p-5 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Cumulative Bookings</span>
-            <span className="flex size-8 items-center justify-center rounded-lg bg-mint/15 text-mint">
-              <TrendingUpIcon size={15} />
-            </span>
-          </div>
-          <MetricNumber size="md" className="text-mint">
-            {formatLKR(totalSpendCents)}
-          </MetricNumber>
-          <div className="text-xs text-ink-4">Lifetime GMV · invoiced via escrow</div>
-        </div>
-
-        <div className="vyro-surface p-5 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Avg Client Spend</span>
-            <span className="flex size-8 items-center justify-center rounded-lg bg-copper/10 text-copper">
-              <BanknoteIcon size={15} />
-            </span>
-          </div>
-          <MetricNumber size="md" className="text-ink">
-            {formatLKR(avgSpendCents)}
-          </MetricNumber>
-          <div className="text-xs text-ink-4">Per account · average spend</div>
-        </div>
-
-        <div className="vyro-surface p-5 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">Repeat Client Ratio</span>
-            <span className="flex size-8 items-center justify-center rounded-lg bg-volt/15 text-volt-deep">
-              <UsersIcon size={15} />
-            </span>
-          </div>
-          <MetricNumber size="md" className="text-ink">
-            {repeatRatio}%
-          </MetricNumber>
-          <div className="text-xs text-ink-4">{repeatBuyersCount} recurring · 2+ orders</div>
-        </div>
-      </div>
-
-      {/* Buyer Segments & Procurement Channels Surface */}
-      <Surface kind="ink" className="p-6 relative overflow-hidden grain">
-        <div className="flex items-start gap-4">
-          <div className="size-10 rounded-lg bg-volt/15 border border-volt/30 flex items-center justify-center text-volt shrink-0 mt-0.5">
-            <Building2Icon size={20} />
-          </div>
-          <div className="space-y-3 flex-1">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-              <div className="text-xs font-mono uppercase tracking-[0.16em] text-volt font-bold">
-                Enterprise Buyer Ecosystem & Procurement Channels
-              </div>
-              <span className="text-[11px] font-mono text-paper/60">Automated SVAT Invoicing</span>
-            </div>
-            <p className="text-xs text-paper/80 leading-relaxed max-w-4xl">
-              Commercial accounts are verified businesses operating in Sri Lanka. Orders placed against your rate cards
-              generate legal digital SVAT tax invoices with automated delivery tracking:
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-              <div className="bg-paper/5 border border-paper/10 p-3.5 rounded-xl">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-volt font-bold">
-                  HORECA & Hospitality
-                </div>
-                <div className="text-[11px] text-paper/70 mt-1">
-                  Hotels, resorts, and restaurants procure bulk staple grains, sugar, and cooking oils weekly.
-                </div>
-              </div>
-
-              <div className="bg-paper/5 border border-paper/10 p-3.5 rounded-xl">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-volt font-bold">
-                  Supermarkets & Grocers
-                </div>
-                <div className="text-[11px] text-paper/70 mt-1">
-                  Independent grocers and retail chains purchasing packaged consumer commodities by the pallet.
-                </div>
-              </div>
-
-              <div className="bg-paper/5 border border-paper/10 p-3.5 rounded-xl">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-volt font-bold">
-                  Institutions & Caterers
-                </div>
-                <div className="text-[11px] text-paper/70 mt-1">
-                  Commercial cloud kitchens and catering networks relying on prompt 24h–48h dock turnarounds.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Surface>
-
-      {/* When NO buyers have ordered yet: Onboarding Hub */}
       {list.length === 0 ? (
-        <div className="space-y-6">
-          <Surface kind="elevated" className="p-6 sm:p-8 space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-line">
-              <div className="flex items-start gap-4">
-                <div className="size-12 rounded-xl bg-copper/10 border border-copper/20 flex items-center justify-center text-copper shrink-0">
-                  <Building2Icon size={24} />
-                </div>
-                <div>
-                  <h2 className="text-lg sm:text-xl font-bold font-display text-ink">
-                    No commercial buyers yet — Connect your depot to buyer desks
-                  </h2>
-                  <p className="text-sm text-ink-3 mt-1 max-w-2xl">
-                    Commercial retail, restaurant, and distribution buyers discover your depot automatically when your
-                    commodities are published with active stock and competitive volume tiers.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
-                <Link to="/supplier/products/new" className="w-full sm:w-auto">
-                  <Button variant="primary" size="md" className="w-full sm:w-auto gap-2 shadow-soft-sm font-semibold">
-                    <PlusIcon size={16} />
-                    Publish Wholesale Products
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            {/* 3-Step Buyer Acquisition Roadmap */}
-            <div>
-              <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-ink-4 font-semibold mb-3">
-                How to Accelerate Commercial Buyer Adoption
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl bg-ink/[0.03] space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-md bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
-                      1
-                    </div>
-                    <span className="text-xs font-bold text-ink">Publish Standard Commodities</span>
-                  </div>
-                  <p className="text-xs text-ink-3 leading-relaxed">
-                    Corporate procurement desks frequently search for Rice (Keeri Samba, Nadu), White Sugar, Flour, and Spices.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl bg-ink/[0.03] space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-md bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
-                      2
-                    </div>
-                    <span className="text-xs font-bold text-ink">Offer Structured Volume Tiers</span>
-                  </div>
-                  <p className="text-xs text-ink-3 leading-relaxed">
-                    Configuring discounts for 10+, 50+, and 100+ units incentivizes commercial buyers to consolidate larger POs.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl bg-ink/[0.03] space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-md bg-ink text-paper text-xs font-mono font-bold flex items-center justify-center">
-                      3
-                    </div>
-                    <span className="text-xs font-bold text-ink">Commit to 48h Turnaround</span>
-                  </div>
-                  <p className="text-xs text-ink-3 leading-relaxed">
-                    Reliable lead times earn preferred supplier placement on buyers' repeat re-ordering dashboards.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-line">
-              <span className="text-xs text-ink-4">
-                Have questions about buyer onboarding? Review your depot fulfillment settings.
-              </span>
-              <div className="flex items-center gap-2">
-                <Link to="/supplier/pricing">
-                  <Button variant="secondary" size="sm" className="text-xs font-semibold">
-                    Configure Rate Cards
-                  </Button>
-                </Link>
-                <Link to="/supplier/settings">
-                  <Button variant="ghost" size="sm" className="text-xs">
-                    Depot Hub Settings
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </Surface>
-        </div>
+        <EmptyCustomers />
       ) : (
-        /* When buyers exist: Filters & Enhanced Directory Table */
-        <div className="space-y-4">
-          {/* Filters & Sorting Bar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="relative w-full sm:w-80">
-              <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
-              <Input
-                placeholder="Search accounts by trading name…"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                className="pl-9 text-xs"
-              />
-            </div>
-            <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full overflow-x-auto scrollbar-none">
-              {(
-                [
-                  { id: 'spend', label: 'Highest Spend' },
-                  { id: 'orders', label: 'Most Orders' },
-                  { id: 'recent', label: 'Recently Active' },
-                ] as const
-              ).map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setSortBy(tab.id)}
-                  className={`h-8 px-3.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
-                    sortBy === tab.id
-                      ? 'bg-ink text-paper shadow-sm'
-                      : 'text-ink-3 hover:text-ink'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+        <>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <Kpi label="Customers" icon={<StoreIcon size={15} />} value={String(list.length)} sub={`${active30} active in 30 days`} />
+            <Kpi label="Lifetime revenue" icon={<TrendingUpIcon size={15} />} value={formatLKR(totalSpend)} sub={`${totalOrders} purchase orders`} tone="mint" />
+            <Kpi
+              label="Avg per customer"
+              icon={<BanknoteIcon size={15} />}
+              value={formatLKR(list.length ? Math.round(totalSpend / list.length) : 0)}
+              sub={`${formatLKR(totalOrders ? Math.round(totalSpend / totalOrders) : 0)} per order`}
+            />
+            <Kpi label="Repeat rate" icon={<UsersIcon size={15} />} value={`${repeatRate}%`} sub={`${repeat} of ${list.length} reordered`}>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink/[0.06]">
+                <div className="h-full rounded-full bg-volt-deep transition-[width] duration-500" style={{ width: `${repeatRate}%` }} />
+              </div>
+            </Kpi>
           </div>
 
-          {/* Directory Surface Table */}
+          {/* Segment mix */}
+          <section className="vyro-surface p-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-sm font-semibold text-ink">Customer mix</h2>
+              <span className="text-xs text-ink-4">Click a segment to filter the list</span>
+            </div>
+            <div className="mt-3 flex h-2.5 gap-[3px] overflow-hidden rounded-full bg-ink/[0.05]">
+              {(Object.keys(SEGMENTS) as Segment[])
+                .filter((k) => segCounts[k] > 0)
+                .map((k) => (
+                  <span key={k} className={cn('h-full rounded-full', SEGMENTS[k].dot)} style={{ width: `${(segCounts[k] / list.length) * 100}%` }} />
+                ))}
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {(Object.keys(SEGMENTS) as Segment[]).map((k) => {
+                const on = segment === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setSegment(on ? 'all' : k)}
+                    className={cn(
+                      'rounded-xl p-3 text-left transition-all',
+                      on
+                        ? 'bg-ink text-paper shadow-[0_10px_24px_-14px_rgba(12,14,11,0.7)]'
+                        : 'bg-ink/[0.03] hover:bg-ink/[0.06]',
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={cn('size-2 rounded-full', SEGMENTS[k].dot)} aria-hidden />
+                      <span className={cn('text-xs font-semibold', on ? 'text-paper' : 'text-ink')}>{SEGMENTS[k].label}</span>
+                      <span className={cn('ml-auto vyro-metric text-lg leading-none', on ? 'text-paper' : 'text-ink')}>{segCounts[k]}</span>
+                    </div>
+                    <div className={cn('mt-1 text-[11px] leading-snug', on ? 'text-paper/60' : 'text-ink-4')}>{SEGMENTS[k].hint}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Directory */}
           <Surface kind="elevated" className="overflow-hidden">
-            {sorted.length === 0 ? (
-              <div className="p-12 text-center space-y-3">
-                <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-ink/[0.06] text-ink-4">
-                  <Building2Icon size={22} />
+            <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <div className="relative w-full sm:w-80">
+                <SearchIcon size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
+                <input
+                  type="search"
+                  placeholder="Search customers…"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  className="h-9 w-full rounded-lg bg-paper pl-9 pr-3 text-[13px] text-ink shadow-[inset_0_0_0_1px_rgba(12,14,11,0.12)] outline-none transition-shadow placeholder:text-ink-5 focus:shadow-[inset_0_0_0_1px_#0C0E0B,0_0_0_4px_rgba(198,220,74,0.3)]"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="hidden text-xs text-ink-4 sm:inline">Sort</span>
+                <div className="inline-flex rounded-[10px] bg-ink/[0.045] p-[3px]">
+                  {(
+                    [
+                      { id: 'spend', label: 'Revenue' },
+                      { id: 'orders', label: 'Orders' },
+                      { id: 'recent', label: 'Recent' },
+                    ] as const
+                  ).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      aria-pressed={sortBy === t.id}
+                      onClick={() => setSortBy(t.id)}
+                      className={cn(
+                        'h-7 rounded-[7px] px-3 text-xs font-semibold transition-all',
+                        sortBy === t.id ? 'bg-paper text-ink shadow-[0_0_0_1px_rgba(12,14,11,0.06),0_1px_3px_rgba(12,14,11,0.1)]' : 'text-ink-4 hover:text-ink',
+                      )}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
                 </div>
-                <p className="text-sm font-medium text-ink-3">No matching commercial buyers.</p>
-                <p className="text-xs text-ink-4">Try searching by a different trading name or keyword.</p>
-                <Button variant="secondary" size="sm" onClick={() => setQ('')}>
-                  Clear search
-                </Button>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-bone/60 text-ink-4 border-b border-ink/10 text-[10px] font-mono uppercase tracking-[0.14em]">
-                    <tr>
-                      <th className="text-left px-5 py-3.5 font-bold">Business Account</th>
-                      <th className="text-right px-4 py-3.5 font-bold">Total Orders</th>
-                      <th className="text-right px-4 py-3.5 font-bold">Lifetime GMV</th>
-                      <th className="text-right px-4 py-3.5 font-bold">Most Recent Order</th>
-                      <th className="text-right px-5 py-3.5 font-bold">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-ink/5">
-                    {sorted.map((c) => (
-                      <tr key={c.businessId} className="hover:bg-bone/40 transition-colors">
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="size-10 rounded-lg bg-ink/[0.06] flex items-center justify-center text-ink-3 shrink-0">
-                              <Building2Icon size={18} />
-                            </div>
-                            <div>
-                              <div className="font-semibold text-ink hover:text-copper transition-colors">
-                                {c.name}
-                              </div>
-                              <div className="text-xs font-mono text-ink-4 flex items-center gap-2 mt-0.5">
-                                <span>ID: {c.businessId.slice(0, 10)}…</span>
-                                {c.totalOrders > 1 && (
-                                  <Badge variant="success" className="font-mono text-[9px] py-0 px-1">
-                                    Recurring Client
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <span className="font-mono text-xs bg-bone px-2.5 py-1 rounded-full font-semibold text-ink">
-                            {c.totalOrders} {c.totalOrders === 1 ? 'order' : 'orders'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-right vyro-metric text-sm font-bold text-ink">
-                          {formatLKR(c.totalCents)}
-                        </td>
-                        <td className="px-4 py-4 text-right text-xs text-ink-3">
-                          {c.lastOrderAt ? (
-                            <span className="inline-flex items-center justify-end gap-1.5 font-mono">
-                              <CalendarIcon size={12} className="text-ink-4" />
-                              {new Date(c.lastOrderAt).toLocaleDateString()}
-                            </span>
-                          ) : (
-                            <span className="text-ink-4 font-mono">—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <Link
-                            to={`/supplier/orders?buyer=${c.businessId}`}
-                            className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium border border-ink/20 bg-paper text-ink hover:bg-ink hover:text-paper transition-colors rounded-full shadow-xs"
-                          >
-                            <span>View Orders</span>
-                            <ArrowRightIcon size={12} />
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            {customers.hasNextPage && (
-              <div className="p-4 text-center border-t border-line">
+            </div>
+
+            {rows.length === 0 ? (
+              <div className="space-y-3 p-12 text-center">
+                <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-ink/[0.06] text-ink-4">
+                  <SearchIcon size={20} />
+                </div>
+                <p className="text-sm font-medium text-ink">No matching customers</p>
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => void customers.fetchNextPage()}
-                  disabled={customers.isFetchingNextPage}
+                  onClick={() => {
+                    setQ('');
+                    setSegment('all');
+                  }}
                 >
-                  {customers.isFetchingNextPage ? 'Loading…' : 'Load more buyers'}
+                  Clear filters
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="hidden grid-cols-[minmax(0,2.2fr)_0.7fr_1.6fr_1fr_24px] gap-4 border-b border-line bg-bone/50 px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4 md:grid">
+                  <span>Customer</span>
+                  <span className="text-right">Orders</span>
+                  <span>Revenue</span>
+                  <span className="text-right">Last order</span>
+                  <span />
+                </div>
+                <ul className="divide-y divide-ink/[0.05]">
+                  {rows.map((c, i) => {
+                    const share = totalSpend ? (c.totalCents / totalSpend) * 100 : 0;
+                    return (
+                      <li key={c.businessId}>
+                        <button
+                          type="button"
+                          onClick={() => setOpenId(c.businessId)}
+                          className="group grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-bone/50 md:grid-cols-[minmax(0,2.2fr)_0.7fr_1.6fr_1fr_24px]"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="relative">
+                              <Monogram name={c.name} seed={c.businessId} />
+                              {sortBy === 'spend' && segment === 'all' && !q && i < 3 && (
+                                <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-ink text-[9px] font-bold text-volt ring-2 ring-paper">
+                                  {i + 1}
+                                </span>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-semibold text-ink">{c.name}</div>
+                              <div className="mt-1 flex items-center gap-2">
+                                <SegmentPill segment={c.segment} />
+                                <span className="text-[11px] text-ink-4 md:hidden">
+                                  {c.totalOrders} orders · {ago(c.lastOrderAt, now)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="hidden text-right text-sm font-semibold text-ink num-tabular md:block">{c.totalOrders}</div>
+                          <div className="text-right md:text-left">
+                            <div className="vyro-metric text-sm font-bold text-ink">{formatLKR(c.totalCents)}</div>
+                            <div className="mt-1.5 hidden items-center gap-2 md:flex">
+                              <div className="h-1 flex-1 overflow-hidden rounded-full bg-ink/[0.06]">
+                                <div className="h-full rounded-full bg-mint" style={{ width: `${Math.max(2, share)}%` }} />
+                              </div>
+                              <span className="w-9 text-right text-[10px] text-ink-4 num-tabular">{Math.round(share)}%</span>
+                            </div>
+                          </div>
+                          <div className="hidden text-right md:block">
+                            <div className="text-xs font-medium text-ink-2">{ago(c.lastOrderAt, now)}</div>
+                            <div className="text-[11px] text-ink-5 num-tabular">
+                              {new Date(c.lastOrderAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </div>
+                          </div>
+                          <ChevronRightIcon size={16} className="hidden text-ink-5 transition-all group-hover:translate-x-0.5 group-hover:text-ink md:block" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+
+            {customers.hasNextPage && (
+              <div className="border-t border-line p-4 text-center">
+                <Button variant="secondary" size="sm" onClick={() => void customers.fetchNextPage()} disabled={customers.isFetchingNextPage}>
+                  {customers.isFetchingNextPage ? 'Loading…' : 'Load more customers'}
                 </Button>
               </div>
             )}
           </Surface>
-        </div>
+        </>
+      )}
+
+      {open && supplierId && (
+        <CustomerDrawer customer={open} supplierId={supplierId} totalSpend={totalSpend} onClose={() => setOpenId(null)} />
       )}
     </div>
+  );
+}
+
+function Kpi({
+  label,
+  icon,
+  value,
+  sub,
+  tone,
+  children,
+}: {
+  label: string;
+  icon: ReactNode;
+  value: string;
+  sub: string;
+  tone?: 'mint';
+  children?: ReactNode;
+}) {
+  return (
+    <div className="vyro-surface p-5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4">{label}</span>
+        <span className={cn('flex size-8 items-center justify-center rounded-lg', tone === 'mint' ? 'bg-mint/15 text-mint' : 'bg-ink/[0.06] text-ink-3')}>
+          {icon}
+        </span>
+      </div>
+      <MetricNumber size="md" className={cn('mt-2 block truncate', tone === 'mint' ? 'text-mint' : 'text-ink')}>
+        {value}
+      </MetricNumber>
+      <div className="mt-1 text-xs text-ink-4">{sub}</div>
+      {children}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- Detail drawer */
+
+function CustomerDrawer({
+  customer,
+  supplierId,
+  totalSpend,
+  onClose,
+}: {
+  customer: Customer & { segment: Segment };
+  supplierId: string;
+  totalSpend: number;
+  onClose: () => void;
+}) {
+  // Same key as the Orders console, so the cache is shared.
+  const orders = useQuery({
+    queryKey: ['supplier', supplierId, 'po'],
+    queryFn: () => api.get<{ orders: ConsoleOrder[] }>(`/purchase-orders?supplierId=${supplierId}`),
+  });
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [onClose]);
+
+  const mine = useMemo(
+    () => (orders.data?.orders ?? []).filter((o) => o.businessId === customer.businessId).sort((a, b) => b.createdAt - a.createdAt),
+    [orders.data, customer.businessId],
+  );
+
+  const live = mine.filter((o) => o.status !== 'cancelled');
+  const first = live.length ? live[live.length - 1]!.createdAt : null;
+  const cadenceDays =
+    live.length >= 2 && first ? Math.round((live[0]!.createdAt - first) / DAY / (live.length - 1)) : null;
+  const share = totalSpend ? Math.round((customer.totalCents / totalSpend) * 100) : 0;
+  const openCount = mine.filter((o) => ['pending', 'accepted', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(o.status)).length;
+  const ordersLink = `/supplier/orders?buyer=${encodeURIComponent(customer.businessId)}&buyerName=${encodeURIComponent(customer.name)}`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={customer.name}>
+      <button type="button" aria-label="Close" className="absolute inset-0 bg-ink/50 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
+      <aside className="relative flex h-full w-full max-w-lg flex-col overflow-hidden bg-paper shadow-[-24px_0_60px_-20px_rgba(12,14,11,0.45)] animate-fade-in">
+        <header className="relative overflow-hidden bg-ink px-6 pb-6 pt-5 text-paper">
+          <div className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full bg-volt/15 blur-3xl" aria-hidden />
+          <div className="relative flex items-start justify-between gap-3">
+            <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-volt">Customer</span>
+            <button
+              type="button"
+              onClick={onClose}
+              className="-mr-2 -mt-1 flex size-8 items-center justify-center rounded-full text-paper/60 transition-colors hover:bg-paper/10 hover:text-paper"
+              aria-label="Close"
+            >
+              <XIcon size={16} />
+            </button>
+          </div>
+          <div className="relative mt-3 flex items-center gap-4">
+            <Monogram name={customer.name} seed={customer.businessId} large />
+            <div className="min-w-0">
+              <h2 className="vyro-display truncate text-xl font-bold text-paper">{customer.name}</h2>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-paper/55">
+                <SegmentPill segment={customer.segment} />
+                <span>Last order {ago(customer.lastOrderAt)}</span>
+              </div>
+            </div>
+          </div>
+          <dl className="relative mt-6 grid grid-cols-3 gap-px overflow-hidden rounded-xl bg-paper/10">
+            {[
+              ['Revenue', formatLKR(customer.totalCents)],
+              ['Orders', String(customer.totalOrders)],
+              ['Avg order', formatLKR(customer.totalOrders ? Math.round(customer.totalCents / customer.totalOrders) : 0)],
+            ].map(([k, v]) => (
+              <div key={k} className="bg-ink/70 px-3 py-3">
+                <dt className="text-[9px] font-mono uppercase tracking-[0.14em] text-paper/45">{k}</dt>
+                <dd className="mt-1 truncate font-mono text-sm font-bold text-paper num-tabular">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </header>
+
+        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
+          <div className="grid grid-cols-3 gap-3">
+            <Insight label="Share of revenue" value={`${share}%`} />
+            <Insight label="Order cadence" value={cadenceDays != null ? `${cadenceDays}d` : '—'} hint={cadenceDays != null ? 'avg between orders' : 'needs 2+ orders'} />
+            <Insight label="Open orders" value={String(openCount)} hint={openCount ? 'in progress' : 'none open'} />
+          </div>
+
+          <section>
+            <div className="mb-3 flex items-baseline justify-between">
+              <h3 className="text-[10px] font-mono uppercase tracking-[0.16em] text-ink-4">Order history</h3>
+              <span className="text-xs text-ink-4">{mine.length} total</span>
+            </div>
+            {orders.isLoading ? (
+              <div className="space-y-2">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-14 animate-pulse rounded-xl bg-ink/[0.05]" />
+                ))}
+              </div>
+            ) : orders.isError ? (
+              <p className="rounded-xl bg-rose/[0.07] p-4 text-sm text-rose">Couldn’t load this customer’s orders.</p>
+            ) : mine.length === 0 ? (
+              <p className="rounded-xl bg-ink/[0.03] p-4 text-sm text-ink-4">No orders found.</p>
+            ) : (
+              <ol className="relative space-y-2 before:absolute before:bottom-4 before:left-[15px] before:top-4 before:w-px before:bg-ink/[0.08]">
+                {mine.map((o) => (
+                  <li key={o.id}>
+                    <Link
+                      to={`/supplier/orders/${o.id}`}
+                      className="group relative flex items-center gap-3 rounded-xl p-2 pr-3 transition-colors hover:bg-bone/70"
+                    >
+                      <span className="relative z-10 flex size-[30px] shrink-0 items-center justify-center rounded-full bg-paper text-ink-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.12)]">
+                        <Building2Icon size={13} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate font-mono text-xs font-semibold text-ink">{o.poNumber}</span>
+                          <StatusBadge status={o.status} />
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-ink-4">
+                          {new Date(o.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {o.deliveryCity ? ` · ${o.deliveryCity}` : ''}
+                        </div>
+                      </div>
+                      <span className="font-mono text-xs font-bold text-ink num-tabular">{formatLKR(o.totalCents)}</span>
+                      <ChevronRightIcon size={14} className="text-ink-5 transition-transform group-hover:translate-x-0.5 group-hover:text-ink" />
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+        </div>
+
+        <footer className="flex items-center justify-between gap-3 border-t border-line bg-bone/50 px-6 py-4">
+          <span className="text-xs text-ink-4">{SEGMENTS[customer.segment].hint}</span>
+          <Link
+            to={ordersLink}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-ink px-4 text-xs font-semibold text-paper transition-colors hover:bg-charcoal"
+          >
+            Open in orders
+            <ArrowRightIcon size={12} />
+          </Link>
+        </footer>
+      </aside>
+    </div>
+  );
+}
+
+function Insight({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="rounded-xl bg-ink/[0.03] p-3 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.05)]">
+      <div className="text-[9px] font-mono uppercase tracking-[0.14em] text-ink-4">{label}</div>
+      <div className="mt-1 vyro-metric text-xl leading-none text-ink">{value}</div>
+      {hint && <div className="mt-1 text-[10px] text-ink-5">{hint}</div>}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- Empty state */
+
+function EmptyCustomers() {
+  const steps = [
+    { title: 'Publish staple products', body: 'Procurement desks search most for rice, sugar, flour and spices. Keep stock levels live.' },
+    { title: 'Add volume price tiers', body: 'Discounts at 10+, 50+ and 100+ units encourage larger, consolidated orders.' },
+    { title: 'Commit to fast turnaround', body: 'Reliable 24–48h dispatch earns repeat orders from hotels, grocers and caterers.' },
+  ];
+  return (
+    <Surface kind="elevated" className="overflow-hidden">
+      <div className="flex flex-col items-start gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+        <div className="flex items-start gap-4">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-volt-soft text-ink">
+            <Building2Icon size={22} />
+          </span>
+          <div>
+            <h2 className="vyro-display text-xl font-bold text-ink">No customers yet</h2>
+            <p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-3">
+              Hotels, restaurants, grocers and caterers find your depot through your published products. Your first buyer
+              appears here after they place a purchase order.
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/supplier/products/new"
+          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-paper transition-colors hover:bg-charcoal"
+        >
+          <PlusIcon size={15} />
+          Publish a product
+        </Link>
+      </div>
+      <ol className="grid gap-px border-t border-line bg-line md:grid-cols-3">
+        {steps.map((s, i) => (
+          <li key={s.title} className="bg-paper p-5">
+            <span className="flex size-6 items-center justify-center rounded-md bg-ink font-mono text-[11px] font-bold text-volt">{i + 1}</span>
+            <div className="mt-3 text-sm font-semibold text-ink">{s.title}</div>
+            <p className="mt-1 text-xs leading-relaxed text-ink-4">{s.body}</p>
+          </li>
+        ))}
+      </ol>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-bone/40 px-6 py-3">
+        <span className="text-xs text-ink-4">Volume tiers live in your rate cards.</span>
+        <Link to="/supplier/pricing" className="inline-flex items-center gap-1 text-xs font-semibold text-ink hover:text-copper">
+          Configure pricing <ArrowRightIcon size={11} />
+        </Link>
+      </div>
+    </Surface>
   );
 }

@@ -44,7 +44,8 @@ export async function checkEligibility(
   const order = await loadOrderForBuyer(d1, orderId, session.allowedBusinessIds);
   if (!buyerOwnsOrder(order, session.allowedBusinessIds)) return { canReview: false, reason: 'not_buyer' };
   if (order.status === 'disputed' || (order as any).disputeId) return { canReview: false, reason: 'dispute_open' };
-  if (order.status !== 'delivered') return { canReview: false, reason: 'not_delivered' };
+  // Reviewable once goods arrive — before and after the buyer confirms receipt.
+  if (order.status !== 'delivered' && order.status !== 'completed') return { canReview: false, reason: 'not_delivered' };
   const existing = await repo.findReviewByOrder(d1, order.supplierId, orderId);
   if (existing) return { canReview: false, reason: 'already_reviewed' };
   return { canReview: true, reason: null, supplierId: order.supplierId, buyerBusinessId: order.businessId };

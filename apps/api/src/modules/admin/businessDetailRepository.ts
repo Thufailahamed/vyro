@@ -7,8 +7,23 @@ export type BusinessDetail = {
   name: string;
   status: string;
   createdAt: number;
+  profile: {
+    contactPerson: string;
+    email: string;
+    phone: string;
+    address: string;
+    city: string;
+    district: string;
+    countryCode: string;
+    description: string | null;
+    taxId: string | null;
+    kycLevel: string;
+    kycVerifiedAt: number | null;
+  };
   members: Array<{ userId: string; role: string; email: string | null }>;
   orderCount: number;
+  /** Sum of non-cancelled PO totals. */
+  lifetimeSpendCents: number;
   recentOrders: Array<{ id: string; status: string; totalCents: number; createdAt: number }>;
 };
 
@@ -45,7 +60,7 @@ export async function getBusinessDetailForAdmin(
     .all();
 
   const all = await db
-    .select({ c: purchaseOrders.id })
+    .select({ c: purchaseOrders.id, t: purchaseOrders.totalCents })
     .from(purchaseOrders)
     .where(and(eq(purchaseOrders.businessId, id), ne(purchaseOrders.status, 'cancelled')))
     .all();
@@ -55,8 +70,22 @@ export async function getBusinessDetailForAdmin(
     name: business.name,
     status: business.status,
     createdAt: business.createdAt,
+    profile: {
+      contactPerson: business.contactPerson,
+      email: business.email,
+      phone: business.phone,
+      address: business.address,
+      city: business.city,
+      district: business.district,
+      countryCode: business.countryCode,
+      description: business.description ?? null,
+      taxId: business.taxId ?? null,
+      kycLevel: business.kycLevel,
+      kycVerifiedAt: business.kycVerifiedAt ?? null,
+    },
     members,
     orderCount: all.length,
+    lifetimeSpendCents: all.reduce((n, r) => n + Number(r.t ?? 0), 0),
     recentOrders,
   };
 }

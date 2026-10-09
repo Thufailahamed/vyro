@@ -88,4 +88,19 @@ describe('GET /api/admin/businesses/:id', () => {
     expect(body.business.recentOrders).toHaveLength(1);
     expect(body.business.recentOrders[0].totalCents).toBe(5000);
   });
+
+  it('includes profile and lifetime spend excluding cancelled orders', async () => {
+    state.business = {
+      id: 'biz-1', name: 'Acme Co', status: 'active', createdAt: 1000,
+      contactPerson: 'Ana', email: 'ana@acme.lk', phone: '+94 77', address: '1 Main St',
+      city: 'Colombo', district: 'Colombo', countryCode: 'LK', description: null,
+      taxId: 'VAT-1', kycLevel: 'basic', kycVerifiedAt: null,
+    };
+    state.orderCountRows = [{ c: 'po-1', t: 5000 }, { c: 'po-2', t: 2500 }];
+    const res = await buildApp().fetch(new Request('http://localhost/api/admin/businesses/biz-1'), env);
+    const body = (await res.json()) as any;
+    expect(body.business.profile).toMatchObject({ contactPerson: 'Ana', city: 'Colombo', taxId: 'VAT-1', kycLevel: 'basic' });
+    expect(body.business.orderCount).toBe(2);
+    expect(body.business.lifetimeSpendCents).toBe(7500);
+  });
 });

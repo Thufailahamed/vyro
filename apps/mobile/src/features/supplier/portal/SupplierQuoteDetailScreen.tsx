@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleAlert, FileText, ListChecks, MessageSquare, Send } from 'lucide-react-native';
@@ -18,6 +18,7 @@ import {
   InkHero,
   Input,
   KeyValue,
+  ProgressBar,
   Screen,
   SkeletonList,
   Text,
@@ -188,9 +189,13 @@ export function SupplierQuoteDetailScreen() {
             right={<Badge label={allPriced ? 'Ready' : `${pricedCount}/${items.length}`} tone={allPriced ? 'success' : 'neutral'} dot size="sm" />}
             sub={allPriced ? 'Ready to submit' : 'Price every line to submit'}
           >
+            <ProgressBar value={pricedCount} max={items.length} tone={allPriced ? 'success' : 'volt'} height={6} />
             {items.map((it, i) => {
               const priced = Number(prices[it.id] ?? 0) > 0;
-              const line = Math.round(Number(prices[it.id] ?? 0) * 100) * it.quantity;
+              const unitCents = Math.round(Number(prices[it.id] ?? 0) * 100);
+              const line = unitCents * it.quantity;
+              const target = it.targetPriceCents ?? null;
+              const delta = target && priced ? Math.round(((unitCents - target) / target) * 100) : null;
               return (
                 <View
                   key={it.id}
@@ -226,6 +231,29 @@ export function SupplierQuoteDetailScreen() {
                   <Field label={`Unit price (LKR) per ${it.unit}`}>
                     <Input value={prices[it.id] ?? ''} onChangeText={(v) => setPrices((p) => ({ ...p, [it.id]: v }))} placeholder="0.00" keyboardType="decimal-pad" />
                   </Field>
+                  {target && !priced ? (
+                    <Pressable
+                      onPress={() => setPrices((p) => ({ ...p, [it.id]: (target / 100).toFixed(2) }))}
+                      accessibilityRole="button"
+                      style={({ pressed }) => ({
+                        alignSelf: 'flex-start',
+                        height: 28,
+                        paddingHorizontal: 12,
+                        justifyContent: 'center',
+                        borderRadius: radii.pill,
+                        backgroundColor: pressed ? colors.mist : colors.paper,
+                      })}
+                    >
+                      <Text variant="caption" weight="semibold" color="ink2">
+                        Match buyer target · {formatLKR(target)}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  {delta != null ? (
+                    <Text variant="caption" weight="semibold" style={{ color: delta > 0 ? colors.amber : colors.mint }}>
+                      {delta === 0 ? 'Exactly at buyer target' : `${Math.abs(delta)}% ${delta > 0 ? 'above' : 'below'} buyer target`}
+                    </Text>
+                  ) : null}
                 </View>
               );
             })}

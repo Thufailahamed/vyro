@@ -1,9 +1,15 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
-import { Button } from '@/components/ui';
-import { Surface } from '@/components/brand/Surface';
-import { useToast } from '@vyro/ui';
+import { Button, Textarea } from '@/components/ui';
+import { cn, useToast } from '@vyro/ui';
+import {
+  AlertTriangleIcon,
+  CheckCircleIcon,
+  FileTextIcon,
+  ScaleIcon,
+  UploadCloudIcon,
+} from '@/components/icons';
 import type { ThreeWayReconciliationResult } from '@vyro/ai';
 
 /** Persisted auto-reconciliation loaded by the parent (GET /documents/by-po/:id/auto-reconciliation). */
@@ -39,8 +45,9 @@ export function ThreeWayReconciliationCard({
 
   // Auto result hydrates the card; a manual audit always overrides it.
   const autoResult =
-    autoReconciliation && (autoReconciliation.status === 'passed' || autoReconciliation.status === 'discrepancy')
-      ? autoReconciliation.payload ?? null
+    autoReconciliation &&
+    (autoReconciliation.status === 'passed' || autoReconciliation.status === 'discrepancy')
+      ? (autoReconciliation.payload ?? null)
       : null;
   const result = manualResult ?? autoResult;
   const autoChecked = autoResult !== null && manualResult === null;
@@ -95,139 +102,150 @@ export function ThreeWayReconciliationCard({
     }
   }
 
+  const lkr = (c: number) =>
+    `Rs. ${(c / 100).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const verdict =
+    result?.status === 'perfect_match'
+      ? { tone: 'mint' as const, label: 'Matched' }
+      : result?.status === 'discrepancy_detected'
+        ? { tone: 'amber' as const, label: 'Discrepancy' }
+        : result
+          ? { tone: 'rose' as const, label: 'Needs review' }
+          : null;
+
   return (
-    <Surface kind="elevated" className="mt-6 rounded-xl border border-line p-5 shadow-soft-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-ink text-paper font-bold text-sm">
-            🧾
+    <section className="overflow-hidden rounded-2xl border border-ink/10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.03),0_16px_36px_-26px_rgba(0,0,0,0.3)]">
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-ink/[0.07] px-6 py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-ink text-volt">
+            <ScaleIcon size={17} />
           </span>
-          <div>
-            <h3 className="font-semibold text-ink">
-              3-Way PO &amp; Invoice Reconciliation
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-copper">
+              Invoice check
               {autoChecked && (
-                <span className="ml-2 text-[10px] uppercase tracking-wide text-emerald-600">
+                <span className="rounded-full bg-mint/10 px-1.5 py-px text-[9px] tracking-wider text-mint ring-1 ring-mint/25">
                   Checked automatically
                 </span>
               )}
+            </div>
+            <h3 className="font-display text-lg font-semibold tracking-tight text-ink-1">
+              3-way reconciliation
             </h3>
-            <p className="text-xs text-ink-3">
-              Cross-checks PO authorized rates, loading dock delivery, and vendor invoice lines.
+            <p className="mt-0.5 text-xs text-ink-3">
+              PO rates · dock delivery · supplier invoice lines
             </p>
           </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <Link
-            to={`/invoices/upload?poId=${orderId}`}
-            className="text-xs text-ink-3 underline hover:text-ink"
-          >
-            Upload supplier invoice
-          </Link>
+        <div className="flex flex-wrap items-center gap-2">
           {autoReconciliation?.uploadId && result?.lines.some((line) => line.aiSuggestion) && (
             <Link
               to={`/invoices/${autoReconciliation.uploadId}/review`}
-              className="text-xs text-amber-700 underline hover:text-amber-900"
+              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-amber ring-1 ring-amber/30 transition-colors hover:bg-amber/10"
             >
               Review invoice lines
             </Link>
           )}
-          <Button
-            onClick={handleRunAudit}
-            loading={loading}
-            disabled={loading}
-            size="sm"
-            className="bg-ink text-paper hover:bg-ink/90 font-medium"
+          <Link
+            to={`/invoices/upload?poId=${orderId}`}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-ink-2 ring-1 ring-ink/15 transition-colors hover:bg-bone/60"
           >
-            {loading ? 'Auditing 3-Way Records…' : 'Run 3-Way Audit'}
+            <UploadCloudIcon size={13} /> Upload supplier invoice
+          </Link>
+          <Button onClick={handleRunAudit} loading={loading} disabled={loading} size="sm">
+            {loading ? 'Auditing…' : result ? 'Re-run 3-Way Audit' : 'Run 3-Way Audit'}
           </Button>
         </div>
-      </div>
+      </header>
 
-      {!result && (
-        <p className="mt-3 text-xs text-ink-3">
-          No supplier invoice checked for this order yet. Upload one to have it
-          reconciled against the PO automatically.
-        </p>
-      )}
+      {!result ? (
+        <div className="flex items-center gap-3 px-6 py-5 text-xs text-ink-3">
+          <FileTextIcon size={15} className="shrink-0 text-ink-4" />
+          No supplier invoice checked yet. Upload one to have it reconciled against this PO
+          automatically.
+        </div>
+      ) : (
+        <div className="space-y-4 p-6">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Pillar
+              n={1}
+              label="PO authorised"
+              value={lkr(result.poTotalCents)}
+              note="Approved order value"
+            />
+            <Pillar
+              n={2}
+              label="Delivery"
+              value={result.isDeliveryConfirmed ? 'Verified' : 'Pending'}
+              note={`Order ${orderStatus.replace(/_/g, ' ')}`}
+              tone={result.isDeliveryConfirmed ? 'mint' : 'amber'}
+            />
+            <Pillar
+              n={3}
+              label="Supplier invoice"
+              value={lkr(result.invoiceTotalCents)}
+              note={
+                result.netDifferenceCents === 0
+                  ? 'No variance'
+                  : `Variance ${lkr(result.netDifferenceCents)}`
+              }
+              tone={result.netDifferenceCents === 0 ? 'mint' : 'rose'}
+            />
+          </div>
 
-      {result && (
-        <div className="mt-4 space-y-4">
-          {/* 3 Pillars Summary */}
-          <div className="grid gap-3 sm:grid-cols-3 text-xs">
-            <div className="rounded-lg border border-line bg-paper p-3">
-              <div className="text-ink-4">1. PO Authorized</div>
-              <div className="mt-1 text-base font-mono font-bold text-ink">
-                Rs. {(result.poTotalCents / 100).toLocaleString()}
-              </div>
-              <div className="text-[11px] text-ink-3">Approved Order Value</div>
-            </div>
-
-            <div className="rounded-lg border border-line bg-paper p-3">
-              <div className="text-ink-4">2. Delivery Status</div>
-              <div className="mt-1 text-base font-bold text-ink flex items-center gap-1">
-                {result.isDeliveryConfirmed ? '🟢 Verified Dock Delivery' : '🟡 Pending Delivery'}
-              </div>
-              <div className="text-[11px] text-ink-3">Order Status: {orderStatus}</div>
-            </div>
-
-            <div className="rounded-lg border border-line bg-paper p-3">
-              <div className="text-ink-4">3. Vendor Invoice</div>
-              <div className="mt-1 text-base font-mono font-bold text-ink">
-                Rs. {(result.invoiceTotalCents / 100).toLocaleString()}
-              </div>
-              <div
-                className={`text-[11px] font-semibold ${
-                  result.netDifferenceCents === 0
-                    ? 'text-emerald-700'
-                    : result.netDifferenceCents > 0
-                      ? 'text-red-700'
-                      : 'text-blue-700'
-                }`}
+          {verdict && (
+            <div
+              className={cn(
+                'flex items-start gap-3 rounded-xl p-4 ring-1',
+                verdict.tone === 'mint' && 'bg-mint/[0.07] ring-mint/25',
+                verdict.tone === 'amber' && 'bg-amber/[0.08] ring-amber/30',
+                verdict.tone === 'rose' && 'bg-rose/[0.06] ring-rose/25',
+              )}
+            >
+              <span
+                className={cn(
+                  'mt-0.5 shrink-0',
+                  verdict.tone === 'mint'
+                    ? 'text-mint'
+                    : verdict.tone === 'amber'
+                      ? 'text-amber'
+                      : 'text-rose',
+                )}
               >
-                {result.netDifferenceCents === 0
-                  ? '🟢 Zero Discrepancy'
-                  : `Variance: Rs. ${(result.netDifferenceCents / 100).toLocaleString()}`}
+                {verdict.tone === 'mint' ? (
+                  <CheckCircleIcon size={17} />
+                ) : (
+                  <AlertTriangleIcon size={17} />
+                )}
+              </span>
+              <div className="min-w-0 text-xs">
+                <div className="text-sm font-semibold text-ink-1">{result.summary}</div>
+                <div className="mt-1 text-ink-3">
+                  {(result.matchConfidence * 100).toFixed(0)}% confidence · Recommended:{' '}
+                  <span className="font-mono text-ink-2">{result.recommendedAction}</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Audit Finding Summary */}
-          <div
-            className={`rounded-lg p-3 text-xs border ${
-              result.status === 'perfect_match'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-                : result.status === 'discrepancy_detected'
-                  ? 'border-amber-200 bg-amber-50 text-amber-900'
-                  : 'border-red-200 bg-red-50 text-red-900'
-            }`}
-          >
-            <div className="font-semibold">{result.summary}</div>
-            <div className="mt-1 text-[11px] opacity-90">
-              Confidence Score: {(result.matchConfidence * 100).toFixed(0)}% · Recommended Action:{' '}
-              <span className="font-mono underline">{result.recommendedAction}</span>
-            </div>
-          </div>
-
-          {/* Line Audit Breakdown */}
-          <div className="rounded-lg border border-line bg-paper overflow-hidden text-xs">
-            <table className="w-full text-left">
-              <thead className="bg-ink/5 border-b border-line text-ink-3">
+          <div className="overflow-x-auto rounded-xl ring-1 ring-ink/[0.08]">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-ink/[0.03] text-[10px] font-mono uppercase tracking-[0.12em] text-ink-4">
                 <tr>
-                  <th className="p-2">Item Description</th>
-                  <th className="p-2">PO Qty / Rate</th>
-                  <th className="p-2">Billed Qty / Rate</th>
-                  <th className="p-2">Variance</th>
-                  <th className="p-2">Status</th>
+                  <th className="px-3 py-2.5 font-bold">Item</th>
+                  <th className="px-3 py-2.5 font-bold">PO qty · rate</th>
+                  <th className="px-3 py-2.5 font-bold">Billed qty · rate</th>
+                  <th className="px-3 py-2.5 text-right font-bold">Variance</th>
+                  <th className="px-3 py-2.5 font-bold">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-line/40">
+              <tbody className="divide-y divide-ink/[0.06]">
                 {result.lines.map((l, i) => (
-                  <tr key={i}>
-                    <td className="p-2 font-medium text-ink">
+                  <tr key={i} className="align-top">
+                    <td className="px-3 py-3 font-medium text-ink-1">
                       <div>{l.description}</div>
                       {l.matchSource === 'ai' && (
-                        <div className="mt-1 text-[10px] font-medium text-blue-700">
+                        <div className="mt-1 text-[10px] font-semibold text-copper">
                           AI match · {Math.round((l.matchConfidence ?? 0) * 100)}%
                         </div>
                       )}
@@ -237,38 +255,41 @@ export function ThreeWayReconciliationCard({
                         </div>
                       )}
                       {l.aiSuggestion && (
-                        <div className="mt-1 text-[10px] font-normal text-amber-800">
+                        <div className="mt-1 text-[10px] font-normal text-amber">
                           Possible PO match: {l.aiSuggestion.productName} ·{' '}
                           {Math.round(l.aiSuggestion.confidence * 100)}% — {l.aiSuggestion.reason}
                         </div>
                       )}
                     </td>
-                    <td className="p-2 font-mono">
-                      {l.poQuantity ?? '—'} @{' '}
-                      {l.poUnitPriceCents ? `Rs. ${(l.poUnitPriceCents / 100).toLocaleString()}` : '—'}
+                    <td className="whitespace-nowrap px-3 py-3 font-mono text-ink-2">
+                      {l.poQuantity ?? '—'} · {l.poUnitPriceCents ? lkr(l.poUnitPriceCents) : '—'}
                     </td>
-                    <td className="p-2 font-mono">
-                      {l.billedQuantity ?? '—'} @{' '}
-                      {l.billedUnitPriceCents ? `Rs. ${(l.billedUnitPriceCents / 100).toLocaleString()}` : '—'}
+                    <td className="whitespace-nowrap px-3 py-3 font-mono text-ink-2">
+                      {l.billedQuantity ?? '—'} ·{' '}
+                      {l.billedUnitPriceCents ? lkr(l.billedUnitPriceCents) : '—'}
                     </td>
-                    <td className="p-2 font-mono">
-                      {l.varianceCents !== 0
-                        ? `Rs. ${(l.varianceCents / 100).toLocaleString()}`
-                        : 'Rs. 0'}
+                    <td
+                      className={cn(
+                        'whitespace-nowrap px-3 py-3 text-right font-mono',
+                        l.varianceCents !== 0 ? 'font-semibold text-rose' : 'text-ink-4',
+                      )}
+                    >
+                      {lkr(l.varianceCents)}
                     </td>
-                    <td className="p-2">
+                    <td className="px-3 py-3">
                       <span
-                        className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                        className={cn(
+                          'inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[9.5px] font-mono font-bold uppercase tracking-wider ring-1',
                           l.status === 'matched'
-                            ? 'bg-emerald-100 text-emerald-800'
+                            ? 'bg-mint/10 text-mint ring-mint/25'
                             : l.status === 'price_variance'
-                              ? 'bg-red-100 text-red-800'
+                              ? 'bg-rose/10 text-rose ring-rose/25'
                               : l.status === 'quantity_variance'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-purple-100 text-purple-800'
-                        }`}
+                                ? 'bg-amber/10 text-amber ring-amber/30'
+                                : 'bg-ink/[0.06] text-ink-3 ring-ink/15',
+                        )}
                       >
-                        {l.status.replace(/_/g, ' ').toUpperCase()}
+                        {l.status.replace(/_/g, ' ')}
                       </span>
                     </td>
                   </tr>
@@ -277,60 +298,89 @@ export function ThreeWayReconciliationCard({
             </table>
           </div>
 
-          {/* Action Resolution Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line/50 pt-3">
+          <div className="flex flex-wrap justify-end gap-2">
             {result.status === 'perfect_match' ? (
-              <Button
-                onClick={onReleasePayment}
-                className="bg-emerald-600 text-paper hover:bg-emerald-700 text-xs font-semibold"
-              >
-                Approve Invoice & Release Escrow
+              <Button variant="success" size="sm" onClick={onReleasePayment}>
+                <CheckCircleIcon size={14} /> Approve invoice &amp; release escrow
               </Button>
             ) : (
-              <Button
-                onClick={() => setShowClaimDrawer(true)}
-                className="bg-amber-600 text-paper hover:bg-amber-700 text-xs font-semibold"
-              >
-                File Discrepancy Claim / Credit Request
+              <Button variant="secondary" size="sm" onClick={() => setShowClaimDrawer(true)}>
+                <AlertTriangleIcon size={14} /> File discrepancy claim
               </Button>
             )}
           </div>
 
-          {/* Dispute Claim Drawer */}
           {showClaimDrawer && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50/70 p-4 text-xs">
-              <h4 className="font-semibold text-amber-950">Draft Supplier Dispute Claim</h4>
-              <p className="mt-0.5 text-amber-800">
-                AI-drafted claim based on identified line discrepancies. Review and customize before sending.
-              </p>
-              <textarea
+            <div className="space-y-3 rounded-xl bg-amber/[0.06] p-4 ring-1 ring-amber/30">
+              <div>
+                <h4 className="text-sm font-semibold text-ink-1">Claim to supplier</h4>
+                <p className="mt-0.5 text-xs text-ink-3">
+                  Drafted from the line discrepancies. Review and edit before sending.
+                </p>
+              </div>
+              <Textarea
                 value={claimMessage}
                 onChange={(e) => setClaimMessage(e.target.value)}
-                rows={3}
-                className="mt-2 w-full rounded border border-line bg-paper p-2 text-ink text-xs focus:ring-amber-500"
+                rows={4}
+                className="bg-paper text-xs"
               />
-              <div className="mt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowClaimDrawer(false)}
-                  className="rounded border border-line px-3 py-1 text-ink-3 hover:text-ink"
-                >
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowClaimDrawer(false)}>
                   Cancel
-                </button>
+                </Button>
                 <Button
+                  size="sm"
                   onClick={handleSubmitClaim}
                   loading={claimLoading}
                   disabled={claimLoading || !claimMessage.trim()}
-                  size="sm"
-                  className="bg-amber-700 text-paper hover:bg-amber-800 font-medium"
                 >
-                  Submit Claim to Supplier
+                  Send claim
                 </Button>
               </div>
             </div>
           )}
         </div>
       )}
-    </Surface>
+    </section>
+  );
+}
+
+function Pillar({
+  n,
+  label,
+  value,
+  note,
+  tone,
+}: {
+  n: number;
+  label: string;
+  value: string;
+  note: string;
+  tone?: 'mint' | 'amber' | 'rose';
+}) {
+  return (
+    <div className="rounded-xl bg-bone/30 p-4 ring-1 ring-ink/[0.07]">
+      <div className="flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-ink-4">
+        <span className="flex size-4 items-center justify-center rounded-full bg-ink text-[9px] text-volt">
+          {n}
+        </span>
+        {label}
+      </div>
+      <div className="mt-2 font-mono text-base font-bold tabular-nums text-ink-1">{value}</div>
+      <div
+        className={cn(
+          'mt-0.5 text-[11px] capitalize',
+          tone === 'mint'
+            ? 'text-mint'
+            : tone === 'amber'
+              ? 'text-amber'
+              : tone === 'rose'
+                ? 'font-semibold text-rose'
+                : 'text-ink-4',
+        )}
+      >
+        {note}
+      </div>
+    </div>
   );
 }

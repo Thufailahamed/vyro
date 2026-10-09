@@ -125,7 +125,8 @@ export function errorMessage(e: unknown, fallback = 'Something went wrong.'): st
 /** Absolute URL for an API-relative asset path (R2 images, invoice PDFs). */
 export function assetUrl(path?: string | null): string | undefined {
   if (!path) return undefined;
-  if (/^https?:\/\//i.test(path) || path.startsWith('data:')) return path;
+  // Absolute URLs and on-device URIs (file:, content:, ph:, data:) pass through.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(path)) return path;
   if (path.startsWith('/api/')) return API_ORIGIN + path;
   if (path.startsWith('/')) return API_ORIGIN + path;
   return `${API_URL}/${path}`;

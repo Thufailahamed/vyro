@@ -1,23 +1,13 @@
+import { cn } from '@vyro/ui';
 import type { LeadTag } from '@vyro/validation';
+import { TAG_META } from './crmUi';
 
 const TAGS: LeadTag[] = ['hot', 'warm', 'cold'];
 
-const TAG_STYLES: Record<LeadTag, { active: string; idle: string; dot: string }> = {
-  hot: {
-    active: 'bg-rose/15 text-rose border-rose/40 font-semibold shadow-xs',
-    idle: 'hover:border-rose/30 hover:bg-rose/5 text-ink-3',
-    dot: 'bg-rose',
-  },
-  warm: {
-    active: 'bg-amber-500/15 text-amber-700 border-amber-500/40 font-semibold shadow-xs',
-    idle: 'hover:border-amber-500/30 hover:bg-amber-500/5 text-ink-3',
-    dot: 'bg-amber-600',
-  },
-  cold: {
-    active: 'bg-sky-500/15 text-sky-700 border-sky-500/40 font-semibold shadow-xs',
-    idle: 'hover:border-sky-500/30 hover:bg-sky-500/5 text-ink-3',
-    dot: 'bg-sky-600',
-  },
+const ACTIVE: Record<LeadTag, string> = {
+  hot: 'bg-rose/10 text-rose shadow-[inset_0_0_0_1.5px_rgba(196,90,74,0.5)]',
+  warm: 'bg-amber/10 text-[#a86c28] shadow-[inset_0_0_0_1.5px_rgba(196,132,58,0.55)]',
+  cold: 'bg-ink/[0.06] text-ink shadow-[inset_0_0_0_1.5px_rgba(12,14,11,0.35)]',
 };
 
 interface Props {
@@ -28,10 +18,10 @@ interface Props {
 
 export function TagPicker({ value, onChange, disabled }: Props) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="grid grid-cols-3 gap-2">
       {TAGS.map((t) => {
         const active = value === t;
-        const style = TAG_STYLES[t];
+        const m = TAG_META[t];
         return (
           <button
             key={t}
@@ -39,28 +29,18 @@ export function TagPicker({ value, onChange, disabled }: Props) {
             disabled={disabled}
             aria-pressed={active}
             onClick={() => onChange(active ? null : t)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium capitalize transition-all duration-150 ${
+            className={cn(
+              'flex h-11 items-center justify-center gap-2 rounded-xl text-[13px] font-semibold capitalize transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50',
               active
-                ? style.active
-                : `border-ink/15 bg-paper ${style.idle}`
-            } ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                ? ACTIVE[t]
+                : 'bg-paper text-ink-3 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.12)] hover:text-ink hover:shadow-[inset_0_0_0_1px_rgba(12,14,11,0.3)]',
+            )}
           >
-            <span className={`size-1.5 rounded-full ${active ? style.dot : 'bg-ink-4/40'}`} />
-            {t}
+            <span className={cn('size-2 rounded-full', active ? m.dot : 'bg-ink/25')} />
+            {m.label}
           </button>
         );
       })}
-      {value && (
-        <button
-          type="button"
-          disabled={disabled}
-          aria-pressed={false}
-          onClick={() => onChange(null)}
-          className="text-xs text-ink-4 hover:text-ink-1 underline transition-colors cursor-pointer ml-1"
-        >
-          clear
-        </button>
-      )}
     </div>
   );
 }

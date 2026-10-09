@@ -49,10 +49,9 @@ router.post('/lessons', async (c) => {
 
 router.get('/lessons/:id', async (c) => {
   await ensureAdmin(c);
-  const { findLessonById } = await import('./repository');
-  const lesson = await findLessonById(c.env.DB, c.req.param('id'));
+  const lesson = await svc.getLessonWithQuiz(c.env.DB, c.req.param('id'));
   if (!lesson) throw httpError(404, 'NOT_FOUND', 'Lesson not found');
-  return c.json({ lesson });
+  return c.json(lesson);
 });
 
 router.put('/lessons/:id', async (c) => {

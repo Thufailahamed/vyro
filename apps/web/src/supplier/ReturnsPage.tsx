@@ -10,10 +10,11 @@ export function SupplierReturnsPage() {
     <ReturnsListView
       kicker={`${supplierName} / Returns`}
       title="Returns"
-      sub="Approve, reject and receive buyer return requests. Open the order to act on a return."
+      sub="Approve, reject and receive buyer return requests. Click a return to review it."
       queryKey={['returns', 'supplier', supplierId]}
       path={`/returns?supplierId=${supplierId}`}
       orderLink={(r) => `/supplier/orders/${r.purchaseOrderId}`}
+      supplierActions
     />
   );
 }

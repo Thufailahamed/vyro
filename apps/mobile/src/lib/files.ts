@@ -9,6 +9,8 @@ export interface PickedFile {
   name: string;
   type: string;
   size?: number;
+  /** Present only when requested via `pickImage({ base64: true })`. */
+  base64?: string;
 }
 
 /** React Native's FormData accepts `{ uri, name, type }` objects as files. */
@@ -16,7 +18,7 @@ export function appendFile(form: FormData, field: string, file: PickedFile) {
   form.append(field, { uri: file.uri, name: file.name, type: file.type } as unknown as Blob);
 }
 
-export async function pickImage(opts: { camera?: boolean; multiple?: boolean } = {}): Promise<PickedFile[]> {
+export async function pickImage(opts: { camera?: boolean; multiple?: boolean; base64?: boolean } = {}): Promise<PickedFile[]> {
   const perm = opts.camera
     ? await ImagePicker.requestCameraPermissionsAsync()
     : await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -26,6 +28,7 @@ export async function pickImage(opts: { camera?: boolean; multiple?: boolean } =
     mediaTypes: ['images'],
     quality: 0.8,
     allowsMultipleSelection: !!opts.multiple && !opts.camera,
+    base64: !!opts.base64,
   });
   if (res.canceled) return [];
   return res.assets.map((a, i) => ({
@@ -33,6 +36,7 @@ export async function pickImage(opts: { camera?: boolean; multiple?: boolean } =
     name: a.fileName ?? `photo-${Date.now()}-${i}.jpg`,
     type: a.mimeType ?? 'image/jpeg',
     size: a.fileSize,
+    ...(a.base64 ? { base64: a.base64 } : {}),
   }));
 }
 

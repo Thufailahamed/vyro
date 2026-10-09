@@ -1,13 +1,48 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { allowedTransitions, type OrderStatus } from '@vyro/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { cn } from '@vyro/ui';
 import { api, ApiError } from '@/lib/api';
-import { useAdminOrder } from './useAdminOrders';
-import { StatusBadge, Surface, EmptyState } from '@/components/ui';
-import { ArrowLeftIcon, Building2Icon, StoreIcon, PackageIcon, AlertCircleIcon, CheckCircleIcon, ClockIcon } from '@/components/icons';
+import { useAdminOrder, type AdminOrder } from './useAdminOrders';
+import { Button } from '@/components/ui';
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  Building2Icon,
+  StoreIcon,
+  PackageIcon,
+  AlertCircleIcon,
+  CheckCircleIcon,
+  CheckIcon,
+  ClockIcon,
+  MailIcon,
+  PhoneIcon,
+  MapPinIcon,
+  UserIcon,
+  RefreshCwIcon,
+  XIcon,
+  BanknoteIcon,
+  ShieldCheckIcon,
+  FileTextIcon,
+} from '@/components/icons';
 import { formatLKR } from '@/lib/format';
+import { PaymentPanel } from '@/components/payments/PaymentPanel';
 import { DisputeResolutionPanel } from './DisputeResolutionPanel';
+import {
+  AdminPage,
+  Callout,
+  Card,
+  EmptyBlock,
+  Panel,
+  Pill,
+  Skeleton,
+  StatusPill,
+  TableCard,
+  controlClass,
+} from './ui';
+import { CopyId, Monogram, relativeTime } from './registryUi';
+import { ORDER_STAGES } from './OrdersPage';
 
 function formatFullDate(ts?: number | null): string {
   if (!ts) return '—';
@@ -20,14 +55,23 @@ function formatFullDate(ts?: number | null): string {
   });
 }
 
+const humanize = (s: string) => s.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+
+const labelClass = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-5';
+
 export function OrderDetailPage() {
   const { id = '' } = useParams();
-  const { data, isLoading, isError, refetch } = useAdminOrder(id);
+  const { data, isLoading, isError, isFetching, refetch } = useAdminOrder(id);
   const qc = useQueryClient();
   const [status, setStatus] = useState<OrderStatus | ''>('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ['admin-order', id] });
+    void qc.invalidateQueries({ queryKey: ['admin-orders'] });
+  };
 
   const override = useMutation({
     mutationFn: (body: { status: string; reason: string; expectedUpdatedAt?: number | undefined }) =>
@@ -36,8 +80,7 @@ export function OrderDetailPage() {
       setError(null);
       setReason('');
       setSuccessMsg('Status override applied and recorded in security audit trail.');
-      qc.invalidateQueries({ queryKey: ['admin-order', id] });
-      qc.invalidateQueries({ queryKey: ['admin-orders'] });
+      invalidate();
     },
     onError: (e: unknown) => {
       setSuccessMsg(null);
@@ -58,517 +101,652 @@ export function OrderDetailPage() {
     setStatus((cur) => (cur && overrideOptions.includes(cur) ? cur : (overrideOptions[0] ?? '')));
   }, [overrideOptions]);
 
-  return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16">
-      {/* 1. Navigation & Breadcrumb */}
-      <div className="flex items-center justify-between border-b border-ink/10 pb-4">
-        <Link
-          to="/admin/orders"
-          className="inline-flex items-center gap-1.5 text-xs font-mono text-ink-3 hover:text-ink transition"
-        >
-          <ArrowLeftIcon size={14} />
-          <span>Back to Orders Control</span>
-        </Link>
+  if (isLoading) {
+    return (
+      <AdminPage>
+        <Skeleton className="h-52" />
+        <Skeleton className="h-28" />
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Skeleton className="h-80 lg:col-span-2" />
+          <Skeleton className="h-80" />
+        </div>
+      </AdminPage>
+    );
+  }
 
-        {order && (
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono text-ink-4">Order ID: {order.id}</span>
-            <button
-              type="button"
+  if (isError || !order) {
+    return (
+      <AdminPage>
+        <BackLink />
+        <Card>
+          <EmptyBlock
+            icon={<AlertCircleIcon size={22} />}
+            title="Purchase order not found"
+            description={
+              <>
+                No order with ID <code className="font-mono text-ink">{id}</code> exists, or you don't have
+                administrative access to it.
+              </>
+            }
+            action={
+              <Link to="/admin/orders" className="admin-btn admin-btn-secondary admin-btn-sm">
+                Return to orders
+                <ArrowRightIcon size={13} />
+              </Link>
+            }
+          />
+        </Card>
+      </AdminPage>
+    );
+  }
+
+  const crossBorder = order.direction && order.direction !== 'domestic';
+  const itemCount = items.reduce((n, it) => n + it.quantity, 0);
+
+  return (
+    <AdminPage>
+      {/* Hero */}
+      <section className="vyro-surface relative overflow-hidden">
+        <div
+          className="pointer-events-none absolute -right-32 -top-40 size-96 rounded-full bg-volt/25 blur-3xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(12,14,11,0.07)_1px,transparent_1px)] [background-size:18px_18px] [mask-image:linear-gradient(110deg,transparent_45%,black)]"
+          aria-hidden
+        />
+        <div className="relative p-5 sm:p-7">
+          <div className="flex items-center justify-between gap-3">
+            <BackLink />
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => refetch()}
-              className="text-xs font-mono text-ink-3 hover:text-ink underline ml-2"
+              loading={isFetching}
+              icon={isFetching ? undefined : <RefreshCwIcon size={13} />}
             >
               Refresh
-            </button>
+            </Button>
           </div>
-        )}
-      </div>
 
-      {/* Loading state */}
-      {isLoading && (
-        <div className="py-16 text-center space-y-3">
-          <div className="w-8 h-8 border-2 border-ink border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs font-mono text-ink-4">Loading purchase order details…</p>
+          <div className="mt-6 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-4">
+                <span className="size-1.5 rotate-45 bg-volt-deep" aria-hidden />
+                Purchase order
+              </div>
+              <h1 className="mt-2 break-all font-mono text-[1.625rem] font-bold leading-tight tracking-[-0.03em] text-ink sm:text-[2rem]">
+                {order.poNumber ?? order.id}
+              </h1>
+              <div className="mt-3.5 flex flex-wrap items-center gap-2">
+                <StatusPill status={order.status} />
+                {crossBorder ? (
+                  <Pill tone={order.direction === 'export' ? 'brand' : 'info'} className="capitalize">
+                    {order.direction}
+                    {order.incoterms ? ` · ${order.incoterms}` : ''}
+                  </Pill>
+                ) : (
+                  <Pill tone="neutral">Domestic</Pill>
+                )}
+                <span className="mx-1 h-4 w-px bg-ink/10" aria-hidden />
+                <CopyId id={order.id} />
+                <span className="inline-flex items-center gap-1.5 text-xs text-ink-4">
+                  <ClockIcon size={12} className="text-ink-5" />
+                  Placed {formatFullDate(order.createdAt)}
+                  {order.updatedAt ? ` · updated ${relativeTime(order.updatedAt)}` : ''}
+                </span>
+              </div>
+            </div>
+            <div className="shrink-0 md:text-right">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4">Order total</div>
+              <div className="vyro-metric mt-1.5 text-[2.25rem] leading-none text-ink">{formatLKR(order.totalCents ?? 0)}</div>
+              <div className="mt-2 text-xs text-ink-4">
+                {items.length} {items.length === 1 ? 'line' : 'lines'} · {itemCount} units · {order.currency ?? 'LKR'}
+              </div>
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* Error state */}
-      {isError && (
-        <Surface className="p-8 text-center border-rose/30 bg-rose/5">
-          <AlertCircleIcon size={32} className="mx-auto text-rose mb-3" />
-          <h2 className="vyro-display text-xl text-rose font-bold">Purchase Order Not Found</h2>
-          <p className="text-xs text-ink-3 mt-1 max-w-sm mx-auto">
-            The requested order ID does not exist or you do not have administrative privileges to view it.
-          </p>
-          <div className="mt-4">
-            <Link to="/admin/orders" className="text-xs font-mono underline font-medium text-ink">
-              ← Return to Orders List
-            </Link>
-          </div>
-        </Surface>
-      )}
+        <div className="relative border-t border-ink/[0.07] bg-bone/40 px-5 py-5 sm:px-7">
+          <LifecycleTracker order={order} />
+        </div>
+      </section>
 
-      {/* Order Content */}
-      {order && (
-        <>
-          {/* Header Banner */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-paper p-5 border border-ink/10 shadow-sm">
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="vyro-display text-3xl font-mono font-bold tracking-tight text-ink">
-                  {order.poNumber ?? order.id}
-                </h1>
-                <StatusBadge status={order.status} />
-              </div>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-ink-4 font-mono">
-                <span>Placed: {formatFullDate(order.createdAt)}</span>
-                <span>•</span>
-                <span>Last Updated: {formatFullDate(order.updatedAt)}</span>
-              </div>
-            </div>
+      {order.status === 'disputed' ? (
+        <Callout tone="danger" title="This order is in dispute">
+          {order.disputeReason ? <>&ldquo;{order.disputeReason}&rdquo; — </> : null}
+          resolve it from the arbitration panel on the right.
+        </Callout>
+      ) : null}
 
-            <div className="text-right md:border-l md:border-ink/10 md:pl-6">
-              <div className="text-[11px] font-mono uppercase tracking-wider text-ink-4">Total Amount</div>
-              <div className="text-2xl font-bold font-mono text-ink tracking-tight">
-                {formatLKR(order.totalCents ?? 0)}
-              </div>
-              <div className="text-[10px] text-ink-4 uppercase font-mono">{order.currency ?? 'LKR'}</div>
-            </div>
+      <div className="grid items-start gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <PartyCard
+              role="Buyer"
+              icon={<StoreIcon size={13} />}
+              name={order.businessName ?? 'Direct buyer'}
+              seed={order.businessId}
+              href={order.businessId ? `/admin/businesses/${order.businessId}` : undefined}
+              contact={order.businessContactPerson}
+              phone={order.businessPhone}
+              email={order.businessEmail}
+              addressLabel="Delivers to"
+              address={order.deliveryAddress || 'No address specified'}
+              addressSub={[order.deliveryCity, order.deliveryDistrict].filter(Boolean).join(', ')}
+            />
+            <PartyCard
+              role="Supplier"
+              icon={<Building2Icon size={13} />}
+              name={order.supplierName ?? 'Direct supplier'}
+              seed={order.supplierId}
+              href={order.supplierId ? `/admin/suppliers/${order.supplierId}` : undefined}
+              contact={order.supplierContactPerson}
+              phone={order.supplierPhone}
+              email={order.supplierEmail}
+              addressLabel="Ships from"
+              address={order.supplierAddress}
+              addressSub={order.supplierCity}
+            />
           </div>
 
-          {/* 2-Column Grid: Left is Counterparties & Items, Right is Override & Financials */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            <div className="lg:col-span-2 space-y-6">
-              {/* Counterparties: Buyer & Supplier */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Buyer Card */}
-                <Surface className="p-4 border border-ink/10 bg-paper space-y-3">
-                  <div className="flex items-center justify-between border-b border-ink/10 pb-2">
-                    <div className="flex items-center gap-2">
-                      <StoreIcon size={16} className="text-copper" />
-                      <span className="text-xs font-mono font-bold uppercase tracking-wider text-ink">Buyer (Business)</span>
-                    </div>
-                    {order.businessId && (
-                      <Link
-                        to={`/admin/businesses/${order.businessId}`}
-                        className="text-[11px] font-mono text-copper hover:underline"
-                      >
-                        Inspect →
-                      </Link>
-                    )}
-                  </div>
-                  <div className="space-y-1.5 text-xs">
-                    <div className="font-semibold text-sm text-ink">
-                      {order.businessName ?? 'Direct Buyer'}
-                    </div>
-                    {order.businessContactPerson && (
-                      <div className="text-ink-3">
-                        <span className="text-ink-4">Contact: </span>
-                        {order.businessContactPerson}
-                      </div>
-                    )}
-                    {order.businessPhone && (
-                      <div className="text-ink-3">
-                        <span className="text-ink-4">Phone: </span>
-                        <a href={`tel:${order.businessPhone}`} className="hover:underline font-mono">
-                          {order.businessPhone}
-                        </a>
-                      </div>
-                    )}
-                    {order.businessEmail && (
-                      <div className="text-ink-3">
-                        <span className="text-ink-4">Email: </span>
-                        <a href={`mailto:${order.businessEmail}`} className="hover:underline">
-                          {order.businessEmail}
-                        </a>
-                      </div>
-                    )}
-                    <div className="pt-2 border-t border-ink/5 mt-2">
-                      <span className="text-[10px] font-mono uppercase text-ink-4 block mb-0.5">Delivery Destination</span>
-                      <div className="text-ink-3 font-medium">
-                        {order.deliveryAddress || 'No address specified'}
-                      </div>
-                      <div className="text-ink-4 font-mono text-[11px]">
-                        {[order.deliveryCity, order.deliveryDistrict].filter(Boolean).join(', ')}
-                      </div>
-                    </div>
-                  </div>
-                </Surface>
-
-                {/* Supplier Card */}
-                <Surface className="p-4 border border-ink/10 bg-paper space-y-3">
-                  <div className="flex items-center justify-between border-b border-ink/10 pb-2">
-                    <div className="flex items-center gap-2">
-                      <Building2Icon size={16} className="text-ink-3" />
-                      <span className="text-xs font-mono font-bold uppercase tracking-wider text-ink">Supplier Merchant</span>
-                    </div>
-                    {order.supplierId && (
-                      <Link
-                        to={`/admin/suppliers/${order.supplierId}`}
-                        className="text-[11px] font-mono text-copper hover:underline"
-                      >
-                        Inspect →
-                      </Link>
-                    )}
-                  </div>
-                  <div className="space-y-1.5 text-xs">
-                    <div className="font-semibold text-sm text-ink">
-                      {order.supplierName ?? 'Direct Supplier'}
-                    </div>
-                    {order.supplierContactPerson && (
-                      <div className="text-ink-3">
-                        <span className="text-ink-4">Contact: </span>
-                        {order.supplierContactPerson}
-                      </div>
-                    )}
-                    {order.supplierPhone && (
-                      <div className="text-ink-3">
-                        <span className="text-ink-4">Phone: </span>
-                        <a href={`tel:${order.supplierPhone}`} className="hover:underline font-mono">
-                          {order.supplierPhone}
-                        </a>
-                      </div>
-                    )}
-                    {order.supplierEmail && (
-                      <div className="text-ink-3">
-                        <span className="text-ink-4">Email: </span>
-                        <a href={`mailto:${order.supplierEmail}`} className="hover:underline">
-                          {order.supplierEmail}
-                        </a>
-                      </div>
-                    )}
-                    {order.supplierAddress && (
-                      <div className="pt-2 border-t border-ink/5 mt-2">
-                        <span className="text-[10px] font-mono uppercase text-ink-4 block mb-0.5">Merchant Location</span>
-                        <div className="text-ink-3">{order.supplierAddress}</div>
-                      </div>
-                    )}
-                  </div>
-                </Surface>
-              </div>
-
-              {/* Line Items Table */}
-              <Surface className="border border-ink/10 bg-paper overflow-hidden">
-                <div className="p-4 border-b border-ink/10 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <PackageIcon size={16} className="text-ink-3" />
-                    <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-ink">
-                      Line Items ({items.length})
-                    </h2>
-                  </div>
-                  <span className="text-xs font-mono text-ink-4">
-                    Subtotal: {formatLKR(order.subtotalCents ?? 0)}
-                  </span>
-                </div>
-
-                {items.length === 0 ? (
-                  <div className="p-6 text-center text-xs text-ink-4 font-mono">
-                    No line items snapshot recorded for this purchase order.
-                  </div>
-                ) : (
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="bg-sand/30 border-b border-ink/10 text-ink-4 font-mono uppercase text-[10px]">
-                        <th className="py-2.5 px-4">Item Snapshot</th>
-                        <th className="py-2.5 px-4 text-right">Quantity</th>
-                        <th className="py-2.5 px-4 text-right">Unit Price</th>
-                        <th className="py-2.5 px-4 text-right">Line Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-ink/5 font-mono">
-                      {items.map((item) => (
-                        <tr key={item.id} className="hover:bg-sand/15 transition">
-                          <td className="py-3 px-4 font-sans font-medium text-ink">
-                            {item.productNameSnapshot}
-                          </td>
-                          <td className="py-3 px-4 text-right tabular-nums">
-                            {item.quantity}
-                          </td>
-                          <td className="py-3 px-4 text-right tabular-nums text-ink-3">
-                            {formatLKR(item.unitPriceCents)}
-                          </td>
-                          <td className="py-3 px-4 text-right tabular-nums font-bold text-ink">
-                            {formatLKR(item.lineTotalCents)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </Surface>
-
-              {/* Order Notes & Reasons */}
-              {(order.notes || order.rejectionReason || order.cancelledReason) && (
-                <Surface className="p-4 border border-ink/10 bg-paper space-y-2 text-xs">
-                  <h3 className="font-mono font-bold uppercase text-[11px] text-ink-4">Operational Notes & Exceptions</h3>
-                  {order.notes && (
-                    <div className="p-3 bg-sand/30 border border-ink/10 text-ink-3">
-                      <strong className="text-ink block mb-0.5">Order Notes:</strong>
-                      {order.notes}
-                    </div>
-                  )}
-                  {order.rejectionReason && (
-                    <div className="p-3 bg-rose/10 border border-rose/20 text-rose">
-                      <strong className="block mb-0.5 font-bold">Supplier Rejection Reason:</strong>
-                      {order.rejectionReason}
-                    </div>
-                  )}
-                  {order.cancelledReason && (
-                    <div className="p-3 bg-rose/10 border border-rose/20 text-rose">
-                      <strong className="block mb-0.5 font-bold">Cancellation Reason:</strong>
-                      {order.cancelledReason}
-                    </div>
-                  )}
-                </Surface>
-              )}
-
-              {/* Order Audit Events Timeline */}
-              <Surface className="border border-ink/10 bg-paper p-4 space-y-3">
-                <div className="flex items-center gap-2 border-b border-ink/10 pb-2.5">
-                  <ClockIcon size={16} className="text-ink-3" />
-                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-ink">
-                    Audit Trail & Lifecycle Events ({events.length})
-                  </h3>
-                </div>
-
-                {events.length === 0 ? (
-                  <p className="text-xs text-ink-4 font-mono py-2">No lifecycle events recorded yet.</p>
-                ) : (
-                  <div className="space-y-3 pt-1">
-                    {events.map((ev) => (
-                      <div key={ev.id} className="flex items-start gap-3 text-xs">
-                        <div className="w-2 h-2 rounded-full bg-ink/40 mt-1.5 shrink-0" />
-                        <div className="flex-1 border-b border-ink/5 pb-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-mono font-bold text-ink">
-                              {ev.fromStatus ? `${ev.fromStatus} → ` : ''}{ev.toStatus}
-                            </span>
-                            <span className="text-[11px] font-mono text-ink-4">
-                              {formatFullDate(ev.createdAt)}
-                            </span>
+          <TableCard
+            title={
+              <span className="inline-flex items-center gap-2">
+                <PackageIcon size={15} className="text-ink-3" />
+                Line items
+              </span>
+            }
+            description={`${items.length} ${items.length === 1 ? 'product' : 'products'} snapshotted at order time`}
+            footer={
+              items.length > 0 ? (
+                <>
+                  <span>Subtotal</span>
+                  <span className="font-mono text-sm font-semibold text-ink">{formatLKR(order.subtotalCents ?? 0)}</span>
+                </>
+              ) : undefined
+            }
+          >
+            {items.length === 0 ? (
+              <EmptyBlock
+                icon={<PackageIcon size={22} />}
+                title="No line items"
+                description="No line-item snapshot was recorded for this purchase order."
+              />
+            ) : (
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th className="num">Qty</th>
+                    <th className="num">Unit price</th>
+                    <th className="num">Line total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <Monogram name={item.productNameSnapshot} seed={item.supplierProductId} size="sm" />
+                          <div className="min-w-0">
+                            <div className="truncate font-medium text-ink">{item.productNameSnapshot}</div>
+                            {item.discountPctSnapshot ? (
+                              <div className="mt-0.5 text-xs text-mint">{item.discountPctSnapshot}% discount applied</div>
+                            ) : null}
                           </div>
-                          {ev.reason && (
-                            <p className="text-ink-3 mt-1 italic bg-sand/30 px-2 py-1 border border-ink/5">
-                              "{ev.reason}"
-                            </p>
-                          )}
-                          {ev.actorUserId && (
-                            <div className="text-[10px] font-mono text-ink-4 mt-1">
-                              Actor ID: {ev.actorUserId}
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Surface>
-            </div>
+                      </td>
+                      <td className="num">× {item.quantity}</td>
+                      <td className="num text-ink-3">{formatLKR(item.unitPriceCents)}</td>
+                      <td className="num font-semibold">{formatLKR(item.lineTotalCents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </TableCard>
 
-            {/* Right Sidebar: Status Override & Financial Summary */}
-            <div className="space-y-6">
-              {/* Financial Summary Box */}
-              <Surface className="p-4 border border-ink/10 bg-paper space-y-3">
-                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-ink border-b border-ink/10 pb-2">
-                  Financial Breakdown
-                </h3>
-                <div className="space-y-2 text-xs font-mono">
-                  <div className="flex justify-between text-ink-3">
-                    <span>Subtotal:</span>
-                    <span>{formatLKR(order.subtotalCents ?? 0)}</span>
-                  </div>
-                  <div className="flex justify-between text-ink-3">
-                    <span>Delivery Fee:</span>
-                    <span>{formatLKR(order.deliveryFeeCents ?? 0)}</span>
-                  </div>
-                  <div className="pt-2 border-t border-ink/10 flex justify-between font-bold text-sm text-ink">
-                    <span>Total Amount:</span>
-                    <span>{formatLKR(order.totalCents ?? 0)}</span>
-                  </div>
+          {order.notes || order.rejectionReason || order.cancelledReason ? (
+            <Panel title="Notes & exceptions" icon={<FileTextIcon size={16} />} bodyClassName="space-y-3">
+              {order.notes ? (
+                <div className="rounded-xl bg-bone/60 p-4 text-sm text-ink-3 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.06)]">
+                  <div className={labelClass}>Buyer note</div>
+                  {order.notes}
                 </div>
-              </Surface>
+              ) : null}
+              {order.rejectionReason ? (
+                <Callout tone="danger" title="Supplier rejection reason">
+                  {order.rejectionReason}
+                </Callout>
+              ) : null}
+              {order.cancelledReason ? (
+                <Callout tone="warning" title="Cancellation reason">
+                  {order.cancelledReason}
+                </Callout>
+              ) : null}
+            </Panel>
+          ) : null}
 
-              {/* Cross-Border Block (only when not domestic) */}
-              {order.direction && order.direction !== 'domestic' && (
-                <Surface className="p-4 border border-ink/10 bg-paper space-y-3">
-                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-ink border-b border-ink/10 pb-2">
-                    Cross-Border Details
-                  </h3>
-                  <div className="space-y-2 text-xs font-mono">
-                    <Row label="Direction">
-                      <span className="px-1.5 py-0.5 bg-volt/30 text-ink text-[10px] font-semibold uppercase">
-                        {order.direction}
+          <Panel
+            title="Audit trail"
+            description={`${events.length} lifecycle ${events.length === 1 ? 'event' : 'events'}, newest last`}
+            icon={<ClockIcon size={16} />}
+          >
+            {events.length === 0 ? (
+              <p className="text-sm text-ink-4">No lifecycle events recorded yet.</p>
+            ) : (
+              <ol className="relative">
+                {events.map((ev, i) => {
+                  const last = i === events.length - 1;
+                  return (
+                    <li key={ev.id} className="relative flex gap-4 pb-6 last:pb-0">
+                      {!last ? (
+                        <span className="absolute bottom-0 left-[11px] top-7 w-px bg-ink/10" aria-hidden />
+                      ) : null}
+                      <span
+                        className={cn(
+                          'relative z-[1] mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full ring-4 ring-paper',
+                          last ? 'bg-ink text-volt' : 'bg-bone text-ink-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.12)]',
+                        )}
+                      >
+                        {last ? <span className="size-1.5 rounded-full bg-volt" /> : <CheckIcon size={11} />}
                       </span>
-                    </Row>
-                    {order.incoterms && <Row label="Incoterms">{order.incoterms}</Row>}
-                    {order.fxSnapshotId && (
-                      <Row label="FX Snapshot">
-                        <span className="text-[10px] text-ink-4">{order.fxSnapshotId}</span>
-                      </Row>
-                    )}
-                    {order.declaredShippingCostCents != null && (
-                      <Row label="Declared Shipping">
-                        {formatLKR(order.declaredShippingCostCents)}
-                      </Row>
-                    )}
-                    {order.declaredDutyCents != null && (
-                      <Row label="Declared Duty">
-                        {formatLKR(order.declaredDutyCents)}
-                      </Row>
-                    )}
-                    {order.commercialInvoiceNo && (
-                      <Row label="Commercial Invoice">{order.commercialInvoiceNo}</Row>
-                    )}
-                    {order.customsStatus && (
-                      <Row label="Customs Status">{order.customsStatus}</Row>
-                    )}
-                  </div>
-                </Surface>
-              )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {ev.fromStatus ? (
+                              <>
+                                <span className="text-xs text-ink-4">{humanize(ev.fromStatus)}</span>
+                                <ArrowRightIcon size={11} className="text-ink-5" />
+                              </>
+                            ) : null}
+                            <StatusPill status={ev.toStatus} />
+                          </div>
+                          <time className="text-xs text-ink-4" title={formatFullDate(ev.createdAt)}>
+                            {formatFullDate(ev.createdAt)}
+                          </time>
+                        </div>
+                        {ev.reason ? (
+                          <p className="mt-2 rounded-lg bg-bone/60 px-3 py-2 text-[13px] text-ink-3 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.05)]">
+                            {ev.reason}
+                          </p>
+                        ) : null}
+                        {ev.actorUserId ? (
+                          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-ink-4">
+                            <UserIcon size={11} className="text-ink-5" />
+                            <CopyId id={ev.actorUserId} label="Actor" />
+                          </div>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </Panel>
+        </div>
 
-              {/* Wire Received Panel (cross-border, unpaid) */}
-              {order.direction && order.direction !== 'domestic' && order.status === 'pending' && (
-                <WireReceivedPanel
-                  orderId={order.id}
-                  onRecorded={() => {
-                    qc.invalidateQueries({ queryKey: ['admin-order', id] });
-                    qc.invalidateQueries({ queryKey: ['admin-orders'] });
-                  }}
-                />
-              )}
+        {/* Sidebar */}
+        <aside className="space-y-6">
+          <Panel title="Financials" icon={<BanknoteIcon size={16} />}>
+            <dl className="space-y-2.5 text-sm">
+              <MoneyRow label="Subtotal" cents={order.subtotalCents ?? 0} />
+              <MoneyRow label="Delivery fee" cents={order.deliveryFeeCents ?? 0} />
+              {order.originalTotalCents != null && order.originalTotalCents !== order.totalCents ? (
+                <MoneyRow label="Original total" cents={order.originalTotalCents} muted strike />
+              ) : null}
+              <div className="flex items-baseline justify-between border-t border-ink/[0.08] pt-3">
+                <dt className="font-semibold text-ink">Total</dt>
+                <dd className="vyro-metric text-xl text-ink">{formatLKR(order.totalCents ?? 0)}</dd>
+              </div>
+            </dl>
+          </Panel>
 
-              {order.wireRef && (
-                <Surface className="p-4 border border-mint/30 bg-mint/5 space-y-2">
-                  <div className="text-xs font-mono font-bold uppercase text-mint">
-                    Wire Settled
-                  </div>
-                  <div className="space-y-1 text-xs font-mono">
-                    <Row label="Reference">{order.wireRef}</Row>
-                    {order.wireReceivedCurrency && order.wireReceivedAmountCents != null && (
-                      <Row label="Received">
-                        {order.wireReceivedAmountCents / 100} {order.wireReceivedCurrency}
-                      </Row>
-                    )}
-                    {order.wireReceivedAt && (
-                      <Row label="At">{formatFullDate(order.wireReceivedAt)}</Row>
-                    )}
-                  </div>
-                </Surface>
-              )}
+          <PaymentPanel
+            viewer="admin"
+            purchaseOrderId={order.id}
+            poStatus={order.status}
+            totalCents={order.totalCents ?? 0}
+            {...(order.businessId ? { businessId: order.businessId } : {})}
+            {...(order.supplierId ? { supplierId: order.supplierId } : {})}
+            onChanged={invalidate}
+          />
 
-              {/* Dispute arbitration (the only exit from `disputed`) */}
-              {order.status === 'disputed' && (
-                <Surface className="p-4 border-2 border-rose/30 bg-rose/5 space-y-3">
-                  <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-rose uppercase tracking-wider">
-                    <AlertCircleIcon size={15} />
-                    <span>Open dispute</span>
-                  </div>
-                  {order.disputeReason && (
-                    <p className="text-xs text-ink-3 italic">&ldquo;{order.disputeReason}&rdquo;</p>
-                  )}
-                  <DisputeResolutionPanel
-                    poId={order.id}
-                    totalCents={order.totalCents ?? 0}
-                    defaultOpen
-                    onResolved={() => {
-                      qc.invalidateQueries({ queryKey: ['admin-order', id] });
-                      qc.invalidateQueries({ queryKey: ['admin-orders'] });
-                    }}
-                  />
-                </Surface>
-              )}
+          {crossBorder ? (
+            <Panel title="Cross-border" icon={<ShieldCheckIcon size={16} />}>
+              <dl className="space-y-2.5 text-sm">
+                <Row label="Direction">
+                  <span className="capitalize">{order.direction}</span>
+                </Row>
+                {order.incoterms ? <Row label="Incoterms">{order.incoterms}</Row> : null}
+                {order.fxSnapshotId ? (
+                  <Row label="FX snapshot">
+                    <CopyId id={order.fxSnapshotId} label="" />
+                  </Row>
+                ) : null}
+                {order.declaredShippingCostCents != null ? (
+                  <Row label="Declared shipping">{formatLKR(order.declaredShippingCostCents)}</Row>
+                ) : null}
+                {order.declaredDutyCents != null ? <Row label="Declared duty">{formatLKR(order.declaredDutyCents)}</Row> : null}
+                {order.commercialInvoiceNo ? <Row label="Commercial invoice">{order.commercialInvoiceNo}</Row> : null}
+                {order.customsStatus ? (
+                  <Row label="Customs">
+                    <StatusPill status={order.customsStatus} />
+                  </Row>
+                ) : null}
+              </dl>
+            </Panel>
+          ) : null}
 
-              {/* Administrative Status Override Panel */}
-              {overrideOptions.length > 0 && (
-              <Surface className="p-4 border-2 border-ink/20 bg-sand/10 space-y-3">
-                <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-ink uppercase tracking-wider">
-                  <AlertCircleIcon size={15} className="text-amber" />
-                  <span>Administrative Override</span>
-                </div>
+          {crossBorder && order.status === 'pending' ? <WireReceivedPanel orderId={order.id} onRecorded={invalidate} /> : null}
 
-                <p className="text-[11px] text-ink-4 leading-relaxed">
-                  Moves the order along a legal lifecycle edge with the full pipeline (refunds, stock, notifications). Every override is signed and audited in the platform security ledger.
-                </p>
+          {order.wireRef ? (
+            <section className="vyro-surface overflow-hidden">
+              <div className="flex items-center gap-2 bg-mint/[0.08] px-5 py-3 text-sm font-semibold text-mint sm:px-6">
+                <CheckCircleIcon size={15} />
+                Wire settled
+              </div>
+              <dl className="space-y-2.5 px-5 py-4 text-sm sm:px-6">
+                <Row label="Reference">
+                  <span className="font-mono text-xs">{order.wireRef}</span>
+                </Row>
+                {order.wireReceivedCurrency && order.wireReceivedAmountCents != null ? (
+                  <Row label="Received">
+                    {(order.wireReceivedAmountCents / 100).toLocaleString()} {order.wireReceivedCurrency}
+                  </Row>
+                ) : null}
+                {order.wireReceivedAt ? <Row label="At">{formatFullDate(order.wireReceivedAt)}</Row> : null}
+              </dl>
+            </section>
+          ) : null}
 
-                {successMsg && (
-                  <div className="p-2.5 bg-mint/10 border border-mint/25 text-mint text-xs flex items-center gap-1.5">
-                    <CheckCircleIcon size={14} />
-                    <span>{successMsg}</span>
-                  </div>
-                )}
+          {order.status === 'disputed' ? (
+            <Panel
+              title="Dispute arbitration"
+              description="The only exit from the disputed state."
+              icon={<AlertCircleIcon size={16} className="text-rose" />}
+              className="shadow-[inset_0_0_0_1px_rgba(196,90,74,0.3)]"
+            >
+              <DisputeResolutionPanel
+                poId={order.id}
+                totalCents={order.totalCents ?? 0}
+                defaultOpen
+                onResolved={invalidate}
+              />
+            </Panel>
+          ) : null}
 
-                {error && (
-                  <div className="p-2.5 bg-rose/10 border border-rose/25 text-rose text-xs flex items-center gap-1.5">
-                    <AlertCircleIcon size={14} />
-                    <span>{error}</span>
-                  </div>
-                )}
-
-                <form
-                  className="space-y-3 pt-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!status) return;
-                    override.mutate({
-                      status,
-                      reason,
-                      ...(order.updatedAt ? { expectedUpdatedAt: order.updatedAt } : {}),
-                    });
-                  }}
-                >
-                  <div>
-                    <label className="block text-[10px] font-mono uppercase text-ink-4 mb-1">
-                      Target Status
-                    </label>
+          {overrideOptions.length > 0 ? (
+            <Panel
+              title="Administrative override"
+              description="Moves the order along a legal lifecycle edge with the full pipeline (refunds, stock, notifications). Every override is signed and audited."
+              icon={<AlertCircleIcon size={16} className="text-amber" />}
+            >
+              {successMsg ? (
+                <Callout tone="success" className="mb-4">
+                  {successMsg}
+                </Callout>
+              ) : null}
+              {error ? (
+                <Callout tone="danger" className="mb-4">
+                  {error}
+                </Callout>
+              ) : null}
+              <form
+                className="space-y-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!status) return;
+                  override.mutate({
+                    status,
+                    reason,
+                    ...(order.updatedAt ? { expectedUpdatedAt: order.updatedAt } : {}),
+                  });
+                }}
+              >
+                <div>
+                  <label htmlFor="override-status" className={labelClass}>
+                    Move to
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <StatusPill status={order.status} />
+                    <ArrowRightIcon size={12} className="shrink-0 text-ink-5" />
                     <select
+                      id="override-status"
                       value={status}
                       onChange={(e) => setStatus(e.target.value as OrderStatus)}
-                      className="w-full h-9 px-2.5 text-xs font-mono border border-ink/20 bg-paper focus:outline-none focus:border-ink"
+                      className={cn(controlClass, 'min-w-0 flex-1')}
                     >
                       {overrideOptions.map((s) => (
                         <option key={s} value={s}>
-                          {s.replace(/_/g, ' ')}
+                          {humanize(s)}
                         </option>
                       ))}
                     </select>
                   </div>
-
-                  <div>
-                    <label className="block text-[10px] font-mono uppercase text-ink-4 mb-1">
-                      Audit Reason (Mandatory, min 5 chars)
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="override-reason" className={labelClass}>
+                      Audit reason
                     </label>
-                    <textarea
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value)}
-                      rows={3}
-                      placeholder="Specify explicit operational reason for override…"
-                      className="w-full p-2 text-xs border border-ink/20 bg-paper focus:outline-none focus:border-ink resize-none"
-                    />
+                    <span className="mb-1.5 font-mono text-[10px] text-ink-4">min 5 chars</span>
                   </div>
+                  <textarea
+                    id="override-reason"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    rows={3}
+                    placeholder="Explain why this override is needed…"
+                    className={cn(controlClass, 'h-auto w-full resize-none py-2')}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  className="w-full justify-center"
+                  loading={override.isPending}
+                  disabled={override.isPending || !status || reason.trim().length < 5}
+                >
+                  {override.isPending ? 'Signing & applying…' : 'Apply audited override'}
+                </Button>
+              </form>
+            </Panel>
+          ) : null}
+        </aside>
+      </div>
+    </AdminPage>
+  );
+}
 
-                  <button
-                    type="submit"
-                    disabled={override.isPending || !status || reason.trim().length < 5}
-                    className="w-full py-2 bg-ink text-paper text-xs font-mono font-bold hover:bg-ink-2 transition disabled:opacity-40"
-                  >
-                    {override.isPending ? 'Signing & Applying…' : 'Apply Audited Override'}
-                  </button>
-                </form>
-              </Surface>
-              )}
-            </div>
-          </div>
-        </>
-      )}
+function BackLink() {
+  return (
+    <Link
+      to="/admin/orders"
+      className="group flex w-fit items-center gap-1.5 rounded-full bg-paper py-1 pl-2 pr-3 text-xs font-medium text-ink-3 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.1)] transition-all hover:text-ink hover:shadow-[inset_0_0_0_1px_rgba(12,14,11,0.25)]"
+    >
+      <ArrowLeftIcon size={13} className="transition-transform group-hover:-translate-x-0.5" />
+      Orders control
+    </Link>
+  );
+}
+
+const STAGE_TIMESTAMP: Record<string, keyof AdminOrder> = {
+  pending: 'createdAt',
+  accepted: 'acceptedAt',
+  preparing: 'preparedAt',
+  ready_for_pickup: 'readyAt',
+  out_for_delivery: 'dispatchedAt',
+  delivered: 'deliveredAt',
+  completed: 'completedAt',
+};
+
+/** Horizontal happy-path tracker; exception states are shown as a terminal marker. */
+function LifecycleTracker({ order }: { order: AdminOrder }) {
+  const idx = ORDER_STAGES.findIndex((s) => s.key === order.status);
+  // For exception states, the stage after the furthest timestamped one is where it broke off.
+  const lastStamped = ORDER_STAGES.reduce(
+    (acc, s, i) => (order[STAGE_TIMESTAMP[s.key] as keyof AdminOrder] ? i : acc),
+    0,
+  );
+  const reached = idx >= 0 ? idx : Math.min(lastStamped + 1, ORDER_STAGES.length - 1);
+  const exception = idx < 0 ? order.status : null;
+  const exceptionAt = order.status === 'cancelled' ? order.cancelledAt : order.status === 'rejected' ? order.rejectedAt : null;
+
+  return (
+    <div className="overflow-x-auto scrollbar-thin">
+      <ol className="flex min-w-[680px] items-start">
+        {ORDER_STAGES.map((s, i) => {
+          const done = i < reached || (i === reached && !exception && s.key === 'completed');
+          const current = i === reached && !done;
+          const ts = order[STAGE_TIMESTAMP[s.key] as keyof AdminOrder] as number | null | undefined;
+          const blocked = current && exception;
+          return (
+            <li key={s.key} className="relative flex flex-1 flex-col items-start pr-2">
+              {i < ORDER_STAGES.length - 1 ? (
+                <span
+                  className={cn('absolute left-7 right-1 top-[11px] h-0.5 rounded-full', i < reached ? 'bg-ink/50' : 'bg-ink/10')}
+                  aria-hidden
+                />
+              ) : null}
+              <span
+                className={cn(
+                  'relative z-[1] flex size-6 items-center justify-center rounded-full ring-4 ring-bone',
+                  blocked
+                    ? 'bg-rose text-paper'
+                    : done
+                      ? 'bg-ink text-volt'
+                      : current
+                        ? 'bg-volt text-ink shadow-[0_0_0_6px_rgba(198,220,74,0.3)]'
+                        : 'bg-paper text-ink-5 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.14)]',
+                )}
+              >
+                {blocked ? (
+                  <XIcon size={11} />
+                ) : done ? (
+                  <CheckIcon size={11} />
+                ) : current ? (
+                  <span className="size-1.5 rounded-full bg-ink" />
+                ) : (
+                  <span className="text-[9px] font-bold">{i + 1}</span>
+                )}
+              </span>
+              <span className={cn('mt-2.5 text-xs font-semibold', done || current ? 'text-ink' : 'text-ink-4')}>
+                {s.label}
+              </span>
+              <span className="mt-0.5 text-[11px] text-ink-4">
+                {blocked
+                  ? `${humanize(exception)}${exceptionAt ? ` · ${relativeTime(exceptionAt)}` : ''}`
+                  : ts
+                    ? new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                    : current
+                      ? 'In progress'
+                      : '—'}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function PartyCard({
+  role,
+  icon,
+  name,
+  seed,
+  href,
+  contact,
+  phone,
+  email,
+  addressLabel,
+  address,
+  addressSub,
+}: {
+  role: string;
+  icon: ReactNode;
+  name: string;
+  seed: string | undefined;
+  href: string | undefined;
+  contact: string | null | undefined;
+  phone: string | null | undefined;
+  email: string | null | undefined;
+  addressLabel: string;
+  address: string | null | undefined;
+  addressSub: string | null | undefined;
+}) {
   return (
-    <div className="flex justify-between items-center gap-2">
-      <span className="text-ink-4 uppercase text-[10px]">{label}</span>
-      <span className="text-ink">{children}</span>
+    <section className="vyro-surface flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between px-5 pt-4">
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4">
+          <span className="text-ink-5">{icon}</span>
+          {role}
+        </span>
+        {href ? (
+          <Link
+            to={href}
+            className="group inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold text-ink-3 transition-colors hover:bg-ink/[0.05] hover:text-ink"
+          >
+            Inspect
+            <ArrowRightIcon size={12} className="transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        ) : null}
+      </div>
+      <div className="flex items-center gap-3 px-5 pt-3">
+        <Monogram name={name} seed={seed} />
+        <div className="min-w-0">
+          <div className="truncate text-[0.9375rem] font-semibold text-ink">{name}</div>
+          {contact ? <div className="truncate text-xs text-ink-4">{contact}</div> : null}
+        </div>
+      </div>
+      <div className="space-y-1.5 px-5 pb-4 pt-3.5 text-[13px]">
+        {email ? (
+          <a href={`mailto:${email}`} className="flex items-center gap-2 text-ink-3 transition-colors hover:text-copper-deep">
+            <MailIcon size={13} className="shrink-0 text-ink-5" />
+            <span className="truncate">{email}</span>
+          </a>
+        ) : null}
+        {phone ? (
+          <a href={`tel:${phone}`} className="flex items-center gap-2 font-mono text-xs text-ink-3 transition-colors hover:text-ink">
+            <PhoneIcon size={13} className="shrink-0 text-ink-5" />
+            {phone}
+          </a>
+        ) : null}
+        {!email && !phone ? <div className="text-xs text-ink-5">No contact details on file</div> : null}
+      </div>
+      {address || addressSub ? (
+        <div className="mt-auto flex items-start gap-2 border-t border-ink/[0.07] bg-bone/40 px-5 py-3">
+          <MapPinIcon size={13} className="mt-0.5 shrink-0 text-ink-5" />
+          <div className="min-w-0 text-[13px]">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-5">{addressLabel}</div>
+            {address ? <div className="mt-0.5 text-ink-3">{address}</div> : null}
+            {addressSub ? <div className="mt-0.5 text-xs capitalize text-ink-4">{addressSub}</div> : null}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function MoneyRow({ label, cents, muted, strike }: { label: string; cents: number; muted?: boolean; strike?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <dt className="text-ink-4">{label}</dt>
+      <dd className={cn('font-mono text-[13px] num-tabular', muted ? 'text-ink-4' : 'text-ink', strike && 'line-through')}>
+        {formatLKR(cents)}
+      </dd>
+    </div>
+  );
+}
+
+function Row({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-ink-4">{label}</dt>
+      <dd className="min-w-0 text-right text-ink">{children}</dd>
     </div>
   );
 }
@@ -600,90 +778,77 @@ function WireReceivedPanel({ orderId, onRecorded }: { orderId: string; onRecorde
   });
 
   return (
-    <Surface className="p-4 border-2 border-copper/30 bg-copper/5 space-y-3">
-      <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-copper-deep uppercase tracking-wider">
-        <Building2Icon size={15} />
-        <span>Record Wire Receipt</span>
-      </div>
-      <p className="text-[11px] text-ink-4 leading-relaxed">
-        Cross-border orders settle via wire/SWIFT. Record the bank wire receipt here to mark the order paid. Delta &gt; 1% requires explicit acknowledgement.
-      </p>
-
-      {err && (
-        <div className="p-2.5 bg-rose/10 border border-rose/25 text-rose text-xs">
+    <Panel
+      title="Record wire receipt"
+      description="Cross-border orders settle via wire/SWIFT. Recording the receipt marks the order paid. A delta over 1% needs explicit acknowledgement."
+      icon={<Building2Icon size={16} className="text-copper" />}
+    >
+      {err ? (
+        <Callout tone="danger" className="mb-4">
           {err}
-        </div>
-      )}
-
+        </Callout>
+      ) : null}
       <form
         onSubmit={(e) => {
           e.preventDefault();
           submit.mutate();
         }}
-        className="space-y-2"
+        className="space-y-4"
       >
         <div>
-          <label className="block text-[10px] font-mono uppercase text-ink-4 mb-1">Wire Reference</label>
+          <label htmlFor="wire-ref" className={labelClass}>
+            Wire reference
+          </label>
           <input
+            id="wire-ref"
             value={wireRef}
             onChange={(e) => setWireRef(e.target.value)}
             required
             placeholder="e.g. SBI-IN-2026-001234"
-            className="w-full h-9 px-2.5 text-xs font-mono border border-ink/20 bg-paper focus:outline-none focus:border-ink"
+            className={cn(controlClass, 'w-full font-mono')}
           />
         </div>
-
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-[1fr_auto] gap-2">
           <div>
-            <label className="block text-[10px] font-mono uppercase text-ink-4 mb-1">Amount</label>
+            <label htmlFor="wire-amount" className={labelClass}>
+              Amount
+            </label>
             <input
+              id="wire-amount"
               type="number"
               step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               required
-              className="w-full h-9 px-2.5 text-xs font-mono border border-ink/20 bg-paper focus:outline-none focus:border-ink"
+              className={cn(controlClass, 'w-full font-mono')}
             />
           </div>
           <div>
-            <label className="block text-[10px] font-mono uppercase text-ink-4 mb-1">Currency</label>
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className="w-full h-9 px-2.5 text-xs font-mono border border-ink/20 bg-paper focus:outline-none focus:border-ink"
-            >
-              <option>USD</option>
-              <option>EUR</option>
-              <option>GBP</option>
-              <option>INR</option>
-              <option>AED</option>
-              <option>SGD</option>
-              <option>AUD</option>
-              <option>JPY</option>
-              <option>CNY</option>
+            <label htmlFor="wire-currency" className={labelClass}>
+              Currency
+            </label>
+            <select id="wire-currency" value={currency} onChange={(e) => setCurrency(e.target.value)} className={controlClass}>
+              {['USD', 'EUR', 'GBP', 'INR', 'AED', 'SGD', 'AUD', 'JPY', 'CNY'].map((c) => (
+                <option key={c}>{c}</option>
+              ))}
             </select>
           </div>
         </div>
-
-        <label className="flex items-center gap-2 text-[11px] text-ink-3">
-          <input
-            type="checkbox"
-            checked={ack}
-            onChange={(e) => setAck(e.target.checked)}
-            className="accent-copper"
-          />
-          Acknowledge FX delta exceeds 1% threshold
+        <label className="flex items-center gap-2 text-xs text-ink-3">
+          <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="accent-copper" />
+          Acknowledge FX delta above the 1% threshold
         </label>
-
-        <button
+        <Button
           type="submit"
+          variant="primary"
+          size="sm"
+          className="w-full justify-center"
+          loading={submit.isPending}
           disabled={submit.isPending || !wireRef.trim() || !amount}
-          className="w-full py-2 bg-copper text-paper text-xs font-mono font-bold hover:bg-copper-deep transition disabled:opacity-40"
         >
           {submit.isPending ? 'Reconciling…' : 'Record wire & mark paid'}
-        </button>
+        </Button>
       </form>
-    </Surface>
+    </Panel>
   );
 }
-

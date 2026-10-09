@@ -59,6 +59,17 @@ import { PaymentBadge, PaymentSummaryRows, ReasonSheet } from '@/features/common
 import { deliveryEventStatus, lifecycleErrorMessage, requestedQty, type PaymentSummary } from '@/lib/orderLifecycle';
 import { openStorefront } from '../commerce/data';
 import { useReorderToCart } from './useReorder';
+import {
+  BankTransferProof,
+  ProofPicker,
+  ReportTransferSheet,
+  proofProblem,
+  uploadProof,
+  useOrderPayments,
+  type OrderPayment,
+  type PayeeBankAccount,
+} from '@/features/common/bankTransfer';
+import type { PickedFile } from '@/lib/files';
 import type { InvoiceRow, OrderDetail, Payment, PoMessage, ReconciliationResult, WireInstructions } from './types';
 
 export function OrderDetailScreen() {
@@ -81,11 +92,7 @@ export function OrderDetailScreen() {
     retry: false,
   });
 
-  const payments = useQuery({
-    queryKey: ['payments', id],
-    queryFn: () => api.get<{ payments: Payment[] }>(`/payments/by-po/${id}`),
-    enabled: !!id,
-  });
+  const payments = useOrderPayments(id);
 
   const invoices = useQuery({
     queryKey: ['po-invoices', id],
@@ -360,6 +367,7 @@ export function OrderDetailScreen() {
         order={order}
         summary={q.data?.paymentSummary ?? null}
         payments={payments.data?.payments ?? []}
+        bankAccounts={payments.data?.bankAccounts ?? []}
         loading={payments.isLoading}
         onChanged={() => Promise.all([payments.refetch(), q.refetch()])}
       />
@@ -527,18 +535,22 @@ function PaymentCard({
   order,
   summary,
   payments,
+  bankAccounts,
   loading,
   onChanged,
 }: {
   order: OrderDetail['order'];
   summary: PaymentSummary | null;
-  payments: Payment[];
+  payments: OrderPayment[];
+  bankAccounts: PayeeBankAccount[];
   loading: boolean;
   onChanged: () => unknown;
 }) {
   const toast = useToast();
-  const [ref, setRef] = useState('');
   const [busy, setBusy] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [replaceFor, setReplaceFor] = useState<string | null>(null);
+  const [replaceFile, setReplaceFile] = useState<PickedFile | null>(null);
   const [useCardId, setUseCardId] = useState('');
 
   const cardsQ = useQuery({
@@ -555,6 +567,7 @@ function PaymentCard({
   const offline = summary?.method === 'cod' || summary?.method === 'credit';
   const canPay = outstanding > 0 && !offline && order.status !== 'cancelled' && order.status !== 'rejected';
   const lastFailed = [...payments].reverse().find((p) => ['failed', 'cancelled', 'chargeback'].includes(p.status));
+  const pendingBank = payments.find((p) => p.status === 'pending' && p.method === 'bank_transfer');
 
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -625,6 +638,51 @@ function PaymentCard({
                 {p.transactionReference ? (
                   <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.ink4 }}>ref: {p.transactionReference}</Text>
                 ) : null}
+                {p.status === 'failed' && p.statusReason ? (
+                  <Text variant="caption" color="rose">
+                    {p.statusReason}
+                  </Text>
+                ) : null}
+                {p.method === 'bank_transfer' && p.bankTransfer ? (
+                  <View style={{ marginTop: 6 }}>
+                    <BankTransferProof transfer={p.bankTransfer} />
+                  </View>
+                ) : null}
+                {p.status === 'pending' && p.method === 'bank_transfer' ? (
+                  <View style={{ gap: 8, marginTop: 6 }}>
+                    <Text variant="caption" color="ink4">
+                      Waiting for the supplier to confirm the transfer. Your order is marked paid once they do.
+                    </Text>
+                    {replaceFor === p.id || !p.bankTransfer?.hasProof ? (
+                      <>
+                        <ProofPicker file={replaceFor === p.id ? replaceFile : null} onChange={(f) => { setReplaceFor(p.id); setReplaceFile(f); }} />
+                        <Button
+                          title={p.bankTransfer?.hasProof ? 'Replace receipt' : 'Upload receipt'}
+                          size="sm"
+                          variant="secondary"
+                          loading={busy}
+                          disabled={replaceFor !== p.id || !replaceFile}
+                          onPress={() =>
+                            run(async () => {
+                              const problem = proofProblem(replaceFile);
+                              if (problem) throw new Error(problem);
+                              await uploadProof(p.id, replaceFile!);
+                              setReplaceFor(null);
+                              setReplaceFile(null);
+                              toast.success('Receipt uploaded', 'The supplier has been notified.');
+                            })
+                          }
+                        />
+                      </>
+                    ) : (
+                      <Pressable hitSlop={8} onPress={() => { setReplaceFor(p.id); setReplaceFile(null); }}>
+                        <Text variant="caption" color="copper" weight="semibold">
+                          Replace receipt
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                ) : null}
               </View>
               {p.status === 'pending' && p.method === 'online' && canPay ? (
                 <Button title="Pay" size="sm" loading={busy} onPress={() => payOnline(p.id)} />
@@ -658,32 +716,25 @@ function PaymentCard({
               ))}
             </View>
           ) : null}
-          <Input value={ref} onChangeText={setRef} placeholder="Bank reference / transaction ID" autoCapitalize="none" />
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Button
-              title="Mark paid (bank)"
-              variant="secondary"
-              style={{ flex: 1 }}
-              loading={busy}
-              onPress={() =>
-                run(async () => {
-                  await api.post(
-                    `/payments`,
-                    { purchaseOrderId: order.id, method: 'bank_transfer', transactionReference: ref || undefined, notes: 'Recorded from order detail' },
-                    { idempotencyKey: true },
-                  );
-                  setRef('');
-                  toast.success('Payment recorded', 'Pending supplier confirmation.');
-                })
-              }
-            />
+            {!pendingBank ? (
+              <Button title="Bank transfer" icon={Landmark} variant="secondary" style={{ flex: 1 }} disabled={busy} onPress={() => setTransferOpen(true)} />
+            ) : null}
             <Button title="Pay online" icon={CreditCard} style={{ flex: 1 }} loading={busy} onPress={() => payOnline()} />
           </View>
           <Text variant="caption" color="ink5">
-            Outstanding {formatLKR(outstanding)} · online checkout opens payments.lk in a browser; status updates from server confirmation.
+            Outstanding {formatLKR(outstanding)} · pay online through payments.lk, or transfer to the supplier and upload your receipt.
           </Text>
         </View>
       ) : null}
+      <ReportTransferSheet
+        visible={transferOpen}
+        onClose={() => setTransferOpen(false)}
+        poId={order.id}
+        amountCents={outstanding}
+        accounts={bankAccounts}
+        onDone={onChanged}
+      />
     </Section>
   );
 }

@@ -11,6 +11,30 @@ export async function listLessons(d1: D1Database) {
   return repo.listAllLessons(d1);
 }
 
+/** Lesson plus its quiz with correct answers, for the admin editor. */
+export async function getLessonWithQuiz(d1: D1Database, id: string) {
+  const lesson = await repo.findLessonById(d1, id);
+  if (!lesson) return null;
+  const quiz = await repo.findQuizByLessonId(d1, id);
+  if (!quiz) return { lesson, quiz: null };
+  const questions = await repo.findQuestionsByQuizId(d1, quiz.id);
+  const options = await repo.findOptionsByQuestionIds(d1, questions.map((q) => q.id));
+  return {
+    lesson,
+    quiz: {
+      id: quiz.id,
+      passThreshold: quiz.passThreshold,
+      questions: questions.map((q) => ({
+        id: q.id,
+        prompt: q.prompt,
+        options: options
+          .filter((o) => o.questionId === q.id)
+          .map((o) => ({ id: o.id, label: o.label, isCorrect: Boolean(o.isCorrect) })),
+      })),
+    },
+  };
+}
+
 export async function createLesson(d1: D1Database, input: UpsertLessonInput) {
   const now = nowMs();
   const id = crypto.randomUUID();

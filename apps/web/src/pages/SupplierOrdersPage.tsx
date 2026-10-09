@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@vyro/ui';
@@ -50,6 +51,16 @@ export function SupplierOrdersPage() {
   const [activeDrawerPoId, setActiveDrawerPoId] = useState<string | null>(null);
   const [rejectPo, setRejectPo] = useState<ConsoleOrder | null>(null);
   const [podPoId, setPodPoId] = useState<string | null>(null);
+  // `?buyer=<businessId>&buyerName=…` narrows the queue to one customer (linked from Customers).
+  const [params, setParams] = useSearchParams();
+  const buyerId = params.get('buyer');
+  const buyerName = params.get('buyerName');
+  const clearBuyer = () => {
+    const next = new URLSearchParams(params);
+    next.delete('buyer');
+    next.delete('buyerName');
+    setParams(next, { replace: true });
+  };
 
   const ordersQuery = useQuery({
     queryKey: ['supplier', supplierId, 'po'],
@@ -114,7 +125,11 @@ export function SupplierOrdersPage() {
     toast.show(toast.success('Orders up to date'));
   };
 
-  const orders = ordersQuery.data?.orders ?? [];
+  const allOrders = ordersQuery.data?.orders ?? [];
+  const orders = useMemo(
+    () => (buyerId ? allOrders.filter((o) => o.businessId === buyerId) : allOrders),
+    [allOrders, buyerId],
+  );
   const offers = offersQuery.data?.offers ?? [];
 
   const pending = useMemo(() => orders.filter((o) => o.status === 'pending'), [orders]);
@@ -192,6 +207,21 @@ export function SupplierOrdersPage() {
       />
 
       <section className="space-y-4">
+        {buyerId && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-volt-soft/60 px-4 py-2.5 text-sm shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08)]">
+            <span className="text-ink-3">
+              Showing orders from <span className="font-semibold text-ink">{buyerName || 'one customer'}</span>
+              <span className="text-ink-4"> · {orders.length} {orders.length === 1 ? 'order' : 'orders'}</span>
+            </span>
+            <button
+              type="button"
+              onClick={clearBuyer}
+              className="rounded-md px-2 py-1 text-xs font-semibold text-ink-3 transition-colors hover:bg-ink/[0.06] hover:text-ink"
+            >
+              Show all orders ✕
+            </button>
+          </div>
+        )}
         <QueueToolbar
           tab={tab}
           onTabChange={setTab}

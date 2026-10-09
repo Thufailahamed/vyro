@@ -33,7 +33,14 @@ import { txBatch } from '../../lib/txBatch';
 import { generateReceiptForPayment } from '../invoices/generate';
 import { computePlatformFeeCents, getPlatformFeeBps } from './fees';
 import { resolveCommissionBps, commissionFor, categoryForPo } from '../finance/commission';
-import { recordAttempt, completeAttempt, ensureCodCollection, createBankTransfer } from '../finance/repository';
+import {
+  recordAttempt,
+  completeAttempt,
+  ensureCodCollection,
+  createBankTransfer,
+  findBankTransferByPayment,
+  listSupplierBankAccounts,
+} from '../finance/repository';
 import { bankTransferReference, paymentNumber } from '../finance/numbers';
 import { notifyOrderParties } from '../notifications/dispatcher';
 import {
@@ -111,8 +118,19 @@ router.post('/', session(), async (c) => {
   if (!ALLOWED_PO_STATUSES.has(po.status)) {
     throw httpError(409, 'CONFLICT', TERMINAL_PO_BLOCK_MESSAGE[po.status] ?? `Cannot pay PO in status ${po.status}`);
   }
-  if (role !== 'business' && role !== 'admin') {
-    throw httpError(403, 'FORBIDDEN', 'Only business/admin record payments');
+  // Sellers may record an OFFLINE payment they received (bank/cash); card
+  // checkout stays buyer-only because only the buyer can authenticate it.
+  if (role === 'supplier') {
+    if (parsed.data.method === 'online') {
+      throw httpError(403, 'FORBIDDEN', 'Only the buyer can start an online payment');
+    }
+    try {
+      await requireSupplierConfirmRole(c.env.DB, po.supplierId, ctx.userId);
+    } catch {
+      throw httpError(403, 'FORBIDDEN', 'Insufficient role to record payment');
+    }
+  } else if (role !== 'business' && role !== 'admin') {
+    throw httpError(403, 'FORBIDDEN', 'Only business/supplier/admin record payments');
   }
   if (role === 'business' && po.businessId) {
     try {
@@ -321,8 +339,16 @@ router.post('/:id/confirm', session(), async (c) => {
       }
     }
   } else if (parsed.data.status === 'failed') {
-    if (role !== 'business' && role !== 'admin') {
+    const sellerRejectsOffline = role === 'supplier' && payment.method !== 'online';
+    if (role !== 'business' && role !== 'admin' && !sellerRejectsOffline) {
       throw httpError(403, 'FORBIDDEN', 'Only business/admin mark failed');
+    }
+    if (sellerRejectsOffline) {
+      try {
+        await requireSupplierConfirmRole(c.env.DB, po.supplierId, ctx.userId);
+      } catch {
+        throw httpError(403, 'FORBIDDEN', 'Insufficient role to reject');
+      }
     }
   }
 
@@ -372,6 +398,26 @@ router.post('/:id/confirm', session(), async (c) => {
       }
     }
   });
+
+  // Keep the bank-transfer verification row (proof trail) in step with the payment.
+  if (payment.method === 'bank_transfer') {
+    try {
+      const { findBankTransferByPayment, updateBankTransferGuarded } = await import('../finance/repository');
+      const bt = await findBankTransferByPayment(c.env.DB, payment.id);
+      if (bt && !['verified', 'rejected'].includes(bt.status)) {
+        await updateBankTransferGuarded(
+          c.env.DB,
+          bt.id,
+          [bt.status],
+          parsed.data.status === 'confirmed'
+            ? { status: 'verified', verifiedCents: payment.amountCents, differenceCents: 0, verifiedByUserId: ctx.userId, verifiedAt: now }
+            : { status: 'rejected', rejectionReason: parsed.data.reason ?? 'Rejected by supplier', verifiedByUserId: ctx.userId, verifiedAt: now },
+        );
+      }
+    } catch (err) {
+      console.error('[payments.confirm] bank transfer sync failed', err);
+    }
+  }
 
   // Generate receipt outside the transaction (HTML snapshot is independent)
   if (parsed.data.status === 'confirmed') {
@@ -455,8 +501,46 @@ router.get('/by-po/:poId', session(), async (c) => {
   const { role } = await rolesForPo(c.env.DB, c.req.param('poId'), ctx.userId, ctx.isAdmin);
   if (!role) throw httpError(403, 'FORBIDDEN', 'No access');
   const db = getDb(c.env.DB);
-  const list = (await db.select().from(payments).where(eq(payments.purchaseOrderId, c.req.param('poId'))).all()) as any;
-  return c.json({ payments: list });
+  const list = (await db.select().from(payments).where(eq(payments.purchaseOrderId, c.req.param('poId'))).all()) as any[];
+  // Attach the bank-transfer proof trail (never the storage key) so buyer, seller
+  // and admin all see the same evidence.
+  const enriched = await Promise.all(
+    list.map(async (p) => {
+      if (p.method !== 'bank_transfer') return p;
+      const bt = (await findBankTransferByPayment(c.env.DB, p.id)) as any;
+      if (!bt) return p;
+      return {
+        ...p,
+        bankTransfer: {
+          id: bt.id,
+          referenceNumber: bt.referenceNumber,
+          status: bt.status,
+          bankReference: bt.bankReference,
+          hasProof: !!bt.proofR2Key,
+          proofFileName: bt.proofFileName,
+          proofMimeType: bt.proofMimeType,
+          proofUploadedAt: bt.proofUploadedAt,
+          rejectionReason: bt.rejectionReason,
+        },
+      };
+    }),
+  );
+  // Where the buyer should send the money: the supplier's payout accounts, masked.
+  const { po } = await rolesForPo(c.env.DB, c.req.param('poId'), ctx.userId, ctx.isAdmin);
+  let bankAccounts: Array<{ bankName: string; accountHolder: string; accountNumberLast4: string; branch: string | null; isDefault: boolean }> = [];
+  if (po) {
+    const accts = (await listSupplierBankAccounts(c.env.DB, po.supplierId)) as any[];
+    bankAccounts = accts
+      .filter((a) => a.verificationStatus !== 'rejected')
+      .map((a) => ({
+        bankName: a.bankName,
+        accountHolder: a.accountHolder,
+        accountNumberLast4: a.accountNumberLast4,
+        branch: a.branch ?? null,
+        isDefault: !!a.isDefault,
+      }));
+  }
+  return c.json({ payments: enriched, bankAccounts });
 });
 
 // Online checkout: returns gateway redirect URL for payment method=online

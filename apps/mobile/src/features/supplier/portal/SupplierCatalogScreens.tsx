@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Eye, Package, Pencil, Percent, Tag, Warehouse } from 'lucide-react-native';
+import { Package, Pencil, Percent, Warehouse } from 'lucide-react-native';
 import { colors, fonts, radii } from '@/theme/tokens';
 import { api, errorMessage } from '@/lib/api';
 import { useSupplierId } from '@/lib/auth';
@@ -10,146 +10,26 @@ import { formatLKR, humanize } from '@/lib/format';
 import {
   Badge,
   Button,
-  Card,
   ConfirmSheet,
   EmptyState,
   ErrorState,
   Field,
   Input,
-  ProductImage,
   Screen,
   SearchBar,
-  Select,
   SkeletonList,
-  Stepper,
   Switch,
   Text,
-  ToggleRow,
   useToast,
 } from '@/ui';
-import { Enter, ItemCard, Section, SummaryHero } from '@/features/supplier/ops/kit';
+import { Enter, ItemCard, SummaryHero } from '@/features/supplier/ops/kit';
 import { AvailabilityToggle } from '@/features/supplier/catalog/components';
-import { lkrToCents, offersKey, useCatalog, useCategories, useOffers, type Offer } from '@/features/supplier/catalog/api';
+import { offersKey, useCatalog, useOffers, type Offer } from '@/features/supplier/catalog/api';
 
 /* ------------------------------ Product form ------------------------------ */
 
-function useOfferById(offerId: string | undefined, supplierId: string | undefined) {
-  const offers = useOffers(supplierId);
-  return { ...offers, data: offers.data?.offers.find((o) => o.id === offerId) as Offer | undefined };
-}
-
-export function SupplierProductFormScreen({ mode }: { mode: 'new' | 'edit' }) {
-  const supplierId = useSupplierId();
-  const qc = useQueryClient();
-  const toast = useToast();
-  const params = useLocalSearchParams<{ id?: string }>();
-  const offerId = typeof params.id === 'string' ? params.id : undefined;
-
-  const existing = useOfferById(mode === 'edit' ? offerId : undefined, supplierId);
-  const catalog = useCatalog();
-  const categories = useCategories();
-
-  const [productId, setProductId] = useState('');
-  const [price, setPrice] = useState('');
-  const [moq, setMoq] = useState(1);
-  const [lead, setLead] = useState(1);
-  const [active, setActive] = useState(true);
-  const [loaded, setLoaded] = useState(false);
-
-  const offer = existing.data;
-  if (mode === 'edit' && offer && !loaded) {
-    setProductId(offer.productId);
-    setPrice(String(offer.priceCents / 100));
-    setMoq(offer.minOrderQty);
-    setLead(offer.leadTimeDays);
-    setActive(offer.active);
-    setLoaded(true);
-  }
-
-  const products = useMemo(() => catalog.data?.products ?? [], [catalog.data]);
-  const productOptions = useMemo(() => products.map((p) => ({ value: p.id, label: p.name, hint: p.brand ?? p.unit ?? undefined })), [products]);
-  const categoryHint = categories.data?.categories.length ? `${categories.data.categories.length} categories` : undefined;
-
-  const save = useMutation({
-    mutationFn: () => {
-      const body = { supplierId, productId, priceCents: lkrToCents(price), minOrderQty: moq, leadTimeDays: lead, active };
-      return mode === 'edit' && offerId ? api.patch(`/supplier-products/${offerId}`, body) : api.post('/supplier-products', body);
-    },
-    onSuccess: () => {
-      toast.success(mode === 'edit' ? 'Listing updated' : 'Product listed');
-      void qc.invalidateQueries({ queryKey: offersKey(supplierId) });
-      router.back();
-    },
-    onError: (e) => toast.error('Could not save', errorMessage(e)),
-  });
-
-  const ready = !!supplierId && !!productId && lkrToCents(price) > 0;
-  const picked = products.find((p) => p.id === productId);
-
-  return (
-    <Screen
-      back
-      kicker="Catalog"
-      title={mode === 'edit' ? 'Edit listing' : 'New listing'}
-      subtitle={categoryHint ?? 'Publish a wholesale offer to buyers.'}
-      onRefresh={() => Promise.all([catalog.refetch(), categories.refetch()])}
-      footer={<Button title={save.isPending ? 'Saving…' : mode === 'edit' ? 'Save changes' : 'Publish listing'} full loading={save.isPending} disabled={!ready} onPress={() => save.mutate()} />}
-    >
-      {mode === 'edit' && existing.isLoading ? (
-        <SkeletonList rows={4} />
-      ) : mode === 'edit' && existing.isError ? (
-        <ErrorState message="Could not load listing." onRetry={() => existing.refetch()} />
-      ) : (
-        <>
-          <Card kind="ink" padding={16} radius={radii['2xl']} style={{ gap: 14 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text variant="overline" color="volt">
-                Buyer preview
-              </Text>
-              <Badge label={active ? 'Live' : 'Hidden'} tone={active ? 'success' : 'neutral'} dot size="sm" />
-            </View>
-            <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-              <ProductImage src={picked?.imageUrl} seed={productId || 'new'} style={{ width: 64, height: 64, borderRadius: 16, borderCurve: 'continuous' }} label={picked?.unit ?? undefined} />
-              <View style={{ flex: 1, gap: 3 }}>
-                <Text variant="h3" color="paper" numberOfLines={2}>
-                  {picked?.name ?? 'Select a product'}
-                </Text>
-                <Text variant="h2" color={lkrToCents(price) > 0 ? 'volt' : 'paperFaint'} tabular>
-                  {lkrToCents(price) > 0 ? formatLKR(lkrToCents(price)) : 'Rs. —'}
-                  <Text variant="caption" color="paperFaint">
-                    {' '}/ {picked?.unit ?? 'unit'}
-                  </Text>
-                </Text>
-                <Text variant="caption" color="paperMuted">
-                  MOQ {moq} · {lead === 0 ? 'Same-day dispatch' : `${lead}d lead time`}
-                </Text>
-              </View>
-            </View>
-          </Card>
-          <Section icon={Package} kicker="Step 1" title="Product" sub="Pick the verified catalog standard you supply.">
-            <Field label="Catalog product" hint="Verified commodity standard." required>
-              <Select value={productId || null} options={productOptions} onChange={setProductId} placeholder="Select a product…" title="Catalog product" />
-            </Field>
-          </Section>
-          <Section icon={Tag} kicker="Step 2" title="Price & terms" sub="Mill-gate rate, minimum order and lead time.">
-            <Field label="Mill-gate price (LKR)" hint="Per unit, integer cents on the API." required>
-              <Input value={price} onChangeText={setPrice} placeholder="0.00" keyboardType="decimal-pad" />
-            </Field>
-            <Field label="Minimum order quantity">
-              <Stepper value={moq} onChange={setMoq} min={1} max={100000} />
-            </Field>
-            <Field label="Lead time (days)">
-              <Stepper value={lead} onChange={setLead} min={0} max={60} />
-            </Field>
-          </Section>
-          <Section icon={Eye} kicker="Step 3" title="Visibility">
-            <ToggleRow label="Live to buyers" description="Hidden listings keep their rates but skip checkout." value={active} onValueChange={setActive} />
-          </Section>
-        </>
-      )}
-    </Screen>
-  );
-}
+// The listing form lives with the rest of the catalog feature.
+export { SupplierProductFormScreen } from '@/features/supplier/catalog/ListingFormScreen';
 
 /* --------------------------------- Pricing -------------------------------- */
 

@@ -1,7 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '@vyro/ui';
-import { Button, Input, Label, Select, Textarea } from '@/components/ui';
 import {
   SearchIcon,
   ClockIcon,
@@ -9,12 +8,14 @@ import {
   FileTextIcon,
   Trash2Icon,
   PlusIcon,
-  SaveIcon,
   MailIcon,
   BellIcon,
-  XIcon,
   EyeIcon,
   EyeOffIcon,
+  AlertTriangleIcon,
+  CheckCircle2Icon,
+  XCircleIcon,
+  SparklesIcon,
 } from '@/components/icons';
 import { usePermission } from './lib/permissions';
 import {
@@ -29,26 +30,28 @@ import {
   useWebhookDeliveries,
   useRetryDelivery,
   type WebhookDeliveryRow,
+  type WebhookRow,
 } from './useAdminPlatformConfig';
 import {
   AdminPage,
   AdminPageHeader,
   Callout,
   Card,
-  CellStack,
   DetailList,
   EmptyBlock,
   Panel,
   Pill,
-  StatCard,
-  StatGrid,
+  Segmented,
   StatusPill,
   TableCard,
   TableSkeleton,
   Tabs,
-  Toolbar,
   controlClass,
 } from './ui';
+import { Monogram, relativeTime, SegmentBar } from './registryUi';
+import { Button, ControlHero, CopyButton, FieldLabel, Modal, RolloutSlider, SaveBar, Switch } from './platformUi';
+
+const textareaClass = cn(controlClass, 'h-auto w-full py-2.5 leading-relaxed');
 
 type Tab = 'flags' | 'templates' | 'webhooks';
 
@@ -139,82 +142,161 @@ const WEBHOOK_EVENT_CATALOG = [
   'abuse_report.created',
 ];
 
-function ModalShell({
-  title,
-  sub,
-  icon,
-  onClose,
-  children,
-  wide,
-}: {
-  title: string;
-  sub?: string | undefined;
-  icon: React.ReactNode;
-  onClose: () => void;
-  children: React.ReactNode;
-  wide?: boolean;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-sm animate-fade-in"
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-    >
-      <div
-        className={cn('vyro-surface w-full overflow-hidden', wide ? 'max-w-2xl' : 'max-w-md')}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between gap-3 border-b border-ink/[0.07] bg-bone/40 px-5 py-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-copper/15 text-copper">
-              {icon}
-            </span>
-            <div className="min-w-0">
-              <h3 className="text-base font-semibold text-ink">{title}</h3>
-              {sub ? <p className="mt-0.5 truncate font-mono text-[11px] text-ink-4">{sub}</p> : null}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex size-8 items-center justify-center rounded-lg text-ink-4 transition-colors hover:bg-ink/5 hover:text-ink"
-          >
-            <XIcon size={16} />
-          </button>
-        </div>
-        <div className={cn('p-5 sm:p-6', wide && 'max-h-[75vh] overflow-y-auto')}>{children}</div>
-      </div>
-    </div>
-  );
+
+const SECTION_LABEL = 'text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-4';
+
+const HIGH_IMPACT = /maintenance|kyc|payout|kill/i;
+
+const SAMPLE_VARS: Record<string, string> = {
+  customerName: 'Thufail Ahamed',
+  orderId: 'VY-8921',
+  itemCount: '3',
+  totalAmount: '14,500.00',
+  deliveryAddress: '12 Galle Road, Colombo 03',
+  trackingUrl: 'https://vyro.lk/orders/track/VY-8921',
+  carrierName: 'VYRO Express Logistics',
+  trackingCode: 'LK-902198',
+  estimatedDelivery: 'Tomorrow by 5:00 PM',
+  merchantName: 'Lanka Wholesale Traders',
+  dashboardUrl: 'https://vyro.lk/supplier',
+  rejectionReason: 'Business registration document unreadable',
+  resubmitUrl: 'https://vyro.lk/supplier/kyc',
+  role: 'Operations Admin',
+  inviteUrl: 'https://vyro.lk/admin/invite/8f2a…',
+};
+
+const EVENT_GROUPS: Array<{ label: string; events: string[] }> = [
+  { label: 'Orders', events: WEBHOOK_EVENT_CATALOG.filter((e) => e.startsWith('order.')) },
+  { label: 'Payments', events: WEBHOOK_EVENT_CATALOG.filter((e) => e.startsWith('payment.')) },
+  { label: 'Trust & safety', events: WEBHOOK_EVENT_CATALOG.filter((e) => /^(user|kyc|abuse)/.test(e)) },
+];
+
+function parseJsonList(s: string): string[] {
+  try {
+    const v = JSON.parse(s);
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
 }
 
-function ModeSwitch({
-  mode,
-  onChange,
-  visualLabel,
-}: {
-  mode: 'visual' | 'json';
-  onChange: (m: 'visual' | 'json') => void;
-  visualLabel: string;
-}) {
+function hostOf(url: string) {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
+function toFlagItems(raw: Record<string, unknown> | undefined): FeatureFlagItem[] {
+  return Object.entries(raw ?? {}).map(([k, val]) => {
+    if (typeof val === 'object' && val !== null) {
+      const obj = val as { enabled?: boolean; rollout?: number; notes?: string };
+      return { key: k, enabled: Boolean(obj.enabled), rollout: typeof obj.rollout === 'number' ? obj.rollout : 100, notes: obj.notes ?? '' };
+    }
+    return { key: k, enabled: Boolean(val), rollout: 100, notes: '' };
+  });
+}
+
+function toTemplateItems(raw: Record<string, unknown> | undefined): EmailTemplateItem[] {
+  return Object.entries(raw ?? {}).map(([k, val]) => {
+    const obj = (typeof val === 'object' && val !== null ? val : {}) as { subject?: string; body?: string; locale?: string };
+    return { key: k, subject: obj.subject ?? '', body: obj.body ?? '', locale: obj.locale ?? 'en' };
+  });
+}
+
+function usePulse() {
+  const [on, setOn] = useState(false);
+  const fire = () => {
+    setOn(true);
+    setTimeout(() => setOn(false), 3000);
+  };
+  return [on, fire] as const;
+}
+
+function ModeSwitch({ mode, onChange, visualLabel }: { mode: 'visual' | 'json'; onChange: (m: 'visual' | 'json') => void; visualLabel: string }) {
   return (
-    <Tabs
+    <Segmented
+      ariaLabel="Editor mode"
+      value={mode}
+      onChange={onChange}
       items={[
         { key: 'visual', label: visualLabel },
         { key: 'json', label: 'Raw JSON' },
       ]}
-      value={mode}
-      onChange={(k) => onChange(k as 'visual' | 'json')}
-      ariaLabel="Editor mode"
     />
+  );
+}
+
+function SearchField({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+  return (
+    <div className="relative min-w-0 flex-1 sm:max-w-xs">
+      <SearchIcon size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
+      <input
+        type="text"
+        placeholder={placeholder}
+        aria-label={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(controlClass, 'w-full pl-9')}
+      />
+    </div>
+  );
+}
+
+function JsonEditor({
+  title,
+  version,
+  value,
+  onChange,
+  disabled,
+  onFormat,
+}: {
+  title: string;
+  version: number;
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+  onFormat?: (() => void) | undefined;
+}) {
+  const lines = value.split('\n').length;
+  return (
+    <Panel
+      title={title}
+      description={`Schema version v${version} · ${lines} lines — validated before saving.`}
+      icon={<FileTextIcon size={16} />}
+      actions={
+        onFormat ? (
+          <Button size="sm" variant="secondary" onClick={onFormat}>
+            Format JSON
+          </Button>
+        ) : undefined
+      }
+    >
+      <div className="overflow-hidden rounded-xl bg-charcoal shadow-[inset_0_0_0_1px_rgba(250,247,240,0.08)]">
+        <div className="flex items-center gap-1.5 border-b border-paper/[0.08] px-4 py-2.5">
+          <span className="size-2.5 rounded-full bg-rose/70" />
+          <span className="size-2.5 rounded-full bg-amber/70" />
+          <span className="size-2.5 rounded-full bg-mint/70" />
+          <span className="ml-2 font-mono text-[11px] text-paper/40">config.json</span>
+        </div>
+        <textarea
+          spellCheck={false}
+          aria-label={title}
+          className="block h-[26rem] w-full resize-y bg-transparent p-4 font-mono text-xs leading-relaxed text-paper/90 outline-none placeholder:text-paper/30 disabled:opacity-60"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+        />
+      </div>
+    </Panel>
   );
 }
 
 export function PlatformPage() {
   const [params, setParams] = useSearchParams();
-  const tab = (params.get('tab') as Tab | null) ?? 'flags';
+  const raw = params.get('tab');
+  const tab: Tab = raw === 'templates' || raw === 'webhooks' ? raw : 'flags';
 
   const switchTab = (next: string) => {
     const p = new URLSearchParams(params);
@@ -226,8 +308,9 @@ export function PlatformPage() {
   const templatesQuery = useEmailTemplates();
   const webhooksQuery = useWebhooks();
 
-  // Metrics
-  const flagCount = Object.keys(flagsQuery.data?.value ?? {}).length;
+  const flagItems = toFlagItems(flagsQuery.data?.value);
+  const flagCount = flagItems.length;
+  const liveFlags = flagItems.filter((f) => f.enabled).length;
   const templateCount = Object.keys(templatesQuery.data?.value ?? {}).length;
   const webhookCount = webhooksQuery.data?.length ?? 0;
   const activeWebhookCount = (webhooksQuery.data ?? []).filter((w) => w.active === 1).length;
@@ -239,44 +322,58 @@ export function PlatformPage() {
         kicker="System & Platform Control"
         title="Platform Configuration"
         description="Runtime control plane for feature toggles, customer notification templates, and real-time webhook event relays."
+        meta={
+          <>
+            <Pill tone="brand" dot>
+              Changes apply on save
+            </Pill>
+            <Pill tone="neutral" icon={<ClockIcon size={11} />}>
+              Optimistic concurrency
+            </Pill>
+          </>
+        }
       />
 
-      <StatGrid cols={4}>
-        <StatCard
-          label="Feature flags"
-          value={flagCount}
-          sub={`Schema version v${flagsQuery.data?.version ?? 0}`}
-          icon={<ShieldCheckIcon size={16} />}
-          loading={kpisLoading}
-        />
-        <StatCard
-          label="Email templates"
-          value={templateCount}
-          sub={`Schema version v${templatesQuery.data?.version ?? 0}`}
-          icon={<MailIcon size={16} />}
-          loading={kpisLoading}
-        />
-        <StatCard
-          label="Active webhooks"
-          value={activeWebhookCount}
-          sub={`${webhookCount} endpoints registered`}
-          icon={<BellIcon size={16} />}
-          status={
-            webhookCount > 0 ? (
-              <Pill tone={activeWebhookCount === webhookCount ? 'success' : 'warning'} dot>
-                {activeWebhookCount === webhookCount ? 'All live' : `${webhookCount - activeWebhookCount} disabled`}
-              </Pill>
-            ) : undefined
-          }
-          loading={kpisLoading}
-        />
-        <StatCard
-          label="Platform concurrency"
-          value="Optimistic"
-          sub="Version mismatch protected"
-          icon={<ClockIcon size={16} />}
-        />
-      </StatGrid>
+      <ControlHero
+        metrics={[
+          {
+            label: 'Feature flags',
+            value: flagCount,
+            sub: `${liveFlags} live · schema v${flagsQuery.data?.version ?? 0}`,
+            icon: <ShieldCheckIcon size={16} />,
+            status: flagCount ? 'ok' : 'idle',
+            loading: kpisLoading,
+          },
+          {
+            label: 'Email templates',
+            value: templateCount,
+            sub: `Transactional copy · schema v${templatesQuery.data?.version ?? 0}`,
+            icon: <MailIcon size={16} />,
+            status: templateCount ? 'ok' : 'idle',
+            loading: kpisLoading,
+          },
+          {
+            label: 'Active webhooks',
+            value: activeWebhookCount,
+            sub:
+              webhookCount === 0
+                ? 'No endpoints registered'
+                : activeWebhookCount === webhookCount
+                  ? `All ${webhookCount} endpoints live`
+                  : `${webhookCount - activeWebhookCount} of ${webhookCount} disabled`,
+            icon: <BellIcon size={16} />,
+            status: webhookCount === 0 ? 'idle' : activeWebhookCount === webhookCount ? 'ok' : 'warn',
+            loading: kpisLoading,
+          },
+          {
+            label: 'Concurrency',
+            value: <span className="text-[1.75rem]">Optimistic</span>,
+            sub: 'Stale writes are rejected by version check',
+            icon: <ClockIcon size={16} />,
+            status: 'ok',
+          },
+        ]}
+      />
 
       <Tabs
         items={[
@@ -305,47 +402,47 @@ function FlagsTab() {
   const q = useFeatureFlags();
   const update = useUpdateFeatureFlags();
 
+  const baseline = useMemo(() => toFlagItems(q.data?.value), [q.data]);
+  const baselineJson = useMemo(() => JSON.stringify(q.data?.value ?? {}, null, 2), [q.data]);
+
   const [mode, setMode] = useState<'visual' | 'json'>('visual');
   const [items, setItems] = useState<FeatureFlagItem[]>([]);
-  const [jsonDraft, setJsonDraft] = useState<string>('');
+  const [jsonDraft, setJsonDraft] = useState('');
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'on' | 'off'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [newKey, setNewKey] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [newRollout, setNewRollout] = useState(100);
   const [newEnabled, setNewEnabled] = useState(true);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveSuccess, flashSaved] = usePulse();
   const [jsonError, setJsonError] = useState<string | null>(null);
 
-  // Sync server data into local visual state
   useEffect(() => {
     if (q.data?.value) {
-      const raw = q.data.value;
-      const parsed: FeatureFlagItem[] = Object.entries(raw).map(([k, val]) => {
-        if (typeof val === 'boolean') {
-          return { key: k, enabled: val, rollout: 100, notes: '' };
-        }
-        if (typeof val === 'object' && val !== null) {
-          const obj = val as { enabled?: boolean; rollout?: number; notes?: string };
-          return {
-            key: k,
-            enabled: Boolean(obj.enabled),
-            rollout: typeof obj.rollout === 'number' ? obj.rollout : 100,
-            notes: obj.notes ?? '',
-          };
-        }
-        return { key: k, enabled: Boolean(val), rollout: 100, notes: '' };
-      });
-      setItems(parsed);
-      setJsonDraft(JSON.stringify(raw, null, 2));
+      setItems(toFlagItems(q.data.value));
+      setJsonDraft(JSON.stringify(q.data.value, null, 2));
     }
   }, [q.data]);
 
+  const baseByKey = useMemo(() => new Map(baseline.map((f) => [f.key, f])), [baseline]);
+  const isChanged = (f: FeatureFlagItem) => {
+    const b = baseByKey.get(f.key);
+    return !b || b.enabled !== f.enabled || (b.rollout ?? 100) !== (f.rollout ?? 100);
+  };
+  const changedCount =
+    items.filter(isChanged).length + baseline.filter((b) => !items.some((f) => f.key === b.key)).length;
+  const dirty = mode === 'visual' ? changedCount > 0 : jsonDraft !== baselineJson;
+
   const filteredItems = useMemo(() => {
-    if (!search.trim()) return items;
-    const term = search.toLowerCase();
-    return items.filter((f) => f.key.toLowerCase().includes(term) || (f.notes ?? '').toLowerCase().includes(term));
-  }, [items, search]);
+    const term = search.trim().toLowerCase();
+    return items.filter((f) => {
+      if (filter === 'on' && !f.enabled) return false;
+      if (filter === 'off' && f.enabled) return false;
+      return !term || f.key.toLowerCase().includes(term) || (f.notes ?? '').toLowerCase().includes(term);
+    });
+  }, [items, search, filter]);
 
   if (!canRead) {
     return (
@@ -355,83 +452,47 @@ function FlagsTab() {
     );
   }
 
-  const handleToggleFlag = (key: string) => {
-    setItems((prev) => prev.map((f) => (f.key === key ? { ...f, enabled: !f.enabled } : f)));
-  };
+  const patchFlag = (key: string, patch: Partial<FeatureFlagItem>) =>
+    setItems((prev) => prev.map((f) => (f.key === key ? { ...f, ...patch } : f)));
 
-  const handleRolloutChange = (key: string, rollout: number) => {
-    setItems((prev) => prev.map((f) => (f.key === key ? { ...f, rollout } : f)));
-  };
+  const save = (value: Record<string, unknown>) =>
+    update.mutate({ value, expectedVersion: q.data?.version ?? 0 }, { onSuccess: () => { setJsonError(null); flashSaved(); } });
 
-  const handleDeleteFlag = (key: string) => {
-    setItems((prev) => prev.filter((f) => f.key !== key));
-  };
-
-  const handleSaveVisual = () => {
-    const valueMap: Record<string, unknown> = {};
-    items.forEach((item) => {
-      valueMap[item.key] = {
-        enabled: item.enabled,
-        rollout: item.rollout ?? 100,
-        notes: item.notes ?? '',
-      };
-    });
-    update.mutate(
-      { value: valueMap, expectedVersion: q.data?.version ?? 0 },
-      {
-        onSuccess: () => {
-          setSaveSuccess(true);
-          setTimeout(() => setSaveSuccess(false), 3000);
-        },
-      },
-    );
-  };
-
-  const handleSaveJson = () => {
+  const handleSave = () => {
+    if (mode === 'visual') {
+      const valueMap: Record<string, unknown> = {};
+      items.forEach((i) => {
+        valueMap[i.key] = { enabled: i.enabled, rollout: i.rollout ?? 100, notes: i.notes ?? '' };
+      });
+      save(valueMap);
+      return;
+    }
     try {
       const parsed = JSON.parse(jsonDraft);
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
         setJsonError('Feature flags must be a valid JSON object');
         return;
       }
-      update.mutate(
-        { value: parsed as Record<string, unknown>, expectedVersion: q.data?.version ?? 0 },
-        {
-          onSuccess: () => {
-            setJsonError(null);
-            setSaveSuccess(true);
-            setTimeout(() => setSaveSuccess(false), 3000);
-          },
-        },
-      );
+      save(parsed as Record<string, unknown>);
     } catch {
       setJsonError('Invalid JSON syntax. Please verify commas and quotes.');
     }
   };
 
-  const handleInitDefaults = () => {
-    update.mutate(
-      { value: DEFAULT_FEATURE_FLAGS, expectedVersion: q.data?.version ?? 0 },
-      {
-        onSuccess: () => {
-          setSaveSuccess(true);
-          setTimeout(() => setSaveSuccess(false), 3000);
-        },
-      },
-    );
+  const handleDiscard = () => {
+    setItems(baseline);
+    setJsonDraft(baselineJson);
+    setJsonError(null);
   };
 
+  const formattedKey = newKey.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  const keyTaken = items.some((f) => f.key === formattedKey);
+
   const handleCreateNewFlag = () => {
-    if (!newKey.trim()) return;
-    const formattedKey = newKey.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    if (!formattedKey) return;
     setItems((prev) => [
       ...prev.filter((f) => f.key !== formattedKey),
-      {
-        key: formattedKey,
-        enabled: newEnabled,
-        rollout: newRollout,
-        notes: newNotes.trim(),
-      },
+      { key: formattedKey, enabled: newEnabled, rollout: newRollout, notes: newNotes.trim() },
     ]);
     setShowAddModal(false);
     setNewKey('');
@@ -440,65 +501,49 @@ function FlagsTab() {
     setNewEnabled(true);
   };
 
+  const onCount = items.filter((f) => f.enabled).length;
+
   return (
     <div className="space-y-4">
       {q.isError ? <Callout tone="danger">{(q.error as Error).message}</Callout> : null}
       {update.isError ? <Callout tone="danger">{(update.error as Error).message}</Callout> : null}
       {jsonError ? <Callout tone="danger">{jsonError}</Callout> : null}
-      {saveSuccess ? (
-        <Callout tone="success">
-          Feature flag configuration updated successfully (v{q.data?.version}).
-        </Callout>
-      ) : null}
+      {saveSuccess ? <Callout tone="success">Feature flags saved — now at v{q.data?.version}.</Callout> : null}
 
-      {/* Controls Bar */}
-      <Card>
-        <Toolbar
-          actions={
-            <>
-              <ModeSwitch mode={mode} onChange={setMode} visualLabel="Visual cards" />
-              {canWrite && mode === 'visual' ? (
-                <Button size="sm" variant="secondary" className="h-10" icon={<PlusIcon size={14} />} onClick={() => setShowAddModal(true)}>
-                  New flag
-                </Button>
-              ) : null}
-              {canWrite ? (
-                <Button
-                  size="sm"
-                  variant="primary"
-                  className="h-10"
-                  icon={<SaveIcon size={14} />}
-                  onClick={mode === 'visual' ? handleSaveVisual : handleSaveJson}
-                  loading={update.isPending}
-                >
-                  Save changes
-                </Button>
-              ) : null}
-            </>
-          }
-        >
-          <div className="relative min-w-0 flex-1 sm:max-w-xs">
-            <SearchIcon size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
-            <input
-              type="text"
-              placeholder="Search feature flags…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className={cn(controlClass, 'w-full pl-9')}
+      <Card padded={false} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
+          <SearchField value={search} onChange={setSearch} placeholder="Search feature flags…" />
+          {mode === 'visual' ? (
+            <Segmented
+              ariaLabel="Filter flags"
+              value={filter}
+              onChange={setFilter}
+              items={[
+                { key: 'all', label: `All ${items.length}` },
+                { key: 'on', label: `On ${onCount}` },
+                { key: 'off', label: `Off ${items.length - onCount}` },
+              ]}
             />
-          </div>
+          ) : null}
           <Pill tone="neutral" className="font-mono">
-            v{q.data?.version ?? 0} · {items.length} total
+            v{q.data?.version ?? 0}
           </Pill>
-        </Toolbar>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ModeSwitch mode={mode} onChange={setMode} visualLabel="Visual cards" />
+          {canWrite && mode === 'visual' ? (
+            <Button variant="secondary" icon={<PlusIcon size={14} />} onClick={() => setShowAddModal(true)}>
+              New flag
+            </Button>
+          ) : null}
+        </div>
       </Card>
 
-      {/* Visual Mode */}
       {mode === 'visual' ? (
         q.isLoading ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {[0, 1, 2, 3].map((i) => (
-              <Card key={i} className="h-36 animate-pulse bg-ink/[0.03]" />
+              <Card key={i} className="h-48 animate-pulse bg-ink/[0.03]" />
             ))}
           </div>
         ) : items.length === 0 ? (
@@ -506,14 +551,14 @@ function FlagsTab() {
             <EmptyBlock
               icon={<ShieldCheckIcon size={22} />}
               title="No feature flags defined"
-              description="The configuration store is empty. Initialize standard VYRO e-commerce flags or create a custom flag."
+              description="The configuration store is empty. Initialize the standard VYRO e-commerce flags or create a custom one."
               action={
                 canWrite ? (
                   <div className="flex flex-wrap items-center justify-center gap-2">
-                    <Button size="sm" variant="primary" onClick={handleInitDefaults} loading={update.isPending}>
+                    <Button variant="primary" icon={<SparklesIcon size={14} />} loading={update.isPending} onClick={() => save(DEFAULT_FEATURE_FLAGS)}>
                       Initialize standard flags
                     </Button>
-                    <Button size="sm" variant="secondary" onClick={() => setShowAddModal(true)}>
+                    <Button variant="secondary" onClick={() => setShowAddModal(true)}>
                       Create custom flag
                     </Button>
                   </div>
@@ -526,193 +571,212 @@ function FlagsTab() {
             <EmptyBlock
               icon={<SearchIcon size={22} />}
               title="No matching flags"
-              description={`No feature flags match "${search}".`}
+              description={search ? `No feature flags match "${search}".` : 'No flags in this state.'}
               action={
-                <Button size="sm" variant="secondary" onClick={() => setSearch('')}>
-                  Clear search
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setSearch('');
+                    setFilter('all');
+                  }}
+                >
+                  Clear filters
                 </Button>
               }
             />
           </Card>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {filteredItems.map((flag) => (
-              <Card key={flag.key} className="flex flex-col justify-between gap-4 transition-shadow hover:shadow-md">
-                <div>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-1.5">
+            {filteredItems.map((flag) => {
+              const changed = isChanged(flag);
+              const impact = HIGH_IMPACT.test(flag.key);
+              return (
+                <article
+                  key={flag.key}
+                  className={cn(
+                    'vyro-surface group relative flex flex-col overflow-hidden transition-all duration-300 ease-vyro hover:-translate-y-0.5 hover:shadow-[inset_0_0_0_1px_rgba(12,14,11,0.1),0_14px_30px_-14px_rgba(12,14,11,0.2)]',
+                    changed && 'ring-2 ring-amber/40',
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'absolute inset-y-0 left-0 w-1 transition-colors duration-300',
+                      flag.enabled ? (impact ? 'bg-amber' : 'bg-volt-deep') : 'bg-ink/10',
+                    )}
+                  />
+                  <div className="flex items-start justify-between gap-4 p-5 pl-6">
+                    <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <code className="font-mono text-sm font-bold text-ink">{flag.key}</code>
-                        {flag.enabled ? (
-                          <Pill tone="success" dot>
-                            Active
+                        <code className="break-all font-mono text-[13px] font-bold tracking-tight text-ink">{flag.key}</code>
+                        <Pill tone={flag.enabled ? 'success' : 'neutral'} dot>
+                          {flag.enabled ? 'Active' : 'Disabled'}
+                        </Pill>
+                        {impact ? (
+                          <Pill tone="warning" icon={<AlertTriangleIcon size={10} />}>
+                            High impact
                           </Pill>
-                        ) : (
-                          <Pill tone="neutral" dot>
-                            Disabled
-                          </Pill>
-                        )}
+                        ) : null}
+                        {changed ? <Pill tone="info">Unsaved</Pill> : null}
                       </div>
-                      <p className="text-xs leading-relaxed text-ink-4">
-                        {flag.notes || 'No operational documentation provided for this flag.'}
+                      <p className="text-[13px] leading-relaxed text-ink-4">
+                        {flag.notes || <span className="italic text-ink-5">No operational documentation provided for this flag.</span>}
                       </p>
                     </div>
-
-                    {/* Toggle Switch */}
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={flag.enabled}
+                    <Switch
+                      checked={flag.enabled}
                       disabled={!canWrite}
-                      onClick={() => handleToggleFlag(flag.key)}
-                      className={cn(
-                        'flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50',
-                        flag.enabled ? 'bg-ink' : 'bg-ink/15',
-                      )}
-                      title={flag.enabled ? 'Disable flag' : 'Enable flag'}
-                    >
-                      <span
-                        className={cn(
-                          'size-5 rounded-full transition-transform duration-200',
-                          flag.enabled ? 'translate-x-5 bg-volt' : 'translate-x-0 bg-paper shadow-sm',
-                        )}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Rollout Percentage Slider */}
-                  <div className="mt-4 border-t border-ink/[0.07] pt-3">
-                    <div className="mb-1.5 flex items-center justify-between text-xs">
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">
-                        Rollout cohort
-                      </span>
-                      <span className="font-mono font-bold text-ink">{flag.rollout ?? 100}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="5"
-                      disabled={!canWrite || !flag.enabled}
-                      value={flag.rollout ?? 100}
-                      onChange={(e) => handleRolloutChange(flag.key, Number(e.target.value))}
-                      className="w-full cursor-pointer accent-ink disabled:opacity-40"
+                      label={`${flag.enabled ? 'Disable' : 'Enable'} ${flag.key}`}
+                      onChange={() => patchFlag(flag.key, { enabled: !flag.enabled })}
                     />
                   </div>
-                </div>
 
-                {/* Footer Delete */}
-                {canWrite ? (
-                  <div className="flex justify-end border-t border-ink/[0.07] pt-3">
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteFlag(flag.key)}
-                      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-rose/80 transition-colors hover:bg-rose/10 hover:text-rose"
-                      title="Remove this flag"
-                    >
-                      <Trash2Icon size={12} />
-                      <span>Delete</span>
-                    </button>
+                  <div className="border-t border-ink/[0.07] bg-bone/40 px-5 py-4 pl-6">
+                    <RolloutSlider
+                      value={flag.rollout ?? 100}
+                      disabled={!flag.enabled}
+                      readOnly={!canWrite}
+                      onChange={(v) => patchFlag(flag.key, { rollout: v })}
+                    />
                   </div>
-                ) : null}
-              </Card>
-            ))}
+
+                  {canWrite ? (
+                    <div className="flex justify-end border-t border-ink/[0.07] px-4 py-2 pl-6">
+                      <button
+                        type="button"
+                        onClick={() => setPendingDelete(flag.key)}
+                        className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-ink-4 transition-colors hover:bg-rose/10 hover:text-rose"
+                      >
+                        <Trash2Icon size={12} />
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
         )
       ) : (
-        /* Raw JSON Mode */
-        <Panel
-          title={`Direct JSON editor`}
-          description={`Schema version v${q.data?.version ?? 0} — edits are validated before saving.`}
-          icon={<FileTextIcon size={16} />}
-          actions={
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                try {
-                  const p = JSON.parse(jsonDraft);
-                  setJsonDraft(JSON.stringify(p, null, 2));
-                } catch {
-                  setJsonError('Invalid JSON syntax');
-                }
-              }}
-            >
-              Format JSON
-            </Button>
-          }
-        >
-          <Textarea
-            className="h-96 font-mono text-xs leading-relaxed"
-            value={jsonDraft}
-            onChange={(e) => setJsonDraft(e.target.value)}
-            disabled={!canWrite}
-          />
-        </Panel>
+        <JsonEditor
+          title="Direct JSON editor"
+          version={q.data?.version ?? 0}
+          value={jsonDraft}
+          onChange={setJsonDraft}
+          disabled={!canWrite}
+          onFormat={() => {
+            try {
+              setJsonDraft(JSON.stringify(JSON.parse(jsonDraft), null, 2));
+              setJsonError(null);
+            } catch {
+              setJsonError('Invalid JSON syntax');
+            }
+          }}
+        />
       )}
 
-      {/* New Flag Modal */}
+      <SaveBar
+        visible={canWrite && dirty}
+        summary={
+          mode === 'visual'
+            ? `${changedCount} unsaved ${changedCount === 1 ? 'change' : 'changes'}`
+            : 'Unsaved JSON edits'
+        }
+        onDiscard={handleDiscard}
+        onSave={handleSave}
+        saving={update.isPending}
+      />
+
       {showAddModal ? (
-        <ModalShell
+        <Modal
           title="Create feature flag"
-          icon={<ShieldCheckIcon size={15} />}
+          sub="Added locally — save to publish"
+          icon={<ShieldCheckIcon size={18} />}
           onClose={() => setShowAddModal(false)}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setShowAddModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" disabled={!formattedKey} onClick={handleCreateNewFlag}>
+                {keyTaken ? 'Replace flag' : 'Add flag'}
+              </Button>
+            </>
+          }
         >
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <Label htmlFor="new-flag-key">Flag key (identifier)</Label>
-              <Input
+              <FieldLabel htmlFor="new-flag-key" hint="snake_case">
+                Flag key
+              </FieldLabel>
+              <input
                 id="new-flag-key"
+                autoFocus
                 placeholder="e.g. instant_supplier_settlement"
                 value={newKey}
                 onChange={(e) => setNewKey(e.target.value)}
-                className="font-mono"
+                className={cn(controlClass, 'w-full font-mono')}
               />
+              {formattedKey ? (
+                <p className="mt-1.5 font-mono text-[11px] text-ink-4">
+                  Saved as <span className="font-semibold text-ink">{formattedKey}</span>
+                  {keyTaken ? <span className="text-amber"> · already exists, will be replaced</span> : null}
+                </p>
+              ) : null}
             </div>
             <div>
-              <Label htmlFor="new-flag-notes">Operational notes / documentation</Label>
-              <Textarea
+              <FieldLabel htmlFor="new-flag-notes">Operational notes</FieldLabel>
+              <textarea
                 id="new-flag-notes"
                 placeholder="Explain what this flag gates…"
                 value={newNotes}
                 onChange={(e) => setNewNotes(e.target.value)}
                 rows={2}
+                className={textareaClass}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center justify-between gap-4 rounded-xl bg-bone/60 p-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.06)]">
               <div>
-                <Label htmlFor="new-flag-status">Initial status</Label>
-                <Select
-                  id="new-flag-status"
-                  value={newEnabled ? 'true' : 'false'}
-                  onChange={(e) => setNewEnabled(e.target.value === 'true')}
-                >
-                  <option value="true">Enabled (active)</option>
-                  <option value="false">Disabled (off)</option>
-                </Select>
+                <div className="text-sm font-semibold text-ink">Enabled on creation</div>
+                <div className="text-xs text-ink-4">Turn off to stage the flag without exposing it.</div>
               </div>
-              <div>
-                <Label htmlFor="new-flag-rollout">Rollout %</Label>
-                <Input
-                  id="new-flag-rollout"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={newRollout}
-                  onChange={(e) => setNewRollout(Number(e.target.value))}
-                />
-              </div>
+              <Switch checked={newEnabled} onChange={() => setNewEnabled((v) => !v)} label="Enabled on creation" />
             </div>
-            <div className="flex justify-end gap-2 border-t border-ink/[0.07] pt-4">
-              <Button variant="ghost" size="sm" onClick={() => setShowAddModal(false)}>
-                Cancel
-              </Button>
-              <Button variant="primary" size="sm" disabled={!newKey.trim()} onClick={handleCreateNewFlag}>
-                Add flag
-              </Button>
-            </div>
+            <RolloutSlider value={newRollout} onChange={setNewRollout} disabled={!newEnabled} />
           </div>
-        </ModalShell>
+        </Modal>
+      ) : null}
+
+      {pendingDelete ? (
+        <Modal
+          size="sm"
+          tone="danger"
+          title="Delete feature flag?"
+          sub={pendingDelete}
+          icon={<Trash2Icon size={18} />}
+          onClose={() => setPendingDelete(null)}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setPendingDelete(null)}>
+                Keep flag
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  setItems((prev) => prev.filter((f) => f.key !== pendingDelete));
+                  setPendingDelete(null);
+                }}
+              >
+                Delete flag
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm leading-relaxed text-ink-3">
+            Code reading <code className="font-mono text-xs font-semibold text-ink">{pendingDelete}</code> will fall back to its default.
+            The deletion is staged — nothing changes until you save.
+          </p>
+        </Modal>
       ) : null}
     </div>
   );
@@ -721,45 +785,72 @@ function FlagsTab() {
 // ----------------------------------------------------------------------
 // 2. EMAIL TEMPLATES TAB
 // ----------------------------------------------------------------------
+function renderBody(body: string) {
+  return body.split(/(\{\{\s*\w+\s*\}\})/g).map((part, i) => {
+    const m = part.match(/^\{\{\s*(\w+)\s*\}\}$/);
+    if (!m) return <span key={i}>{part}</span>;
+    const sample = SAMPLE_VARS[m[1]!];
+    return sample ? (
+      <mark key={i} className="rounded bg-volt/35 px-0.5 font-medium text-ink">
+        {sample}
+      </mark>
+    ) : (
+      <mark key={i} className="rounded bg-amber/20 px-0.5 font-mono text-[0.92em] text-[#a86c28]" title="No sample value for this variable">
+        {part}
+      </mark>
+    );
+  });
+}
+
 function TemplatesTab() {
   const canRead = usePermission('email_template:read');
   const canWrite = usePermission('email_template:write');
   const q = useEmailTemplates();
   const update = useUpdateEmailTemplates();
 
+  const baseline = useMemo(() => toTemplateItems(q.data?.value), [q.data]);
+  const baselineJson = useMemo(() => JSON.stringify(q.data?.value ?? {}, null, 2), [q.data]);
+
   const [mode, setMode] = useState<'visual' | 'json'>('visual');
   const [templates, setTemplates] = useState<EmailTemplateItem[]>([]);
-  const [activeKey, setActiveKey] = useState<string>('');
-  const [jsonDraft, setJsonDraft] = useState<string>('');
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [activeKey, setActiveKey] = useState('');
+  const [jsonDraft, setJsonDraft] = useState('');
+  const [listSearch, setListSearch] = useState('');
+  const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
+  const [saveSuccess, flashSaved] = usePulse();
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [addKey, setAddKey] = useState('');
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
 
-  // Sync server data into state
   useEffect(() => {
     if (q.data?.value) {
-      const raw = q.data.value;
-      const parsed: EmailTemplateItem[] = Object.entries(raw).map(([k, val]) => {
-        const obj = (typeof val === 'object' && val !== null ? val : {}) as {
-          subject?: string;
-          body?: string;
-          locale?: string;
-        };
-        return {
-          key: k,
-          subject: obj.subject ?? '',
-          body: obj.body ?? '',
-          locale: obj.locale ?? 'en',
-        };
-      });
+      const parsed = toTemplateItems(q.data.value);
       setTemplates(parsed);
-      if (parsed.length > 0 && !activeKey) {
-        setActiveKey(parsed[0]?.key ?? '');
-      }
-      setJsonDraft(JSON.stringify(raw, null, 2));
+      setActiveKey((cur) => (cur && parsed.some((t) => t.key === cur) ? cur : (parsed[0]?.key ?? '')));
+      setJsonDraft(JSON.stringify(q.data.value, null, 2));
     }
-  }, [q.data, activeKey]);
+  }, [q.data]);
+
+  const baseByKey = useMemo(() => new Map(baseline.map((t) => [t.key, t])), [baseline]);
+  const isChanged = (t: EmailTemplateItem) => {
+    const b = baseByKey.get(t.key);
+    return !b || b.subject !== t.subject || b.body !== t.body || b.locale !== t.locale;
+  };
+  const changedCount = templates.filter(isChanged).length + baseline.filter((b) => !templates.some((t) => t.key === b.key)).length;
+  const dirty = mode === 'visual' ? changedCount > 0 : jsonDraft !== baselineJson;
+
+  const visibleTemplates = useMemo(() => {
+    const term = listSearch.trim().toLowerCase();
+    return term ? templates.filter((t) => t.key.includes(term) || t.subject.toLowerCase().includes(term)) : templates;
+  }, [templates, listSearch]);
 
   const activeTemplate = templates.find((t) => t.key === activeKey) ?? templates[0];
+  const usedVars = useMemo(
+    () => [...new Set([...(activeTemplate?.subject + ' ' + activeTemplate?.body).matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map((m) => m[1]!))],
+    [activeTemplate],
+  );
 
   if (!canRead) {
     return (
@@ -769,84 +860,69 @@ function TemplatesTab() {
     );
   }
 
-  const handleUpdateActive = (patch: Partial<EmailTemplateItem>) => {
+  const patchActive = (patch: Partial<EmailTemplateItem>) => {
     if (!activeTemplate) return;
     setTemplates((prev) => prev.map((t) => (t.key === activeTemplate.key ? { ...t, ...patch } : t)));
   };
 
-  const handleSaveVisual = () => {
-    const valueMap: Record<string, unknown> = {};
-    templates.forEach((t) => {
-      valueMap[t.key] = {
-        subject: t.subject,
-        body: t.body,
-        locale: t.locale,
-      };
+  const insertVar = (name: string) => {
+    if (!activeTemplate || !canWrite) return;
+    const token = `{{${name}}}`;
+    const el = bodyRef.current;
+    const body = activeTemplate.body;
+    const start = el?.selectionStart ?? body.length;
+    const end = el?.selectionEnd ?? body.length;
+    patchActive({ body: body.slice(0, start) + token + body.slice(end) });
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(start + token.length, start + token.length);
     });
-    update.mutate(
-      { value: valueMap, expectedVersion: q.data?.version ?? 0 },
-      {
-        onSuccess: () => {
-          setSaveSuccess(true);
-          setTimeout(() => setSaveSuccess(false), 3000);
-        },
-      },
-    );
   };
 
-  const handleSaveJson = () => {
+  const save = (value: Record<string, unknown>) =>
+    update.mutate({ value, expectedVersion: q.data?.version ?? 0 }, { onSuccess: () => { setJsonError(null); flashSaved(); } });
+
+  const handleSave = () => {
+    if (mode === 'visual') {
+      const valueMap: Record<string, unknown> = {};
+      templates.forEach((t) => {
+        valueMap[t.key] = { subject: t.subject, body: t.body, locale: t.locale };
+      });
+      save(valueMap);
+      return;
+    }
     try {
-      const parsed = JSON.parse(jsonDraft);
-      update.mutate(
-        { value: parsed as Record<string, unknown>, expectedVersion: q.data?.version ?? 0 },
-        {
-          onSuccess: () => {
-            setSaveSuccess(true);
-            setTimeout(() => setSaveSuccess(false), 3000);
-          },
-        },
-      );
+      save(JSON.parse(jsonDraft) as Record<string, unknown>);
     } catch {
       setJsonError('Invalid JSON syntax');
     }
   };
 
-  const handleInitDefaults = () => {
-    update.mutate(
-      { value: DEFAULT_EMAIL_TEMPLATES, expectedVersion: q.data?.version ?? 0 },
-      {
-        onSuccess: () => {
-          setSaveSuccess(true);
-          setTimeout(() => setSaveSuccess(false), 3000);
-        },
-      },
-    );
-  };
+  const formattedAddKey = addKey.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  const addKeyTaken = templates.some((t) => t.key === formattedAddKey);
 
-  const handleAddNewTemplate = () => {
-    const key = prompt('Enter new template key (e.g. delivery_delayed):');
-    if (!key) return;
-    const formatted = key.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  const handleAdd = () => {
+    if (!formattedAddKey || addKeyTaken) return;
     setTemplates((prev) => [
       ...prev,
       {
-        key: formatted,
+        key: formattedAddKey,
         subject: 'Notification from VYRO',
         body: 'Hello {{customerName}},\n\nYour message here.\n\nBest,\nVYRO Team',
         locale: 'en',
       },
     ]);
-    setActiveKey(formatted);
+    setActiveKey(formattedAddKey);
+    setShowAdd(false);
+    setAddKey('');
   };
 
-  const handleDeleteTemplate = (key: string) => {
-    if (confirm(`Are you sure you want to delete template "${key}"?`)) {
-      setTemplates((prev) => prev.filter((t) => t.key !== key));
-      if (activeKey === key) {
-        const next = templates.find((t) => t.key !== key);
-        setActiveKey(next?.key ?? '');
-      }
-    }
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    const next = templates.filter((t) => t.key !== pendingDelete);
+    setTemplates(next);
+    if (activeKey === pendingDelete) setActiveKey(next[0]?.key ?? '');
+    setPendingDelete(null);
   };
 
   return (
@@ -854,59 +930,41 @@ function TemplatesTab() {
       {q.isError ? <Callout tone="danger">{(q.error as Error).message}</Callout> : null}
       {update.isError ? <Callout tone="danger">{(update.error as Error).message}</Callout> : null}
       {jsonError ? <Callout tone="danger">{jsonError}</Callout> : null}
-      {saveSuccess ? (
-        <Callout tone="success">Email templates updated successfully (v{q.data?.version}).</Callout>
-      ) : null}
+      {saveSuccess ? <Callout tone="success">Email templates saved — now at v{q.data?.version}.</Callout> : null}
 
-      {/* Toolbar */}
-      <Card>
-        <Toolbar
-          actions={
-            <>
-              <ModeSwitch mode={mode} onChange={setMode} visualLabel="Visual designer" />
-              {canWrite && mode === 'visual' ? (
-                <Button size="sm" variant="secondary" className="h-10" icon={<PlusIcon size={14} />} onClick={handleAddNewTemplate}>
-                  Add template
-                </Button>
-              ) : null}
-              {canWrite ? (
-                <Button
-                  size="sm"
-                  variant="primary"
-                  className="h-10"
-                  icon={<SaveIcon size={14} />}
-                  onClick={mode === 'visual' ? handleSaveVisual : handleSaveJson}
-                  loading={update.isPending}
-                >
-                  Save changes
-                </Button>
-              ) : null}
-            </>
-          }
-        >
-          <span className="text-sm font-semibold text-ink">Template editor</span>
+      <Card padded={false} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="font-display text-[0.9375rem] font-bold tracking-[-0.01em] text-ink">Template studio</span>
           <Pill tone="neutral" className="font-mono">
             v{q.data?.version ?? 0} · {templates.length} templates
           </Pill>
-        </Toolbar>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ModeSwitch mode={mode} onChange={setMode} visualLabel="Visual designer" />
+          {canWrite && mode === 'visual' ? (
+            <Button variant="secondary" icon={<PlusIcon size={14} />} onClick={() => setShowAdd(true)}>
+              Add template
+            </Button>
+          ) : null}
+        </div>
       </Card>
 
       {mode === 'visual' ? (
         q.isLoading ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-            <Card className="h-64 animate-pulse bg-ink/[0.03] lg:col-span-4" />
-            <Card className="h-64 animate-pulse bg-ink/[0.03] lg:col-span-8" />
+            <Card className="h-72 animate-pulse bg-ink/[0.03] lg:col-span-4" />
+            <Card className="h-72 animate-pulse bg-ink/[0.03] lg:col-span-8" />
           </div>
         ) : templates.length === 0 ? (
           <Card>
             <EmptyBlock
               icon={<MailIcon size={22} />}
               title="No email templates configured"
-              description="Your database currently has no transactional notification templates configured."
+              description="There are no transactional notification templates yet."
               action={
                 canWrite ? (
-                  <Button size="sm" variant="primary" onClick={handleInitDefaults} loading={update.isPending}>
-                    Load default operational templates
+                  <Button variant="primary" icon={<SparklesIcon size={14} />} loading={update.isPending} onClick={() => save(DEFAULT_EMAIL_TEMPLATES)}>
+                    Load default templates
                   </Button>
                 ) : undefined
               }
@@ -914,130 +972,189 @@ function TemplatesTab() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-            {/* Sidebar list */}
-            <Card className="h-fit lg:col-span-4" >
-              <span className="mb-2 block px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">
-                Configured templates
-              </span>
-              <div className="space-y-1.5">
-                {templates.map((tmpl) => {
-                  const active = (activeTemplate?.key ?? '') === tmpl.key;
-                  return (
-                    <button
-                      key={tmpl.key}
-                      type="button"
-                      onClick={() => setActiveKey(tmpl.key)}
-                      className={cn(
-                        'flex w-full flex-col gap-1 rounded-lg p-2.5 text-left transition-colors',
-                        active ? 'bg-ink text-paper' : 'text-ink hover:bg-ink/[0.05]',
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate font-mono text-xs font-semibold">{tmpl.key}</span>
-                        <span
-                          className={cn(
-                            'rounded px-1.5 py-0.5 font-mono text-[9px] uppercase',
-                            active ? 'bg-volt font-bold text-ink' : 'bg-ink/[0.06] text-ink-4',
-                          )}
-                        >
-                          {tmpl.locale}
+            <Card padded={false} className="h-fit overflow-hidden lg:sticky lg:top-4 lg:col-span-4">
+              <div className="space-y-2.5 border-b border-ink/[0.07] p-3">
+                <div className="flex items-center justify-between px-1">
+                  <span className={SECTION_LABEL}>Templates</span>
+                  <span className="font-mono text-[10px] text-ink-4">{visibleTemplates.length}</span>
+                </div>
+                <SearchField value={listSearch} onChange={setListSearch} placeholder="Filter templates…" />
+              </div>
+              <div className="max-h-[28rem] space-y-1 overflow-y-auto p-2 scrollbar-thin">
+                {visibleTemplates.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-xs text-ink-4">No templates match.</p>
+                ) : (
+                  visibleTemplates.map((tmpl) => {
+                    const active = activeTemplate?.key === tmpl.key;
+                    return (
+                      <button
+                        key={tmpl.key}
+                        type="button"
+                        onClick={() => setActiveKey(tmpl.key)}
+                        aria-current={active ? 'true' : undefined}
+                        className={cn(
+                          'flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition-all duration-200',
+                          active
+                            ? 'bg-charcoal text-paper shadow-[0_8px_20px_-10px_rgba(12,14,11,0.6)]'
+                            : 'text-ink hover:bg-ink/[0.045]',
+                        )}
+                      >
+                        <Monogram name={tmpl.key.replace(/_/g, ' ')} size="sm" />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="truncate font-mono text-xs font-semibold">{tmpl.key}</span>
+                            <span className="flex shrink-0 items-center gap-1.5">
+                              {isChanged(tmpl) ? <span className="size-1.5 rounded-full bg-amber" title="Unsaved changes" /> : null}
+                              <span
+                                className={cn(
+                                  'rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase',
+                                  active ? 'bg-volt text-ink' : 'bg-ink/[0.07] text-ink-4',
+                                )}
+                              >
+                                {tmpl.locale}
+                              </span>
+                            </span>
+                          </span>
+                          <span className={cn('mt-0.5 block truncate text-[11px]', active ? 'text-paper/60' : 'text-ink-4')}>
+                            {tmpl.subject || 'No subject set'}
+                          </span>
                         </span>
-                      </div>
-                      <p className={cn('truncate text-[11px]', active ? 'text-paper/70' : 'text-ink-4')}>
-                        {tmpl.subject || 'No subject set'}
-                      </p>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </Card>
 
-            {/* Template Editor & Live Preview */}
             {activeTemplate ? (
-              <div className="space-y-4 lg:col-span-8">
+              <div className="space-y-5 lg:col-span-8">
                 <Panel
                   title={<span className="font-mono">{activeTemplate.key}</span>}
-                  description="Edit template copy and dynamic placeholders"
+                  description={`${activeTemplate.body.length} characters · ${usedVars.length} variables`}
                   icon={<MailIcon size={16} />}
                   actions={
                     canWrite ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-rose hover:bg-rose/10"
-                        onClick={() => handleDeleteTemplate(activeTemplate.key)}
-                      >
-                        Delete template
+                      <Button variant="ghost" size="sm" className="text-rose hover:bg-rose/10" icon={<Trash2Icon size={13} />} onClick={() => setPendingDelete(activeTemplate.key)}>
+                        Delete
                       </Button>
                     ) : undefined
                   }
                 >
-                  <div className="space-y-4">
+                  <div className="space-y-5">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
                       <div className="sm:col-span-3">
-                        <Label htmlFor="tpl-subject">Email subject line</Label>
-                        <Input
+                        <FieldLabel htmlFor="tpl-subject">Subject line</FieldLabel>
+                        <input
                           id="tpl-subject"
+                          className={cn(controlClass, 'w-full')}
                           value={activeTemplate.subject}
-                          onChange={(e) => handleUpdateActive({ subject: e.target.value })}
+                          onChange={(e) => patchActive({ subject: e.target.value })}
                           disabled={!canWrite}
                         />
                       </div>
-                      <div className="sm:col-span-1">
-                        <Label htmlFor="tpl-locale">Locale</Label>
-                        <Select
+                      <div>
+                        <FieldLabel htmlFor="tpl-locale">Locale</FieldLabel>
+                        <select
                           id="tpl-locale"
+                          className={cn(controlClass, 'w-full')}
                           value={activeTemplate.locale}
-                          onChange={(e) => handleUpdateActive({ locale: e.target.value })}
+                          onChange={(e) => patchActive({ locale: e.target.value })}
                           disabled={!canWrite}
                         >
                           <option value="en">English (en)</option>
                           <option value="si">Sinhala (si)</option>
                           <option value="ta">Tamil (ta)</option>
-                        </Select>
+                        </select>
                       </div>
                     </div>
 
                     <div>
-                      <div className="mb-1 flex flex-wrap items-center justify-between gap-1">
-                        <Label htmlFor="tpl-body">Email body (plaintext / markdown)</Label>
-                        <span className="font-mono text-[10px] text-ink-4">
-                          {'{{customerName}} {{orderId}} {{trackingUrl}}'}
-                        </span>
-                      </div>
-                      <Textarea
+                      <FieldLabel htmlFor="tpl-body" hint="Plain text · markdown">
+                        Email body
+                      </FieldLabel>
+                      <textarea
                         id="tpl-body"
-                        rows={8}
-                        className="font-mono text-xs leading-relaxed"
+                        ref={bodyRef}
+                        rows={9}
+                        className={cn(textareaClass, 'font-mono text-xs')}
                         value={activeTemplate.body}
-                        onChange={(e) => handleUpdateActive({ body: e.target.value })}
+                        onChange={(e) => patchActive({ body: e.target.value })}
                         disabled={!canWrite}
                       />
+                      {canWrite ? (
+                        <div className="mt-3">
+                          <span className={cn(SECTION_LABEL, 'mb-2 block')}>Insert variable</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {Object.keys(SAMPLE_VARS).map((v) => {
+                              const used = usedVars.includes(v);
+                              return (
+                                <button
+                                  key={v}
+                                  type="button"
+                                  onClick={() => insertVar(v)}
+                                  className={cn(
+                                    'rounded-md px-2 py-1 font-mono text-[11px] transition-colors',
+                                    used
+                                      ? 'bg-volt-soft text-ink shadow-[inset_0_0_0_1px_rgba(120,140,20,0.3)]'
+                                      : 'bg-ink/[0.045] text-ink-3 hover:bg-ink/10 hover:text-ink',
+                                  )}
+                                >
+                                  {`{{${v}}}`}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </Panel>
 
-                {/* Simulated Customer Preview */}
-                <Card className="bg-bone/50">
-                  <span className="mb-3 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">
-                    <EyeIcon size={13} />
-                    Customer inbox preview
-                  </span>
-                  <div className="vyro-surface space-y-3 p-5 font-sans">
-                    <div className="border-b border-ink/[0.07] pb-2">
-                      <div className="text-xs text-ink-4">From: VYRO Notifications &lt;notifications@vyro.lk&gt;</div>
-                      <div className="mt-0.5 text-sm font-bold text-ink">{activeTemplate.subject}</div>
-                    </div>
-                    <div className="whitespace-pre-wrap text-xs leading-relaxed text-ink">
-                      {activeTemplate.body
-                        .replace(/\{\{customerName\}\}/g, 'Thufail Ahamed')
-                        .replace(/\{\{orderId\}\}/g, 'VY-8921')
-                        .replace(/\{\{itemCount\}\}/g, '3')
-                        .replace(/\{\{totalAmount\}\}/g, '14,500.00')
-                        .replace(/\{\{trackingUrl\}\}/g, 'https://vyro.lk/orders/track/VY-8921')
-                        .replace(/\{\{carrierName\}\}/g, 'VYRO Express Logistics')
-                        .replace(/\{\{trackingCode\}\}/g, 'LK-902198')
-                        .replace(/\{\{estimatedDelivery\}\}/g, 'Tomorrow by 5:00 PM')}
+                <Card padded={false} className="overflow-hidden bg-bone/50">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink/[0.07] px-5 py-3">
+                    <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+                      <EyeIcon size={13} />
+                      Live inbox preview
+                    </span>
+                    <Segmented
+                      ariaLabel="Preview device"
+                      value={device}
+                      onChange={setDevice}
+                      items={[
+                        { key: 'desktop', label: 'Desktop' },
+                        { key: 'mobile', label: 'Mobile' },
+                      ]}
+                    />
+                  </div>
+                  <div className="p-4 sm:p-6">
+                    <div
+                      className={cn(
+                        'mx-auto overflow-hidden rounded-xl bg-paper shadow-[0_0_0_1px_rgba(12,14,11,0.08),0_18px_40px_-20px_rgba(12,14,11,0.3)] transition-all duration-500 ease-vyro',
+                        device === 'mobile' ? 'max-w-[22rem]' : 'max-w-2xl',
+                      )}
+                    >
+                      <div className="flex items-center gap-1.5 border-b border-ink/[0.07] bg-bone/70 px-4 py-2.5">
+                        <span className="size-2.5 rounded-full bg-rose/60" />
+                        <span className="size-2.5 rounded-full bg-amber/60" />
+                        <span className="size-2.5 rounded-full bg-mint/60" />
+                        <span className="ml-3 text-[11px] text-ink-4">Inbox</span>
+                      </div>
+                      <div className="space-y-4 p-5">
+                        <div className="flex items-start gap-3">
+                          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-charcoal font-display text-xs font-bold text-volt">V</span>
+                          <div className="min-w-0">
+                            <div className="text-sm font-bold leading-snug text-ink">
+                              {renderBody(activeTemplate.subject) || 'No subject'}
+                            </div>
+                            <div className="mt-0.5 text-[11px] text-ink-4">
+                              VYRO Notifications &lt;notifications@vyro.lk&gt; · to me
+                            </div>
+                          </div>
+                        </div>
+                        <div className="whitespace-pre-wrap border-t border-ink/[0.07] pt-4 text-[13px] leading-relaxed text-ink-2">
+                          {renderBody(activeTemplate.body)}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </Card>
@@ -1046,20 +1163,82 @@ function TemplatesTab() {
           </div>
         )
       ) : (
-        /* Raw JSON mode */
-        <Panel
-          title="Direct JSON editor"
-          description={`Schema version v${q.data?.version ?? 0} — edits are validated before saving.`}
-          icon={<FileTextIcon size={16} />}
-        >
-          <Textarea
-            className="h-96 font-mono text-xs leading-relaxed"
-            value={jsonDraft}
-            onChange={(e) => setJsonDraft(e.target.value)}
-            disabled={!canWrite}
-          />
-        </Panel>
+        <JsonEditor title="Direct JSON editor" version={q.data?.version ?? 0} value={jsonDraft} onChange={setJsonDraft} disabled={!canWrite} />
       )}
+
+      <SaveBar
+        visible={canWrite && dirty}
+        summary={mode === 'visual' ? `${changedCount} ${changedCount === 1 ? 'template' : 'templates'} with unsaved changes` : 'Unsaved JSON edits'}
+        onDiscard={() => {
+          setTemplates(baseline);
+          setJsonDraft(baselineJson);
+          setJsonError(null);
+        }}
+        onSave={handleSave}
+        saving={update.isPending}
+      />
+
+      {showAdd ? (
+        <Modal
+          title="Add email template"
+          sub="Starts from a blank layout"
+          icon={<MailIcon size={18} />}
+          onClose={() => setShowAdd(false)}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setShowAdd(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" disabled={!formattedAddKey || addKeyTaken} onClick={handleAdd}>
+                Create template
+              </Button>
+            </>
+          }
+        >
+          <FieldLabel htmlFor="tpl-new-key" hint="snake_case">
+            Template key
+          </FieldLabel>
+          <input
+            id="tpl-new-key"
+            autoFocus
+            placeholder="e.g. delivery_delayed"
+            value={addKey}
+            onChange={(e) => setAddKey(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+            className={cn(controlClass, 'w-full font-mono')}
+          />
+          {formattedAddKey ? (
+            <p className={cn('mt-1.5 font-mono text-[11px]', addKeyTaken ? 'text-rose' : 'text-ink-4')}>
+              {addKeyTaken ? `“${formattedAddKey}” already exists` : `Saved as ${formattedAddKey}`}
+            </p>
+          ) : null}
+        </Modal>
+      ) : null}
+
+      {pendingDelete ? (
+        <Modal
+          size="sm"
+          tone="danger"
+          title="Delete template?"
+          sub={pendingDelete}
+          icon={<Trash2Icon size={18} />}
+          onClose={() => setPendingDelete(null)}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setPendingDelete(null)}>
+                Keep template
+              </Button>
+              <Button variant="danger" onClick={confirmDelete}>
+                Delete template
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm leading-relaxed text-ink-3">
+            Emails that use this template will stop sending until it is restored. The deletion is staged — nothing changes until you save.
+          </p>
+        </Modal>
+      ) : null}
     </div>
   );
 }
@@ -1067,6 +1246,114 @@ function TemplatesTab() {
 // ----------------------------------------------------------------------
 // 3. WEBHOOKS TAB
 // ----------------------------------------------------------------------
+function generateSecret() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return `whsec_${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function EndpointCard({
+  hook,
+  selected,
+  revealed,
+  canWrite,
+  busy,
+  onSelect,
+  onReveal,
+  onToggleActive,
+}: {
+  hook: WebhookRow;
+  selected: boolean;
+  revealed: boolean;
+  canWrite: boolean;
+  busy: boolean;
+  onSelect: () => void;
+  onReveal: () => void;
+  onToggleActive: () => void;
+}) {
+  const events = parseJsonList(hook.eventTypesJson);
+  const live = hook.active === 1;
+  return (
+    <article
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
+      onClick={onSelect}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onSelect())}
+      className={cn(
+        'vyro-surface relative cursor-pointer space-y-4 p-5 transition-all duration-300 ease-vyro focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-volt/40',
+        selected ? 'ring-2 ring-ink shadow-[0_16px_34px_-16px_rgba(12,14,11,0.35)]' : 'hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-14px_rgba(12,14,11,0.25)]',
+        !live && 'opacity-80',
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <Monogram name={hook.name} seed={hook.id} badge={<span className={cn('block size-3 rounded-full border-2 border-paper', live ? 'bg-mint' : 'bg-ink/30')} />} />
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-semibold text-ink">{hook.name}</h3>
+            <p className="truncate font-mono text-[11px] text-ink-4" title={hook.url}>
+              {hostOf(hook.url)}
+            </p>
+          </div>
+        </div>
+        <Pill tone={live ? 'success' : 'neutral'} dot>
+          {live ? 'Active' : 'Disabled'}
+        </Pill>
+      </div>
+
+      <div className="flex flex-wrap gap-1">
+        {events.slice(0, 3).map((ev) => (
+          <Pill key={ev} tone="neutral" className="font-mono">
+            {ev}
+          </Pill>
+        ))}
+        {events.length > 3 ? (
+          <Pill tone="neutral" title={events.slice(3).join(', ')}>
+            +{events.length - 3} more
+          </Pill>
+        ) : null}
+        {events.length === 0 ? <span className="text-xs text-ink-4">No events subscribed</span> : null}
+      </div>
+
+      <div
+        className="flex items-center justify-between gap-2 rounded-lg bg-bone/70 py-1 pl-3 pr-1 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.06)]"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        <span className="min-w-0 truncate font-mono text-xs text-ink-3">{revealed ? hook.secret : '•••••••••••••••••••'}</span>
+        <span className="flex shrink-0 items-center">
+          <button
+            type="button"
+            onClick={onReveal}
+            className="rounded-md p-1.5 text-ink-4 transition-colors hover:bg-ink/5 hover:text-ink"
+            aria-label={revealed ? 'Hide secret' : 'Reveal secret'}
+          >
+            {revealed ? <EyeOffIcon size={13} /> : <EyeIcon size={13} />}
+          </button>
+          <CopyButton text={hook.secret} label="Copy signing secret" />
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 border-t border-ink/[0.07] pt-3">
+        <span className="text-[11px] text-ink-4">Added {relativeTime(hook.createdAt)}</span>
+        {canWrite ? (
+          <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            <Button
+              size="sm"
+              variant="ghost"
+              className={live ? 'text-rose hover:bg-rose/10' : 'text-mint hover:bg-mint/10'}
+              loading={busy}
+              onClick={onToggleActive}
+            >
+              {live ? 'Disable' : 'Re-enable'}
+            </Button>
+          </span>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
 function WebhooksTab() {
   const canRead = usePermission('webhook:read');
   const canWrite = usePermission('webhook:write');
@@ -1086,47 +1373,36 @@ function WebhooksTab() {
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, boolean>>({});
 
   const [selectedWebhookId, setSelectedWebhookId] = useState<string | null>(null);
-  const selectedId = selectedWebhookId ?? list.data?.[0]?.id ?? null;
+  const hooks = list.data ?? [];
+  const selectedId = selectedWebhookId ?? hooks[0]?.id ?? null;
+  const selectedHook = hooks.find((h) => h.id === selectedId);
   const deliveries = useWebhookDeliveries(selectedId);
   const [inspectDelivery, setInspectDelivery] = useState<WebhookDeliveryRow | null>(null);
 
-  const generateSecret = () => {
-    const chars = 'abcdef0123456789';
-    let s = 'whsec_';
-    for (let i = 0; i < 32; i++) {
-      s += chars[Math.floor(Math.random() * chars.length)];
-    }
-    setSecret(s);
+  const rows = deliveries.data ?? [];
+  const ok = rows.filter((d) => d.status === 'success').length;
+  const failed = rows.filter((d) => d.status === 'failed').length;
+  const pending = rows.filter((d) => d.status === 'pending').length;
+  const rate = rows.length ? Math.round((ok / rows.length) * 100) : null;
+
+  const urlValid = /^https?:\/\//i.test(url.trim());
+  const canSubmit = name.trim() && urlValid && selectedEvents.length > 0 && secret.length >= 8;
+
+  const closeCreate = () => {
+    setShowCreateModal(false);
+    setName('');
+    setUrl('');
+    setSecret('');
+    setSelectedEvents(['order.created']);
   };
 
   const handleCreate = () => {
-    if (!name || !url || selectedEvents.length === 0 || secret.length < 8) return;
-    create.mutate(
-      {
-        name,
-        url,
-        eventTypes: selectedEvents,
-        secret,
-      },
-      {
-        onSuccess: () => {
-          setShowCreateModal(false);
-          setName('');
-          setUrl('');
-          setSecret('');
-          setSelectedEvents(['order.created']);
-        },
-      },
-    );
+    if (!canSubmit) return;
+    create.mutate({ name: name.trim(), url: url.trim(), eventTypes: selectedEvents, secret }, { onSuccess: closeCreate });
   };
 
-  const toggleEventSelection = (ev: string) => {
-    setSelectedEvents((prev) => (prev.includes(ev) ? prev.filter((e) => e !== ev) : [...prev, ev]));
-  };
-
-  const toggleSecretReveal = (id: string) => {
-    setRevealedSecrets((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+  const toggleEvents = (evs: string[], on: boolean) =>
+    setSelectedEvents((prev) => (on ? [...new Set([...prev, ...evs])] : prev.filter((e) => !evs.includes(e))));
 
   if (!canRead) {
     return (
@@ -1138,145 +1414,178 @@ function WebhooksTab() {
 
   return (
     <div className="space-y-6">
-      {/* Webhooks Table */}
-      <TableCard
-        title="Configured webhook endpoints"
-        description="Outbound event notification triggers dispatched via HTTP POST."
-        actions={
-          canWrite ? (
-            <Button size="sm" variant="primary" icon={<PlusIcon size={14} />} onClick={() => setShowCreateModal(true)}>
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="font-display text-lg font-bold tracking-[-0.02em] text-ink">Webhook endpoints</h2>
+            <p className="mt-0.5 text-xs text-ink-4">Outbound event triggers dispatched via signed HTTP POST. Select an endpoint to inspect its deliveries.</p>
+          </div>
+          {canWrite ? (
+            <Button variant="primary" icon={<PlusIcon size={14} />} onClick={() => setShowCreateModal(true)}>
               Register endpoint
             </Button>
+          ) : null}
+        </div>
+
+        {list.isError ? (
+          <Callout
+            tone="danger"
+            title="Could not load webhooks"
+            action={
+              <Button variant="secondary" size="sm" onClick={() => void list.refetch()}>
+                Retry
+              </Button>
+            }
+          >
+            {(list.error as Error).message}
+          </Callout>
+        ) : list.isLoading ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <Card key={i} className="h-52 animate-pulse bg-ink/[0.03]" />
+            ))}
+          </div>
+        ) : hooks.length === 0 ? (
+          <Card>
+            <EmptyBlock
+              icon={<BellIcon size={22} />}
+              title="No webhooks registered"
+              description="Register an endpoint to relay platform events to your own systems."
+              action={
+                canWrite ? (
+                  <Button variant="primary" icon={<PlusIcon size={14} />} onClick={() => setShowCreateModal(true)}>
+                    Register endpoint
+                  </Button>
+                ) : undefined
+              }
+            />
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {hooks.map((h) => (
+              <EndpointCard
+                key={h.id}
+                hook={h}
+                selected={h.id === selectedId}
+                revealed={Boolean(revealedSecrets[h.id])}
+                canWrite={canWrite}
+                busy={(disable.isPending && disable.variables === h.id) || (update.isPending && update.variables?.id === h.id)}
+                onSelect={() => setSelectedWebhookId(h.id)}
+                onReveal={() => setRevealedSecrets((p) => ({ ...p, [h.id]: !p[h.id] }))}
+                onToggleActive={() => (h.active === 1 ? disable.mutate(h.id) : update.mutate({ id: h.id, patch: { active: true } }))}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <TableCard
+        title="Recent outbound deliveries"
+        description={selectedHook ? `Dispatch log for ${selectedHook.name} · ${hostOf(selectedHook.url)}` : 'Event dispatch logs, response codes and automatic retries.'}
+        toolbar={
+          rows.length > 0 ? (
+            <div className="flex flex-col gap-3 rounded-xl bg-bone/60 p-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.06)] sm:flex-row sm:items-center sm:gap-6">
+              <div className="shrink-0">
+                <div className={SECTION_LABEL}>Success rate</div>
+                <div className="font-display text-2xl font-bold tracking-[-0.03em] text-ink num-tabular">{rate}%</div>
+              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                <SegmentBar
+                  segments={[
+                    { key: 'ok', value: ok, className: 'bg-mint', label: 'Delivered' },
+                    { key: 'pending', value: pending, className: 'bg-amber', label: 'Pending' },
+                    { key: 'failed', value: failed, className: 'bg-rose', label: 'Failed' },
+                  ]}
+                />
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-ink-3">
+                  <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-mint" />{ok} delivered</span>
+                  <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-amber" />{pending} pending</span>
+                  <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-rose" />{failed} failed</span>
+                </div>
+              </div>
+            </div>
           ) : undefined
         }
-        footer={
-          <span>
-            <strong className="text-ink">{(list.data ?? []).length}</strong> endpoints registered
-          </span>
-        }
+        footer={rows.length ? <span>Showing the <strong className="text-ink">{rows.length}</strong> most recent deliveries</span> : undefined}
       >
-        {list.isError ? (
-          <div className="p-5 sm:p-6">
-            <Callout
-              tone="danger"
-              title="Could not load webhooks"
-              action={
-                <Button variant="secondary" size="sm" onClick={() => void list.refetch()}>
-                  Retry
-                </Button>
-              }
-            >
-              {(list.error as Error).message}
-            </Callout>
-          </div>
-        ) : list.isLoading ? (
-          <TableSkeleton rows={3} cols={6} />
-        ) : !(list.data ?? []).length ? (
-          <EmptyBlock
-            icon={<BellIcon size={22} />}
-            title="No webhooks registered"
-            description="Register an endpoint above to relay platform events."
-            action={
-              canWrite ? (
-                <Button size="sm" variant="primary" icon={<PlusIcon size={14} />} onClick={() => setShowCreateModal(true)}>
-                  Register endpoint
-                </Button>
-              ) : undefined
-            }
-          />
+        {deliveries.isLoading && selectedId ? (
+          <TableSkeleton rows={4} cols={6} />
+        ) : !selectedId ? (
+          <EmptyBlock icon={<BellIcon size={22} />} title="No endpoint selected" description="Register a webhook above to monitor outgoing dispatches." />
+        ) : rows.length === 0 ? (
+          <EmptyBlock icon={<BellIcon size={22} />} title="No deliveries yet" description="Nothing has been dispatched to this endpoint yet." />
         ) : (
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Endpoint</th>
-                <th>Target URL</th>
-                <th>Subscribed events</th>
-                <th>Signing secret</th>
+                <th>Delivery</th>
+                <th>Event</th>
                 <th>Status</th>
+                <th>HTTP</th>
+                <th>Attempts</th>
+                <th>When</th>
                 <th>
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
             </thead>
             <tbody>
-              {(list.data ?? []).map((h) => {
-                const events: string[] = (() => {
-                  try {
-                    return JSON.parse(h.eventTypesJson);
-                  } catch {
-                    return [];
-                  }
-                })();
-                const isSecretRevealed = Boolean(revealedSecrets[h.id]);
-
+              {rows.map((d) => {
+                const good = d.responseStatus != null && d.responseStatus >= 200 && d.responseStatus < 300;
                 return (
-                  <tr key={h.id}>
+                  <tr key={d.id}>
                     <td>
-                      <CellStack mono primary={h.name} secondary={h.id} />
-                    </td>
-                    <td>
-                      <span className="block max-w-[220px] truncate font-mono text-xs text-ink-3" title={h.url}>
-                        {h.url}
+                      <span className="font-mono text-xs text-ink-3" title={d.id}>
+                        {d.id.slice(0, 8)}…
                       </span>
                     </td>
                     <td>
-                      <div className="flex max-w-xs flex-wrap gap-1">
-                        {events.map((ev) => (
-                          <Pill key={ev} tone="neutral" className="font-mono">
-                            {ev}
-                          </Pill>
-                        ))}
-                      </div>
+                      <Pill tone="neutral" className="font-mono">
+                        {d.eventType}
+                      </Pill>
                     </td>
                     <td>
-                      <div className="flex items-center gap-1.5 font-mono text-xs">
-                        <span className="text-ink-3">{isSecretRevealed ? h.secret : '••••••••••••'}</span>
-                        <button
-                          type="button"
-                          onClick={() => toggleSecretReveal(h.id)}
-                          className="rounded p-1 text-ink-4 transition-colors hover:bg-ink/5 hover:text-ink"
-                          title={isSecretRevealed ? 'Hide secret' : 'Reveal secret'}
-                          aria-label={isSecretRevealed ? 'Hide secret' : 'Reveal secret'}
+                      <StatusPill status={d.status} />
+                    </td>
+                    <td>
+                      {d.responseStatus ? (
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold',
+                            good ? 'bg-mint/10 text-mint' : 'bg-rose/10 text-rose',
+                          )}
                         >
-                          {isSecretRevealed ? <EyeOffIcon size={13} /> : <EyeIcon size={13} />}
-                        </button>
-                      </div>
-                    </td>
-                    <td>
-                      {h.active === 1 ? (
-                        <Pill tone="success" dot>
-                          Active
-                        </Pill>
+                          {good ? <CheckCircle2Icon size={11} /> : <XCircleIcon size={11} />}
+                          {d.responseStatus}
+                        </span>
                       ) : (
-                        <Pill tone="neutral" dot>
-                          Disabled
-                        </Pill>
+                        <span className="text-ink-4">—</span>
                       )}
                     </td>
+                    <td>
+                      <span className="font-mono text-xs">{d.attemptCount}</span>
+                    </td>
+                    <td>
+                      <span className="text-xs text-ink-4" title={new Date(d.createdAt).toLocaleString()}>
+                        {relativeTime(d.createdAt)}
+                      </span>
+                    </td>
                     <td className="text-right">
-                      {canWrite ? (
-                        h.active === 1 ? (
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button size="sm" variant="ghost" onClick={() => setInspectDelivery(d)}>
+                          Inspect
+                        </Button>
+                        {canRetry && d.status === 'failed' ? (
                           <Button
                             size="sm"
-                            variant="ghost"
-                            className="text-rose hover:bg-rose/10"
-                            onClick={() => disable.mutate(h.id)}
-                            loading={disable.isPending}
+                            variant="secondary"
+                            onClick={() => retry.mutate({ webhookId: d.webhookId, deliveryId: d.id })}
+                            loading={retry.isPending && retry.variables?.deliveryId === d.id}
                           >
-                            Disable
+                            Retry
                           </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-mint hover:bg-mint/10"
-                            onClick={() => update.mutate({ id: h.id, patch: { active: true } })}
-                            loading={update.isPending}
-                          >
-                            Re-enable
-                          </Button>
-                        )
-                      ) : null}
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -1286,222 +1595,135 @@ function WebhooksTab() {
         )}
       </TableCard>
 
-      {/* Recent Deliveries Table */}
-      <TableCard
-        title="Recent outbound deliveries"
-        description="Event dispatch logs, response HTTP status codes, and automatic retries."
-        toolbar={
-          list.data && list.data.length > 1 ? (
-            <Toolbar
-              actions={
-                <Select
-                  value={selectedId ?? ''}
-                  onChange={(e) => setSelectedWebhookId(e.target.value || null)}
-                  className="w-auto font-mono text-xs"
-                  aria-label="Filter deliveries by endpoint"
-                >
-                  {list.data.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      {h.name}
-                    </option>
-                  ))}
-                </Select>
-              }
-            >
-              <span className="text-xs text-ink-4">
-                Showing deliveries for the selected endpoint
-              </span>
-            </Toolbar>
-          ) : undefined
-        }
-      >
-        {deliveries.isLoading && selectedId ? (
-          <TableSkeleton rows={4} cols={6} />
-        ) : !selectedId ? (
-          <EmptyBlock
-            icon={<BellIcon size={22} />}
-            title="No endpoint selected"
-            description="Create a webhook above to monitor outgoing dispatches."
-          />
-        ) : !(deliveries.data ?? []).length ? (
-          <EmptyBlock
-            icon={<BellIcon size={22} />}
-            title="No deliveries yet"
-            description="No webhook deliveries logged yet for this endpoint."
-          />
-        ) : (
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Delivery</th>
-                <th>Event type</th>
-                <th>Status</th>
-                <th>HTTP response</th>
-                <th>Attempts</th>
-                <th>
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {(deliveries.data ?? []).map((d) => (
-                <tr key={d.id}>
-                  <td>
-                    <CellStack mono primary={`${d.id.slice(0, 8)}…`} secondary={d.id} />
-                  </td>
-                  <td>
-                    <Pill tone="neutral" className="font-mono">
-                      {d.eventType}
-                    </Pill>
-                  </td>
-                  <td>
-                    <StatusPill status={d.status} />
-                  </td>
-                  <td>
-                    {d.responseStatus ? (
-                      <span
-                        className={cn(
-                          'font-mono text-xs font-semibold',
-                          d.responseStatus >= 200 && d.responseStatus < 300 ? 'text-mint' : 'text-rose',
-                        )}
-                      >
-                        {d.responseStatus}
-                      </span>
-                    ) : (
-                      <span className="text-ink-4">—</span>
-                    )}
-                  </td>
-                  <td>
-                    <span className="font-mono text-xs">{d.attemptCount}</span>
-                  </td>
-                  <td className="text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <Button size="sm" variant="ghost" onClick={() => setInspectDelivery(d)}>
-                        Inspect
-                      </Button>
-                      {canRetry && d.status === 'failed' ? (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => retry.mutate({ webhookId: d.webhookId, deliveryId: d.id })}
-                          loading={retry.isPending && retry.variables?.deliveryId === d.id}
-                        >
-                          Retry
-                        </Button>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </TableCard>
-
-      {/* Register Webhook Modal */}
       {showCreateModal ? (
-        <ModalShell
+        <Modal
+          size="lg"
           title="Register webhook endpoint"
-          icon={<BellIcon size={15} />}
-          onClose={() => setShowCreateModal(false)}
-          wide
+          sub="Deliveries are signed with the secret below"
+          icon={<BellIcon size={18} />}
+          onClose={closeCreate}
+          footer={
+            <>
+              <Button variant="ghost" onClick={closeCreate}>
+                Cancel
+              </Button>
+              <Button variant="primary" disabled={!canSubmit} loading={create.isPending} onClick={handleCreate}>
+                Register endpoint
+              </Button>
+            </>
+          }
         >
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="wh-name">Endpoint name</Label>
-              <Input
-                id="wh-name"
-                placeholder="e.g. ERP Order Sync"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="wh-url">Target HTTPS URL</Label>
-              <Input
-                id="wh-url"
-                placeholder="https://api.partner.com/vyro-webhooks"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                className="font-mono"
-              />
-            </div>
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <Label htmlFor="wh-secret" className="mb-0">
-                  Signing secret (min 8 chars)
-                </Label>
-                <button
-                  type="button"
-                  onClick={generateSecret}
-                  className="text-[11px] font-medium text-copper transition-colors hover:text-ink"
-                >
-                  Auto-generate
-                </button>
+          <div className="space-y-5">
+            {create.isError ? <Callout tone="danger">{(create.error as Error).message}</Callout> : null}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div>
+                <FieldLabel htmlFor="wh-name">Endpoint name</FieldLabel>
+                <input id="wh-name" autoFocus placeholder="e.g. ERP Order Sync" value={name} onChange={(e) => setName(e.target.value)} className={cn(controlClass, 'w-full')} />
               </div>
-              <Input
+              <div>
+                <FieldLabel htmlFor="wh-url">Target URL</FieldLabel>
+                <input
+                  id="wh-url"
+                  placeholder="https://api.partner.com/vyro-webhooks"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  className={cn(controlClass, 'w-full font-mono')}
+                />
+                {url && !urlValid ? <p className="mt-1.5 text-[11px] text-rose">URL must start with https://</p> : null}
+              </div>
+            </div>
+
+            <div>
+              <FieldLabel
+                htmlFor="wh-secret"
+                hint={
+                  <button type="button" onClick={() => setSecret(generateSecret())} className="font-semibold text-copper transition-colors hover:text-ink">
+                    Auto-generate
+                  </button>
+                }
+              >
+                Signing secret
+              </FieldLabel>
+              <input
                 id="wh-secret"
-                type="text"
-                placeholder="Enter secret or click auto-generate"
+                placeholder="Min 8 characters"
                 value={secret}
                 onChange={(e) => setSecret(e.target.value)}
-                className="font-mono"
+                className={cn(controlClass, 'w-full font-mono')}
               />
             </div>
 
             <div>
-              <Label>Subscribed events</Label>
-              <div className="grid max-h-44 grid-cols-1 gap-1 overflow-y-auto rounded-lg bg-ink/[0.04] p-3 sm:grid-cols-2">
-                {WEBHOOK_EVENT_CATALOG.map((ev) => {
-                  const isChecked = selectedEvents.includes(ev);
+              <FieldLabel hint={`${selectedEvents.length} selected`}>Subscribed events</FieldLabel>
+              <div className="space-y-4 rounded-xl bg-bone/60 p-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.06)]">
+                {EVENT_GROUPS.map((g) => {
+                  const allOn = g.events.every((e) => selectedEvents.includes(e));
                   return (
-                    <label
-                      key={ev}
-                      className={cn(
-                        'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 font-mono text-xs transition-colors',
-                        isChecked ? 'bg-paper text-ink shadow-sm' : 'text-ink-3 hover:bg-paper/60',
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => toggleEventSelection(ev)}
-                        className="accent-ink"
-                      />
-                      <span>{ev}</span>
-                    </label>
+                    <div key={g.label}>
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className={SECTION_LABEL}>{g.label}</span>
+                        <button type="button" onClick={() => toggleEvents(g.events, !allOn)} className="text-[11px] font-semibold text-ink-3 hover:text-ink">
+                          {allOn ? 'Clear' : 'Select all'}
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {g.events.map((ev) => {
+                          const on = selectedEvents.includes(ev);
+                          return (
+                            <button
+                              key={ev}
+                              type="button"
+                              aria-pressed={on}
+                              onClick={() => toggleEvents([ev], !on)}
+                              className={cn(
+                                'rounded-lg px-2.5 py-1.5 font-mono text-xs transition-all duration-200',
+                                on
+                                  ? 'bg-charcoal text-paper shadow-[0_4px_10px_-4px_rgba(12,14,11,0.5)]'
+                                  : 'bg-paper text-ink-3 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.1)] hover:text-ink hover:shadow-[inset_0_0_0_1px_rgba(12,14,11,0.25)]',
+                              )}
+                            >
+                              {ev}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
-              <p className="mt-1.5 text-xs text-ink-4">{selectedEvents.length} event(s) selected.</p>
-            </div>
-
-            <div className="flex justify-end gap-2 border-t border-ink/[0.07] pt-4">
-              <Button variant="ghost" size="sm" onClick={() => setShowCreateModal(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={!name || !url || selectedEvents.length === 0 || secret.length < 8}
-                onClick={handleCreate}
-                loading={create.isPending}
-              >
-                Register endpoint
-              </Button>
             </div>
           </div>
-        </ModalShell>
+        </Modal>
       ) : null}
 
-      {/* Inspect Delivery Modal */}
       {inspectDelivery ? (
-        <ModalShell
+        <Modal
+          size="lg"
           title="Delivery inspector"
           sub={inspectDelivery.id}
-          icon={<FileTextIcon size={15} />}
+          icon={<FileTextIcon size={18} />}
           onClose={() => setInspectDelivery(null)}
-          wide
+          footer={
+            <>
+              {canRetry && inspectDelivery.status === 'failed' ? (
+                <Button
+                  variant="secondary"
+                  loading={retry.isPending}
+                  onClick={() =>
+                    retry.mutate(
+                      { webhookId: inspectDelivery.webhookId, deliveryId: inspectDelivery.id },
+                      { onSuccess: () => setInspectDelivery(null) },
+                    )
+                  }
+                >
+                  Retry delivery
+                </Button>
+              ) : null}
+              <Button variant="primary" onClick={() => setInspectDelivery(null)}>
+                Close
+              </Button>
+            </>
+          }
         >
           <div className="space-y-5">
             <DetailList
@@ -1509,46 +1731,47 @@ function WebhooksTab() {
               items={[
                 { label: 'Event', value: <span className="font-mono text-xs">{inspectDelivery.eventType}</span> },
                 { label: 'Status', value: <StatusPill status={inspectDelivery.status} /> },
+                { label: 'HTTP code', value: <span className="font-mono text-xs">{inspectDelivery.responseStatus ?? '—'}</span> },
+                { label: 'Attempts', value: <span className="font-mono text-xs">{inspectDelivery.attemptCount}</span> },
+                { label: 'Created', value: <span className="text-xs">{new Date(inspectDelivery.createdAt).toLocaleString()}</span> },
                 {
-                  label: 'HTTP code',
-                  value: <span className="font-mono text-xs">{inspectDelivery.responseStatus ?? '—'}</span>,
+                  label: 'Next retry',
+                  value: <span className="text-xs">{inspectDelivery.nextRetryAt ? new Date(inspectDelivery.nextRetryAt).toLocaleString() : '—'}</span>,
                 },
               ]}
             />
 
-            <div>
-              <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4">
-                Dispatched payload
-              </h4>
-              <pre className="overflow-x-auto rounded-lg bg-charcoal p-3.5 font-mono text-xs leading-relaxed text-paper">
-                {(() => {
-                  try {
-                    return JSON.stringify(JSON.parse(inspectDelivery.payloadJson), null, 2);
-                  } catch {
-                    return inspectDelivery.payloadJson;
-                  }
-                })()}
-              </pre>
-            </div>
+            {(() => {
+              const payload = (() => {
+                try {
+                  return JSON.stringify(JSON.parse(inspectDelivery.payloadJson), null, 2);
+                } catch {
+                  return inspectDelivery.payloadJson;
+                }
+              })();
+              return (
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h4 className={SECTION_LABEL}>Dispatched payload</h4>
+                    <CopyButton text={payload} label="Copy payload" />
+                  </div>
+                  <pre className="max-h-72 overflow-auto rounded-xl bg-charcoal p-4 font-mono text-xs leading-relaxed text-paper/90 shadow-[inset_0_0_0_1px_rgba(250,247,240,0.08)] scrollbar-thin">
+                    {payload}
+                  </pre>
+                </div>
+              );
+            })()}
 
             {inspectDelivery.responseBody ? (
               <div>
-                <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4">
-                  Response body
-                </h4>
-                <pre className="overflow-x-auto rounded-lg bg-ink/[0.05] p-3.5 font-mono text-xs leading-relaxed text-ink">
+                <h4 className={cn(SECTION_LABEL, 'mb-2')}>Response body</h4>
+                <pre className="max-h-48 overflow-auto rounded-xl bg-ink/[0.05] p-4 font-mono text-xs leading-relaxed text-ink shadow-[inset_0_0_0_1px_rgba(12,14,11,0.06)] scrollbar-thin">
                   {inspectDelivery.responseBody}
                 </pre>
               </div>
             ) : null}
-
-            <div className="flex justify-end border-t border-ink/[0.07] pt-4">
-              <Button size="sm" variant="ghost" onClick={() => setInspectDelivery(null)}>
-                Close
-              </Button>
-            </div>
           </div>
-        </ModalShell>
+        </Modal>
       ) : null}
     </div>
   );

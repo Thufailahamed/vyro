@@ -9,15 +9,15 @@ interface Props {
 export function VerifiedBuyerBadge({ verified, level, verifiedAt }: Props) {
   if (!verified) return null;
   const date = verifiedAt ? new Date(verifiedAt).toLocaleDateString() : null;
-  const label = `VERIFIED${level && level !== 'none' ? ` · ${level.toUpperCase()}` : ''}`;
+  const lvl = level && level !== 'none' ? level : null;
   return (
     <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-semibold bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 rounded-full"
+      className="inline-flex items-center gap-1 rounded-full bg-mint/10 px-2 py-0.5 text-[10px] font-bold uppercase leading-4 tracking-[0.06em] text-mint-deep ring-1 ring-inset ring-mint/30"
       title={date ? `Verified buyer · ${level} · ${date}` : 'Verified buyer'}
       aria-label="Verified buyer"
     >
-      <ShieldCheckIcon size={12} />
-      {label}
+      <ShieldCheckIcon size={11} />
+      Verified{lvl ? <span className="font-semibold opacity-70">· {lvl}</span> : null}
     </span>
   );
 }

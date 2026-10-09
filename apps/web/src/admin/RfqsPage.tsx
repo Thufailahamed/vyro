@@ -1,28 +1,44 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { cn, useToast } from '@vyro/ui';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { api } from '@/lib/api';
-import { Surface, MetricNumber } from '@/components/brand/Surface';
-import { Button, ErrorBanner } from '@/components/ui';
-import { Link } from 'react-router-dom';
-import { useToast } from '@vyro/ui';
 import { formatLKR } from '@/lib/format';
 import {
   FileTextIcon,
   ClockIcon,
   CheckCircleIcon,
-  AlertCircleIcon,
   SearchIcon,
   RefreshCwIcon,
   ArrowRightIcon,
   ExternalLinkIcon,
-  Building2Icon,
-  PackageIcon,
   Edit3Icon,
   XIcon,
   ScaleIcon,
   TruckIcon,
+  MapPinIcon,
 } from '@/components/icons';
+import {
+  AdminPage,
+  AdminPageHeader,
+  Button,
+  Callout,
+  EmptyBlock,
+  Panel,
+  Pill,
+  buttonClass,
+  Skeleton,
+  StatCard,
+  StatGrid,
+  TableCard,
+  TableSkeleton,
+  Tabs,
+  Toolbar,
+  controlClass,
+} from './ui';
+import { Monogram, formatDate } from './registryUi';
+import type { PillTone } from './ui';
 
 interface AdminRfqRow {
   id: string;
@@ -44,92 +60,72 @@ interface RfqThresholds {
   quantityThreshold: number;
 }
 
+interface SweepResult {
+  rfqsExpired: number;
+  quotesExpired: number;
+  reminders: number;
+}
+
 const STATUS_GROUPS: Array<{ key: string; label: string; match: (s: string) => boolean }> = [
-  { key: 'all', label: 'All RFQs', match: () => true },
-  { key: 'open', label: 'Open · Quoting', match: (s) => ['open', 'quoting'].includes(s) },
-  { key: 'review', label: 'Quotes Received · Under Review', match: (s) => ['quotes_received', 'under_review'].includes(s) },
-  { key: 'awarded', label: 'Awarded · Converted to PO', match: (s) => ['awarded', 'converted_to_order'].includes(s) },
-  { key: 'closed', label: 'Expired · Cancelled · Closed', match: (s) => ['expired', 'cancelled', 'closed', 'draft'].includes(s) },
+  { key: 'all', label: 'All', match: () => true },
+  { key: 'open', label: 'Open', match: (s) => ['open', 'quoting'].includes(s) },
+  { key: 'review', label: 'Under review', match: (s) => ['quotes_received', 'under_review'].includes(s) },
+  { key: 'awarded', label: 'Awarded', match: (s) => ['awarded', 'converted_to_order'].includes(s) },
+  { key: 'closed', label: 'Closed', match: (s) => ['expired', 'cancelled', 'closed', 'draft'].includes(s) },
 ];
 
-function statusColor(status: string) {
+function statusTone(status: string): PillTone {
   switch (status.toLowerCase()) {
     case 'open':
     case 'quoting':
-      return 'bg-volt/15 text-volt-deep border-volt/30';
+      return 'success';
     case 'quotes_received':
     case 'under_review':
-      return 'bg-copper/10 text-copper-deep border-copper/30';
+      return 'warning';
     case 'awarded':
     case 'converted_to_order':
-      return 'bg-mint/15 text-mint border-mint/30';
+      return 'brand';
     case 'expired':
     case 'cancelled':
-    case 'closed':
-      return 'bg-rose/10 text-rose border-rose/25';
+      return 'danger';
     default:
-      return 'bg-bone text-ink-4 border-ink/10';
+      return 'neutral';
   }
 }
 
-function statusDot(status: string) {
-  switch (status.toLowerCase()) {
-    case 'open':
-    case 'quoting':
-      return 'bg-mint animate-pulse';
-    case 'quotes_received':
-    case 'under_review':
-      return 'bg-copper';
-    case 'awarded':
-    case 'converted_to_order':
-      return 'bg-mint';
-    case 'expired':
-    case 'cancelled':
-      return 'bg-rose';
-    default:
-      return 'bg-ink-4';
-  }
+function statusLabel(status: string) {
+  const text = status.replace(/_/g, ' ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function formatDeadline(ts: number | null) {
-  if (!ts) return { text: 'No deadline set', isPast: false };
+function formatDeadline(ts: number | null): { text: string; tone: 'muted' | 'ok' | 'danger' } {
+  if (!ts) return { text: 'No deadline set', tone: 'muted' };
   const diff = ts - Date.now();
-  if (diff < 0) return { text: 'Expired', isPast: true };
+  if (diff < 0) return { text: 'Expired', tone: 'danger' };
   const hours = Math.floor(diff / (1000 * 60 * 60));
-  if (hours < 24) return { text: `Closes in ${hours}h`, isPast: false };
-  const days = Math.floor(hours / 24);
-  return { text: `Closes in ${days}d`, isPast: false };
+  if (hours < 24) return { text: `Closes in ${hours}h`, tone: 'ok' };
+  return { text: `Closes in ${Math.floor(hours / 24)}d`, tone: 'ok' };
 }
 
-function formatDate(ts: number) {
-  return new Date(ts).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
+const CARD_INSET = 'bg-bone/60 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.06)]';
 
 export function AdminRfqsPage() {
   usePageTitle('RFQ Oversight');
   const toast = useToast();
   const qc = useQueryClient();
 
-  const [result, setResult] = useState<{ rfqsExpired: number; quotesExpired: number; reminders: number } | null>(null);
+  const [result, setResult] = useState<SweepResult | null>(null);
   const [running, setRunning] = useState(false);
   const [isEditingThresholds, setIsEditingThresholds] = useState(false);
-
-  // Search and filter
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [group, setGroup] = useState('all');
 
-  // Query all platform RFQs
   const rfqsQuery = useQuery({
     queryKey: ['admin-rfqs'],
     queryFn: () => api.get<{ rfqs: AdminRfqRow[] }>('/rfqs'),
     refetchInterval: 60_000,
   });
 
-  // Query active bulk thresholds
   const thresholdsQuery = useQuery({
     queryKey: ['rfq-thresholds'],
     queryFn: () => api.get<RfqThresholds>('/rfqs/thresholds'),
@@ -138,14 +134,10 @@ export function AdminRfqsPage() {
   const allRfqs = rfqsQuery.data?.rfqs ?? [];
   const thresholds = thresholdsQuery.data;
 
-  // Run expiry sweep
   async function sweep() {
     setRunning(true);
     try {
-      const r = await api.post<{ rfqsExpired: number; quotesExpired: number; reminders: number }>(
-        '/rfqs/admin/expire',
-        {},
-      );
+      const r = await api.post<SweepResult>('/rfqs/admin/expire', {});
       setResult(r);
       toast.show(
         toast.success(
@@ -160,527 +152,397 @@ export function AdminRfqsPage() {
     }
   }
 
-  // Filtered RFQ rows
+  const search = searchInput.trim().toLowerCase();
+
   const filteredRfqs = useMemo(() => {
     return allRfqs.filter((r) => {
-      const matchesGroup = STATUS_GROUPS.find((g) => g.key === group)?.match(r.status) ?? true;
-      if (!matchesGroup) return false;
-
-      if (search.trim()) {
-        const s = search.toLowerCase();
-        const matchesSearch =
-          r.rfqNumber.toLowerCase().includes(s) ||
-          r.title.toLowerCase().includes(s) ||
-          (r.businessName && r.businessName.toLowerCase().includes(s)) ||
-          (r.deliveryCity && r.deliveryCity.toLowerCase().includes(s));
-        if (!matchesSearch) return false;
-      }
-      return true;
+      if (!(STATUS_GROUPS.find((g) => g.key === group)?.match(r.status) ?? true)) return false;
+      if (!search) return true;
+      return (
+        r.rfqNumber.toLowerCase().includes(search) ||
+        r.title.toLowerCase().includes(search) ||
+        (r.businessName?.toLowerCase().includes(search) ?? false) ||
+        (r.deliveryCity?.toLowerCase().includes(search) ?? false)
+      );
     });
   }, [allRfqs, group, search]);
 
-  // Metrics summary
   const metrics = useMemo(() => {
-    const total = allRfqs.length;
-    const open = allRfqs.filter((r) => ['open', 'quoting'].includes(r.status)).length;
-    const review = allRfqs.filter((r) => ['quotes_received', 'under_review'].includes(r.status)).length;
-    const awarded = allRfqs.filter((r) => ['awarded', 'converted_to_order'].includes(r.status)).length;
-    const closed = allRfqs.filter((r) => ['expired', 'cancelled', 'closed'].includes(r.status)).length;
-    return { total, open, review, awarded, closed };
+    const count = (match: (s: string) => boolean) => allRfqs.filter((r) => match(r.status)).length;
+    return {
+      total: allRfqs.length,
+      open: count((s) => ['open', 'quoting'].includes(s)),
+      review: count((s) => ['quotes_received', 'under_review'].includes(s)),
+      awarded: count((s) => ['awarded', 'converted_to_order'].includes(s)),
+    };
   }, [allRfqs]);
 
-  return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-16">
-      {/* ── 1. Executive Command Header ── */}
-      <header className="bg-ink text-paper border border-paper/10 relative overflow-hidden grain shadow-lg">
-        <div className="p-6 sm:p-8">
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="vyro-kicker text-volt">Operations Command</span>
-                <span className="text-paper/40">/</span>
-                <span className="text-[11px] font-mono text-paper/70">Procurement Oversight</span>
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-volt/10 border border-volt/25 text-[10px] font-mono text-volt uppercase tracking-wider font-bold">
-                  <span className="size-1.5 rounded-full bg-volt animate-pulse" />
-                  National RFQ Clearinghouse
-                </span>
-              </div>
-              <h1 className="vyro-display text-3xl sm:text-4xl text-paper font-bold tracking-tight">
-                RFQ Oversight
-              </h1>
-              <p className="text-xs sm:text-sm text-paper/70 max-w-2xl leading-relaxed">
-                Platform-wide bulk quotation governance, commercial qualification thresholds, automated expiry sweeps, and pipeline conversion into commercial purchase orders.
-              </p>
-            </div>
+  const filtered = group !== 'all' || search.length > 0;
 
-            {/* Quick Actions */}
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void sweep()}
-                disabled={running}
-                loading={running}
-                className="border-paper/20 text-paper hover:bg-paper/10 text-xs font-mono"
+  const resetFilters = () => {
+    setSearchInput('');
+    setGroup('all');
+  };
+
+  return (
+    <AdminPage>
+      <AdminPageHeader
+        kicker="Operations command · Procurement oversight"
+        title="RFQ Oversight"
+        description="Platform-wide bulk quotation governance, commercial qualification thresholds, automated expiry sweeps, and pipeline conversion into purchase orders."
+        meta={
+          <Pill tone="success" dot>
+            National RFQ clearinghouse
+          </Pill>
+        }
+        actions={
+          <>
+            <Link to="/rfqs" className={buttonClass('secondary')}>
+              <span>Buyer portal</span>
+              <ExternalLinkIcon size={13} />
+            </Link>
+            <Button variant="volt" onClick={() => void sweep()} disabled={running}>
+              <RefreshCwIcon size={14} className={running ? 'animate-spin' : undefined} />
+              <span>Run expiry sweep</span>
+            </Button>
+          </>
+        }
+      />
+
+      {rfqsQuery.isError ? (
+        <Callout
+          tone="danger"
+          title="Couldn't load RFQs"
+          action={
+            <Button variant="secondary" size="sm" onClick={() => void rfqsQuery.refetch()}>
+              Retry
+            </Button>
+          }
+        >
+          The RFQ service didn't respond. Check the backend and try again.
+        </Callout>
+      ) : null}
+
+      <StatGrid>
+        <StatCard
+          label="Total platform RFQs"
+          value={metrics.total}
+          sub="Procurement tenders"
+          icon={<FileTextIcon size={16} />}
+          loading={rfqsQuery.isLoading}
+        />
+        <StatCard
+          label="Awaiting quotes"
+          value={metrics.open}
+          sub="Active supplier bidding"
+          icon={<ClockIcon size={16} />}
+          loading={rfqsQuery.isLoading}
+        />
+        <StatCard
+          label="Under review"
+          value={metrics.review}
+          sub="Quotes received & comparing"
+          icon={<ScaleIcon size={16} />}
+          tone={metrics.review > 0 ? 'warning' : 'neutral'}
+          loading={rfqsQuery.isLoading}
+        />
+        <StatCard
+          label="Awarded & cleared"
+          value={metrics.awarded}
+          sub="Converted into purchase orders"
+          icon={<CheckCircleIcon size={16} />}
+          tone={metrics.awarded > 0 ? 'success' : 'neutral'}
+          loading={rfqsQuery.isLoading}
+        />
+      </StatGrid>
+
+      <div className="grid gap-5 md:grid-cols-3">
+        <Panel
+          title="Bulk-quote qualification"
+          description="Carts meeting either threshold are prompted to request negotiated wholesale quotes."
+          icon={<ScaleIcon size={16} />}
+          className="flex flex-col"
+          bodyClassName="space-y-3"
+          footer={
+            <div className="flex items-center justify-between gap-3">
+              <span>Configured via platform settings</span>
+              <button
+                type="button"
+                onClick={() => setIsEditingThresholds(true)}
+                disabled={!thresholds}
+                className="inline-flex items-center gap-1.5 font-semibold text-ink transition-colors hover:text-copper disabled:opacity-50"
               >
-                <RefreshCwIcon size={14} className={running ? 'animate-spin' : ''} />
-                <span>Run Expiry Sweep</span>
+                <Edit3Icon size={12} />
+                Edit thresholds
+              </button>
+            </div>
+          }
+        >
+          {thresholds ? (
+            <>
+              <ThresholdRow label="Minimum cart value" value={formatLKR(thresholds.valueThresholdCents)} />
+              <ThresholdRow label="Minimum quantity" value={`${thresholds.quantityThreshold}+ units`} />
+            </>
+          ) : (
+            <div className="space-y-3">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          )}
+        </Panel>
+
+        <Panel
+          title="Expiry sweep engine"
+          description="An hourly background job closes expired RFQs, archives overdue bids, and dispatches reminders."
+          icon={<RefreshCwIcon size={16} />}
+          className="flex flex-col"
+          bodyClassName="space-y-3"
+          footer={
+            <div className="flex items-center justify-between gap-3">
+              <span>Runs hourly · manual anytime</span>
+              <Button variant="secondary" size="sm" disabled={running} onClick={() => void sweep()}>
+                <RefreshCwIcon size={12} className={running ? 'animate-spin' : undefined} />
+                Run sweep now
               </Button>
-              <Link
-                to="/rfqs"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider font-bold bg-volt text-ink hover:bg-volt/90 transition-colors shadow-sm"
-              >
-                <span>Buyer Portal</span>
-                <ExternalLinkIcon size={12} />
+            </div>
+          }
+        >
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-4">Last sweep</div>
+          {result ? (
+            <div className="grid grid-cols-3 gap-2">
+              <SweepStat label="RFQs" value={result.rfqsExpired} />
+              <SweepStat label="Quotes" value={result.quotesExpired} />
+              <SweepStat label="Reminders" value={result.reminders} />
+            </div>
+          ) : (
+            <div className={cn('rounded-xl px-4 py-3.5 text-sm text-ink-3', CARD_INSET)}>
+              Standing by. No manual sweep has been run in this session.
+            </div>
+          )}
+        </Panel>
+
+        <Panel
+          title="Purchase order conversion"
+          description="Awarded RFQ quotes move into standard purchase orders with escrow protection and delivery verification."
+          icon={<TruckIcon size={16} />}
+          className="flex flex-col"
+          bodyClassName="space-y-3"
+          footer={
+            <div className="flex items-center justify-between gap-3">
+              <span>Track the orders pipeline</span>
+              <Link to="/orders" className="inline-flex items-center gap-1.5 font-semibold text-ink transition-colors hover:text-copper">
+                Manage orders
+                <ArrowRightIcon size={12} />
               </Link>
             </div>
-          </div>
-        </div>
-      </header>
-
-      {/* ── 2. KPI Metrics Summary Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Surface className="p-5 border border-ink/15 bg-paper hover:border-ink hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-[0.14em] font-mono text-ink-4 font-semibold">
-              Total Platform RFQs
-            </span>
-            <div className="size-8 bg-bone border border-ink/10 flex items-center justify-center shrink-0 text-ink">
-              <FileTextIcon size={16} />
+          }
+        >
+          <div className={cn('rounded-xl px-4 py-3.5', CARD_INSET)}>
+            <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <TruckIcon size={14} className="text-copper" />
+              Automated escrow & dispatch
             </div>
+            <p className="mt-1.5 text-xs leading-relaxed text-ink-4">
+              Agreed bulk pricing locks into binding procurement commitments for downstream warehouse logistics.
+            </p>
           </div>
-          <div className="mt-3">
-            <MetricNumber size="lg" className="text-ink font-bold">
-              {metrics.total}
-            </MetricNumber>
-            <div className="text-[11px] text-ink-4 mt-1">Total procurement tenders</div>
-          </div>
-        </Surface>
-
-        <Surface className="p-5 border border-ink/15 bg-paper hover:border-ink hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-[0.14em] font-mono text-ink-4 font-semibold">
-              Awaiting Quotes
-            </span>
-            <div className="size-8 bg-bone border border-ink/10 flex items-center justify-center shrink-0 text-volt-deep">
-              <ClockIcon size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <MetricNumber size="lg" className="text-volt-deep font-bold">
-              {metrics.open}
-            </MetricNumber>
-            <div className="text-[11px] text-ink-4 mt-1">Active supplier bidding</div>
-          </div>
-        </Surface>
-
-        <Surface className="p-5 border border-ink/15 bg-paper hover:border-ink hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-[0.14em] font-mono text-ink-4 font-semibold">
-              Under Review
-            </span>
-            <div className="size-8 bg-bone border border-ink/10 flex items-center justify-center shrink-0 text-copper-deep">
-              <ScaleIcon size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <MetricNumber size="lg" className="text-copper-deep font-bold">
-              {metrics.review}
-            </MetricNumber>
-            <div className="text-[11px] text-ink-4 mt-1">Quotes received & comparing</div>
-          </div>
-        </Surface>
-
-        <Surface className="p-5 border border-ink/15 bg-paper hover:border-ink hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-[0.14em] font-mono text-ink-4 font-semibold">
-              Awarded & Cleared
-            </span>
-            <div className="size-8 bg-bone border border-ink/10 flex items-center justify-center shrink-0 text-mint">
-              <CheckCircleIcon size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <MetricNumber size="lg" className="text-mint font-bold">
-              {metrics.awarded}
-            </MetricNumber>
-            <div className="text-[11px] text-ink-4 mt-1">Converted into Purchase Orders</div>
-          </div>
-        </Surface>
+        </Panel>
       </div>
 
-      {/* ── 3. Operations & Governance Deck ── */}
-      <div className="grid md:grid-cols-3 gap-5">
-        {/* Card 1: Bulk-Quote Thresholds */}
-        <Surface kind="elevated" className="p-6 border border-ink/15 shadow-sm flex flex-col justify-between space-y-4">
+      <TableCard
+        title="All procurement RFQs"
+        description={`Showing ${filteredRfqs.length} of ${allRfqs.length} across the platform`}
+        toolbar={
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="vyro-kicker text-copper">Procurement Rules</div>
-              <span className="px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider font-bold bg-bone text-ink-3 border border-ink/10">
-                Active Thresholds
-              </span>
-            </div>
-            <h3 className="font-display text-lg font-bold text-ink">Bulk-Quote Qualification</h3>
-            <p className="text-xs text-ink-3 leading-relaxed">
-              Carts meeting either threshold are automatically prompted to request negotiated wholesale quotes:
-            </p>
-
-            <div className="p-4 bg-bone/60 border border-ink/10 space-y-2 rounded-lg">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-ink-4">Minimum Cart Value</span>
-                <span className="vyro-metric font-bold text-ink">
-                  {thresholds ? formatLKR(thresholds.valueThresholdCents) : 'Rs. 1,000.00'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs pt-1.5 border-t border-ink/5">
-                <span className="text-ink-4">Minimum Quantity</span>
-                <span className="vyro-metric font-bold text-ink">
-                  {thresholds ? `${thresholds.quantityThreshold}+ units` : '500+ units'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-ink/10 flex items-center justify-between">
-            <span className="text-[11px] text-ink-4">Configured via Platform Settings</span>
-            <button
-              type="button"
-              onClick={() => setIsEditingThresholds(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-mono font-semibold text-copper hover:text-ink transition-colors"
-            >
-              <Edit3Icon size={12} />
-              <span>Edit Thresholds</span>
-            </button>
-          </div>
-        </Surface>
-
-        {/* Card 2: Expiry & Reminders Sweep */}
-        <Surface kind="elevated" className="p-6 border border-ink/15 shadow-sm flex flex-col justify-between space-y-4">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="vyro-kicker text-copper">Automated Maintenance</div>
-              <span className="px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider font-bold bg-mint/15 text-mint border border-mint/25">
-                Hourly Cron
-              </span>
-            </div>
-            <h3 className="font-display text-lg font-bold text-ink">Expiry Sweep Engine</h3>
-            <p className="text-xs text-ink-3 leading-relaxed">
-              Hourly background cron sweeps close expired RFQs, archive overdue supplier bids, and dispatch notification reminders.
-            </p>
-
-            <div className="p-4 bg-bone/60 border border-ink/10 rounded-lg space-y-1">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-semibold">
-                Last Sweep Telemetry
-              </div>
-              <div className="text-sm font-mono font-bold text-ink mt-1">
-                {result
-                  ? `${result.rfqsExpired} RFQs • ${result.quotesExpired} quotes • ${result.reminders} reminders`
-                  : 'Sweep standing by for execution'}
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-ink/10 flex items-center justify-between">
-            <span className="text-[11px] text-ink-4">Trigger manual sweep anytime</span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={running}
-              loading={running}
-              onClick={() => void sweep()}
-              className="text-xs font-mono"
-            >
-              <RefreshCwIcon size={12} className={running ? 'animate-spin' : ''} />
-              <span>Run Sweep Now</span>
-            </Button>
-          </div>
-        </Surface>
-
-        {/* Card 3: Purchase Order Pipeline Conversion */}
-        <Surface kind="elevated" className="p-6 border border-ink/15 shadow-sm flex flex-col justify-between space-y-4">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="vyro-kicker text-copper">Pipeline Lifecycle</div>
-              <span className="px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider font-bold bg-bone text-ink-3 border border-ink/10">
-                PO Integration
-              </span>
-            </div>
-            <h3 className="font-display text-lg font-bold text-ink">Purchase Order Conversion</h3>
-            <p className="text-xs text-ink-3 leading-relaxed">
-              Awarded RFQ quotes seamlessly transition into standard Purchase Orders with commercial escrow protection and delivery verification.
-            </p>
-
-            <div className="p-4 bg-bone/60 border border-ink/10 rounded-lg space-y-1">
-              <div className="flex items-center gap-2 text-xs font-semibold text-ink">
-                <TruckIcon size={14} className="text-copper" />
-                <span>Automated Escrow & Dispatch</span>
-              </div>
-              <p className="text-[11px] text-ink-4 leading-relaxed mt-1">
-                Lock agreed bulk pricing into binding procurement commitments for downstream warehouse logistics.
-              </p>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-ink/10 flex items-center justify-between">
-            <span className="text-[11px] text-ink-4">Track orders pipeline</span>
-            <Link
-              to="/orders"
-              className="inline-flex items-center gap-1.5 text-xs font-mono font-semibold text-copper hover:text-ink transition-colors"
-            >
-              <span>Manage Orders</span>
-              <ArrowRightIcon size={12} />
-            </Link>
-          </div>
-        </Surface>
-      </div>
-
-      {/* ── 4. All Platform RFQs Registry Table ── */}
-      <Surface className="border border-ink/15 bg-paper overflow-hidden shadow-sm space-y-0">
-        {/* Table Header & Search Filter */}
-        <div className="p-5 border-b border-ink/10 bg-paper space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <div className="vyro-kicker text-copper">Platform Directory</div>
-              <h3 className="font-display text-lg font-bold text-ink mt-0.5">
-                All Procurement RFQs ({filteredRfqs.length})
-              </h3>
-            </div>
-
-            {/* Keyword Search */}
-            <div className="relative w-full sm:w-80">
-              <SearchIcon
-                size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4 pointer-events-none"
-              />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by RFQ #, title, business, or city…"
-                className="w-full h-9 pl-9 pr-8 text-xs bg-bone/60 border border-ink/15 rounded-lg focus:outline-none focus:border-ink focus:bg-paper transition-all"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-4 hover:text-ink text-xs"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Status Tabs */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
-            {STATUS_GROUPS.map((g) => {
-              const count = allRfqs.filter((r) => g.match(r.status)).length;
-              const isActive = group === g.key;
-              return (
-                <button
-                  key={g.key}
-                  type="button"
-                  onClick={() => setGroup(g.key)}
-                  className={`px-3 py-1.5 text-xs font-mono font-semibold transition-all whitespace-nowrap border flex items-center gap-1.5 ${
-                    isActive
-                      ? 'bg-ink text-paper border-ink shadow-2xs'
-                      : 'bg-transparent text-ink-3 border-transparent hover:border-ink/15 hover:text-ink'
-                  }`}
-                >
-                  <span>{g.label}</span>
-                  <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                      isActive ? 'bg-paper text-ink font-bold' : 'bg-bone text-ink-4'
-                    }`}
+            <Tabs
+              ariaLabel="Filter RFQs by status"
+              value={group}
+              onChange={setGroup}
+              items={STATUS_GROUPS.map((g) => ({
+                key: g.key,
+                label: g.label,
+                count: allRfqs.filter((r) => g.match(r.status)).length,
+              }))}
+            />
+            <Toolbar>
+              <div className="relative min-w-0 flex-1 sm:max-w-sm">
+                <SearchIcon size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Search RFQ #, title, buyer or city"
+                  aria-label="Search RFQs"
+                  className={cn(controlClass, 'w-full pl-9 pr-8')}
+                />
+                {searchInput ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchInput('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-4 transition-colors hover:text-ink"
+                    aria-label="Clear search"
                   >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Table Content */}
-        {rfqsQuery.isLoading ? (
-          <div className="p-6 divide-y divide-ink/5 space-y-4">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center justify-between gap-4 animate-pulse pt-3 first:pt-0">
-                <div className="space-y-1.5 flex-1">
-                  <div className="h-4 bg-mist rounded w-1/3" />
-                  <div className="h-3 bg-bone rounded w-1/4" />
-                </div>
-                <div className="h-5 bg-bone rounded w-24" />
-                <div className="h-5 bg-bone rounded w-20" />
+                    <XIcon size={14} />
+                  </button>
+                ) : null}
               </div>
-            ))}
+            </Toolbar>
           </div>
+        }
+        footer={
+          <>
+            <span>
+              Showing <strong className="text-ink">{filteredRfqs.length}</strong>{' '}
+              {filteredRfqs.length === 1 ? 'RFQ' : 'RFQs'}
+              {filtered ? ' · filters applied' : ''}
+            </span>
+            {filtered ? (
+              <button type="button" onClick={resetFilters} className="font-semibold text-copper transition-colors hover:text-ink">
+                Reset filters
+              </button>
+            ) : null}
+          </>
+        }
+      >
+        {rfqsQuery.isLoading ? (
+          <TableSkeleton rows={6} cols={5} />
         ) : filteredRfqs.length === 0 ? (
-          <div className="py-16 text-center space-y-3">
-            <div className="w-12 h-12 rounded-xl bg-bone flex items-center justify-center text-ink-4 mx-auto">
-              <FileTextIcon size={24} />
-            </div>
-            <h4 className="font-display text-base font-semibold text-ink">No RFQs found</h4>
-            <p className="text-xs text-ink-4 max-w-sm mx-auto">
-              {search || group !== 'all'
-                ? 'No procurement requests match your current search and filter settings.'
-                : 'There are currently no RFQs registered across the platform.'}
-            </p>
-            {(search || group !== 'all') && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSearch('');
-                  setGroup('all');
-                }}
-              >
-                Reset Filters
-              </Button>
-            )}
-          </div>
+          <EmptyBlock
+            icon={<FileTextIcon size={22} />}
+            title="No RFQs found"
+            description={
+              filtered
+                ? 'No procurement requests match the current search and filters.'
+                : 'There are currently no RFQs registered across the platform.'
+            }
+            action={
+              filtered ? (
+                <Button variant="secondary" size="sm" onClick={resetFilters}>
+                  Reset filters
+                </Button>
+              ) : undefined
+            }
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-bone/80 border-b border-ink/10 text-ink-4 font-mono uppercase tracking-wider text-[10px]">
-                  <th className="py-3 px-5">RFQ Reference & Title</th>
-                  <th className="py-3 px-4">Purchasing Entity</th>
-                  <th className="py-3 px-4">Delivery Location</th>
-                  <th className="py-3 px-4 text-center">Status</th>
-                  <th className="py-3 px-4">Deadline</th>
-                  <th className="py-3 px-5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/5 bg-paper">
-                {filteredRfqs.map((rfq) => {
-                  const deadlineInfo = formatDeadline(rfq.deadline);
-                  return (
-                    <tr key={rfq.id} className="hover:bg-bone/50 transition-colors group">
-                      {/* Reference & Title */}
-                      <td className="py-3.5 px-5">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-xs text-ink bg-bone px-1.5 py-0.5 rounded border border-ink/5">
-                              {rfq.rfqNumber}
-                            </span>
-                            <span className="text-[10px] font-mono text-ink-4">
-                              {formatDate(rfq.createdAt)}
-                            </span>
-                          </div>
-                          <Link
-                            to={`/rfqs/${rfq.id}`}
-                            className="font-semibold text-sm text-ink hover:text-copper transition-colors block"
-                          >
-                            {rfq.title}
-                          </Link>
-                        </div>
-                      </td>
-
-                      {/* Purchasing Business */}
-                      <td className="py-3.5 px-4">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>RFQ</th>
+                <th>Buyer</th>
+                <th>Delivery</th>
+                <th>Status</th>
+                <th>Deadline</th>
+                <th className="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRfqs.map((rfq) => {
+                const deadline = formatDeadline(rfq.deadline);
+                const location = [rfq.deliveryCity, rfq.deliveryDistrict].filter(Boolean).join(', ');
+                const buyer = rfq.businessName ?? 'Commercial buyer';
+                return (
+                  <tr key={rfq.id} className="group/row">
+                    <td>
+                      <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-md bg-bone flex items-center justify-center text-ink shrink-0">
-                            <Building2Icon size={12} />
-                          </div>
-                          <span className="font-medium text-ink">
-                            {rfq.businessName ?? 'Commercial Buyer'}
+                          <span className="rounded-md bg-ink/[0.05] px-1.5 py-0.5 font-mono text-[11px] font-semibold text-ink">
+                            {rfq.rfqNumber}
                           </span>
+                          <span className="font-mono text-[11px] text-ink-5">{formatDate(rfq.createdAt)}</span>
                         </div>
-                      </td>
-
-                      {/* Delivery Location */}
-                      <td className="py-3.5 px-4">
-                        <div className="text-ink-3">
-                          {rfq.deliveryCity || rfq.deliveryDistrict ? (
-                            <span>
-                              📍 {[rfq.deliveryCity, rfq.deliveryDistrict].filter(Boolean).join(', ')}
-                            </span>
-                          ) : (
-                            <span className="text-ink-4">—</span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Status Badge */}
-                      <td className="py-3.5 px-4 text-center">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase border ${statusColor(
-                            rfq.status,
-                          )}`}
+                        <Link
+                          to={`/rfqs/${rfq.id}`}
+                          className="mt-1 block max-w-md truncate font-medium text-ink transition-colors hover:text-copper"
                         >
-                          <span className={`size-1.5 rounded-full ${statusDot(rfq.status)}`} />
-                          {rfq.status.replace(/_/g, ' ')}
+                          {rfq.title}
+                        </Link>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-2.5">
+                        <Monogram name={buyer} seed={rfq.businessId} size="sm" />
+                        <span className="truncate font-medium text-ink">{buyer}</span>
+                      </div>
+                    </td>
+                    <td>
+                      {location ? (
+                        <span className="inline-flex items-center gap-1.5 text-ink-3">
+                          <MapPinIcon size={13} className="shrink-0 text-ink-4" />
+                          {location}
                         </span>
-                      </td>
-
-                      {/* Deadline */}
-                      <td className="py-3.5 px-4">
-                        <div className="space-y-0.5">
-                          <span
-                            className={`font-mono text-xs font-medium ${
-                              deadlineInfo.isPast ? 'text-rose font-bold' : 'text-ink-3'
-                            }`}
-                          >
-                            {deadlineInfo.text}
-                          </span>
-                          {rfq.deadline && (
-                            <div className="text-[10px] text-ink-4">
-                              {new Date(rfq.deadline).toLocaleDateString('en-GB', {
-                                day: 'numeric',
-                                month: 'short',
-                              })}
-                            </div>
+                      ) : (
+                        <span className="text-ink-5">—</span>
+                      )}
+                    </td>
+                    <td>
+                      <Pill tone={statusTone(rfq.status)} dot>
+                        {statusLabel(rfq.status)}
+                      </Pill>
+                    </td>
+                    <td>
+                      <div className="space-y-0.5">
+                        <div
+                          className={cn(
+                            'font-mono text-xs font-medium',
+                            deadline.tone === 'danger' && 'font-bold text-rose',
+                            deadline.tone === 'ok' && 'text-ink-3',
+                            deadline.tone === 'muted' && 'text-ink-5',
                           )}
+                        >
+                          {deadline.text}
                         </div>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-3.5 px-5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-2">
-                          <Link
-                            to={`/rfqs/${rfq.id}`}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-mono font-semibold bg-bone hover:bg-ink hover:text-paper text-ink border border-ink/10 rounded transition-colors"
-                          >
-                            <span>Inspect</span>
-                            <ArrowRightIcon size={11} />
-                          </Link>
-                          <Link
-                            to={`/rfqs/${rfq.id}/compare`}
-                            className="p-1 rounded text-ink-4 hover:text-copper hover:bg-bone transition-colors"
-                            title="Compare Quotes"
-                          >
-                            <ScaleIcon size={14} />
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        {rfq.deadline ? (
+                          <div className="text-[11px] text-ink-5">
+                            {new Date(rfq.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                          </div>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="text-right">
+                      <div className="inline-flex items-center justify-end gap-1.5">
+                        <Link to={`/rfqs/${rfq.id}/compare`} title="Compare quotes" aria-label="Compare quotes" className={buttonClass('ghost', 'sm')}>
+                          <ScaleIcon size={14} />
+                        </Link>
+                        <Link to={`/rfqs/${rfq.id}`} className={buttonClass('secondary', 'sm')}>
+                          Inspect
+                          <ArrowRightIcon size={12} />
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
-      </Surface>
+      </TableCard>
 
-      {/* ── 5. Edit Thresholds Modal ── */}
-      {isEditingThresholds && thresholds && (
-        <EditThresholdsModal
-          thresholds={thresholds}
-          onClose={() => setIsEditingThresholds(false)}
-        />
-      )}
+      {isEditingThresholds && thresholds ? (
+        <EditThresholdsModal thresholds={thresholds} onClose={() => setIsEditingThresholds(false)} />
+      ) : null}
+    </AdminPage>
+  );
+}
+
+function ThresholdRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className={cn('flex items-center justify-between gap-3 rounded-xl px-4 py-3', CARD_INSET)}>
+      <span className="text-xs font-medium text-ink-4">{label}</span>
+      <span className="font-mono text-sm font-semibold text-ink num-tabular">{value}</span>
     </div>
   );
 }
 
-function EditThresholdsModal({
-  thresholds,
-  onClose,
-}: {
-  thresholds: RfqThresholds;
-  onClose: () => void;
-}) {
+function SweepStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className={cn('rounded-xl px-3 py-2.5', CARD_INSET)}>
+      <div className="vyro-metric text-xl leading-none text-ink">{value}</div>
+      <div className="mt-1.5 text-[11px] text-ink-4">{label}</div>
+    </div>
+  );
+}
+
+function EditThresholdsModal({ thresholds, onClose }: { thresholds: RfqThresholds; onClose: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
 
@@ -699,7 +561,7 @@ function EditThresholdsModal({
         rfqQuantityThreshold: qty,
       });
       await qc.invalidateQueries({ queryKey: ['rfq-thresholds'] });
-      toast.show(toast.success('Procurement thresholds updated successfully'));
+      toast.show(toast.success('Procurement thresholds updated'));
       onClose();
     } catch (e: any) {
       setErr(e?.message || 'Failed to update platform settings');
@@ -710,47 +572,40 @@ function EditThresholdsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm animate-fade-in"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="rfq-thresholds-title"
       onClick={onClose}
     >
-      <div
-        className="bg-paper rounded-2xl border border-ink/10 shadow-2xl max-w-md w-full overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-6 py-4 border-b border-ink/10 bg-bone/50 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-copper/15 text-copper-deep flex items-center justify-center font-bold">
+      <div className="vyro-floating w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 px-6 pt-6">
+          <div className="flex items-start gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-b from-paper to-bone text-copper-deep shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08),0_1px_2px_rgba(12,14,11,0.06)]">
               <ScaleIcon size={16} />
-            </div>
+            </span>
             <div>
-              <h3 className="font-display text-base font-semibold text-ink">
-                Adjust RFQ Qualification Thresholds
+              <h3 id="rfq-thresholds-title" className="font-sans text-[0.9375rem] font-semibold tracking-[-0.01em] text-ink">
+                Qualification thresholds
               </h3>
-              <p className="text-[11px] text-ink-4">Global cart qualification rules</p>
+              <p className="mt-0.5 text-xs text-ink-4">Global rules that prompt bulk negotiation at checkout.</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-md text-ink-4 hover:text-ink hover:bg-bone transition"
+            aria-label="Close"
+            className="rounded-md p-1 text-ink-4 transition-colors hover:bg-ink/[0.05] hover:text-ink"
           >
             <XIcon size={16} />
           </button>
         </div>
 
-        {err && (
-          <div className="p-4 border-b border-rose/20 bg-rose/5">
-            <ErrorBanner message={err} />
-          </div>
-        )}
+        <form onSubmit={handleSubmit} className="mt-5 space-y-5 px-6 pb-6">
+          {err ? <Callout tone="danger">{err}</Callout> : null}
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-ink-4 font-semibold mb-1">
-              Minimum Cart Value (LKR)
-            </label>
+          <label className="block">
+            <span className="text-xs font-semibold text-ink-3">Minimum cart value (LKR)</span>
             <input
               type="number"
               min={0}
@@ -758,36 +613,32 @@ function EditThresholdsModal({
               required
               value={valueLkr}
               onChange={(e) => setValueLkr(Number(e.target.value))}
-              className="w-full h-9 px-3 text-xs font-mono bg-bone/60 border border-ink/15 rounded-lg focus:outline-none focus:border-ink focus:bg-paper transition-all"
+              className={cn(controlClass, 'mt-1.5 w-full num-tabular')}
             />
-            <p className="text-[10px] text-ink-4 mt-1">
-              Qualifies cart for bulk negotiation when total exceeds Rs. {valueLkr.toLocaleString()}
-            </p>
-          </div>
+            <span className="mt-1.5 block text-[11px] text-ink-4">
+              Qualifies a cart when its total exceeds Rs. {valueLkr.toLocaleString()}.
+            </span>
+          </label>
 
-          <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-ink-4 font-semibold mb-1">
-              Minimum Cart Quantity (Units)
-            </label>
+          <label className="block">
+            <span className="text-xs font-semibold text-ink-3">Minimum cart quantity (units)</span>
             <input
               type="number"
               min={1}
               required
               value={qty}
               onChange={(e) => setQty(Number(e.target.value))}
-              className="w-full h-9 px-3 text-xs font-mono bg-bone/60 border border-ink/15 rounded-lg focus:outline-none focus:border-ink focus:bg-paper transition-all"
+              className={cn(controlClass, 'mt-1.5 w-full num-tabular')}
             />
-            <p className="text-[10px] text-ink-4 mt-1">
-              Qualifies cart when total item units exceed {qty} units
-            </p>
-          </div>
+            <span className="mt-1.5 block text-[11px] text-ink-4">Qualifies a cart when it exceeds {qty} units.</span>
+          </label>
 
-          <div className="flex justify-end gap-2 pt-4 border-t border-ink/10">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
+          <div className="flex justify-end gap-2 border-t border-ink/[0.07] pt-5">
+            <Button variant="ghost" onClick={onClose} disabled={saving}>
               Cancel
             </Button>
-            <Button type="submit" loading={saving} disabled={saving}>
-              Save Thresholds
+            <Button type="submit" variant="primary" disabled={saving}>
+              Save thresholds
             </Button>
           </div>
         </form>

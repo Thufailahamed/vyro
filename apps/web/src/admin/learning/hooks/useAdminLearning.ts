@@ -3,10 +3,19 @@ import { learningApi } from '../../../lib/learningApi';
 
 export const adminLearningKeys = {
   list: ['admin', 'learning', 'list'] as const,
+  detail: (id: string) => ['admin', 'learning', 'detail', id] as const,
 };
 
 export function useAdminLessons() {
   return useQuery({ queryKey: adminLearningKeys.list, queryFn: () => learningApi.adminListLessons() });
+}
+
+export function useAdminLesson(id: string | undefined) {
+  return useQuery({
+    queryKey: adminLearningKeys.detail(id ?? ''),
+    queryFn: () => learningApi.adminGetLesson(id!),
+    enabled: Boolean(id),
+  });
 }
 
 export function useAdminCreateLesson() {
@@ -21,7 +30,10 @@ export function useAdminUpdateLesson(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: Record<string, unknown>) => learningApi.adminUpdateLesson(id, input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: adminLearningKeys.list }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: adminLearningKeys.list });
+      void qc.invalidateQueries({ queryKey: adminLearningKeys.detail(id) });
+    },
   });
 }
 
@@ -34,5 +46,9 @@ export function useAdminDeleteLesson() {
 }
 
 export function useAdminReplaceQuiz(id: string) {
-  return useMutation({ mutationFn: (input: Record<string, unknown>) => learningApi.adminReplaceQuiz(id, input) });
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Record<string, unknown>) => learningApi.adminReplaceQuiz(id, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: adminLearningKeys.detail(id) }),
+  });
 }

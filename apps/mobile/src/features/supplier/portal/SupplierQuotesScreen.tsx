@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowRight, Clock, FileText, MapPin, Package, Send, Timer, Trophy } from 'lucide-react-native';
+import { ArrowRight, Clock, FileText, MapPin, Package, Send, Timer, Trophy, TriangleAlert, Sparkles } from 'lucide-react-native';
 import { useSupplierId } from '@/lib/auth';
 import { errorMessage } from '@/lib/api';
 import { formatDate } from '@/lib/format';
@@ -31,6 +31,53 @@ const CLOSED_STATUSES = ['cancelled', 'expired', 'closed', 'awarded', 'converted
 const isOpen = (s: string) => OPEN_STATUSES.includes(s.toLowerCase());
 const isClosed = (s: string) => CLOSED_STATUSES.includes(s.toLowerCase());
 const isNewInvite = (r: RfqInvite) => r.inviteStatus === 'invited' && r.myQuotes === 0 && !isClosed(r.rfq.status);
+
+const DAY = 86_400_000;
+
+/** "3d left" / "Ends today" / "Expired 2d ago" for an RFQ deadline. */
+function deadlineLabel(deadline: number, closed: boolean, now = Date.now()) {
+  const diff = deadline - now;
+  const days = Math.ceil(Math.abs(diff) / DAY);
+  if (diff < 0) return { text: days <= 1 ? 'Expired today' : `Expired ${days}d ago`, tone: 'past' as const };
+  if (closed) return { text: `Due ${formatDate(deadline)}`, tone: 'normal' as const };
+  if (diff < DAY) return { text: 'Ends today', tone: 'urgent' as const };
+  if (days <= 2) return { text: `${days}d left`, tone: 'urgent' as const };
+  return { text: `${days}d left · ${formatDate(deadline)}`, tone: 'normal' as const };
+}
+
+/** Tappable "needs attention" chip inside the ink hero. */
+function AttentionChip({ icon: Icon, label, count, color, onPress }: { icon: typeof Clock; label: string; count: number; color: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${count} ${label}`}
+      style={({ pressed }) => ({
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        padding: 12,
+        borderRadius: radii.lg,
+        borderCurve: 'continuous',
+        backgroundColor: pressed ? 'rgba(250,247,240,0.14)' : 'rgba(250,247,240,0.07)',
+        opacity: count ? 1 : 0.55,
+      })}
+    >
+      <View style={{ width: 30, height: 30, borderRadius: 10, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(250,247,240,0.08)' }}>
+        <Icon size={15} color={count ? color : colors.paperMuted} strokeWidth={2} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text variant="h3" color="paper" tabular>
+          {count}
+        </Text>
+        <Text variant="caption" color="paperMuted" numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
 
 /** One funnel stage: label, count and a proportional bar. */
 function FunnelRow({ label, value, max, sub, color }: { label: string; value: number; max: number; sub: string; color: string }) {
@@ -86,6 +133,9 @@ export function SupplierQuotesScreen() {
     if (t) list = list.filter((r) => r.rfq.title.toLowerCase().includes(t) || r.rfq.rfqNumber.toLowerCase().includes(t));
     // Urgent invites float to the top, then by nearest deadline.
     return [...list].sort((a, b) => {
+      const ca = isClosed(a.rfq.status) ? 1 : 0;
+      const cb = isClosed(b.rfq.status) ? 1 : 0;
+      if (ca !== cb) return ca - cb;
       const ea = a.expiringSoon ? 0 : 1;
       const eb = b.expiringSoon ? 0 : 1;
       if (ea !== eb) return ea - eb;
@@ -134,6 +184,10 @@ export function SupplierQuotesScreen() {
                 <FunnelRow label="Invites received" value={d.rfqsReceived} max={d.rfqsReceived} sub="RFQs" color="rgba(250,247,240,0.55)" />
                 <FunnelRow label="Quotes submitted" value={d.quotesSubmitted} max={d.rfqsReceived} sub={`${Math.round(d.responseRate * 100)}% response`} color={colors.copper} />
                 <FunnelRow label="Orders won" value={d.won} max={d.rfqsReceived} sub="awarded" color={colors.volt} />
+              </View>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <AttentionChip icon={Sparkles} label="New invites" count={counts.new} color={colors.volt} onPress={() => setFilter('new')} />
+                <AttentionChip icon={TriangleAlert} label="Expiring soon" count={counts.expiring} color={colors.rose} onPress={() => setFilter('expiring')} />
               </View>
             </InkHero>
           </Enter>
@@ -200,9 +254,13 @@ function QuoteCard({ invite: r }: { invite: RfqInvite }) {
   const isNew = isNewInvite(r);
   const closed = isClosed(r.rfq.status);
   const quoted = r.myQuotes > 0;
+  const dl = r.rfq.deadline ? deadlineLabel(r.rfq.deadline, closed) : null;
+  const accent = quoted ? colors.mint : closed ? colors.ink6 : r.expiringSoon ? colors.rose : isNew ? colors.volt : colors.copper;
+  const expired = r.rfq.status.toLowerCase() === 'expired';
   return (
-    <Card kind="flat" onPress={() => router.push(`/supplier/quotes/${r.rfq.id}` as never)} padding={0} style={{ overflow: 'hidden' }}>
-      <View style={{ padding: 16, gap: 12 }}>
+    <Card kind="flat" onPress={() => router.push(`/supplier/quotes/${r.rfq.id}` as never)} padding={0} style={{ overflow: 'hidden', opacity: closed && !quoted ? 0.88 : 1 }}>
+      <View style={{ position: 'absolute', left: 0, top: 18, bottom: 70, width: 3.5, borderTopRightRadius: 3, borderBottomRightRadius: 3, backgroundColor: accent }} />
+      <View style={{ padding: 16, paddingLeft: 18, gap: 12 }}>
         {/* Icon + number/title + status */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
           <IconTile icon={quoted ? Send : FileText} tone={quoted ? 'success' : closed ? 'paper' : isNew ? 'volt' : 'copper'} size={42} />
@@ -226,10 +284,14 @@ function QuoteCard({ invite: r }: { invite: RfqInvite }) {
 
         {/* Meta chips */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          <Meta icon={Package} text={`${r.itemCount} item${r.itemCount === 1 ? '' : 's'}`} />
+          {r.itemCount > 0 ? <Meta icon={Package} text={`${r.itemCount} item${r.itemCount === 1 ? '' : 's'}`} /> : null}
           {r.rfq.deliveryLocation ? <Meta icon={MapPin} text={r.rfq.deliveryLocation} /> : null}
-          {r.rfq.deadline ? (
-            <Meta icon={Clock} text={`Due ${formatDate(r.rfq.deadline)}${r.expiringSoon ? ' · expiring soon' : ''}`} color={r.expiringSoon ? colors.rose : undefined} />
+          {dl ? (
+            <Meta
+              icon={Clock}
+              text={dl.text}
+              color={dl.tone === 'urgent' ? colors.rose : dl.tone === 'past' ? colors.ink5 : undefined}
+            />
           ) : (
             <Meta icon={Timer} text="No deadline" />
           )}
@@ -252,7 +314,7 @@ function QuoteCard({ invite: r }: { invite: RfqInvite }) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: quoted ? colors.mint : closed ? colors.ink5 : colors.amber }} />
           <Text variant="caption" weight="semibold" color={quoted ? 'mint' : closed ? 'ink4' : 'amber'}>
-            {quoted ? `${r.myQuotes} quote${r.myQuotes === 1 ? '' : 's'} submitted` : closed ? 'Closed · not quoted' : isNew ? 'Awaiting your quote' : 'Not quoted yet'}
+            {quoted ? `${r.myQuotes} quote${r.myQuotes === 1 ? '' : 's'} submitted` : closed ? (expired ? 'Expired · not quoted' : 'Closed · not quoted') : isNew ? 'Awaiting your quote' : 'Not quoted yet'}
           </Text>
         </View>
         <View

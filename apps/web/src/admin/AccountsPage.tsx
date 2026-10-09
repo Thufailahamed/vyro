@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
+import { ProofPreview } from '@/components/payments/ProofPreview';
 import { Button, Input, Select, Label } from '@/components/ui';
 import { useToast } from '@vyro/ui';
 import { Money, StatusPill, time, useConfirm } from '@/accounts/shared';
@@ -375,21 +376,41 @@ function Refunds() {
   );
 }
 
+interface BankTransferRow {
+  id: string;
+  paymentId: string;
+  referenceNumber: string;
+  expectedCents: number;
+  transferredCents: number | null;
+  verifiedCents: number | null;
+  status: string;
+  bankReference: string | null;
+  hasProof: boolean;
+  proofFileName: string | null;
+  proofMimeType: string | null;
+  proofUploadedAt: number | null;
+  rejectionReason: string | null;
+  submittedAt: number | null;
+  createdAt: number;
+  paymentStatus: string;
+  purchaseOrderId: string;
+  poNumber: string;
+  businessId: string;
+  businessName: string | null;
+  supplierId: string;
+  supplierName: string | null;
+}
+
 function BankTransfers() {
-  const [status, setStatus] = useState('');
-  const { ask, dialog } = useConfirm();
-  const r = useRefresh([['admin-accounts', 'bank']]);
+  const [status, setStatus] = useState('pending_verification');
   const q = useQuery({
     queryKey: ['admin-accounts', 'bank', status],
-    queryFn: () => api.get<{ transfers: Array<{ id: string; paymentId: string; referenceNumber: string; expectedCents: number; transferredCents: number | null; verifiedCents: number | null; status: string; proofFileName: string | null; submittedAt: number | null }> }>(
-      `/admin/finance/bank-transfers?${status ? `status=${status}` : ''}`,
-    ),
+    queryFn: () => api.get<{ transfers: BankTransferRow[] }>(`/admin/finance/bank-transfers?${status ? `status=${status}` : ''}`),
   });
-  const [verify, setVerify] = useState({ cents: '', ref: '' });
   const transfers = q.data?.transfers ?? [];
   return (
     <div className="space-y-4">
-      <StatusFilterTabs value={status} onChange={setStatus} options={['', 'pending', 'pending_verification', 'verified', 'partial', 'rejected']} />
+      <StatusFilterTabs value={status} onChange={setStatus} options={['pending_verification', 'pending', 'correction_requested', 'verified', 'partial', 'rejected', '']} />
       {q.isError ? (
         <Callout tone="danger" title="Could not load bank transfers" action={<Button variant="secondary" size="sm" onClick={() => void q.refetch()}>Retry</Button>}>
           {(q.error as ApiError).message}
@@ -398,52 +419,141 @@ function BankTransfers() {
       {q.isLoading ? (
         <RowListSkeleton />
       ) : transfers.length === 0 ? (
-        <Card padded={false}><EmptyBlock icon={<Building2Icon size={22} />} title="Queue empty" description="Bank transfers awaiting verification will appear here." /></Card>
+        <Card padded={false}><EmptyBlock icon={<Building2Icon size={22} />} title="Queue empty" description="Bank transfers reported by buyers appear here with their receipts." /></Card>
       ) : (
-        transfers.map((t) => (
-          <Card key={t.id} padded={false} className="px-5 py-4 text-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <CellStack
-                primary={<span className="font-semibold">{t.referenceNumber}</span>}
-                secondary={
-                  <span className="flex flex-wrap items-center gap-2">
-                    <StatusPill status={t.status} />
-                    <span>expected <Money cents={t.expectedCents} /> · transferred {t.transferredCents != null ? <Money cents={t.transferredCents} /> : '—'} · {time(t.submittedAt)}</span>
-                  </span>
-                }
-              />
-              <div className="flex items-center gap-2">
-                {t.proofFileName && (
-                  <a className="text-xs font-semibold text-copper transition-colors hover:text-ink" href={`/api/finance/bank-transfer/proof/${t.id}`} target="_blank" rel="noreferrer">
-                    View proof ({t.proofFileName})
-                  </a>
-                )}
-                {!['verified', 'rejected'].includes(t.status) && (
-                  <Button size="sm" onClick={() => ask({
-                    title: `Verify receipt of ${formatLKR(t.expectedCents)}?`,
-                    confirmLabel: 'Verify & confirm payment',
-                    body: (
-                      <div className="space-y-3">
-                        <p>Confirm the money actually arrived. Only exact matches settle automatically.</p>
-                        <div><Label>Verified cents</Label><Input value={verify.cents} onChange={(e) => setVerify({ ...verify, cents: e.target.value })} placeholder={String(t.expectedCents)} inputMode="numeric" /></div>
-                        <div><Label>Bank reference</Label><Input value={verify.ref} onChange={(e) => setVerify({ ...verify, ref: e.target.value })} placeholder="CBQ-…" /></div>
-                      </div>
-                    ),
-                    action: async () => {
-                      try {
-                        await api.post(`/admin/finance/bank-transfers/${t.id}/verify`, { verifiedCents: Number(verify.cents), bankReference: verify.ref });
-                        r.done('Transfer verified');
-                      } catch (e) { r.fail(e); }
-                    },
-                  })}>Verify</Button>
-                )}
-              </div>
-            </div>
-          </Card>
-        ))
+        transfers.map((t) => <BankTransferItem key={t.id} t={t} />)
       )}
-      {dialog}
     </div>
+  );
+}
+
+/** One transfer: who paid whom, the receipt, and the admin's verify / reject decision. */
+function BankTransferItem({ t }: { t: BankTransferRow }) {
+  const r = useRefresh([['admin-accounts', 'bank'], ['payments', t.purchaseOrderId]]);
+  const [mode, setMode] = useState<'idle' | 'verify' | 'reject'>('idle');
+  const [amount, setAmount] = useState('');
+  const [ref, setRef] = useState('');
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const open = !['verified', 'rejected', 'partial'].includes(t.status) && t.paymentStatus === 'pending';
+
+  async function run(fn: () => Promise<unknown>, msg: string) {
+    setBusy(true);
+    try {
+      await fn();
+      setMode('idle');
+      r.done(msg);
+    } catch (e) {
+      r.fail(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const verifiedCents = amount.trim() ? Math.round(Number(amount.replace(/,/g, '')) * 100) : t.transferredCents ?? t.expectedCents;
+  const amountInvalid = !Number.isFinite(verifiedCents) || verifiedCents <= 0;
+
+  return (
+    <Card padded={false} className="px-5 py-4 text-sm space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <CellStack
+          primary={
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold">{t.referenceNumber}</span>
+              <StatusPill status={t.status} />
+              {t.paymentStatus !== 'pending' && <Pill tone={t.paymentStatus === 'confirmed' ? 'success' : 'neutral'}>payment {t.paymentStatus}</Pill>}
+            </span>
+          }
+          secondary={
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <Link to={`/admin/orders/${t.purchaseOrderId}`} className="font-mono text-copper transition-colors hover:text-ink">{t.poNumber}</Link>
+              <span>·</span>
+              <Link to={`/admin/businesses/${t.businessId}`} className="hover:text-ink">{t.businessName ?? 'Buyer'}</Link>
+              <span>→</span>
+              <Link to={`/admin/suppliers/${t.supplierId}`} className="hover:text-ink">{t.supplierName ?? 'Supplier'}</Link>
+            </span>
+          }
+        />
+        <div className="text-right">
+          <div className="font-mono font-semibold tabular-nums"><Money cents={t.expectedCents} /></div>
+          <div className="text-xs text-ink-4">
+            {t.transferredCents != null && t.transferredCents !== t.expectedCents ? <>buyer says <Money cents={t.transferredCents} /> · </> : null}
+            {time(t.submittedAt ?? t.createdAt)}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-3">
+        {t.hasProof ? (
+          <span className="font-semibold text-mint">Receipt{t.proofFileName ? ` · ${t.proofFileName}` : ''}</span>
+        ) : (
+          <span className="font-semibold text-amber">No receipt uploaded</span>
+        )}
+        {t.proofUploadedAt ? <span>uploaded {time(t.proofUploadedAt)}</span> : null}
+        {t.bankReference ? <span>bank ref <span className="font-mono">{t.bankReference}</span></span> : null}
+        {t.verifiedCents != null ? <span>verified <Money cents={t.verifiedCents} /></span> : null}
+        {t.rejectionReason ? <span className="text-rose">{t.rejectionReason}</span> : null}
+      </div>
+
+      {t.hasProof && (
+        <div className="max-w-md">
+          <ProofPreview key={`${t.id}:${t.proofUploadedAt ?? ''}`} bankTransferId={t.id} mimeType={t.proofMimeType} fileName={t.proofFileName} />
+        </div>
+      )}
+
+      {open && mode === 'idle' && (
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => { setMode('verify'); setAmount(''); setRef(t.bankReference ?? ''); }}>Verify &amp; mark paid</Button>
+          <Button size="sm" variant="outline" onClick={() => { setMode('reject'); setReason(''); }}>Reject</Button>
+        </div>
+      )}
+      {open && mode === 'verify' && (
+        <div className="grid gap-3 rounded-lg border border-ink/10 bg-ink/[0.02] p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <div>
+            <Label>Amount received (LKR)</Label>
+            <Input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={(verifiedCents / 100).toFixed(2)} inputMode="decimal" />
+          </div>
+          <div>
+            <Label>Bank reference</Label>
+            <Input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="From your bank statement" />
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setMode('idle')} disabled={busy}>Cancel</Button>
+            <Button
+              size="sm"
+              loading={busy}
+              disabled={amountInvalid || !ref.trim()}
+              onClick={() => run(() => api.post(`/admin/finance/bank-transfers/${t.id}/verify`, { verifiedCents, bankReference: ref.trim() }), 'Transfer verified')}
+            >
+              Confirm
+            </Button>
+          </div>
+          <p className="text-xs text-ink-4 sm:col-span-3">
+            An exact match ({formatLKR(t.expectedCents)}) confirms the payment and marks the order paid. Any other amount is flagged as partial for reconciliation.
+          </p>
+        </div>
+      )}
+      {open && mode === 'reject' && (
+        <div className="grid gap-3 rounded-lg border border-rose/20 bg-rose/[0.04] p-3 sm:grid-cols-[1fr_auto] sm:items-end">
+          <div>
+            <Label>Reason (shown to buyer and supplier)</Label>
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Funds not received" />
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setMode('idle')} disabled={busy}>Cancel</Button>
+            <Button
+              size="sm"
+              variant="danger"
+              loading={busy}
+              disabled={reason.trim().length < 3}
+              onClick={() => run(() => api.post(`/admin/finance/bank-transfers/${t.id}/reject`, { reason: reason.trim() }), 'Transfer rejected')}
+            >
+              Reject transfer
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 

@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useState, type ReactNode } from 'react';
 import {
   PAYMENT_STATE_LABEL,
@@ -50,7 +51,8 @@ export function Modal({
     mint: 'bg-mint/15 text-mint',
     copper: 'bg-copper/15 text-copper-deep',
   }[tone];
-  return (
+  // Portal to <body> so transformed ancestors (page transitions) can't trap `fixed`.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
       role="dialog"
@@ -84,7 +86,8 @@ export function Modal({
         <div className="p-5 space-y-4 overflow-y-auto">{children}</div>
         {footer && <div className="flex justify-end gap-2 p-5 border-t border-ink/10 bg-bone/30">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

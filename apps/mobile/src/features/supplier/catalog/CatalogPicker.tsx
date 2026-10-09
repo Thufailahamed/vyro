@@ -9,7 +9,7 @@ import { Button, Card, EmptyState, ErrorState, Kicker, ProductImage, Row, Search
 import { productMeta, type CatalogProduct } from './api';
 import { FadeInItem } from './components';
 
-type CatalogHit = {
+export type CatalogHit = {
   product: CatalogProduct & { unit: string };
   bestOffer: { priceCents: number } | null;
   offerCount: number;
@@ -20,10 +20,14 @@ export function CatalogPicker({
   listedByProductId,
   onSelect,
   onCreateNew,
+  embedded,
 }: {
   listedByProductId: Map<string, string>;
-  onSelect: (productId: string) => void;
-  onCreateNew: () => void;
+  onSelect: (productId: string, hit: CatalogHit) => void;
+  /** Omit to hide the "create new product" path (e.g. inside a picker sheet). */
+  onCreateNew?: () => void;
+  /** Search bar only, without the step header card (used inside a sheet). */
+  embedded?: boolean;
 }) {
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -43,21 +47,25 @@ export function CatalogPicker({
 
   return (
     <View style={{ gap: 14 }}>
-      <Card kind="flat" padding={16} style={{ gap: 12 }}>
-        <Row gap={12} align="flex-start">
-          <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontFamily: 'Sans-Semi', fontSize: 12, color: colors.volt }}>1</Text>
-          </View>
-          <View style={{ flex: 1, gap: 3 }}>
-            <Kicker>Catalog</Kicker>
-            <Text variant="h2">Find an existing product</Text>
-            <Text variant="caption" color="ink4">
-              If buyers already shop this SKU, add your mill-gate rate to it. Create a new product only when nothing matches.
-            </Text>
-          </View>
-        </Row>
+      {embedded ? (
         <SearchBar value={query} onChangeText={setQuery} placeholder="White sugar, rice, tea, cement…" autoFocus />
-      </Card>
+      ) : (
+        <Card kind="flat" padding={16} style={{ gap: 12 }}>
+          <Row gap={12} align="flex-start">
+            <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontFamily: 'Sans-Semi', fontSize: 12, color: colors.volt }}>1</Text>
+            </View>
+            <View style={{ flex: 1, gap: 3 }}>
+              <Kicker>Catalog</Kicker>
+              <Text variant="h2">Find an existing product</Text>
+              <Text variant="caption" color="ink4">
+                If buyers already shop this SKU, add your mill-gate rate to it. Create a new product only when nothing matches.
+              </Text>
+            </View>
+          </Row>
+          <SearchBar value={query} onChangeText={setQuery} placeholder="White sugar, rice, tea, cement…" autoFocus />
+        </Card>
+      )}
 
       {search.isLoading || (search.isFetching && hits.length === 0) ? (
         <View style={{ paddingVertical: 28, alignItems: 'center', gap: 8 }}>
@@ -73,60 +81,62 @@ export function CatalogPicker({
           icon={Package}
           title={debounced ? `No match for “${debounced}”` : 'No catalog products yet'}
           message="Create a new SKU so buyers can find this item."
-          action={{ label: 'Create new product', onPress: onCreateNew }}
+          {...(onCreateNew ? { action: { label: 'Create new product', onPress: onCreateNew } } : {})}
         />
       ) : (
-        <View style={{ gap: 8 }}>
-          {hits.map((hit, i) => {
-            const p = hit.product;
-            const listed = listedByProductId.has(p.id);
-            return (
-              <FadeInItem key={p.id} index={i}>
-                <Card kind="flat" padding={12} onPress={() => onSelect(p.id)} style={listed ? { backgroundColor: colors.pearl } : undefined}>
-                  <Row gap={12}>
-                    <ProductImage src={p.imageUrl} seed={p.id} style={{ width: 60, height: 60, borderRadius: radii.lg }} />
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text variant="body" weight="semibold" numberOfLines={1}>
-                        {p.name}
-                      </Text>
-                      <Text variant="caption" color="ink4" numberOfLines={1}>
-                        {productMeta(p)}
-                      </Text>
-                      <Text variant="caption" color="ink3" numberOfLines={1}>
-                        {hit.offerCount > 0
-                          ? `${hit.offerCount} live quote${hit.offerCount === 1 ? '' : 's'}${hit.bestOffer ? ` · from ${formatLKR(hit.bestOffer.priceCents)}` : ''}`
-                          : 'No live quotes yet'}
-                      </Text>
-                    </View>
-                    <View
-                      style={{
-                        paddingHorizontal: 9,
-                        height: 28,
-                        borderRadius: radii.pill,
-                        justifyContent: 'center',
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 4,
-                        backgroundColor: listed ? colors.mintSoft : colors.ink,
-                      }}
-                    >
-                      {listed ? <Check size={12} color={colors.mint} /> : null}
-                      <Text variant="caption" weight="semibold" style={{ color: listed ? colors.mint : colors.volt }}>
-                        {listed ? 'Edit rate' : 'Add rate'}
-                      </Text>
-                    </View>
-                  </Row>
-                </Card>
-              </FadeInItem>
-            );
-          })}
-          <Card kind="outline" padding={14} style={{ marginTop: 6, gap: 10 }}>
-            <Text variant="bodySm" color="ink3">
-              Can't find this SKU in the catalog?
-            </Text>
-            <Button title="Create new product" icon={Plus} variant="secondary" size="sm" onPress={onCreateNew} />
-          </Card>
-        </View>
+          <View style={{ gap: 8 }}>
+            {hits.map((hit, i) => {
+              const p = hit.product;
+              const listed = listedByProductId.has(p.id);
+              return (
+                <FadeInItem key={p.id} index={i}>
+                  <Card kind="flat" padding={12} onPress={() => onSelect(p.id, hit)} style={listed ? { backgroundColor: colors.pearl } : undefined}>
+                    <Row gap={12}>
+                      <ProductImage src={p.imageUrl} seed={p.id} style={{ width: 60, height: 60, borderRadius: radii.lg }} />
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text variant="body" weight="semibold" numberOfLines={1}>
+                          {p.name}
+                        </Text>
+                        <Text variant="caption" color="ink4" numberOfLines={1}>
+                          {productMeta(p)}
+                        </Text>
+                        <Text variant="caption" color="ink3" numberOfLines={1}>
+                          {hit.offerCount > 0
+                            ? `${hit.offerCount} live quote${hit.offerCount === 1 ? '' : 's'}${hit.bestOffer ? ` · from ${formatLKR(hit.bestOffer.priceCents)}` : ''}`
+                            : 'No live quotes yet'}
+                        </Text>
+                      </View>
+                      <View
+                        style={{
+                          paddingHorizontal: 9,
+                          height: 28,
+                          borderRadius: radii.pill,
+                          justifyContent: 'center',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 4,
+                          backgroundColor: listed ? colors.mintSoft : colors.ink,
+                        }}
+                      >
+                        {listed ? <Check size={12} color={colors.mint} /> : null}
+                        <Text variant="caption" weight="semibold" style={{ color: listed ? colors.mint : colors.volt }}>
+                          {listed ? 'Edit rate' : 'Add rate'}
+                        </Text>
+                      </View>
+                    </Row>
+                  </Card>
+                </FadeInItem>
+              );
+            })}
+            {onCreateNew ? (
+              <Card kind="outline" padding={14} style={{ marginTop: 6, gap: 10 }}>
+                <Text variant="bodySm" color="ink3">
+                  Can't find this SKU in the catalog?
+                </Text>
+                <Button title="Create new product" icon={Plus} variant="secondary" size="sm" onPress={onCreateNew} />
+              </Card>
+            ) : null}
+          </View>
       )}
     </View>
   );

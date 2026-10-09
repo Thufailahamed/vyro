@@ -38,6 +38,7 @@ import { go } from '@/features/admin/platform/kit';
 import { TileTabs } from '@/features/admin/ops/kit';
 import { usePermission } from '@/features/admin/common/permissions';
 import { ExportButton } from '@/features/admin/money/accounts/shared';
+import { shareApiFile } from '@/features/buyer/orders/share';
 
 type Tab = 'payments' | 'refunds' | 'bank' | 'settlements' | 'payouts' | 'recon';
 const TABS = [
@@ -284,41 +285,67 @@ function RefundsTab() {
   );
 }
 
+type BankTransferRow = {
+  id: string;
+  paymentId: string;
+  referenceNumber: string;
+  expectedCents: number;
+  transferredCents: number | null;
+  verifiedCents: number | null;
+  status: string;
+  paymentStatus: string;
+  bankReference: string | null;
+  hasProof: boolean;
+  proofFileName: string | null;
+  proofMimeType: string | null;
+  proofUploadedAt: number | null;
+  rejectionReason: string | null;
+  submittedAt: number | null;
+  purchaseOrderId: string;
+  poNumber: string;
+  businessName: string | null;
+  supplierName: string | null;
+};
+
 function BankTab() {
   const toast = useToast();
   const qc = useQueryClient();
-  const [verifyFor, setVerifyFor] = useState<{ id: string } | null>(null);
+  const [verifyFor, setVerifyFor] = useState<BankTransferRow | null>(null);
+  const [rejectFor, setRejectFor] = useState<BankTransferRow | null>(null);
   const [cents, setCents] = useState('');
   const [ref, setRef] = useState('');
+  const [reason, setReason] = useState('');
   const q = useQuery({
     queryKey: ['admin-acc-bank'],
-    queryFn: () =>
-      api.get<{
-        transfers: {
-          id: string;
-          paymentId: string;
-          referenceNumber: string;
-          expectedCents: number;
-          transferredCents: number | null;
-          verifiedCents: number | null;
-          status: string;
-          submittedAt: number | null;
-        }[];
-      }>('/admin/finance/bank-transfers'),
+    queryFn: () => api.get<{ transfers: BankTransferRow[] }>('/admin/finance/bank-transfers'),
   });
+  const done = (msg: string) => {
+    toast.success(msg);
+    setVerifyFor(null);
+    setRejectFor(null);
+    qc.invalidateQueries({ queryKey: ['admin-acc-bank'] });
+  };
   const verify = useMutation({
     mutationFn: () =>
       api.post(`/admin/finance/bank-transfers/${verifyFor!.id}/verify`, {
         verifiedCents: Math.round(Number(cents) * 100),
-        bankReference: ref.trim() || undefined,
+        bankReference: ref.trim(),
       }),
-    onSuccess: () => {
-      toast.success('Transfer verified');
-      setVerifyFor(null);
-      qc.invalidateQueries({ queryKey: ['admin-acc-bank'] });
-    },
+    onSuccess: () => done('Transfer verified'),
     onError: (e) => toast.error('Verify failed', errorMessage(e)),
   });
+  const reject = useMutation({
+    mutationFn: () => api.post(`/admin/finance/bank-transfers/${rejectFor!.id}/reject`, { reason: reason.trim() }),
+    onSuccess: () => done('Transfer rejected'),
+    onError: (e) => toast.error('Reject failed', errorMessage(e)),
+  });
+  const openReceipt = async (t: BankTransferRow) => {
+    try {
+      await shareApiFile(`/finance/bank-transfer/proof/${t.id}`, t.proofFileName ?? `${t.referenceNumber}-receipt`, t.proofMimeType ?? undefined);
+    } catch (e) {
+      toast.error('Could not open receipt', errorMessage(e));
+    }
+  };
   const rows = q.data?.transfers ?? [];
   return (
     <>
@@ -328,42 +355,73 @@ function BankTab() {
         retry={() => q.refetch()}
         empty={!rows.length}
       >
-        {rows.map((t) => (
-          <Row
-            key={t.id}
-            title={t.referenceNumber}
-            sub={`expected ${formatLKR(t.expectedCents)}${t.transferredCents != null ? ` · received ${formatLKR(t.transferredCents)}` : ''}`}
-            amount={t.verifiedCents ?? t.transferredCents}
-            status={t.status}
-            right={
-              t.status !== 'verified' && t.status !== 'reconciled' ? (
-                <Button
-                  title="Verify"
-                  size="sm"
-                  variant="secondary"
-                  icon={CheckCircle2}
-                  onPress={() => {
-                    setVerifyFor(t);
-                    setCents(((t.transferredCents ?? t.expectedCents) / 100).toFixed(2));
-                  }}
-                />
-              ) : undefined
-            }
-          />
-        ))}
+        {rows.map((t) => {
+          const open = !['verified', 'rejected', 'partial', 'reconciled'].includes(t.status) && t.paymentStatus === 'pending';
+          return (
+            <Row
+              key={t.id}
+              title={`${t.poNumber} · ${t.referenceNumber}`}
+              sub={`${t.businessName ?? 'Buyer'} → ${t.supplierName ?? 'Supplier'} · expected ${formatLKR(t.expectedCents)}${t.submittedAt ? ` · ${timeAgo(t.submittedAt)}` : ''}`}
+              amount={t.verifiedCents ?? t.transferredCents ?? t.expectedCents}
+              status={t.status}
+              onPress={() => go(`/admin/order/${t.purchaseOrderId}`)}
+              right={
+                <View style={{ gap: 10 }}>
+                  {t.rejectionReason ? (
+                    <Text variant="caption" color="rose">
+                      {t.rejectionReason}
+                    </Text>
+                  ) : null}
+                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                    {t.hasProof ? (
+                      <Button title="Receipt" size="sm" variant="secondary" icon={FileSpreadsheet} onPress={() => void openReceipt(t)} />
+                    ) : (
+                      <Text variant="caption" color="amber" style={{ alignSelf: 'center' }}>
+                        No receipt uploaded
+                      </Text>
+                    )}
+                    {open ? (
+                      <>
+                        <Button
+                          title="Verify"
+                          size="sm"
+                          icon={CheckCircle2}
+                          onPress={() => {
+                            setVerifyFor(t);
+                            setCents(((t.transferredCents ?? t.expectedCents) / 100).toFixed(2));
+                            setRef(t.bankReference ?? '');
+                          }}
+                        />
+                        <Button
+                          title="Reject"
+                          size="sm"
+                          variant="ghost"
+                          onPress={() => {
+                            setRejectFor(t);
+                            setReason('');
+                          }}
+                        />
+                      </>
+                    ) : null}
+                  </View>
+                </View>
+              }
+            />
+          );
+        })}
       </QueryBlock>
       <Sheet
         visible={!!verifyFor}
         onClose={() => setVerifyFor(null)}
         title="Verify bank transfer"
-        subtitle="Record the confirmed amount that landed in the settlement account."
+        subtitle="An exact match confirms the payment and marks the order paid; any other amount is flagged as partial."
         footer={
           <Button
             title="Confirm verification"
             variant="volt"
             full
             loading={verify.isPending}
-            disabled={!Number(cents)}
+            disabled={!Number(cents) || !ref.trim()}
             onPress={() => verify.mutate()}
           />
         }
@@ -372,7 +430,7 @@ function BankTab() {
           <Field label="Verified amount (LKR)" required>
             <Input value={cents} onChangeText={setCents} keyboardType="decimal-pad" />
           </Field>
-          <Field label="Bank reference">
+          <Field label="Bank reference" required>
             <Input
               value={ref}
               onChangeText={setRef}
@@ -381,6 +439,26 @@ function BankTab() {
             />
           </Field>
         </View>
+      </Sheet>
+      <Sheet
+        visible={!!rejectFor}
+        onClose={() => setRejectFor(null)}
+        title="Reject bank transfer"
+        subtitle="The payment is marked failed and the buyer and supplier are notified."
+        footer={
+          <Button
+            title="Reject transfer"
+            variant="danger"
+            full
+            loading={reject.isPending}
+            disabled={reason.trim().length < 3}
+            onPress={() => reject.mutate()}
+          />
+        }
+      >
+        <Field label="Reason" required>
+          <Input value={reason} onChangeText={setReason} placeholder="e.g. Funds not received" />
+        </Field>
       </Sheet>
     </>
   );

@@ -162,7 +162,15 @@ beforeAll(async () => {
   const a = await mkPo(5);
   const b = await mkPo(2);
   const c = await mkPo(3);
-  ids = { biz, biz2, sup, poA: a.poId, totalA: String(a.total), poB: b.poId, totalB: String(b.total), poC: c.poId, totalC: String(c.total) };
+  const d = await mkPo(4);
+  const e = await mkPo(1);
+  const f = await mkPo(6);
+  const g = await mkPo(2);
+  ids = {
+    biz, biz2, sup,
+    poA: a.poId, totalA: String(a.total), poB: b.poId, totalB: String(b.total), poC: c.poId, totalC: String(c.total),
+    poD: d.poId, poE: e.poId, poF: f.poId, poG: g.poId,
+  };
   memberships['buyer'] = { businesses: [{ businessId: biz, role: 'owner' }], suppliers: [] };
   memberships['buyer2'] = { businesses: [{ businessId: biz2, role: 'owner' }], suppliers: [] };
   memberships['supplier-u'] = { businesses: [], suppliers: [{ supplierId: sup, role: 'owner' }] };
@@ -278,6 +286,111 @@ describe('Accounts E2E: bank transfer lifecycle (B)', () => {
     const v2 = await api('POST', `/api/admin/finance/bank-transfers/${sub.body.bankTransfer.id}/verify`, { verifiedCents: p.body.amountCents, bankReference: 'E2E-CBQ-1' });
     expect(v2.status).toBe(409);
     expect(v2.body.error.code).toBe('BANK_TRANSFER_ALREADY_VERIFIED');
+  });
+});
+
+async function uploadProof(paymentId: string, name = 'slip.png', type = 'image/png') {
+  const fd = new FormData();
+  fd.append('file', new File([new Uint8Array([1, 2, 3])], name, { type }));
+  return app.fetch(new Request(`http://localhost/api/finance/payments/${paymentId}/bank-transfer/proof`, { method: 'POST', body: fd }), env);
+}
+
+async function buyerReportsTransfer(poId: string) {
+  actor.ctx = asCtx('buyer');
+  const p = await api('POST', '/api/payments', { purchaseOrderId: poId, method: 'bank_transfer', transactionReference: 'BUYER-REF' });
+  expect(p.status).toBe(201);
+  const sub = await api('POST', `/api/finance/payments/${p.body.id}/bank-transfer`, { transferredCents: p.body.amountCents, bankReference: 'BUYER-REF' });
+  expect(sub.status).toBe(201);
+  expect((await uploadProof(p.body.id)).status).toBe(200);
+  return { paymentId: p.body.id as string, bankTransferId: sub.body.bankTransfer.id as string, amountCents: p.body.amountCents as number };
+}
+
+describe('Accounts E2E: bank transfer proof → seller marks paid (B2)', () => {
+  it('seller sees the proof on the order and confirms it as paid', async () => {
+    const { paymentId, bankTransferId } = await buyerReportsTransfer(ids.poD);
+
+    actor.ctx = asCtx('supplier-u');
+    const list = await api('GET', `/api/payments/by-po/${ids.poD}`);
+    expect(list.status).toBe(200);
+    const row = list.body.payments.find((x: any) => x.id === paymentId);
+    expect(row.status).toBe('pending');
+    expect(row.bankTransfer).toMatchObject({ id: bankTransferId, status: 'pending_verification', hasProof: true, proofFileName: 'slip.png' });
+    expect(JSON.stringify(list.body)).not.toContain('proofR2Key');
+    expect(Array.isArray(list.body.bankAccounts)).toBe(true);
+
+    const proof = await app.fetch(new Request(`http://localhost/api/finance/bank-transfer/proof/${bankTransferId}`), env);
+    expect(proof.status).toBe(200);
+    expect(proof.headers.get('content-type')).toBe('image/png');
+
+    const ok = await api('POST', `/api/payments/${paymentId}/confirm`, { status: 'confirmed' });
+    expect(ok.status).toBe(200);
+    const after = await api('GET', `/api/payments/by-po/${ids.poD}`);
+    const paid = after.body.payments.find((x: any) => x.id === paymentId);
+    expect(paid.status).toBe('confirmed');
+    expect(paid.bankTransfer.status).toBe('verified');
+
+    // Proof can no longer be replaced once the payment is settled.
+    actor.ctx = asCtx('buyer');
+    expect((await uploadProof(paymentId)).status).toBe(409);
+
+    // Admin sees the same transfer in the queue with order context, minus the storage key.
+    actor.ctx = adminCtx('fin1');
+    const q = await api('GET', '/api/admin/finance/bank-transfers');
+    expect(q.status).toBe(200);
+    const item = q.body.transfers.find((t: any) => t.id === bankTransferId);
+    expect(item).toMatchObject({ status: 'verified', paymentStatus: 'confirmed', purchaseOrderId: ids.poD, supplierName: 'E2E Mills', businessName: 'E2E Foods', hasProof: true });
+    expect(item.poNumber).toMatch(/^PO-E2E-/);
+    expect(item).not.toHaveProperty('proofR2Key');
+  });
+
+  it('seller rejects a transfer that never arrived → payment failed, transfer rejected', async () => {
+    const { paymentId } = await buyerReportsTransfer(ids.poE);
+    actor.ctx = asCtx('supplier-u');
+    const r = await api('POST', `/api/payments/${paymentId}/confirm`, { status: 'failed', reason: 'Not in our account' });
+    expect(r.status).toBe(200);
+    const after = await api('GET', `/api/payments/by-po/${ids.poE}`);
+    const row = after.body.payments.find((x: any) => x.id === paymentId);
+    expect(row.status).toBe('failed');
+    expect(row.bankTransfer).toMatchObject({ status: 'rejected', rejectionReason: 'Not in our account' });
+  });
+
+  it('admin rejecting from the queue also fails the payment', async () => {
+    const { paymentId, bankTransferId } = await buyerReportsTransfer(ids.poG);
+    actor.ctx = adminCtx('fin1');
+    const r = await api('POST', `/api/admin/finance/bank-transfers/${bankTransferId}/reject`, { reason: 'Slip is for another order' });
+    expect(r.status).toBe(200);
+    const pay = await api('GET', `/api/finance/payments/${paymentId}`);
+    expect(pay.body.payment.status).toBe('failed');
+  });
+
+  it('only the buyer side can upload proof', async () => {
+    actor.ctx = asCtx('buyer');
+    const p = await api('POST', '/api/payments', { purchaseOrderId: ids.poF, method: 'bank_transfer', amountCents: 1000 });
+    expect(p.status).toBe(201);
+    actor.ctx = asCtx('supplier-u');
+    expect((await uploadProof(p.body.id)).status).toBe(403);
+    actor.ctx = asCtx('buyer');
+    expect((await api('POST', `/api/payments/${p.body.id}/confirm`, { status: 'failed', reason: 'cleanup' })).status).toBe(200);
+  });
+});
+
+describe('Accounts E2E: seller records an offline payment (B3)', () => {
+  it('seller records money received outside the platform and marks the order paid', async () => {
+    actor.ctx = asCtx('supplier-u');
+    const online = await api('POST', '/api/payments', { purchaseOrderId: ids.poF, method: 'online' });
+    expect(online.status).toBe(403);
+    const p = await api('POST', '/api/payments', { purchaseOrderId: ids.poF, method: 'cash', transactionReference: 'RCPT-9' });
+    expect(p.status).toBe(201);
+    const c = await api('POST', `/api/payments/${p.body.id}/confirm`, { status: 'confirmed' });
+    expect(c.status).toBe(200);
+    const list = await api('GET', `/api/payments/by-po/${ids.poF}`);
+    expect(list.body.payments.find((x: any) => x.id === p.body.id).status).toBe('confirmed');
+  });
+
+  it('a non-member supplier user cannot record payments', async () => {
+    actor.ctx = asCtx('buyer2');
+    const p = await api('POST', '/api/payments', { purchaseOrderId: ids.poD, method: 'cash' });
+    expect(p.status).toBe(403);
   });
 });
 

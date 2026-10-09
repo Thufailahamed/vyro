@@ -453,6 +453,8 @@ router.post('/payments/:id/bank-transfer/proof', async (c) => {
       .get()) as any;
     if (!m) throw httpError(403, 'FORBIDDEN', 'No access');
   }
+  if (payment.method !== 'bank_transfer') throw httpError(400, 'VALIDATION_ERROR', 'Payment is not a bank transfer');
+  if (payment.status !== 'pending') throw httpError(409, 'PAYMENT_ALREADY_COMPLETED', `Payment is ${payment.status}`);
   const row = await findBankTransferByPayment(c.env.DB, payment.id);
   if (!row) throw httpError(404, 'NOT_FOUND', 'Submit the bank transfer before uploading proof');
   if (['verified', 'rejected'].includes(row.status)) {
@@ -489,6 +491,23 @@ router.post('/payments/:id/bank-transfer/proof', async (c) => {
     resourceId: payment.id,
     metadata: { bankTransferId: row.id },
   });
+  try {
+    await notifyOrderParties(
+      c.env.DB,
+      c.env.NOTIFICATIONS_QUEUE,
+      { id: po.id, poNumber: po.poNumber, businessId: po.businessId, supplierId: po.supplierId },
+      {
+        type: NotificationType.PAYMENT_INITIATED,
+        title: `Transfer proof uploaded for PO ${po.poNumber}`,
+        body: 'The buyer uploaded a bank transfer receipt. Check your account and confirm the payment.',
+        link: `/supplier/orders/${po.id}`,
+        audience: 'supplier',
+        excludeUserId: ctx.userId,
+      },
+    );
+  } catch (err) {
+    console.error('[finance.bank.proof] notify failed', err);
+  }
   return c.json({ ok: true });
 });
 

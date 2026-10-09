@@ -1,7 +1,9 @@
 import { useSupplierTrustSignals, useRecomputeTrustSignals } from '../../hooks/useTrustSignals';
 import { Button } from '@/components/ui';
 import { ShieldCheckIcon } from '@/components/icons';
-import { Callout, DetailList, Panel, Pill, Skeleton } from '../ui';
+import { cn } from '@vyro/ui';
+import { CheckIcon, XIcon } from '@/components/icons';
+import { Callout, Panel, Skeleton } from '../ui';
 
 export function SupplierTrustSignalsCard({ supplierId }: { supplierId: string }) {
   const { data, isLoading, error } = useSupplierTrustSignals(supplierId);
@@ -36,52 +38,70 @@ export function SupplierTrustSignalsCard({ supplierId }: { supplierId: string })
             return this view.
           </Callout>
         )}
-        <DetailList
-          columns={2}
-          items={[
-            {
-              label: 'KYC',
-              value: v.kyc ? (
-                <Pill tone="success" dot>
-                  Verified
-                </Pill>
-              ) : (
-                '—'
-              ),
-            },
-            { label: 'Member since', value: <span className="num-tabular">{v.memberSinceYear ?? '—'}</span> },
-            {
-              label: 'On-time',
-              value:
-                v.onTimePct != null ? (
-                  <span className="num-tabular">
-                    {v.onTimePct}% <span className="text-ink-4">(sample {v.onTimeSampleSize})</span>
-                  </span>
-                ) : (
-                  <span className="text-ink-3">Need ≥5 delivered POs (current {v.onTimeSampleSize})</span>
-                ),
-            },
-            {
-              label: 'Dispute-free',
-              value: v.disputeFree ? (
-                <Pill tone="success" dot>
-                  Yes
-                </Pill>
-              ) : (
-                '—'
-              ),
-            },
-            {
-              label: 'Computed at',
-              value: (
-                <span className="font-mono text-xs">
-                  {v.lastComputedAt ? new Date(v.lastComputedAt * 1000).toISOString() : '—'}
-                </span>
-              ),
-            },
-          ]}
-        />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SignalTile
+            label="KYC"
+            ok={v.kyc}
+            value={v.kyc ? 'Verified' : 'Not verified'}
+            hint="Identity & business documents"
+          />
+          <SignalTile
+            label="Dispute-free"
+            ok={v.disputeFree}
+            value={v.disputeFree ? 'Clean record' : 'Has disputes'}
+            hint="No upheld buyer disputes"
+          />
+          <div className="rounded-xl bg-bone/50 p-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.06)]">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-5">On-time delivery</div>
+            {v.onTimePct != null ? (
+              <>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="vyro-metric text-2xl leading-none text-ink">{v.onTimePct}%</span>
+                  <span className="text-xs text-ink-4">of {v.onTimeSampleSize} POs</span>
+                </div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink/[0.07]">
+                  <div
+                    className={cn('h-full rounded-full', v.onTimePct >= 90 ? 'bg-mint' : v.onTimePct >= 75 ? 'bg-amber' : 'bg-rose')}
+                    style={{ width: `${Math.min(100, Math.max(0, v.onTimePct))}%` }}
+                  />
+                </div>
+              </>
+            ) : (
+              <p className="mt-2 text-xs leading-relaxed text-ink-4">
+                Needs ≥5 delivered POs · <span className="num-tabular font-semibold text-ink">{v.onTimeSampleSize}</span> so far
+              </p>
+            )}
+          </div>
+          <div className="rounded-xl bg-bone/50 p-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.06)]">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-5">Member since</div>
+            <div className="mt-2 vyro-metric text-2xl leading-none text-ink">{v.memberSinceYear ?? '—'}</div>
+            <p className="mt-2 text-xs text-ink-4">Year joined the network</p>
+          </div>
+        </div>
+        <p className="font-mono text-[11px] text-ink-4">
+          Computed {v.lastComputedAt ? new Date(v.lastComputedAt * 1000).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
+        </p>
       </div>
     </Panel>
+  );
+}
+
+function SignalTile({ label, ok, value, hint }: { label: string; ok: boolean; value: string; hint: string }) {
+  return (
+    <div className="rounded-xl bg-bone/50 p-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.06)]">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-5">{label}</div>
+      <div className="mt-2 flex items-center gap-2">
+        <span
+          className={cn(
+            'flex size-6 items-center justify-center rounded-full',
+            ok ? 'bg-mint text-paper' : 'bg-ink/[0.07] text-ink-4',
+          )}
+        >
+          {ok ? <CheckIcon size={12} /> : <XIcon size={12} />}
+        </span>
+        <span className={cn('text-sm font-semibold', ok ? 'text-ink' : 'text-ink-3')}>{value}</span>
+      </div>
+      <p className="mt-2 text-xs text-ink-4">{hint}</p>
+    </div>
   );
 }

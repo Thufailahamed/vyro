@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { cn } from '@vyro/ui';
 import { Link } from 'react-router-dom';
 import { useCrmSummary, useLeads } from '../useLeadManager';
 import { LeadDetailDrawer } from './LeadDetailDrawer';
 import { ConversionBadge } from './ConversionBadge';
 import { VerifiedBuyerBadge } from './VerifiedBuyerBadge';
+import { ALL_STATUSES, STATUS_BAR, TAG_META, TagChip, fmtDate, relTime } from './crmUi';
 import { useSupplierId } from '../useSupplierId';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { Button, EmptyState } from '@/components/ui';
@@ -91,226 +93,184 @@ export function LeadsPage() {
       />
 
       {/* KPI Metric Summary Cards */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <MetricCard
-          label="Hot Leads"
+          label="Hot leads"
           sublabel="High priority"
           value={byTag?.hot ?? 0}
           icon={<TargetIcon size={14} />}
-          tileClass="bg-rose/15 text-rose"
+          tileClass="bg-rose/12 text-rose"
           accent="text-rose"
+          bar="bg-rose"
           active={filter.tag === 'hot'}
-          onClick={() =>
-            setFilter({
-              ...filter,
-              tag: filter.tag === 'hot' ? undefined : 'hot',
-              cursor: undefined,
-            })
-          }
+          onClick={() => setFilter({ ...filter, tag: filter.tag === 'hot' ? undefined : 'hot', cursor: undefined })}
         />
         <MetricCard
-          label="Warm Leads"
+          label="Warm leads"
           sublabel="Follow-up needed"
           value={byTag?.warm ?? 0}
           icon={<ClockIcon size={14} />}
-          tileClass="bg-amber/15 text-amber"
-          accent="text-amber"
+          tileClass="bg-amber/12 text-[#a86c28]"
+          accent="text-[#a86c28]"
+          bar="bg-amber"
           active={filter.tag === 'warm'}
-          onClick={() =>
-            setFilter({
-              ...filter,
-              tag: filter.tag === 'warm' ? undefined : 'warm',
-              cursor: undefined,
-            })
-          }
+          onClick={() => setFilter({ ...filter, tag: filter.tag === 'warm' ? undefined : 'warm', cursor: undefined })}
         />
         <MetricCard
-          label="Cold Leads"
+          label="Cold leads"
           sublabel="Low interest"
           value={byTag?.cold ?? 0}
           icon={<UsersIcon size={14} />}
-          tileClass="bg-ink/[0.07] text-ink-3"
+          tileClass="bg-ink/[0.06] text-ink-3"
           accent="text-ink-2"
+          bar="bg-ink/30"
           active={filter.tag === 'cold'}
-          onClick={() =>
-            setFilter({
-              ...filter,
-              tag: filter.tag === 'cold' ? undefined : 'cold',
-              cursor: undefined,
-            })
-          }
+          onClick={() => setFilter({ ...filter, tag: filter.tag === 'cold' ? undefined : 'cold', cursor: undefined })}
         />
         <MetricCard
-          label="Deals Won"
+          label="Deals won"
           sublabel="Converted to orders"
           value={byStatus?.won ?? 0}
           icon={<CheckCircle2Icon size={14} />}
-          tileClass="bg-mint/15 text-mint-deep"
+          tileClass="bg-mint/12 text-mint-deep"
           accent="text-mint-deep"
+          bar="bg-mint"
           active={filter.status === 'won'}
-          onClick={() =>
-            setFilter({
-              ...filter,
-              status: filter.status === 'won' ? undefined : 'won',
-              cursor: undefined,
-            })
-          }
+          onClick={() => setFilter({ ...filter, status: filter.status === 'won' ? undefined : 'won', cursor: undefined })}
         />
         <MetricCard
-          label="Win Conversion"
+          label="Win conversion"
           sublabel={totals?.leads ? `${totals.leads} total invited` : 'Invite-to-win rate'}
-          value={
-            summary.data?.totals?.conversionRate != null
-              ? `${Math.round(summary.data.totals.conversionRate * 100)}%`
-              : '—'
-          }
+          value={totals?.conversionRate != null ? `${Math.round(totals.conversionRate * 100)}%` : '—'}
           icon={<TrendingUpIcon size={14} />}
-          tileClass="bg-volt/20 text-volt-deep"
+          tileClass="bg-volt/25 text-volt-deep"
           accent="text-ink-1"
+          bar="bg-volt-deep"
           active={false}
+          dark
+          className="col-span-2 lg:col-span-1"
         />
       </section>
 
-      {/* Filter and Query Toolbar */}
-      <Surface className="p-3 sm:p-4 shadow-xs border border-ink/10">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-xs">
-            {/* Tag Filter */}
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-ink-4 flex items-center gap-1">
-                <FilterIcon size={12} />
-                Tag:
-              </span>
-              <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full">
-                <button
-                  type="button"
-                  onClick={() => setFilter({ ...filter, tag: undefined, cursor: undefined })}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
-                    !filter.tag
-                      ? 'bg-ink text-paper shadow-xs'
-                      : 'text-ink-3 hover:text-ink-1'
-                  }`}
-                >
-                  All
-                </button>
-                {(['hot', 'warm', 'cold'] as const).map((t) => {
-                  const active = filter.tag === t;
-                  const dotColor =
-                    t === 'hot' ? 'bg-rose' : t === 'warm' ? 'bg-amber' : 'bg-ink/30';
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() =>
-                        setFilter({
-                          ...filter,
-                          tag: active ? undefined : t,
-                          cursor: undefined,
-                        })
-                      }
-                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize transition-all cursor-pointer ${
-                        active
-                          ? 'bg-ink text-paper shadow-xs'
-                          : 'text-ink-3 hover:text-ink-1'
-                      }`}
-                    >
-                      <span className={`size-1.5 rounded-full ${active ? 'bg-volt' : dotColor}`} />
-                      {t}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Status Filter */}
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-ink-4">
-                Status:
-              </span>
-              <div className="inline-flex items-center gap-1 p-1 bg-ink/[0.05] rounded-full">
-                <button
-                  type="button"
-                  onClick={() => setFilter({ ...filter, status: undefined, cursor: undefined })}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
-                    !filter.status
-                      ? 'bg-ink text-paper shadow-xs'
-                      : 'text-ink-3 hover:text-ink-1'
-                  }`}
-                >
-                  All
-                </button>
-                {(['new', 'contacted', 'quoted', 'won', 'lost'] as const).map((s) => {
-                  const active = filter.status === s;
-                  return (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() =>
-                        setFilter({
-                          ...filter,
-                          status: active ? undefined : s,
-                          cursor: undefined,
-                        })
-                      }
-                      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize transition-all cursor-pointer ${
-                        active
-                          ? 'bg-ink text-paper shadow-xs'
-                          : 'text-ink-3 hover:text-ink-1'
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+      {/* Pipeline funnel */}
+      {(totals?.leads ?? 0) > 0 && (
+        <section className="vyro-surface p-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink-3">Pipeline by stage</h2>
+            <span className="text-xs text-ink-4">Click a stage to filter</span>
           </div>
+          <div className="flex h-3 w-full gap-[3px] overflow-hidden rounded-full bg-ink/[0.05]" role="img" aria-label="Leads by stage">
+            {ALL_STATUSES.filter((s) => (byStatus?.[s] ?? 0) > 0).map((s) => (
+              <button
+                key={s}
+                type="button"
+                aria-label={`${s}: ${byStatus?.[s] ?? 0}`}
+                onClick={() => setFilter({ ...filter, status: filter.status === s ? undefined : s, cursor: undefined })}
+                className={cn(
+                  'h-full rounded-full transition-all duration-500 ease-vyro hover:brightness-110',
+                  STATUS_BAR[s],
+                  filter.status && filter.status !== s && 'opacity-30',
+                )}
+                style={{ width: `${((byStatus?.[s] ?? 0) / (totals?.leads || 1)) * 100}%` }}
+              />
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
+            {ALL_STATUSES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setFilter({ ...filter, status: filter.status === s ? undefined : s, cursor: undefined })}
+                className={cn(
+                  'inline-flex items-center gap-2 text-xs capitalize transition-colors',
+                  filter.status === s ? 'font-semibold text-ink' : 'text-ink-3 hover:text-ink',
+                )}
+              >
+                <span className={cn('size-2 rounded-full', STATUS_BAR[s])} />
+                {s}
+                <span className="font-mono font-semibold text-ink">{byStatus?.[s] ?? 0}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
-          {/* Active Filter Clear */}
+      {/* Filter and Query Toolbar */}
+      <div className="vyro-surface flex flex-col justify-between gap-4 p-3 sm:p-4 lg:flex-row lg:items-center">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <div className="flex items-center gap-2.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-ink-4">
+              <FilterIcon size={12} />
+              Temperature
+            </span>
+            <Pills
+              ariaLabel="Filter by temperature"
+              value={filter.tag}
+              onChange={(v) => setFilter({ ...filter, tag: v as LeadTag | undefined, cursor: undefined })}
+              options={(['hot', 'warm', 'cold'] as const).map((t) => ({ key: t, label: TAG_META[t].label, dot: TAG_META[t].dot }))}
+            />
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-4">Status</span>
+            <Pills
+              ariaLabel="Filter by status"
+              value={filter.status}
+              onChange={(v) => setFilter({ ...filter, status: v as LeadConversionStatus | undefined, cursor: undefined })}
+              options={ALL_STATUSES.map((s) => ({ key: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))}
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-ink-4">
+          {leads.data ? (
+            <span>
+              <strong className="font-semibold text-ink">{leads.data.leads.length}</strong> {leads.data.leads.length === 1 ? 'lead' : 'leads'}
+              {hasActiveFilters ? ' match' : ''}
+            </span>
+          ) : null}
           {hasActiveFilters && (
             <button
               type="button"
               onClick={() => setFilter({ limit: 25 })}
-              className="inline-flex items-center gap-1 text-xs text-ink-4 hover:text-rose transition-colors cursor-pointer self-start lg:self-auto"
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium text-ink-3 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.12)] transition-colors hover:text-rose hover:shadow-[inset_0_0_0_1px_rgba(196,90,74,0.4)]"
             >
-              <XIcon size={13} />
-              <span>Reset filters</span>
+              <XIcon size={12} />
+              Reset
             </button>
           )}
         </div>
-      </Surface>
+      </div>
 
       {/* Main Leads Content / Pipeline Table */}
       <section>
         {leads.isLoading ? (
           <div className="space-y-3 animate-pulse">
-            <div className="h-16 vyro-surface" />
-            <div className="h-16 vyro-surface" />
-            <div className="h-16 vyro-surface" />
+            <div className="h-[72px] vyro-surface" />
+            <div className="h-[72px] vyro-surface" />
+            <div className="h-[72px] vyro-surface" />
           </div>
         ) : leads.isError ? (
-          <div className="rounded-xl border border-amber/40 bg-amber/10 p-6 shadow-xs">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="rounded-2xl bg-amber/10 p-6 shadow-[inset_0_0_0_1px_rgba(196,132,58,0.35)]">
+            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
               <div className="flex items-start gap-3.5">
-                <div className="rounded-lg bg-ink p-2 text-volt shrink-0 mt-0.5">
-                  <TargetIcon size={20} />
+                <div className="mt-0.5 shrink-0 rounded-[10px] bg-ink p-2.5 text-volt">
+                  <TargetIcon size={18} />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-ink-1">
-                    Lead Manager Platform Feature Notice
-                  </h3>
-                  <p className="text-xs text-ink-3 leading-relaxed max-w-xl">
-                    Could not fetch active leads. Confirm that the <code className="px-1.5 py-0.5 rounded bg-amber/20 font-mono text-[11px] text-ink font-semibold">LEAD_MANAGER_ENABLED</code> platform feature flag is enabled in your environment.
+                  <h3 className="text-sm font-bold text-ink-1">Lead Manager unavailable</h3>
+                  <p className="max-w-xl text-xs leading-relaxed text-ink-3">
+                    Could not fetch active leads. Confirm that the{' '}
+                    <code className="rounded bg-amber/20 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-ink">LEAD_MANAGER_ENABLED</code>{' '}
+                    platform feature flag is enabled in your environment.
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => handleRefresh()}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-paper shadow-xs hover:bg-charcoal transition-colors cursor-pointer shrink-0"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-paper transition-colors hover:bg-charcoal"
               >
                 <RefreshCwIcon size={13} />
-                <span>Retry Connection</span>
+                Retry connection
               </button>
             </div>
           </div>
@@ -325,12 +285,7 @@ export function LeadsPage() {
             }
             action={
               hasActiveFilters ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setFilter({ limit: 25 })}
-                  className="mt-2 text-xs"
-                >
+                <Button variant="secondary" size="sm" onClick={() => setFilter({ limit: 25 })} className="mt-2 text-xs">
                   Clear all filters
                 </Button>
               ) : (
@@ -344,93 +299,69 @@ export function LeadsPage() {
           />
         ) : (
           <div className="vyro-surface overflow-hidden">
-            {/* Table Header */}
-            <div className="hidden sm:grid grid-cols-12 gap-4 px-5 py-3 border-b border-ink/10 bg-bone/40 text-[11px] font-mono font-bold uppercase tracking-wider text-ink-4">
-              <div className="col-span-5">Buyer Request & Verification</div>
-              <div className="col-span-3">Invited Timeline</div>
-              <div className="col-span-2">Conversion Status</div>
-              <div className="col-span-2 text-right">Order Value</div>
+            <div className="hidden grid-cols-12 gap-4 border-b border-ink/[0.07] bg-bone/50 py-3 pl-6 pr-5 text-[11px] font-bold uppercase tracking-[0.14em] text-ink-4 sm:grid">
+              <div className="col-span-5">Buyer request</div>
+              <div className="col-span-3">Invited</div>
+              <div className="col-span-2">Stage</div>
+              <div className="col-span-2 text-right">Order value</div>
             </div>
 
-            {/* Leads List Rows */}
-            <ul className="divide-y divide-ink/10">
+            <ul className="divide-y divide-ink/[0.06]">
               {(leads.data?.leads ?? []).map((l: LeadRow) => {
-                const tagColor =
-                  l.tag === 'hot'
-                    ? 'bg-rose/10 text-rose border-rose/30'
-                    : l.tag === 'warm'
-                      ? 'bg-amber/15 text-amber border-amber/30'
-                      : l.tag === 'cold'
-                        ? 'bg-ink/[0.06] text-ink-3 border-ink/15'
-                        : null;
-
+                const meta = l.tag ? TAG_META[l.tag] : null;
                 return (
                   <li key={l.id}>
                     <button
                       type="button"
                       onClick={() => setActiveLead(l.id)}
-                      className="w-full text-left p-4 sm:px-5 sm:py-3.5 hover:bg-bone/50 transition-colors flex flex-col sm:grid sm:grid-cols-12 sm:items-center gap-3 sm:gap-4 group cursor-pointer"
+                      className="group relative flex w-full cursor-pointer flex-col gap-3 py-4 pl-6 pr-5 text-left transition-colors hover:bg-bone/60 focus-visible:bg-bone/60 focus-visible:outline-none sm:grid sm:grid-cols-12 sm:items-center sm:gap-4"
                     >
-                      {/* Column 1: RFQ and Buyer Badge */}
-                      <div className="sm:col-span-5 flex items-center gap-3 min-w-0">
-                        <div className="size-9 rounded-lg bg-ink/[0.05] text-ink-3 flex items-center justify-center shrink-0 group-hover:bg-volt/15 group-hover:text-volt-deep transition-colors">
-                          <FileTextIcon size={15} />
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'absolute inset-y-3 left-0 w-1 rounded-r-full transition-all duration-300 group-hover:inset-y-2',
+                          meta ? meta.bar : 'bg-transparent',
+                        )}
+                      />
+                      <div className="flex min-w-0 items-center gap-3.5 sm:col-span-5">
+                        <div
+                          className={cn(
+                            'flex size-10 shrink-0 items-center justify-center rounded-[11px] transition-colors',
+                            meta ? meta.tile : 'bg-ink/[0.05] text-ink-3 group-hover:bg-ink/[0.08]',
+                          )}
+                        >
+                          <FileTextIcon size={16} />
                         </div>
-                        <div className="flex flex-col gap-1 min-w-0">
+                        <div className="flex min-w-0 flex-col gap-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-mono font-bold text-sm text-ink-1 group-hover:text-ink-2 transition-colors">
-                              RFQ #{l.rfqId}
-                            </span>
-                            <VerifiedBuyerBadge
-                              verified={l.buyerVerified}
-                              level={l.buyerKycLevel}
-                              verifiedAt={l.buyerVerifiedAt}
-                            />
-                            {l.tag && tagColor && (
-                              <span
-                                className={`inline-flex items-center px-2 py-0.2 rounded-full border text-[10px] font-mono font-bold uppercase tracking-wider ${tagColor}`}
-                              >
-                                {l.tag}
-                              </span>
-                            )}
+                            <span className="font-mono text-sm font-bold tracking-tight text-ink">RFQ #{l.rfqId}</span>
+                            <VerifiedBuyerBadge verified={l.buyerVerified} level={l.buyerKycLevel} verifiedAt={l.buyerVerifiedAt} />
+                            {l.tag && <TagChip tag={l.tag} />}
                           </div>
-                          <div className="text-[11px] text-ink-4 truncate">
-                            Supplier Lead ID: {l.id}
-                          </div>
+                          <div className="truncate font-mono text-[11px] text-ink-4">{l.id}</div>
                         </div>
                       </div>
 
-                      {/* Column 2: Invited Date */}
-                      <div className="sm:col-span-3 text-xs text-ink-3 flex items-center gap-1.5 font-mono">
-                        <ClockIcon size={13} className="text-ink-4 shrink-0" />
-                        <span>
-                          {new Date(l.invitedAt).toLocaleDateString([], {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
-                        </span>
+                      <div className="flex flex-col sm:col-span-3">
+                        <span className="text-[13px] font-medium text-ink-2">{relTime(l.invitedAt)}</span>
+                        <span className="text-[11px] text-ink-4">{fmtDate(l.invitedAt)}</span>
                       </div>
 
-                      {/* Column 3: Conversion Status */}
-                      <div className="sm:col-span-2 flex items-center">
+                      <div className="flex items-center sm:col-span-2">
                         <ConversionBadge status={l.conversionStatus} />
                       </div>
 
-                      {/* Column 4: Value and Arrow */}
-                      <div className="sm:col-span-2 flex items-center justify-between sm:justify-end gap-3 text-right">
-                        <div>
-                          {l.orderValueCents != null ? (
-                            <span className="font-mono font-bold text-xs sm:text-sm text-ink-1">
-                              {formatLKR(l.orderValueCents)}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-ink-4 font-mono">—</span>
-                          )}
-                        </div>
+                      <div className="flex items-center justify-between gap-3 text-right sm:col-span-2 sm:justify-end">
+                        {l.orderValueCents != null ? (
+                          <span className="font-display text-sm font-bold tracking-[-0.01em] text-ink sm:text-[15px]">
+                            {formatLKR(l.orderValueCents)}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-ink-5">—</span>
+                        )}
                         <ChevronRightIcon
-                          size={15}
-                          className="text-ink-4 group-hover:text-ink-1 group-hover:translate-x-0.5 transition-all shrink-0"
+                          size={16}
+                          className="shrink-0 text-ink-4 transition-all group-hover:translate-x-0.5 group-hover:text-ink"
                         />
                       </div>
                     </button>
@@ -446,9 +377,7 @@ export function LeadsPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() =>
-                setFilter({ ...filter, cursor: leads.data!.nextCursor ?? undefined })
-              }
+              onClick={() => setFilter({ ...filter, cursor: leads.data!.nextCursor ?? undefined })}
               className="text-xs font-semibold"
             >
               Load older leads
@@ -467,6 +396,46 @@ export function LeadsPage() {
   );
 }
 
+function Pills({
+  options,
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  options: Array<{ key: string; label: string; dot?: string }>;
+  value: string | undefined;
+  onChange: (v: string | undefined) => void;
+  ariaLabel: string;
+}) {
+  const item = (active: boolean) =>
+    cn(
+      'inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold transition-all duration-200',
+      active
+        ? 'bg-ink text-paper shadow-[0_2px_8px_-2px_rgba(12,14,11,0.5)]'
+        : 'text-ink-3 hover:bg-paper/70 hover:text-ink',
+    );
+  return (
+    <div
+      role="group"
+      aria-label={ariaLabel}
+      className="inline-flex flex-wrap items-center gap-0.5 rounded-full bg-ink/[0.05] p-[3px] shadow-[inset_0_0_0_1px_rgba(12,14,11,0.04)]"
+    >
+      <button type="button" aria-pressed={!value} onClick={() => onChange(undefined)} className={item(!value)}>
+        All
+      </button>
+      {options.map((o) => {
+        const active = value === o.key;
+        return (
+          <button key={o.key} type="button" aria-pressed={active} onClick={() => onChange(active ? undefined : o.key)} className={item(active)}>
+            {o.dot ? <span className={cn('size-1.5 rounded-full', active ? 'bg-volt' : o.dot)} /> : null}
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function MetricCard({
   label,
   sublabel,
@@ -474,8 +443,11 @@ function MetricCard({
   icon,
   tileClass,
   accent,
+  bar,
   active,
   onClick,
+  dark,
+  className,
 }: {
   label: string;
   sublabel: string;
@@ -483,31 +455,38 @@ function MetricCard({
   icon: React.ReactNode;
   tileClass: string;
   accent: string;
+  bar: string;
   active: boolean;
   onClick?: () => void;
+  dark?: boolean;
+  className?: string;
 }) {
   return (
     <div
       onClick={onClick}
+      onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onClick()) : undefined}
       role={onClick ? 'button' : undefined}
+      aria-pressed={onClick ? active : undefined}
       tabIndex={onClick ? 0 : undefined}
-      className={`vyro-surface p-4 transition-all select-none ${
-        onClick ? 'cursor-pointer hover:border-ink/30 hover:shadow-md' : ''
-      } ${active ? 'border-ink ring-2 ring-ink/10' : ''}`}
+      className={cn(
+        'vyro-surface group relative select-none overflow-hidden p-4 transition-all duration-300 ease-vyro focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-volt/40',
+        onClick && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_14px_28px_-14px_rgba(12,14,11,0.25)]',
+        active && 'ring-2 ring-ink',
+        className,
+      )}
     >
+      <span
+        aria-hidden
+        className={cn('absolute inset-x-0 top-0 h-[3px] origin-left transition-transform duration-500 ease-vyro', bar, active ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100')}
+      />
       <div className="flex items-center justify-between gap-1">
-        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-ink-4">
-          {label}
-        </span>
-        <span className={`size-7 rounded-lg flex items-center justify-center ${tileClass}`}>
-          {icon}
-        </span>
+        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-4">{label}</span>
+        <span className={cn('flex size-8 items-center justify-center rounded-[10px]', tileClass)}>{icon}</span>
       </div>
-      <MetricNumber size="lg" className={`mt-2 ${accent}`}>
+      <MetricNumber size="lg" className={cn('mt-3', accent)}>
         {value}
       </MetricNumber>
-      <div className="mt-1 text-[11px] text-ink-4 truncate">{sublabel}</div>
+      <div className={cn('mt-1 truncate text-xs', dark ? 'text-ink-3' : 'text-ink-4')}>{sublabel}</div>
     </div>
   );
 }
-

@@ -19,6 +19,7 @@ import {
   SkeletonList,
   StatusBadge,
   Text,
+  Timeline,
 } from '@/ui';
 import { destination } from '@/features/supplier/ops/api';
 import { OrderActions } from '@/features/supplier/ops/OrderActions';
@@ -28,6 +29,7 @@ import { PaymentBadge, PaymentSummaryRows } from '@/features/common/orderLifecyc
 import { deliveryEventStatus, requestedQty } from '@/lib/orderLifecycle';
 import { Enter, Section, shareApiFile } from '@/features/supplier/ops/kit';
 import { usePoDetail } from './api';
+import { SellerPayments } from '@/features/common/bankTransfer';
 
 const STAGES = ['Placed', 'Accepted', 'On the way', 'Delivered'];
 const TERMINAL = ['delivered', 'completed', 'received', 'cancelled', 'rejected', 'failed', 'disputed'];
@@ -39,44 +41,69 @@ function stageOf(status: string) {
   return 0;
 }
 
-/** Four-stage progress track for the ink hero. */
+const STAGE_HINT = [
+  'Waiting for you to accept this order',
+  'Accepted — prepare and dispatch it',
+  'On its way to the buyer',
+  'Delivered to the buyer',
+];
+
+/** Four-stage progress track for the ink hero: dots and labels share columns so they always line up. */
 function StageTrack({ status }: { status: string }) {
   const stopped = ['cancelled', 'rejected', 'failed', 'disputed'].includes(status);
   const at = stageOf(status);
   return (
-    <View style={{ gap: 8 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        {STAGES.map((_, i) => {
+    <View style={{ gap: 12 }}>
+      <View style={{ flexDirection: 'row' }}>
+        {STAGES.map((l, i) => {
           const done = !stopped && i <= at;
           const current = !stopped && i === at;
           return (
-            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', flex: i ? 1 : undefined }}>
-              {i ? <View style={{ flex: 1, height: 2, marginHorizontal: 4, borderRadius: 1, backgroundColor: done ? colors.volt : 'rgba(250,247,240,0.14)' }} /> : null}
-              <View
-                style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: 10,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: done ? colors.volt : 'rgba(250,247,240,0.08)',
-                  borderWidth: current ? 3 : 0,
-                  borderColor: 'rgba(198,220,74,0.3)',
-                }}
-              >
-                {done && !current ? <Check size={11} color={colors.ink} strokeWidth={3} /> : null}
+            <View key={l} style={{ flex: 1, alignItems: 'center', gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch' }}>
+                <View style={{ flex: 1, height: 2, backgroundColor: i === 0 ? 'transparent' : !stopped && i <= at ? colors.volt : 'rgba(250,247,240,0.14)' }} />
+                <View
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 11,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: done ? colors.volt : 'rgba(250,247,240,0.08)',
+                    borderWidth: current ? 4 : 0,
+                    borderColor: 'rgba(198,220,74,0.28)',
+                  }}
+                >
+                  {done && !current ? <Check size={12} color={colors.ink} strokeWidth={3} /> : null}
+                </View>
+                <View style={{ flex: 1, height: 2, backgroundColor: i === STAGES.length - 1 ? 'transparent' : !stopped && i < at ? colors.volt : 'rgba(250,247,240,0.14)' }} />
               </View>
+              <Text variant="caption" color={done ? 'paper' : 'paperFaint'} weight={current ? 'semibold' : 'regular'} style={{ fontSize: 11 }} numberOfLines={1}>
+                {l}
+              </Text>
             </View>
           );
         })}
       </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        {STAGES.map((l, i) => (
-          <Text key={l} variant="caption" color={!stopped && i <= at ? 'paper' : 'paperFaint'} style={{ fontSize: 11 }}>
-            {l}
-          </Text>
-        ))}
-      </View>
+      {!stopped ? (
+        <Text variant="caption" color="paperMuted" style={{ textAlign: 'center' }}>
+          {STAGE_HINT[at]}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** Small glass stat inside the ink hero. */
+function HeroStat({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ flex: 1, gap: 2, padding: 12, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: 'rgba(250,247,240,0.07)' }}>
+      <Text variant="overline" color="paperFaint" style={{ fontSize: 9.5 }}>
+        {label}
+      </Text>
+      <Text variant="bodySm" weight="semibold" color="paper" numberOfLines={1} tabular>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -140,9 +167,9 @@ export function SupplierOrderDetailScreen() {
     >
       <Enter>
         <InkHero seed={`po-${o.id}`}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <IconTile icon={Package} tone="glass" size={42} />
-            <View style={{ flexDirection: 'row', gap: 6 }}>
+            <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 6 }}>
               <PaymentBadge summary={d.paymentSummary} />
               <StatusBadge status={o.status} />
             </View>
@@ -152,9 +179,16 @@ export function SupplierOrderDetailScreen() {
             <Text variant="metric" color="paper" numberOfLines={1} adjustsFontSizeToFit>
               {formatLKR(o.totalCents)}
             </Text>
-            <Text variant="caption" color="paperMuted">
-              {d.items.length} {d.items.length === 1 ? 'line' : 'lines'} · {units} units
-            </Text>
+            {partial ? (
+              <Text variant="caption" color="paperFaint" style={{ textDecorationLine: 'line-through' }}>
+                {formatLKR(o.originalTotalCents)}
+              </Text>
+            ) : null}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 18 }}>
+            <HeroStat label="LINES" value={String(d.items.length)} />
+            <HeroStat label="UNITS" value={String(units)} />
+            <HeroStat label="DUE" value={o.deliveryPromisedAt ? formatDate(o.deliveryPromisedAt) : 'Not set'} />
           </View>
           <View style={{ marginTop: 20 }}>
             <StageTrack status={o.status} />
@@ -189,15 +223,14 @@ export function SupplierOrderDetailScreen() {
         </Enter>
       ) : null}
 
-      {d.paymentSummary ? (
-        <Enter i={1}>
-          <Section icon={Banknote} kicker="Settlement" title="Payment" right={<PaymentBadge summary={d.paymentSummary} />}>
-            <View style={{ marginTop: -8 }}>
-              <PaymentSummaryRows summary={d.paymentSummary} />
-            </View>
-          </Section>
-        </Enter>
-      ) : null}
+      <Enter i={1}>
+        <Section icon={Banknote} kicker="Settlement" title="Payment" right={d.paymentSummary ? <PaymentBadge summary={d.paymentSummary} /> : undefined}>
+          <View style={{ marginTop: -8, gap: 12 }}>
+            {d.paymentSummary ? <PaymentSummaryRows summary={d.paymentSummary} /> : null}
+            <SellerPayments poId={o.id} totalCents={o.totalCents} orderStatus={o.status} onChanged={refresh} />
+          </View>
+        </Section>
+      </Enter>
 
       <Enter i={1}>
         <Section icon={Route} kicker="Summary" title="Order details">
@@ -262,6 +295,14 @@ export function SupplierOrderDetailScreen() {
                   </View>
                 );
               })}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, padding: 14, borderRadius: radii.lg, borderCurve: 'continuous', backgroundColor: colors.pearl }}>
+                <Text variant="bodySm" weight="semibold" color="ink3">
+                  Order total
+                </Text>
+                <Text variant="h3" tabular>
+                  {formatLKR(o.totalCents)}
+                </Text>
+              </View>
             </View>
           )}
         </Section>
@@ -280,20 +321,16 @@ export function SupplierOrderDetailScreen() {
       {d.events.length ? (
         <Enter i={4}>
           <Section icon={History} kicker="Audit trail" title="History">
-            <View style={{ marginTop: -8 }}>
-              {d.events.map((e, i) => {
+            <Timeline
+              steps={d.events.map((e, i) => {
                 const dlv = deliveryEventStatus(e.metadata);
-                return (
-                  <KeyValue
-                    key={e.id}
-                    label={dlv ? `Delivery · ${humanize(dlv)}` : `${humanize(e.toStatus)}${e.reason ? ` — “${e.reason}”` : ''}`}
-                    value={formatDateTime(e.createdAt)}
-                    mono
-                    last={i === d.events.length - 1}
-                  />
-                );
+                return {
+                  label: dlv ? `Delivery · ${humanize(dlv)}` : humanize(e.toStatus),
+                  hint: `${formatDateTime(e.createdAt)}${!dlv && e.reason ? ` · “${e.reason}”` : ''}`,
+                  state: i === d.events.length - 1 ? 'active' : 'done',
+                };
               })}
-            </View>
+            />
           </Section>
         </Enter>
       ) : null}

@@ -31,6 +31,7 @@ import { colors, radii } from '@/theme/tokens';
 import { ContactLine, GlassStats, HeroFigure, HeroTopline, Reveal, Section } from '../kit';
 import { overrideTargets, useAdminOrder, type AdminOrder } from './api';
 import { Can } from '@/features/admin/platform/kit';
+import { SellerPayments } from '@/features/common/bankTransfer';
 import { OUTCOME_LABEL, ResolveDisputeSheet, type DisputeOutcome } from '../disputes/ResolveDisputeSheet';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'AED', 'SGD', 'AUD', 'JPY', 'CNY'];
@@ -249,6 +250,12 @@ export function AdminOrderDetailScreen() {
                   <KeyValue label="Total" value={formatLKR(order.totalCents ?? 0)} emphasize last />
                 </View>
               )}
+            </Section>
+          </Reveal>
+
+          <Reveal index={3}>
+            <Section kicker="Settlement" title="Payments" icon={Landmark}>
+              <SellerPayments poId={order.id} totalCents={order.totalCents ?? 0} orderStatus={order.status} onChanged={() => q.refetch()} actor="admin" />
             </Section>
           </Reveal>
 

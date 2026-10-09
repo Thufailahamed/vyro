@@ -369,9 +369,44 @@ router.post('/bank-transfers/:id/reject', requirePermission('payment:verify_bank
   const ok = await updateBankTransferGuarded(c.env.DB, c.req.param('id'), ['pending', 'proof_submitted', 'pending_verification', 'correction_requested'], {
     status: 'rejected',
     rejectionReason: parsed.data.reason,
+    verifiedByUserId: ctx.userId,
+    verifiedAt: Date.now(),
   });
   if (!ok) throw httpError(409, 'BANK_TRANSFER_ALREADY_VERIFIED', 'Transfer already decided or missing');
   const row = await findBankTransfer(c.env.DB, c.req.param('id'));
+  // A rejected transfer means the money did not arrive: fail the payment so the
+  // order shows as unpaid again and the buyer can pay or resubmit.
+  if (row) {
+    const db = getDb(c.env.DB);
+    const now = Date.now();
+    await db
+      .update(payments)
+      .set({ status: 'failed', statusReason: parsed.data.reason, confirmedByUserId: ctx.userId, confirmedAt: now, updatedAt: now })
+      .where(and(eq(payments.id, row.paymentId), eq(payments.status, 'pending')))
+      .run();
+    const payment = (await db.select().from(payments).where(eq(payments.id, row.paymentId)).get()) as any;
+    const po = payment
+      ? ((await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, payment.purchaseOrderId)).get()) as any)
+      : null;
+    if (po) {
+      try {
+        await notifyOrderParties(
+          c.env.DB,
+          c.env.NOTIFICATIONS_QUEUE,
+          { id: po.id, poNumber: po.poNumber, businessId: po.businessId, supplierId: po.supplierId },
+          {
+            type: NotificationType.PAYMENT_FAILED,
+            title: `Bank transfer rejected for PO ${po.poNumber}`,
+            body: parsed.data.reason,
+            link: `/orders/${po.id}`,
+            audience: 'both',
+          },
+        );
+      } catch (err) {
+        console.error('[admin.bank.reject] notify failed', err);
+      }
+    }
+  }
   await recordAudit(c.env.DB, {
     actorUserId: ctx.userId,
     action: 'BANK_TRANSFER_REJECTED',

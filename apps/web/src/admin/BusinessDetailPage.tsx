@@ -1,32 +1,85 @@
+import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { cn } from '@vyro/ui';
 import { api } from '@/lib/api';
-
 import { formatLKR } from '@/lib/format';
+import { usePageTitle } from '@/lib/usePageTitle';
 import { BusinessSuspendButton } from './BusinessSuspendButton';
+import { CopyId, Monogram, SegmentBar, formatDate, relativeTime } from './registryUi';
 import {
-  Building2Icon,
+  AdminPage,
+  AdminPageHeader,
+  Callout,
+  CardHeader,
+  EmptyBlock,
+  Pill,
+  Skeleton,
+  StatCard,
+  StatGrid,
+  StatusPill,
+  TableCard,
+  TableSkeleton,
+  statusTone,
+  type PillTone,
+} from './ui';
+import {
   AlertCircleIcon,
-  FileTextIcon,
-} from './icons';
-import {
-  CheckCircleIcon,
   ArrowRightIcon,
-  ArrowLeftIcon,
+  BanknoteIcon,
+  Building2Icon,
+  CalendarIcon,
+  FileTextIcon,
+  MailIcon,
+  MapPinIcon,
+  PhoneIcon,
+  ShieldCheckIcon,
   ShoppingCartIcon,
   UserIcon,
+  UsersIcon,
 } from '@/components/icons';
-import { AdminPageHeader } from './ui';
 
 type Detail = {
   id: string;
   name: string;
   status: string;
   createdAt: number;
+  profile?: {
+    contactPerson: string;
+    email: string;
+    phone: string;
+    address: string;
+    city: string;
+    district: string;
+    countryCode: string;
+    description: string | null;
+    taxId: string | null;
+    kycLevel: string;
+    kycVerifiedAt: number | null;
+  };
   members: Array<{ userId: string; role: string; email: string | null }>;
   orderCount: number;
+  lifetimeSpendCents?: number;
   recentOrders: Array<{ id: string; status: string; totalCents: number; createdAt: number }>;
 };
+
+const KYC: Record<string, { label: string; tone: PillTone; note: string }> = {
+  none: { label: 'Not verified', tone: 'warning', note: 'No KYC documents reviewed yet.' },
+  basic: { label: 'Basic KYC', tone: 'info', note: 'Identity and registration checked.' },
+  enhanced: { label: 'Enhanced KYC', tone: 'success', note: 'Full due diligence completed.' },
+};
+
+const ORDER_MIX: Array<{ key: PillTone; label: string; className: string }> = [
+  { key: 'success', label: 'Completed', className: 'bg-mint' },
+  { key: 'info', label: 'In transit', className: 'bg-copper' },
+  { key: 'warning', label: 'In progress', className: 'bg-amber' },
+  { key: 'danger', label: 'Cancelled / disputed', className: 'bg-rose' },
+  { key: 'neutral', label: 'Other', className: 'bg-ink/25' },
+];
+
+function roleLabel(role: string) {
+  return role.replace(/[_-]+/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+}
 
 export function BusinessDetailPage() {
   const { id = '' } = useParams();
@@ -36,264 +89,380 @@ export function BusinessDetailPage() {
     retry: false,
   });
 
+  const b = detail.data?.business;
+  usePageTitle(b ? `${b.name} · Business` : 'Business');
+
+  const backLink = { to: '/admin/businesses', label: 'Registered businesses' };
+
   if (detail.isError) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
-        <Link
-          to="/admin/businesses"
-          className="inline-flex items-center gap-1.5 text-xs font-mono text-ink-4 hover:text-copper transition-colors"
-        >
-          <ArrowLeftIcon size={14} /> Back to Commercial Businesses
-        </Link>
-        <div className="p-10 bg-paper border border-ink/15 text-center space-y-3">
-          <AlertCircleIcon size={32} className="mx-auto text-rose" />
-          <h2 className="vyro-display text-2xl font-bold text-ink">Business account not found</h2>
-          <p className="text-xs text-ink-4">
-            Could not find an active commercial purchasing account with ID{' '}
-            <code className="font-mono text-ink">{id}</code>.
-          </p>
-          <div className="pt-2">
-            <Link
-              to="/admin/businesses"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-ink text-paper text-xs font-mono font-bold uppercase tracking-wider hover:bg-charcoal transition-colors"
-            >
-              Return to Registry
+      <AdminPage>
+        <AdminPageHeader back={backLink} title="Business account not found" />
+        <EmptyBlock
+          icon={<AlertCircleIcon size={22} />}
+          title="We couldn't find this account"
+          description={
+            <>
+              No commercial purchasing account matches <span className="font-mono text-ink">{id}</span>.
+            </>
+          }
+          action={
+            <Link to="/admin/businesses" className="text-sm font-semibold text-ink underline underline-offset-4 hover:text-copper">
+              Return to the registry
             </Link>
+          }
+        />
+      </AdminPage>
+    );
+  }
+
+  if (!b) {
+    return (
+      <AdminPage>
+        <div className="flex items-center gap-4 border-b border-ink/[0.07] pb-6">
+          <Skeleton className="size-16 rounded-[18px]" />
+          <div className="flex-1 space-y-3">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-9 w-80" />
+            <Skeleton className="h-4 w-full max-w-md" />
           </div>
         </div>
-      </div>
-    );
-  }
-
-  if (!detail.data) {
-    return (
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="h-8 w-48 bg-bone border border-ink/10 animate-pulse" />
-        <div className="h-28 bg-paper border border-ink/10 animate-pulse" />
-        <div className="grid sm:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 bg-paper border border-ink/10 animate-pulse" />
+        <StatGrid cols={4}>
+          {[0, 1, 2, 3].map((i) => (
+            <StatCard key={i} label="" value="" loading />
           ))}
+        </StatGrid>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <TableCard title="Recent purchase orders">
+            <TableSkeleton rows={4} cols={4} />
+          </TableCard>
+          <Skeleton className="h-96 rounded-[18px]" />
         </div>
-      </div>
+      </AdminPage>
     );
   }
 
-  const b = detail.data.business;
   const isSuspended = b.status === 'suspended';
+  const p = b.profile;
+  const kyc = KYC[p?.kycLevel ?? 'none'] ?? KYC.none!;
+  const spend = b.lifetimeSpendCents ?? 0;
+  const avgOrder = b.orderCount > 0 ? Math.round(spend / b.orderCount) : 0;
+  const lastOrder = b.recentOrders[0];
+  const location = p ? [p.city, p.district !== p.city ? p.district : null].filter(Boolean).join(', ') : null;
+
+  const mix = ORDER_MIX.map((m) => ({
+    ...m,
+    value: b.recentOrders.filter((o) => statusTone(o.status) === m.key).length,
+  }));
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
-      {/* Breadcrumbs & Navigation */}
-      <div className="flex items-center justify-between">
-        <Link
-          to="/admin/businesses"
-          className="inline-flex items-center gap-1.5 text-xs font-mono font-medium text-ink-4 hover:text-copper transition-colors"
-        >
-          <ArrowLeftIcon size={13} />
-          <span>Back to Businesses Registry</span>
-        </Link>
-        <span className="text-[10px] font-mono text-ink-4">ID: {b.id}</span>
-      </div>
-
-      {/* Executive Page Header */}
+    <AdminPage>
       <AdminPageHeader
+        back={backLink}
         kicker={
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="vyro-kicker text-copper">Registry</span>
-            <span className="text-ink-4">/</span>
-            <span className="text-[11px] font-mono text-ink-3">Commercial Buyer</span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-volt/15 border border-volt/30 text-[10px] font-mono font-bold text-ink uppercase tracking-wider">
-              <Building2Icon size={12} className="text-copper" />
-              Wholesale Client
-            </span>
-          </div>
+          <>
+            <span>Registry</span>
+            <span className="text-ink-5">/</span>
+            <span>Commercial buyer</span>
+          </>
         }
-        title={b.name}
-        description="Commercial wholesale buyer entity authorized to issue institutional purchase orders and negotiate supplier pricing terms."
-        actions={<BusinessSuspendButton businessId={b.id} status={b.status} />}
+        title={
+          <span className="flex min-w-0 items-center gap-4">
+            <Monogram name={b.name} seed={b.id} size="lg" className="hidden sm:inline-flex" />
+            <span className="min-w-0 break-words">{b.name}</span>
+          </span>
+        }
+        description={
+          p?.description ||
+          'Commercial wholesale buyer authorised to issue purchase orders and negotiate supplier pricing terms.'
+        }
+        meta={
+          <>
+            <StatusPill status={b.status} label={isSuspended ? 'Suspended' : 'Active'} />
+            <Pill tone={kyc.tone} icon={<ShieldCheckIcon size={11} />}>
+              {kyc.label}
+            </Pill>
+            {location && (
+              <Pill icon={<MapPinIcon size={11} />}>
+                <span className="capitalize">{location}</span>
+              </Pill>
+            )}
+            <CopyId id={b.id} label="Entity" />
+          </>
+        }
+        actions={<BusinessSuspendButton businessId={b.id} businessName={b.name} status={b.status} />}
       />
 
-      {/* KPI Status Ribbon */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Operating Status */}
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold">
-            Account Status
-          </div>
-          <div className="flex items-center gap-2 pt-1">
-            <span
-              className={`size-2.5 rounded-full ${isSuspended ? 'bg-rose animate-ping' : 'bg-mint'}`}
-            />
-            <span
-              className={`vyro-display text-lg font-bold uppercase ${
-                isSuspended ? 'text-rose' : 'text-mint'
-              }`}
-            >
-              {isSuspended ? 'Suspended' : 'Active Account'}
-            </span>
-          </div>
-          <div className="text-[10px] text-ink-4">
-            {isSuspended ? 'PO placement paused by administrator' : 'Authorized for checkout & invoicing'}
-          </div>
-        </div>
+      {isSuspended && (
+        <Callout tone="danger" title="Purchasing is paused">
+          This account can’t place purchase orders or receive invoices until access is restored.
+        </Callout>
+      )}
 
-        {/* Total Active Orders */}
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold flex items-center justify-between">
-            <span>Lifetime PO Volume</span>
-            <ShoppingCartIcon size={13} className="text-ink-4" />
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-ink">{b.orderCount}</div>
-          <div className="text-[10px] text-ink-4">Active &amp; completed purchase orders</div>
-        </div>
+      <StatGrid cols={4}>
+        <StatCard
+          label="Lifetime spend"
+          value={formatLKR(spend)}
+          icon={<BanknoteIcon size={16} />}
+          sub="Across non-cancelled purchase orders"
+        />
+        <StatCard
+          label="Purchase orders"
+          value={b.orderCount}
+          icon={<ShoppingCartIcon size={16} />}
+          sub={lastOrder ? `Last order ${relativeTime(lastOrder.createdAt)}` : 'No orders yet'}
+        />
+        <StatCard
+          label="Average order"
+          value={b.orderCount > 0 ? formatLKR(avgOrder) : '—'}
+          icon={<FileTextIcon size={16} />}
+          sub="Spend per purchase order"
+        />
+        <StatCard
+          label="Procurement team"
+          value={b.members.length}
+          icon={<UsersIcon size={16} />}
+          sub={`${b.members.filter((m) => m.role === 'owner').length} owner${b.members.filter((m) => m.role === 'owner').length === 1 ? '' : 's'} on the account`}
+        />
+      </StatGrid>
 
-        {/* Authorized Team Members */}
-        <div className="p-4 bg-paper border border-ink/15 shadow-sm space-y-1">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-4 font-bold flex items-center justify-between">
-            <span>Procurement Team</span>
-            <UserIcon size={13} className="text-ink-4" />
-          </div>
-          <div className="vyro-metric text-3xl font-bold text-copper-deep">
-            {b.members.length} Users
-          </div>
-          <div className="text-[10px] text-ink-4">Linked purchasing agents &amp; admins</div>
-        </div>
-      </div>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-6">
+          <TableCard
+            title="Recent purchase orders"
+            description={
+              b.recentOrders.length
+                ? `Latest ${b.recentOrders.length} ${b.recentOrders.length === 1 ? 'order' : 'orders'} placed by this buyer`
+                : undefined
+            }
+            toolbar={
+              b.recentOrders.length > 0 ? (
+                <div className="space-y-2.5">
+                  <SegmentBar segments={mix.map((m) => ({ key: m.key, value: m.value, className: m.className, label: m.label }))} />
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    {mix
+                      .filter((m) => m.value > 0)
+                      .map((m) => (
+                        <span key={m.key} className="inline-flex items-center gap-1.5 text-xs text-ink-4">
+                          <span className={cn('size-2 rounded-full', m.className)} aria-hidden />
+                          {m.label}
+                          <span className="font-semibold text-ink num-tabular">{m.value}</span>
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              ) : undefined
+            }
+            footer={
+              b.recentOrders.length > 0 ? (
+                <>
+                  <span>Showing the most recent {b.recentOrders.length}</span>
+                  <Link
+                    to="/admin/orders"
+                    className="inline-flex items-center gap-1.5 font-semibold text-ink transition-colors hover:text-copper"
+                  >
+                    View all orders
+                    <ArrowRightIcon size={12} />
+                  </Link>
+                </>
+              ) : undefined
+            }
+          >
+            {b.recentOrders.length === 0 ? (
+              <div className="border-t border-ink/[0.07]">
+                <EmptyBlock
+                  icon={<ShoppingCartIcon size={22} />}
+                  title="No purchase orders yet"
+                  description="Orders this buyer places will appear here."
+                />
+              </div>
+            ) : (
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Purchase order</th>
+                    <th>Status</th>
+                    <th className="text-right">Gross total</th>
+                    <th className="text-right">Placed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {b.recentOrders.map((o) => (
+                    <tr key={o.id} className="group">
+                      <td>
+                        <Link
+                          to={`/admin/orders/${o.id}`}
+                          className="inline-flex items-center gap-2 font-mono text-xs font-semibold text-ink transition-colors hover:text-copper"
+                        >
+                          {o.id.slice(0, 8)}…{o.id.slice(-4)}
+                          <ArrowRightIcon size={11} className="-translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+                        </Link>
+                      </td>
+                      <td>
+                        <StatusPill status={o.status} />
+                      </td>
+                      <td className="text-right font-mono text-xs font-semibold text-ink num-tabular">{formatLKR(o.totalCents)}</td>
+                      <td className="text-right">
+                        <div className="text-xs text-ink-3 num-tabular">{formatDate(o.createdAt)}</div>
+                        <div className="text-[11px] text-ink-5">{relativeTime(o.createdAt)}</div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </TableCard>
 
-      {/* Authorized Organization Members */}
-      <div className="bg-paper border border-ink/15 shadow-sm overflow-hidden">
-        <div className="p-4 sm:px-6 border-b border-ink/10 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <UserIcon size={16} className="text-copper" />
-            <h2 className="vyro-display text-lg font-bold text-ink">
-              Procurement Personnel &amp; Roles ({b.members.length})
-            </h2>
-          </div>
-          <span className="text-[10px] font-mono text-ink-4 uppercase tracking-wider">
-            RBAC Access Ledger
-          </span>
-        </div>
-
-        {b.members.length === 0 ? (
-          <div className="p-8 text-center text-xs text-ink-4">
-            No authorized members on file for this business account.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead>
-                <tr className="border-b border-ink/10 bg-bone/60 text-[10px] font-mono uppercase tracking-wider text-ink-3">
-                  <th className="py-2.5 px-4 sm:px-6">Member Email</th>
-                  <th className="py-2.5 px-4 sm:px-6">Assigned Role</th>
-                  <th className="py-2.5 px-4 sm:px-6">Account ID</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/10">
+          <TableCard
+            title="Procurement personnel"
+            description={`${b.members.length} ${b.members.length === 1 ? 'person' : 'people'} with access to this account`}
+          >
+            {b.members.length === 0 ? (
+              <div className="border-t border-ink/[0.07]">
+                <EmptyBlock
+                  icon={<UserIcon size={22} />}
+                  title="No members on file"
+                  description="No authorised personnel are linked to this business account yet."
+                />
+              </div>
+            ) : (
+              <ul className="divide-y divide-ink/[0.06] border-t border-ink/[0.07]">
                 {b.members.map((m) => (
-                  <tr key={m.userId} className="hover:bg-bone/40 transition-colors">
-                    <td className="py-3 px-4 sm:px-6">
-                      <div className="font-mono text-xs font-semibold text-ink">
-                        {m.email || '—'}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 sm:px-6">
-                      <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-mist text-ink border border-line">
-                        {m.role}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 sm:px-6 font-mono text-[11px] text-ink-4">
-                      {m.userId}
-                    </td>
-                  </tr>
+                  <li key={m.userId} className="flex items-center gap-3 px-5 py-3.5 sm:px-6">
+                    <Monogram name={m.email ?? '?'} seed={m.userId} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      {m.email ? (
+                        <a href={`mailto:${m.email}`} className="block truncate text-sm font-medium text-ink hover:text-copper">
+                          {m.email}
+                        </a>
+                      ) : (
+                        <span className="block text-sm text-ink-5">No email on file</span>
+                      )}
+                      <CopyId id={m.userId} label="User" />
+                    </div>
+                    <Pill tone={m.role === 'owner' ? 'brand' : 'neutral'}>{roleLabel(m.role)}</Pill>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Recent Orders Ledger */}
-      <div className="bg-paper border border-ink/15 shadow-sm overflow-hidden">
-        <div className="p-4 sm:px-6 border-b border-ink/10 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileTextIcon size={16} className="text-volt-deep" />
-            <h2 className="vyro-display text-lg font-bold text-ink">
-              Recent Purchase Orders (Last {b.recentOrders.length})
-            </h2>
-          </div>
-          <span className="text-[10px] font-mono text-ink-4 uppercase tracking-wider">
-            Transactional Audit
-          </span>
+              </ul>
+            )}
+          </TableCard>
         </div>
 
-        {b.recentOrders.length === 0 ? (
-          <div className="p-8 text-center text-xs text-ink-4">
-            No purchase orders have been submitted by this business yet.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead>
-                <tr className="border-b border-ink/10 bg-bone/60 text-[10px] font-mono uppercase tracking-wider text-ink-3">
-                  <th className="py-2.5 px-4 sm:px-6">PO Reference</th>
-                  <th className="py-2.5 px-4 sm:px-6">Fulfillment Status</th>
-                  <th className="py-2.5 px-4 sm:px-6 text-right">Gross Total (LKR)</th>
-                  <th className="py-2.5 px-4 sm:px-6 text-right">Created Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/10">
-                {b.recentOrders.map((o) => (
-                  <tr key={o.id} className="hover:bg-bone/40 transition-colors">
-                    <td className="py-3 px-4 sm:px-6 font-mono text-xs font-semibold text-ink">
-                      {o.id.slice(0, 16)}…
-                    </td>
-                    <td className="py-3 px-4 sm:px-6">
-                      <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-mist text-ink border border-line">
-                        {o.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 sm:px-6 text-right font-mono text-xs font-semibold text-ink num-tabular">
-                      {formatLKR(o.totalCents)}
-                    </td>
-                    <td className="py-3 px-4 sm:px-6 text-right text-xs text-ink-4 num-tabular">
-                      {new Date(o.createdAt).toLocaleString('en-US', {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+        <aside className="space-y-6 lg:sticky lg:top-6">
+          {p && (
+            <section className="vyro-surface overflow-hidden">
+              <div className="px-5 pt-5 pb-4">
+                <CardHeader title="Primary contact" icon={<UserIcon size={16} />} />
+              </div>
+              <div className="border-t border-ink/[0.07] px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <Monogram name={p.contactPerson} seed={p.email} size="md" />
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-ink">{p.contactPerson}</div>
+                    <div className="text-xs text-ink-4">Account contact</div>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-1.5">
+                  <ContactLink href={`mailto:${p.email}`} icon={<MailIcon size={14} />}>
+                    {p.email}
+                  </ContactLink>
+                  <ContactLink href={`tel:${p.phone.replace(/\s+/g, '')}`} icon={<PhoneIcon size={14} />}>
+                    <span className="num-tabular">{p.phone}</span>
+                  </ContactLink>
+                </div>
+              </div>
+              <div className="border-t border-ink/[0.07] px-5 py-4">
+                <SideLabel>Registered address</SideLabel>
+                <div className="mt-2 flex gap-2.5 text-sm leading-relaxed text-ink-2">
+                  <MapPinIcon size={14} className="mt-1 shrink-0 text-ink-4" />
+                  <address className="not-italic">
+                    {p.address}
+                    <br />
+                    <span className="capitalize">{location}</span>
+                    {p.countryCode && <span className="text-ink-4"> · {p.countryCode}</span>}
+                  </address>
+                </div>
+              </div>
+            </section>
+          )}
 
-      {/* Footer Metadata */}
-      <div className="p-5 bg-bone/50 border border-ink/10 text-xs text-ink-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="space-y-0.5">
-          <div>
-            Account initialized on{' '}
-            <span className="font-mono text-ink font-semibold">
-              {new Date(b.createdAt).toLocaleString('en-US', {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-              })}
-            </span>
-          </div>
-          <div className="text-[10px]">
-            Commercial entity ID: <span className="font-mono text-ink-3">{b.id}</span>
-          </div>
-        </div>
-        <Link
-          to="/admin/businesses"
-          className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-copper hover:text-ink transition-colors self-start sm:self-auto"
-        >
-          <span>View All Registered Businesses</span>
-          <ArrowRightIcon size={12} />
-        </Link>
+          <section className="vyro-surface overflow-hidden">
+            <div className="px-5 pt-5 pb-4">
+              <CardHeader title="Compliance" icon={<ShieldCheckIcon size={16} />} />
+            </div>
+            <dl className="divide-y divide-ink/[0.06] border-t border-ink/[0.07]">
+              <SideRow label="KYC level">
+                <Pill tone={kyc.tone} dot>
+                  {kyc.label}
+                </Pill>
+              </SideRow>
+              {p?.kycVerifiedAt ? <SideRow label="Verified">{formatDate(p.kycVerifiedAt)}</SideRow> : null}
+              <SideRow label="Tax ID">
+                {p?.taxId ? <CopyId id={p.taxId} label="" className="text-xs text-ink" /> : <span className="text-ink-5">Not provided</span>}
+              </SideRow>
+              <SideRow label="Account status">
+                <StatusPill status={b.status} label={isSuspended ? 'Suspended' : 'Active'} />
+              </SideRow>
+            </dl>
+            <p className="border-t border-ink/[0.07] bg-bone/40 px-5 py-3 text-xs text-ink-4">{kyc.note}</p>
+          </section>
+
+          <section className="vyro-surface p-5">
+            <SideLabel>Timeline</SideLabel>
+            <ol className="mt-3 space-y-3">
+              {lastOrder && (
+                <TimelineItem icon={<ShoppingCartIcon size={12} />} title="Last purchase order" when={lastOrder.createdAt} />
+              )}
+              {p?.kycVerifiedAt ? (
+                <TimelineItem icon={<ShieldCheckIcon size={12} />} title="KYC verified" when={p.kycVerifiedAt} />
+              ) : null}
+              <TimelineItem icon={<Building2Icon size={12} />} title="Account registered" when={b.createdAt} />
+            </ol>
+          </section>
+        </aside>
       </div>
+    </AdminPage>
+  );
+}
+
+function SideLabel({ children }: { children: ReactNode }) {
+  return <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-5">{children}</div>;
+}
+
+function SideRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-5 py-3">
+      <dt className="text-xs text-ink-4">{label}</dt>
+      <dd className="min-w-0 text-right text-sm text-ink">{children}</dd>
     </div>
+  );
+}
+
+function ContactLink({ href, icon, children }: { href: string; icon: ReactNode; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      className="group flex min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 -mx-2 text-[13px] text-ink-2 transition-colors hover:bg-bone/60 hover:text-ink"
+    >
+      <span className="shrink-0 text-ink-4 group-hover:text-ink">{icon}</span>
+      <span className="truncate">{children}</span>
+    </a>
+  );
+}
+
+function TimelineItem({ icon, title, when }: { icon: ReactNode; title: string; when: number }) {
+  return (
+    <li className="flex items-start gap-3">
+      <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-bone text-ink-3 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08)]">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <div className="text-[13px] font-medium text-ink">{title}</div>
+        <div className="flex items-center gap-1.5 text-xs text-ink-4">
+          <CalendarIcon size={11} />
+          {formatDate(when)} · {relativeTime(when)}
+        </div>
+      </div>
+    </li>
   );
 }

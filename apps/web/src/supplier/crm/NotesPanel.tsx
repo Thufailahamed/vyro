@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAddLeadNote, useLeadNotes } from '../useLeadManager';
 import { useToast } from '@vyro/ui';
 import type { LeadNoteRow } from '@vyro/validation';
+import { relTime } from './crmUi';
 
 interface Props {
   supplierId: string;
@@ -29,40 +30,47 @@ export function NotesPanel({ supplierId, leadId }: Props) {
     );
   }
 
-  // Aggregate paginated pages into a single list.
   type NotesPage = { notes: LeadNoteRow[]; nextCursor: string | null };
   const pages = ((notes.data as unknown as { pages?: NotesPage[] } | undefined)?.pages ?? []) as NotesPage[];
   const flatNotes = pages.flatMap((p) => p.notes);
   const hasMore = !!notes.hasNextPage;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-mono font-bold uppercase tracking-wider text-ink-3">
-          Internal Team Notes
-        </span>
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink-3">Team notes</h3>
         {flatNotes.length > 0 && (
-          <span className="text-[11px] font-mono text-ink-4">
-            {flatNotes.length} {flatNotes.length === 1 ? 'entry' : 'entries'}
+          <span className="rounded-full bg-ink/[0.06] px-2 py-0.5 font-mono text-[10px] font-semibold text-ink-3">
+            {flatNotes.length}
           </span>
         )}
       </div>
 
-      <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+      <div className="max-h-72 space-y-3 overflow-y-auto pr-1 scrollbar-thin">
         {notes.isLoading ? (
-          <div className="py-4 text-center text-xs text-ink-4">Loading notes…</div>
+          <div className="space-y-2 animate-pulse">
+            <div className="h-14 rounded-xl bg-ink/[0.04]" />
+            <div className="h-14 rounded-xl bg-ink/[0.04]" />
+          </div>
         ) : flatNotes.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-ink/15 p-4 text-center text-xs text-ink-4 bg-bone/30">
-            No notes yet. Add internal remarks or follow-up details below.
+          <div className="rounded-xl bg-bone/50 p-5 text-center text-xs leading-relaxed text-ink-4 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.08)]">
+            No notes yet. Log conversations and next steps below.
           </div>
         ) : (
           flatNotes.map((n: LeadNoteRow) => (
-            <div key={n.id} className="rounded-lg border border-ink/10 bg-bone/40 p-3 text-xs shadow-xs space-y-1">
-              <div className="flex items-center justify-between text-[11px] text-ink-4 font-mono">
-                <span className="font-semibold text-ink-2">Team Note</span>
-                <span>{new Date(n.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+            <div key={n.id} className="flex gap-2.5">
+              <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-charcoal text-[10px] font-bold text-volt">
+                T
+              </span>
+              <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm bg-bone/60 px-3.5 py-2.5 shadow-[inset_0_0_0_1px_rgba(12,14,11,0.06)]">
+                <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+                  <span className="font-semibold text-ink-2">Team note</span>
+                  <span className="text-ink-4" title={new Date(n.createdAt).toLocaleString()}>
+                    {relTime(n.createdAt)}
+                  </span>
+                </div>
+                <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink">{n.body}</p>
               </div>
-              <div className="whitespace-pre-wrap text-ink-1 text-xs leading-relaxed font-sans">{n.body}</div>
             </div>
           ))
         )}
@@ -71,31 +79,35 @@ export function NotesPanel({ supplierId, leadId }: Props) {
             type="button"
             onClick={() => notes.fetchNextPage()}
             disabled={notes.isFetchingNextPage}
-            className="w-full py-1 text-center text-xs text-ink-3 underline hover:text-ink-1 disabled:opacity-50 cursor-pointer"
+            className="w-full py-1 text-center text-xs font-medium text-ink-3 hover:text-ink disabled:opacity-50"
           >
             {notes.isFetchingNextPage ? 'Loading…' : 'Load older notes'}
           </button>
         )}
       </div>
 
-      <div className="space-y-2 pt-1 border-t border-ink/10">
+      <div className="rounded-xl bg-paper shadow-[inset_0_0_0_1px_rgba(12,14,11,0.14)] transition-shadow focus-within:shadow-[inset_0_0_0_1px_#0C0E0B,0_0_0_4px_rgba(198,220,74,0.3)]">
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit();
+          }}
           maxLength={1000}
           rows={3}
+          aria-label="Add a note"
           placeholder="Log conversation details, buyer requirements, next steps…"
-          className="w-full rounded-lg border border-ink/15 bg-paper px-3 py-2 text-xs leading-relaxed text-ink placeholder:text-ink-4 focus:border-ink focus:outline-none focus:ring-1 focus:ring-volt/50 transition-all resize-none"
+          className="w-full resize-none rounded-t-xl bg-transparent px-3.5 pt-3 text-[13px] leading-relaxed text-ink outline-none placeholder:text-ink-4"
         />
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-mono text-ink-4">{draft.length}/1000</span>
+        <div className="flex items-center justify-between px-3 pb-2.5">
+          <span className="font-mono text-[11px] text-ink-4">{draft.length}/1000 · ⌘↵ to send</span>
           <button
             type="button"
             disabled={!draft.trim() || addNote.isPending}
             onClick={submit}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3.5 py-1.5 text-xs font-semibold text-paper shadow-xs hover:bg-charcoal disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            className="inline-flex h-8 items-center rounded-lg bg-ink px-3.5 text-xs font-semibold text-paper transition-colors hover:bg-charcoal disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {addNote.isPending ? 'Saving…' : 'Add Note'}
+            {addNote.isPending ? 'Saving…' : 'Add note'}
           </button>
         </div>
       </div>

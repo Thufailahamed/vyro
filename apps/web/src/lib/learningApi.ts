@@ -7,6 +7,12 @@ import {
   type LearningTrack,
 } from '@vyro/validation';
 
+export interface AdminQuiz {
+  id: string;
+  passThreshold: number;
+  questions: Array<{ id: string; prompt: string; options: Array<{ id: string; label: string; isCorrect: boolean }> }>;
+}
+
 export const learningApi = {
   listLessons(supplierId: string, track?: LearningTrack) {
     const qs = new URLSearchParams({ supplierId });
@@ -38,6 +44,9 @@ export const learningApi = {
   // Admin
   adminListLessons() {
     return api.get<{ lessons: Array<Record<string, unknown>> }>(`/admin/learning/lessons`);
+  },
+  adminGetLesson(id: string) {
+    return api.get<{ lesson: Record<string, unknown>; quiz: AdminQuiz | null }>(`/admin/learning/lessons/${id}`);
   },
   adminCreateLesson(input: Record<string, unknown>) {
     return api.post<{ lesson: Record<string, unknown> }>(`/admin/learning/lessons`, input);

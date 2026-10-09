@@ -339,7 +339,11 @@ MetricStack.displayName = 'MetricStack';
 export type OrderStatus =
   | 'draft'
   | 'pending'
+  | 'accepted'
+  | 'rejected'
   | 'preparing'
+  | 'ready_for_pickup'
+  | 'out_for_delivery'
   | 'in_transit'
   | 'delivered'
   | 'completed'
@@ -354,7 +358,11 @@ export type OrderStatus =
 const statusPalette: Record<OrderStatus, { dot: string; label: string }> = {
   draft: { dot: 'bg-ink-4', label: 'Draft' },
   pending: { dot: 'bg-amber', label: 'Pending' },
+  accepted: { dot: 'bg-mint', label: 'Accepted' },
+  rejected: { dot: 'bg-rose', label: 'Rejected' },
   preparing: { dot: 'bg-violet', label: 'Preparing' },
+  ready_for_pickup: { dot: 'bg-violet', label: 'Ready for pickup' },
+  out_for_delivery: { dot: 'bg-copper', label: 'Out for delivery' },
   in_transit: { dot: 'bg-copper', label: 'In transit' },
   delivered: { dot: 'bg-mint', label: 'Delivered' },
   completed: { dot: 'bg-mint', label: 'Completed' },
@@ -366,8 +374,14 @@ const statusPalette: Record<OrderStatus, { dot: string; label: string }> = {
   paid: { dot: 'bg-mint', label: 'Paid' },
   unpaid: { dot: 'bg-ink-4', label: 'Unpaid' },
 };
-export function StatusDots({ status }: { status: OrderStatus }) {
-  const s = statusPalette[status];
+export function StatusDots({ status }: { status: OrderStatus | string }) {
+  const s = (statusPalette as Record<string, { dot: string; label: string }>)[status] ?? {
+    dot: 'bg-ink-4',
+    label:
+      typeof status === 'string' && status.length > 0
+        ? status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+        : 'Unknown',
+  };
   return (
     <span className="inline-flex items-center gap-2 text-sm text-ink-2">
       <span className={cn('w-1.5 h-1.5 rotate-45', s.dot)} aria-hidden />

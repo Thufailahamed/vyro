@@ -12,6 +12,10 @@ import {
   supplierBankAccounts,
   financialAdjustments,
   reconciliationExceptions,
+  payments,
+  purchaseOrders,
+  businesses,
+  suppliers,
   type NewPaymentAttempt,
   type NewCodCollection,
   type NewBankTransfer,
@@ -214,18 +218,53 @@ export async function updateBankTransferGuarded(
   return (res as unknown as { meta?: { changes?: number } })?.meta?.changes === 1;
 }
 
+/**
+ * Admin bank-transfer queue. Joins the order, buyer and supplier so ops can
+ * act without opening each payment; never returns the proof storage key.
+ */
 export async function listBankTransferQueue(d1: D1Database, status: string | undefined, limit = 50, cursor?: number) {
   const db = getDb(d1);
   const conds: any[] = [];
   if (status) conds.push(eq(bankTransfers.status, status as never));
   if (cursor !== undefined) conds.push(sql`${bankTransfers.createdAt} < ${cursor}`);
-  return (await db
-    .select()
+  const rows = (await db
+    .select({
+      id: bankTransfers.id,
+      paymentId: bankTransfers.paymentId,
+      referenceNumber: bankTransfers.referenceNumber,
+      expectedCents: bankTransfers.expectedCents,
+      transferredCents: bankTransfers.transferredCents,
+      verifiedCents: bankTransfers.verifiedCents,
+      differenceCents: bankTransfers.differenceCents,
+      currency: bankTransfers.currency,
+      status: bankTransfers.status,
+      bankReference: bankTransfers.bankReference,
+      hasProof: sql<number>`CASE WHEN ${bankTransfers.proofR2Key} IS NULL THEN 0 ELSE 1 END`,
+      proofFileName: bankTransfers.proofFileName,
+      proofMimeType: bankTransfers.proofMimeType,
+      proofUploadedAt: bankTransfers.proofUploadedAt,
+      rejectionReason: bankTransfers.rejectionReason,
+      verifiedAt: bankTransfers.verifiedAt,
+      submittedAt: bankTransfers.submittedAt,
+      createdAt: bankTransfers.createdAt,
+      paymentStatus: payments.status,
+      purchaseOrderId: purchaseOrders.id,
+      poNumber: purchaseOrders.poNumber,
+      businessId: purchaseOrders.businessId,
+      businessName: businesses.name,
+      supplierId: purchaseOrders.supplierId,
+      supplierName: suppliers.name,
+    })
     .from(bankTransfers)
+    .innerJoin(payments, eq(payments.id, bankTransfers.paymentId))
+    .innerJoin(purchaseOrders, eq(purchaseOrders.id, payments.purchaseOrderId))
+    .leftJoin(businesses, eq(businesses.id, purchaseOrders.businessId))
+    .leftJoin(suppliers, eq(suppliers.id, purchaseOrders.supplierId))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(bankTransfers.createdAt))
     .limit(limit)
     .all()) as any[];
+  return rows.map((r) => ({ ...r, hasProof: !!r.hasProof }));
 }
 
 // --- Commission rules ---

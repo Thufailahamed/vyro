@@ -1,10 +1,21 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { RETURN_REASON_CODES, RETURN_REASON_LABEL, type ReturnReasonCode } from '@vyro/shared';
 import { api } from '@/lib/api';
 import { Button, EmptyState, ErrorBanner, Input, Label, Select, Textarea } from '@/components/ui';
-import { RefreshCwIcon, CheckCircleIcon, XIcon, PackageIcon, ClockIcon, BanknoteIcon } from '@/components/icons';
+import {
+  RefreshCwIcon,
+  CheckCircleIcon,
+  XIcon,
+  PackageIcon,
+  ClockIcon,
+  BanknoteIcon,
+  ChevronRightIcon,
+  ExternalLinkIcon,
+  FileTextIcon,
+} from '@/components/icons';
 import { MetricNumber } from '@/components/brand/Surface';
 import { PageHero, HeroStatusPill, heroActionClass } from '@/components/brand/PageHero';
 import { formatLKR } from '@/lib/format';
@@ -507,9 +518,12 @@ function ReturnsTableSkeleton({ rows = 5 }: { rows?: number }) {
 export function ReturnsTable({
   returns,
   orderLink,
+  onSelect,
 }: {
   returns: OrderReturn[];
   orderLink: (r: OrderReturn) => string;
+  /** When set, rows open a detail view instead of being static. */
+  onSelect?: (r: OrderReturn) => void;
 }) {
   return (
     <div className="vyro-surface overflow-hidden">
@@ -523,13 +537,31 @@ export function ReturnsTable({
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Refund</th>
               <th className="px-5 py-3 text-right">Requested</th>
+              {onSelect && <th className="w-24 px-5 py-3" aria-label="Actions" />}
             </tr>
           </thead>
           <tbody className="divide-y divide-ink/[0.05]">
             {returns.map((r) => {
               const itemCount = r.items.reduce((n, it) => n + it.quantity, 0);
               return (
-                <tr key={r.id} className="transition-colors hover:bg-bone/40">
+                <tr
+                  key={r.id}
+                  className={`transition-colors hover:bg-bone/40 ${onSelect ? 'group cursor-pointer' : ''}`}
+                  {...(onSelect
+                    ? {
+                        onClick: () => onSelect(r),
+                        onKeyDown: (e: React.KeyboardEvent) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            onSelect(r);
+                          }
+                        },
+                        tabIndex: 0,
+                        role: 'button',
+                        'aria-label': `Review return ${r.rmaNumber}`,
+                      }
+                    : {})}
+                >
                   <td className="px-5 py-3.5">
                     <div className="font-mono text-[13px] font-semibold text-ink-1">{r.rmaNumber}</div>
                     <div className="mt-0.5 text-[11px] text-ink-4">
@@ -539,6 +571,7 @@ export function ReturnsTable({
                   <td className="px-4 py-3.5">
                     <Link
                       to={orderLink(r)}
+                      onClick={(e) => e.stopPropagation()}
                       className="font-mono text-[13px] text-copper transition-colors hover:text-ink"
                     >
                       {r.poNumber ?? r.purchaseOrderId.slice(0, 8)}
@@ -567,6 +600,20 @@ export function ReturnsTable({
                   <td className="px-5 py-3.5 text-right font-mono text-[11px] text-ink-4">
                     {formatLifecycleDate(r.requestedAt)}
                   </td>
+                  {onSelect && (
+                    <td className="px-5 py-3.5 text-right">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                          r.status === 'requested' || r.status === 'approved'
+                            ? 'bg-ink text-paper group-hover:bg-charcoal'
+                            : 'text-ink-3 group-hover:text-ink'
+                        }`}
+                      >
+                        {r.status === 'requested' ? 'Review' : r.status === 'approved' ? 'Receive' : 'View'}
+                        <ChevronRightIcon size={13} />
+                      </span>
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -592,6 +639,7 @@ export function ReturnsListView({
   orderLink,
   enabled = true,
   emptyAction,
+  supplierActions = false,
 }: {
   kicker: ReactNode;
   title: string;
@@ -602,7 +650,10 @@ export function ReturnsListView({
   orderLink: (r: OrderReturn) => string;
   enabled?: boolean;
   emptyAction?: ReactNode;
+  /** Rows open a detail drawer with approve / reject / receive actions. */
+  supplierActions?: boolean;
 }) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'open' | 'all'>('open');
   const sep = path.includes('?') ? '&' : '?';
   const statusParam =
@@ -613,6 +664,13 @@ export function ReturnsListView({
     enabled,
   });
   const returns = q.data?.returns ?? [];
+  // Keep the last-seen copy so the drawer stays open if a filter refetch drops the row.
+  const [lastSelected, setLastSelected] = useState<OrderReturn | null>(null);
+  const fresh = selectedId ? returns.find((r) => r.id === selectedId) : undefined;
+  useEffect(() => {
+    if (fresh) setLastSelected(fresh);
+  }, [fresh]);
+  const selected = selectedId ? (fresh ?? (lastSelected?.id === selectedId ? lastSelected : null)) : null;
 
   const stats = useMemo(() => {
     let awaiting = 0;
@@ -756,7 +814,19 @@ export function ReturnsListView({
           </div>
         </div>
       ) : (
-        <ReturnsTable returns={returns} orderLink={orderLink} />
+        <ReturnsTable
+          returns={returns}
+          orderLink={orderLink}
+          {...(supplierActions ? { onSelect: (r: OrderReturn) => setSelectedId(r.id) } : {})}
+        />
+      )}
+      {supplierActions && selected && (
+        <ReturnDrawer
+          ret={selected}
+          orderHref={orderLink(selected)}
+          onClose={() => setSelectedId(null)}
+          onChanged={() => void q.refetch()}
+        />
       )}
     </div>
   );
@@ -791,6 +861,274 @@ function StatTile({
         <MetricNumber size="sm" className={`mt-2 ${valueTone}`}>{value}</MetricNumber>
       )}
       <div className="mt-0.5 text-[11px] text-ink-4">{sub}</div>
+    </div>
+  );
+}
+
+/* ── Supplier: return detail drawer (opened from the returns list) ── */
+
+function ReturnDrawer({
+  ret,
+  orderHref,
+  onClose,
+  onChanged,
+}: {
+  ret: OrderReturn;
+  orderHref: string;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const [entered, setEntered] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [receiving, setReceiving] = useState(false);
+  const dialogOpen = rejecting || approving || receiving;
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  useEffect(() => {
+    if (dialogOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, dialogOpen]);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  const units = ret.items.reduce((n, it) => n + it.quantity, 0);
+  const estimateCents = ret.items.reduce(
+    (s, it) => s + it.unitRefundCents * (it.approvedQuantity ?? it.quantity),
+    0,
+  );
+  const refundCents = ret.refundCents != null && ret.refundCents > 0 ? ret.refundCents : null;
+
+  const steps: Array<{ label: string; at: number | null }> = [
+    { label: 'Requested', at: ret.requestedAt },
+    { label: ret.status === 'rejected' ? 'Rejected' : 'Approved', at: ret.decidedAt },
+    { label: 'Received', at: ret.receivedAt },
+    { label: 'Refunded', at: ret.refundedAt },
+  ];
+
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label={`Return ${ret.rmaNumber}`} className="fixed inset-0 z-50">
+      <div
+        className={`absolute inset-0 bg-ink/45 backdrop-blur-sm transition-opacity duration-300 ${entered ? 'opacity-100' : 'opacity-0'}`}
+        onClick={onClose}
+      />
+      <aside
+        className={`absolute inset-y-0 right-0 flex w-full max-w-lg flex-col bg-paper shadow-soft-xl transition-transform duration-300 ease-vyro ${
+          entered ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        {/* Header */}
+        <div className="grain relative overflow-hidden bg-ink px-6 pb-6 pt-5 text-paper sm:px-7">
+          <div aria-hidden className="pointer-events-none absolute -right-20 -top-24 size-64 rounded-full bg-volt/[0.14] blur-3xl" />
+          <div aria-hidden className="pointer-events-none absolute -bottom-28 -left-16 size-56 rounded-full bg-copper/[0.2] blur-3xl" />
+          <div className="relative">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-volt">
+                <RefreshCwIcon size={12} /> Return request
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close return details"
+                className="rounded-lg p-1.5 text-paper/50 transition-colors duration-200 hover:bg-paper/10 hover:text-paper"
+              >
+                <XIcon size={18} />
+              </button>
+            </div>
+            <h2 className="vyro-display mt-3 truncate text-2xl text-paper">{ret.rmaNumber}</h2>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <ReturnStatusBadge status={ret.status} />
+              <Link
+                to={orderHref}
+                className="inline-flex items-center gap-1 font-mono text-[11px] text-paper/60 transition-colors hover:text-paper"
+              >
+                {ret.poNumber ?? ret.purchaseOrderId.slice(0, 8)} <ExternalLinkIcon size={11} />
+              </Link>
+            </div>
+            <div className="mt-5 flex items-end justify-between gap-4">
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper/45">
+                  {refundCents ? 'Refunded' : 'Refund if accepted'}
+                </div>
+                <div className="vyro-metric mt-1 text-3xl leading-none text-paper">
+                  {formatLKR(refundCents ?? estimateCents)}
+                </div>
+              </div>
+              <div className="text-right font-mono text-[11px] text-paper/45">
+                {units} unit{units === 1 ? '' : 's'} · {ret.items.length} line{ret.items.length === 1 ? '' : 's'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="scrollbar-thin flex-1 space-y-6 overflow-y-auto px-6 py-6 sm:px-7">
+          <section className="rounded-xl border border-amber/25 bg-amber/[0.07] p-4">
+            <div className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-amber">Buyer's reason</div>
+            <div className="mt-1.5 text-sm font-semibold text-ink">
+              {RETURN_REASON_LABEL[ret.reasonCode] ?? ret.reasonCode}
+            </div>
+            {ret.reasonNote && <p className="mt-1.5 text-sm italic leading-relaxed text-ink-3">“{ret.reasonNote}”</p>}
+            <div className="mt-2 font-mono text-[11px] text-ink-4">Requested {formatLifecycleDate(ret.requestedAt)}</div>
+          </section>
+
+          <section>
+            <DrawerLabel title="Items to return" meta={`${ret.items.length} line${ret.items.length === 1 ? '' : 's'}`} />
+            <div className="mt-3 divide-y divide-line-soft overflow-hidden rounded-xl border border-line">
+              {ret.items.map((it) => (
+                <div key={it.id} className="flex items-center gap-3 p-3.5">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-ink font-display text-xs font-bold text-volt">
+                    {it.productName.trim().charAt(0).toUpperCase() || '·'}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-ink">{it.productName}</div>
+                    <div className="mt-0.5 font-mono text-[11px] text-ink-4">
+                      {it.quantity} × {formatLKR(it.unitRefundCents)}
+                      {it.approvedQuantity != null && it.approvedQuantity !== it.quantity && ` · approved ${it.approvedQuantity}`}
+                      {it.receivedQuantity != null && ` · received ${it.receivedQuantity}`}
+                    </div>
+                    {it.conditionNote && <div className="mt-0.5 text-[11px] italic text-ink-3">{it.conditionNote}</div>}
+                  </div>
+                  <div className="vyro-metric shrink-0 text-sm font-bold text-ink">
+                    {formatLKR(it.unitRefundCents * it.quantity)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {ret.attachments.length > 0 && (
+            <section>
+              <DrawerLabel title="Buyer evidence" meta={`${ret.attachments.length} file${ret.attachments.length === 1 ? '' : 's'}`} />
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {ret.attachments.map((a, i) => {
+                  const url = returnAttachmentUrl(ret.id, a.id);
+                  return (
+                    <a
+                      key={a.id}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group relative block aspect-square overflow-hidden rounded-lg border border-line bg-bone"
+                    >
+                      {a.contentType.startsWith('image/') ? (
+                        <img src={url} alt={`Attachment ${i + 1}`} className="size-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                      ) : (
+                        <span className="flex size-full flex-col items-center justify-center gap-1 text-[11px] text-ink-3">
+                          <FileTextIcon size={18} /> File {i + 1}
+                        </span>
+                      )}
+                    </a>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {(ret.supplierNote || ret.rejectionReason) && (
+            <section className="space-y-2">
+              {ret.supplierNote && (
+                <p className="rounded-lg bg-bone/60 px-3 py-2 text-sm italic text-ink-3">Your note: “{ret.supplierNote}”</p>
+              )}
+              {ret.rejectionReason && (
+                <p className="rounded-lg bg-rose/10 px-3 py-2 text-sm text-rose">Rejected: {ret.rejectionReason}</p>
+              )}
+            </section>
+          )}
+
+          <section>
+            <DrawerLabel title="Progress" />
+            <ol className="relative mt-3 space-y-3.5">
+              <span aria-hidden className="absolute bottom-2 left-[5px] top-2 w-px bg-ink/10" />
+              {steps.map((s) => (
+                <li key={s.label} className="relative flex items-start gap-3">
+                  <span
+                    className={`relative z-10 mt-1 size-[11px] shrink-0 rounded-full border-2 ${
+                      s.at ? 'border-ink bg-volt' : 'border-ink/20 bg-paper'
+                    }`}
+                  />
+                  <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
+                    <span className={`text-sm ${s.at ? 'font-semibold text-ink' : 'text-ink-4'}`}>{s.label}</span>
+                    <span className="shrink-0 font-mono text-[11px] text-ink-4">{s.at ? formatLifecycleDate(s.at) : '—'}</span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+        </div>
+
+        {/* Footer actions */}
+        <div className="space-y-3 border-t border-line bg-bone/40 px-6 py-4 sm:px-7">
+          {ret.status === 'requested' && (
+            <>
+              <p className="text-xs text-ink-3">Approve to ask the buyer to send the goods back, or reject with a reason.</p>
+              <div className="flex gap-2">
+                <Button variant="danger" className="flex-1 justify-center" onClick={() => setRejecting(true)}>
+                  <XIcon size={14} /> Reject
+                </Button>
+                <Button variant="success" className="flex-[2] justify-center" onClick={() => setApproving(true)}>
+                  <CheckCircleIcon size={14} /> Approve return
+                </Button>
+              </div>
+            </>
+          )}
+          {ret.status === 'approved' && (
+            <>
+              <p className="text-xs text-ink-3">Once the goods are back at your depot, record what arrived. The refund is issued automatically.</p>
+              <Button variant="success" className="w-full justify-center" onClick={() => setReceiving(true)}>
+                <PackageIcon size={14} /> Mark goods received
+              </Button>
+            </>
+          )}
+          <div className="flex items-center justify-between gap-3">
+            <Link to={orderHref} className="text-xs font-semibold text-copper transition-colors hover:text-copper-deep">
+              Open order →
+            </Link>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </aside>
+
+      <ReasonDialog
+        open={rejecting}
+        title="Reject return"
+        subtitle={ret.rmaNumber}
+        confirmLabel="Reject return"
+        placeholder="e.g. Photos show goods were damaged after delivery"
+        onClose={() => setRejecting(false)}
+        onSubmit={async (reason) => {
+          await api.post(`/returns/${ret.id}/reject`, { reason });
+          onChanged();
+        }}
+      />
+      {approving && <ApproveReturnDialog ret={ret} onClose={() => setApproving(false)} onDone={onChanged} />}
+      {receiving && <ReceiveReturnDialog ret={ret} onClose={() => setReceiving(false)} onDone={onChanged} />}
+    </div>,
+    document.body,
+  );
+}
+
+function DrawerLabel({ title, meta }: { title: string; meta?: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-ink">{title}</span>
+      {meta && <span className="font-mono text-[11px] text-ink-4">{meta}</span>}
     </div>
   );
 }
