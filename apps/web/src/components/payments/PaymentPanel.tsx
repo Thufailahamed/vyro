@@ -51,12 +51,13 @@ interface BankTransferInfo {
   rejectionReason: string | null;
 }
 
-interface BankAccount {
+/** VYRO's collection account. Buyers pay VYRO; VYRO verifies and settles the supplier. */
+interface CollectionAccount {
+  accountName: string;
   bankName: string;
-  accountHolder: string;
-  accountNumberLast4: string;
   branch: string | null;
-  isDefault: boolean;
+  accountNumber: string;
+  sandbox: boolean;
 }
 
 const PROOF_ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf';
@@ -121,7 +122,9 @@ export function PaymentPanel({
   const [rejectFor, setRejectFor] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [showRecord, setShowRecord] = useState(false);
-  const [recordMethod, setRecordMethod] = useState<'bank_transfer' | 'cash'>('bank_transfer');
+  const [recordMethod, setRecordMethod] = useState<'bank_transfer' | 'cash'>(
+    viewer === 'admin' ? 'bank_transfer' : 'cash',
+  );
   const [recordRef, setRecordRef] = useState('');
   const [uploadFor, setUploadFor] = useState<string | null>(null);
   const [replaceFile, setReplaceFile] = useState<File | null>(null);
@@ -143,13 +146,13 @@ export function PaymentPanel({
   const { data, refetch } = useQuery({
     queryKey: ['payments', purchaseOrderId],
     queryFn: () =>
-      api.get<{ payments: Payment[]; bankAccounts?: BankAccount[] }>(
+      api.get<{ payments: Payment[]; collectionAccount?: CollectionAccount | null }>(
         `/payments/by-po/${purchaseOrderId}`,
       ),
   });
 
   const payments = [...(data?.payments ?? [])].sort((a, b) => b.createdAt - a.createdAt);
-  const bankAccounts = data?.bankAccounts ?? [];
+  const collectionAccount = data?.collectionAccount ?? null;
   const refreshAll = async () => {
     await refetch();
     onChanged?.();
@@ -188,6 +191,8 @@ export function PaymentPanel({
   const pendingOnline = payments.find((p) => p.status === 'pending' && p.method === 'online');
   const canPay = isBuyer && outstanding > 0 && open;
   const canConfirm = isSeller || isAdmin;
+  // Bank transfers land in VYRO's account, so only VYRO finance verifies them.
+  const canReview = (p: Payment) => (p.method === 'bank_transfer' ? isAdmin : canConfirm);
   const lastFailed = payments.find((p) => ['failed', 'cancelled', 'chargeback'].includes(p.status));
 
   async function payOnline(paymentId: string) {
@@ -239,7 +244,7 @@ export function PaymentPanel({
 
   function validateProof(f: File | null): string | null {
     if (!f)
-      return 'Attach your bank receipt (photo or PDF) so the supplier can verify the transfer.';
+      return 'Attach your bank receipt (photo or PDF) so VYRO finance can verify the transfer.';
     if (!PROOF_ACCEPT.split(',').includes(f.type))
       return 'Receipt must be a JPEG, PNG, WebP or PDF file.';
     if (f.size > PROOF_MAX_BYTES) return 'Receipt must be 10 MB or smaller.';
@@ -373,7 +378,9 @@ export function PaymentPanel({
     ? 'Paid in full'
     : canConfirm
       ? pendingBank
-        ? 'Transfer to review'
+        ? isAdmin
+          ? 'Transfer to verify'
+          : 'VYRO is verifying the transfer'
         : 'Awaiting buyer payment'
       : pendingBank
         ? 'Transfer under review'
@@ -516,37 +523,19 @@ export function PaymentPanel({
                         label={formatLKR(outstanding)}
                       />
                     </div>
-                    {bankAccounts.length > 0 ? (
-                      <ul className="mt-3 space-y-2">
-                        {bankAccounts.map((a, i) => (
-                          <li
-                            key={i}
-                            className="flex items-center gap-3 rounded-lg bg-paper p-2.5 ring-1 ring-ink/[0.06]"
-                          >
-                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-ink text-volt">
-                              <WarehouseIcon size={15} />
-                            </div>
-                            <div className="min-w-0 flex-1 text-[11px] leading-snug">
-                              <div className="text-[13px] font-semibold text-ink-1">
-                                {a.bankName}
-                                {a.branch ? (
-                                  <span className="font-normal text-ink-4"> · {a.branch}</span>
-                                ) : null}
-                              </div>
-                              <div className="text-ink-3">{a.accountHolder}</div>
-                              <div className="mt-0.5 font-mono font-semibold text-ink-2">
-                                A/c •••• {a.accountNumberLast4}
-                              </div>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
+                    {collectionAccount ? (
+                      <CollectionAccountCard account={collectionAccount} className="mt-3" />
                     ) : (
                       <p className="mt-2 text-[11px] leading-relaxed text-ink-3">
-                        The supplier hasn't added payout details yet. Ask them for their account in
-                        Messages.
+                        VYRO's bank details are unavailable right now. Pay by card, or contact VYRO
+                        support.
                       </p>
                     )}
+                    <p className="mt-2.5 flex items-start gap-1.5 text-[10.5px] leading-relaxed text-ink-4">
+                      <ShieldCheckIcon size={11} className="mt-px shrink-0 text-mint" />
+                      Pay VYRO only — never a supplier's personal account. VYRO holds the money and
+                      pays the supplier after delivery.
+                    </p>
                   </div>
                 </Step>
                 <Step n={2} title="Add your bank reference" optional>
@@ -570,8 +559,8 @@ export function PaymentPanel({
                   <UploadCloudIcon size={15} /> Submit receipt
                 </Button>
                 <TrustNote icon={<ClockIcon size={13} />}>
-                  The supplier checks the receipt against their statement and marks the order paid —
-                  usually within one business day.
+                  VYRO finance checks the receipt against VYRO's bank statement and marks the order
+                  paid — usually within one business day.
                 </TrustNote>
               </ol>
             )}
@@ -647,6 +636,21 @@ export function PaymentPanel({
                       </div>
                     )}
 
+                    {p.method === 'bank_transfer' && collectionAccount && (
+                      <div className="mt-3">
+                        <div className="mb-1.5 text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-ink-4">
+                          {p.status === 'pending' && isBuyer ? 'Send to' : 'Paid into'}
+                        </div>
+                        <CollectionAccountCard
+                          account={collectionAccount}
+                          compact={p.status !== 'pending'}
+                          reference={
+                            p.status === 'pending' && isBuyer ? bt?.referenceNumber : undefined
+                          }
+                        />
+                      </div>
+                    )}
+
                     {p.method === 'bank_transfer' && bt && (
                       <div className="mt-3 space-y-2">
                         <div className="flex items-center justify-between gap-2 text-[11px]">
@@ -675,13 +679,26 @@ export function PaymentPanel({
                       </div>
                     )}
 
-                    {/* Seller / admin review */}
-                    {p.status === 'pending' && p.method !== 'online' && canConfirm && (
+                    {/* Seller: VYRO verifies bank transfers, not the seller */}
+                    {p.status === 'pending' && p.method === 'bank_transfer' && isSeller && (
+                      <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber/[0.08] p-2.5 text-[11px] leading-relaxed text-ink-3 ring-1 ring-amber/20">
+                        <ClockIcon size={13} className="mt-px shrink-0 text-amber" />
+                        <span>
+                          The buyer paid into VYRO's account. VYRO finance is verifying it — you'll
+                          be notified once the funds are confirmed. No action needed from you.
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Admin (bank transfers) / seller (cash) review */}
+                    {p.status === 'pending' && p.method !== 'online' && canReview(p) && (
                       <div className="mt-3 space-y-2 border-t border-ink/10 pt-3">
                         <p className="text-[11px] leading-relaxed text-ink-3">
-                          {bt?.hasProof
-                            ? 'Check the receipt against your bank statement, then confirm once the funds have landed.'
-                            : 'No receipt yet. Confirm only once the funds are in your account.'}
+                          {p.method === 'bank_transfer'
+                            ? bt?.hasProof
+                              ? "Check the receipt against VYRO's collection account statement, then confirm once the funds have landed."
+                              : "No receipt yet. Confirm only once the funds are in VYRO's account."
+                            : 'Confirm once you have collected the cash.'}
                         </p>
                         {rejectFor === p.id ? (
                           <div className="space-y-2">
@@ -739,8 +756,8 @@ export function PaymentPanel({
                       <div className="mt-3 space-y-2 border-t border-ink/10 pt-3">
                         <p className="text-[11px] leading-relaxed text-ink-3">
                           {bt?.hasProof
-                            ? 'Sent to the supplier. Your order is marked paid as soon as they confirm the transfer.'
-                            : 'Upload your bank receipt so the supplier can confirm the transfer.'}
+                            ? 'Sent to VYRO. Your order is marked paid as soon as VYRO finance verifies the transfer.'
+                            : 'Upload your bank receipt so VYRO finance can verify the transfer.'}
                         </p>
                         {uploadFor === p.id || !bt?.hasProof ? (
                           <div className="space-y-2">
@@ -809,8 +826,9 @@ export function PaymentPanel({
               <div className="space-y-1.5">
                 {!pendingBank && (
                   <p className="text-[11px] leading-relaxed text-ink-3">
-                    Card payments confirm automatically. Bank transfers appear above once the buyer
-                    uploads a receipt.
+                    {isAdmin
+                      ? 'Card payments confirm automatically. Bank transfers appear above once the buyer uploads a receipt.'
+                      : "Buyers pay by card or by bank transfer into VYRO's account — VYRO confirms both for you."}
                   </p>
                 )}
                 <button
@@ -818,7 +836,9 @@ export function PaymentPanel({
                   onClick={() => setShowRecord(true)}
                   className="text-xs font-semibold text-copper transition-colors hover:text-ink"
                 >
-                  Received payment another way? Record it →
+                  {isAdmin
+                    ? 'Received payment another way? Record it →'
+                    : 'Collected cash on delivery? Record it →'}
                 </button>
               </div>
             ) : (
@@ -827,22 +847,24 @@ export function PaymentPanel({
                   Records {formatLKR(outstanding)} as received and marks this order paid. Use only
                   once the money has actually arrived.
                 </p>
-                <div className="grid grid-cols-2 gap-1 rounded-xl bg-ink/[0.05] p-1">
-                  <MethodTab
-                    active={recordMethod === 'bank_transfer'}
-                    onClick={() => setRecordMethod('bank_transfer')}
-                    icon={<WarehouseIcon size={14} />}
-                  >
-                    Bank
-                  </MethodTab>
-                  <MethodTab
-                    active={recordMethod === 'cash'}
-                    onClick={() => setRecordMethod('cash')}
-                    icon={<BanknoteIcon size={14} />}
-                  >
-                    Cash
-                  </MethodTab>
-                </div>
+                {isAdmin && (
+                  <div className="grid grid-cols-2 gap-1 rounded-xl bg-ink/[0.05] p-1">
+                    <MethodTab
+                      active={recordMethod === 'bank_transfer'}
+                      onClick={() => setRecordMethod('bank_transfer')}
+                      icon={<WarehouseIcon size={14} />}
+                    >
+                      Bank
+                    </MethodTab>
+                    <MethodTab
+                      active={recordMethod === 'cash'}
+                      onClick={() => setRecordMethod('cash')}
+                      icon={<BanknoteIcon size={14} />}
+                    >
+                      Cash
+                    </MethodTab>
+                  </div>
+                )}
                 <Input
                   placeholder="Reference (optional)"
                   value={recordRef}
@@ -877,7 +899,9 @@ export function PaymentPanel({
 
         {fullyPaid && (
           <TrustNote icon={<ShieldCheckIcon size={13} />}>
-            Funds are held in Vyro escrow and released to the supplier on delivery confirmation.
+            {isSeller
+              ? 'VYRO holds these funds and pays you in the next payout once the buyer confirms receipt.'
+              : 'Funds are held by VYRO and released to the supplier once delivery is confirmed.'}
           </TrustNote>
         )}
       </div>
@@ -967,7 +991,90 @@ function Step({
   );
 }
 
-function CopyChip({ value, label }: { value: string; label: string }) {
+/** VYRO's collection account: where buyers send bank transfers. */
+function CollectionAccountCard({
+  account,
+  compact = false,
+  reference,
+  className,
+}: {
+  account: CollectionAccount;
+  compact?: boolean;
+  /** Transfer reference the buyer should quote, shown as a copyable row. */
+  reference?: string | undefined;
+  className?: string;
+}) {
+  const last4 = account.accountNumber.replace(/\s/g, '').slice(-4);
+  if (compact) {
+    return (
+      <div
+        className={cn(
+          'flex items-center gap-2.5 rounded-lg bg-paper px-3 py-2 ring-1 ring-ink/[0.06]',
+          className,
+        )}
+      >
+        <ShieldCheckIcon size={13} className="shrink-0 text-mint" />
+        <div className="min-w-0 flex-1 truncate text-[11px] text-ink-3">
+          <span className="font-semibold text-ink-1">{account.accountName}</span> ·{' '}
+          {account.bankName}
+        </div>
+        <span className="shrink-0 font-mono text-[11px] font-semibold text-ink-2">
+          •••• {last4}
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className={cn('rounded-lg bg-paper p-3 ring-1 ring-ink/[0.06]', className)}>
+      <div className="flex items-start gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-ink text-volt">
+          <ShieldCheckIcon size={15} />
+        </div>
+        <div className="min-w-0 flex-1 text-[11px] leading-snug">
+          <div className="flex flex-wrap items-center gap-1.5 text-[13px] font-semibold text-ink-1">
+            {account.accountName}
+            {account.sandbox && (
+              <span className="rounded bg-amber/15 px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-wider text-amber">
+                Sandbox
+              </span>
+            )}
+          </div>
+          <div className="text-ink-3">
+            {account.bankName}
+            {account.branch ? ` · ${account.branch}` : ''}
+          </div>
+        </div>
+      </div>
+      <dl className="mt-2.5 space-y-1.5 border-t border-ink/[0.06] pt-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <dt className="text-[11px] text-ink-4">Account no.</dt>
+          <dd className="min-w-0">
+            <CopyChip
+              value={account.accountNumber.replace(/\s/g, '')}
+              label={account.accountNumber}
+            />
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <dt className="text-[11px] text-ink-4">Account name</dt>
+          <dd className="min-w-0">
+            <CopyChip value={account.accountName} label={account.accountName} small />
+          </dd>
+        </div>
+        {reference && (
+          <div className="flex items-center justify-between gap-2">
+            <dt className="text-[11px] text-ink-4">Quote reference</dt>
+            <dd className="min-w-0">
+              <CopyChip value={reference} label={reference} small />
+            </dd>
+          </div>
+        )}
+      </dl>
+    </div>
+  );
+}
+
+function CopyChip({ value, label, small = false }: { value: string; label: string; small?: boolean }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -978,10 +1085,13 @@ function CopyChip({ value, label }: { value: string; label: string }) {
           setTimeout(() => setCopied(false), 1500);
         });
       }}
-      className="inline-flex items-center gap-1.5 rounded-lg bg-paper px-2 py-1 font-mono text-sm font-bold tabular-nums text-ink-1 ring-1 ring-ink/10 transition-colors hover:ring-ink/25"
-      title="Copy amount"
+      className={cn(
+        'inline-flex max-w-full items-center gap-1.5 rounded-lg bg-paper px-2 py-1 font-mono font-bold tabular-nums text-ink-1 ring-1 ring-ink/10 transition-colors hover:ring-ink/25',
+        small ? 'text-[11px]' : 'text-sm',
+      )}
+      title={`Copy ${label}`}
     >
-      {label}
+      <span className="truncate">{label}</span>
       {copied ? (
         <CheckIcon size={12} className="text-mint" />
       ) : (

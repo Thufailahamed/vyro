@@ -1,3 +1,5 @@
+import type { OrderReturn } from '@/lib/orderLifecycle';
+
 export interface ConsoleOrder {
   id: string;
   poNumber: string;
@@ -8,6 +10,7 @@ export interface ConsoleOrder {
   deliveryDistrict?: string;
   businessId?: string;
   paymentState?: string | null;
+  returnState?: string | null;
 }
 
 export type ConsoleOrderDetail = {
@@ -29,6 +32,7 @@ export type ConsoleOrderDetail = {
     toStatus: string;
     createdAt: number;
   }>;
+  returns?: OrderReturn[];
 };
 
 export type QueueTab = 'all' | 'incoming' | 'fulfillment' | 'completed';

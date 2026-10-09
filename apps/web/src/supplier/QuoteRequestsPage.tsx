@@ -13,7 +13,7 @@ import { FileTextIcon, ClockIcon, MapPinIcon, ArrowRightIcon, PackageIcon } from
 
 export function QuoteRequestsPage() {
   usePageTitle('Quote requests');
-  const supplierId = useSupplierId();
+  const { supplierId } = useSupplierId();
   const [filter, setFilter] = useState<'all' | 'new' | 'viewed' | 'in_progress' | 'submitted' | 'expiring' | 'expired' | 'awarded' | 'not_selected'>('all');
   const { data, isLoading } = useQuery({
     queryKey: ['supplier-rfqs', supplierId],
@@ -157,7 +157,7 @@ export function QuoteRequestsPage() {
 }
 
 export function useRfqSupplierDashboard() {
-  const supplierId = useSupplierId();
+  const { supplierId } = useSupplierId();
   return useQuery({
     queryKey: ['supplier-rfq-dash', supplierId],
     queryFn: () => api.get(`/rfqs/dashboard/supplier?supplierId=${supplierId}`),

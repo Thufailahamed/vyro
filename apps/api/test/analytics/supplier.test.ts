@@ -76,6 +76,7 @@ describe('supplier analytics route', () => {
         { id: 'po2', total: 2000, created: now - 2000, businessId: 'biz-1' },
         { id: 'po3', total: 500, created: now - 3000, businessId: 'biz-2' },
       ],
+      [], // settled returns for those POs
       [{ status: 'low', lead: 2 }, { status: 'in_stock', lead: 4 }],
       [
         {

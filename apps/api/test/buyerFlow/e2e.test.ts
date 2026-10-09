@@ -477,7 +477,7 @@ describe('F. return / RMA', () => {
     expect(await notifTypes('buyer')).toContain('return.updated');
   });
 
-  it('receive: restocks, refunds the received value, closes the RMA', async () => {
+  it('receive: restocks, raises the refund, and holds the RMA until VYRO pays it out', async () => {
     const before = await offer();
     actor.ctx = supplier();
     const items = (await api('GET', `/api/returns/${ids.ret}`)).body.return.items;
@@ -485,7 +485,8 @@ describe('F. return / RMA', () => {
       lines: items.map((i: any) => ({ returnItemId: i.id, quantity: 2, restock: true })),
     });
     expect(r.status).toBe(200);
-    expect(r.body.return.status).toBe('closed');
+    // COD refunds are paid back by VYRO finance by hand: the RMA waits in `received`.
+    expect(r.body.return.status).toBe('received');
     expect(r.body.return.refundCents).toBe(2 * UNIT);
 
     const after = await offer();
@@ -502,6 +503,15 @@ describe('F. return / RMA', () => {
     const refunds = await db.select().from(schema.refunds).where(drizzle.eq(schema.refunds.purchaseOrderId, ids.po)).all();
     expect(refunds.length).toBeGreaterThan(0);
     expect(refunds.reduce((s: number, x: any) => s + x.amountCents, 0)).toBe(2 * UNIT);
+
+    expect(refunds.every((x: any) => x.status === 'requested')).toBe(true);
+
+    // VYRO finance marks the refund paid → the RMA closes.
+    await db.update(schema.refunds).set({ status: 'completed' }).where(drizzle.eq(schema.refunds.purchaseOrderId, ids.po)).run();
+    const { settleReturnRefund } = await import('../../src/modules/returns/service');
+    await settleReturnRefund(env, ids.ret);
+    actor.ctx = supplier();
+    expect((await api('GET', `/api/returns/${ids.ret}`)).body.return.status).toBe('closed');
   });
 
   it('order detail surfaces the whole trail', async () => {

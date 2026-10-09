@@ -50,6 +50,7 @@ import { ThreeWayReconciliationCard } from '@/components/reconciliation/ThreeWay
 import { cn } from '@vyro/ui';
 import { useToast } from '@vyro/ui';
 import { ReviewPromptCard } from '@/reviews/ReviewPromptCard';
+import { OrderItemThumb } from '@/components/orders/OrderItemThumb';
 import { useReorderFromOrder } from '@/hooks/useReorderFromOrder';
 
 type OrderDetail = LifecycleOrderDetail<
@@ -136,6 +137,79 @@ function formatDateTime(ts: number) {
 
 function statusLabel(s: string) {
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+type ReturnLike = {
+  rmaNumber: string;
+  status: string;
+  refundCents: number | null;
+  requestedAt: number;
+  decidedAt: number | null;
+  receivedAt: number | null;
+  refundedAt: number | null;
+  items: Array<{
+    quantity: number;
+    approvedQuantity: number | null;
+    receivedQuantity: number | null;
+  }>;
+};
+
+const RETURN_PHASE: Record<
+  string,
+  { label: string; hint: string; tone: 'amber' | 'copper' | 'ink'; open: boolean }
+> = {
+  requested: {
+    label: 'Return requested',
+    hint: 'Return requested. Waiting for the supplier to approve it. Payment stays held meanwhile.',
+    tone: 'amber',
+    open: true,
+  },
+  approved: {
+    label: 'Return approved',
+    hint: 'Return approved. Send the goods back to the supplier — your refund is issued once they arrive.',
+    tone: 'amber',
+    open: true,
+  },
+  received: {
+    label: 'Return received',
+    hint: "The supplier has received the returned goods. VYRO is refunding you — you'll be notified once it's paid.",
+    tone: 'copper',
+    open: true,
+  },
+};
+
+/**
+ * The return that currently defines the order's state (latest non-rejected, non-cancelled RMA),
+ * plus whether every delivered unit has been returned and refunded.
+ */
+function deriveReturnState(returns: ReturnLike[], orderedUnits: number) {
+  const live = returns
+    .filter((r) => r.status !== 'rejected' && r.status !== 'cancelled')
+    .sort((a, b) => b.requestedAt - a.requestedAt);
+  const current = live[0];
+  if (!current) return null;
+  const done = live.filter((r) => r.status === 'refunded' || r.status === 'closed');
+  const returnedUnits = done.reduce(
+    (n, r) =>
+      n +
+      r.items.reduce((m, it) => m + (it.receivedQuantity ?? it.approvedQuantity ?? it.quantity), 0),
+    0,
+  );
+  const refundedCents = done.reduce((n, r) => n + (r.refundCents ?? 0), 0);
+  const phase = RETURN_PHASE[current.status];
+  if (phase) return { current, ...phase, full: false, refundedCents };
+  const full = orderedUnits > 0 && returnedUnits >= orderedUnits;
+  return {
+    current,
+    label: full ? 'Returned' : 'Partially returned',
+    hint: full
+      ? `Returned. ${refundedCents > 0 ? `${formatLKR(refundedCents)} has been refunded to you.` : 'The return is closed.'}`
+      : `Partially returned — ${returnedUnits} of ${orderedUnits} units sent back${refundedCents > 0 ? `, ${formatLKR(refundedCents)} refunded` : ''}.`,
+    tone: 'ink' as const,
+    open: false,
+    full,
+    refundedCents,
+  };
 }
 
 const STATUS_ICON_MAP: Record<
@@ -395,8 +469,18 @@ export function OrderDetailPage() {
     const gross = it.unitPriceCents * it.quantity;
     return sum + Math.round(gross * (it.discountPctSnapshot / 100));
   }, 0);
-  const statusTone = STATUS_ICON_MAP[order.status]?.tone ?? 'ink';
-  const statusIcon = STATUS_ICON_MAP[order.status]?.icon;
+  const returnState =
+    order.status === 'delivered' || order.status === 'completed'
+      ? deriveReturnState(returns, totalQty)
+      : null;
+  const statusTone = returnState?.tone ?? STATUS_ICON_MAP[order.status]?.tone ?? 'ink';
+  const statusIcon = returnState ? (
+    <RefreshCwIcon size={14} />
+  ) : (
+    STATUS_ICON_MAP[order.status]?.icon
+  );
+  const statusText = returnState?.label ?? statusLabel(order.status);
+  const heroHint = returnState?.hint ?? NEXT_HINT[order.status] ?? 'Order in progress.';
 
   const copyPo = () => {
     navigator.clipboard?.writeText(order.poNumber).catch(() => {});
@@ -454,16 +538,14 @@ export function OrderDetailPage() {
                   )}
                 >
                   {statusIcon}
-                  {statusLabel(order.status)}
+                  {statusText}
                 </span>
                 <PaymentStateBadge state={paymentSummary?.state} />
               </div>
               <h1 className="font-display text-[1.75rem] font-semibold leading-[1.05] tracking-tight text-ink break-all sm:text-[2.6rem]">
                 {order.poNumber}
               </h1>
-              <p className="max-w-xl text-sm leading-relaxed text-ink-3">
-                {NEXT_HINT[order.status] ?? 'Order in progress.'}
-              </p>
+              <p className="max-w-xl text-sm leading-relaxed text-ink-3">{heroHint}</p>
             </div>
             <div className="shrink-0 lg:text-right">
               <div className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-ink-4">
@@ -550,6 +632,49 @@ export function OrderDetailPage() {
               ))}
             </ol>
           )}
+          {returnState && (
+            <div className="relative mt-6 rounded-xl bg-paper/[0.06] p-4 ring-1 ring-copper/40">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <RefreshCwIcon size={15} className="text-copper" />
+                  <span className="font-semibold text-paper">{returnState.label}</span>
+                  <span className="font-mono text-[11px] text-paper/50">
+                    {returnState.current.rmaNumber}
+                  </span>
+                </div>
+                {returnState.refundedCents > 0 && (
+                  <span className="font-mono text-xs font-semibold text-volt">
+                    {formatLKR(returnState.refundedCents)} refunded
+                  </span>
+                )}
+              </div>
+              <ol className="mt-4 grid grid-cols-4 gap-2">
+                {(
+                  [
+                    ['Requested', returnState.current.requestedAt],
+                    ['Approved', returnState.current.decidedAt],
+                    ['Received', returnState.current.receivedAt],
+                    ['Refunded', returnState.current.refundedAt],
+                  ] as const
+                ).map(([label, at]) => (
+                  <li key={label} className="min-w-0">
+                    <div className={cn('h-1 rounded-full', at ? 'bg-copper' : 'bg-paper/10')} />
+                    <div
+                      className={cn(
+                        'mt-2 text-[11px] font-semibold',
+                        at ? 'text-paper' : 'text-paper/40',
+                      )}
+                    >
+                      {label}
+                    </div>
+                    <div className="hidden font-mono text-[10px] text-paper/45 sm:block">
+                      {at ? formatDate(at) : '—'}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
           {!isTerminal && activeStep && (
             <p className="relative mt-4 text-center text-xs text-paper/70 sm:hidden">
               Step {journey.indexOf(activeStep) + 1} of {journey.length} ·{' '}
@@ -630,13 +755,38 @@ export function OrderDetailPage() {
                         className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-6 py-4 transition-colors hover:bg-bone/30 sm:grid-cols-[minmax(0,1fr)_90px_120px_130px]"
                       >
                         <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-bone to-mist text-ink-3 ring-1 ring-ink/[0.06]">
-                            <PackageIcon size={17} />
-                          </div>
+                          {it.productId ? (
+                            <Link
+                              to={`/products/${it.productId}`}
+                              aria-label={`View ${it.productNameSnapshot}`}
+                              className="shrink-0 rounded-xl transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-volt"
+                            >
+                              <OrderItemThumb
+                                productId={it.productId}
+                                imageUrl={it.imageUrl}
+                                name={it.productNameSnapshot}
+                              />
+                            </Link>
+                          ) : (
+                            <OrderItemThumb name={it.productNameSnapshot} />
+                          )}
                           <div className="min-w-0">
-                            <div className="truncate font-display text-[15px] font-semibold text-ink-1">
-                              {it.productNameSnapshot}
-                            </div>
+                            {it.productId ? (
+                              <Link
+                                to={`/products/${it.productId}`}
+                                className="group/name inline-flex max-w-full items-center gap-1 font-display text-[15px] font-semibold text-ink-1 transition-colors hover:text-copper"
+                              >
+                                <span className="truncate">{it.productNameSnapshot}</span>
+                                <ArrowRightIcon
+                                  size={12}
+                                  className="shrink-0 opacity-0 transition-all group-hover/name:translate-x-0.5 group-hover/name:opacity-100"
+                                />
+                              </Link>
+                            ) : (
+                              <div className="truncate font-display text-[15px] font-semibold text-ink-1">
+                                {it.productNameSnapshot}
+                              </div>
+                            )}
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               {(it.discountPctSnapshot ?? 0) > 0 && (
                                 <span className="rounded-full bg-mint/10 px-2 py-0.5 text-[10px] font-mono font-bold text-mint ring-1 ring-mint/25">
@@ -925,72 +1075,75 @@ export function OrderDetailPage() {
 
         {/* ── Sidebar ──────────────────────────────────── */}
         <aside className="min-w-0 space-y-5 lg:col-span-4">
-          {order.status === 'delivered' && allowed.includes('completed') && (
-            <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-mint to-[#2f6f57] p-5 text-paper shadow-[0_24px_48px_-28px_rgba(61,139,110,0.9)]">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-paper/10 blur-2xl"
-              />
-              <div className="relative space-y-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex size-9 items-center justify-center rounded-xl bg-paper/15">
-                    <CheckCheckIcon size={17} />
-                  </span>
-                  <h3 className="font-display text-lg font-semibold">Goods arrived?</h3>
-                </div>
-                <p className="text-[13px] leading-relaxed text-paper/80">
-                  Confirm receipt if everything arrived in full and in good condition. This releases
-                  the held funds to the supplier.
-                </p>
-                <button
-                  onClick={confirmReceipt}
-                  disabled={confirming}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-paper px-4 py-3 text-sm font-semibold text-ink transition-transform hover:-translate-y-px disabled:opacity-60"
-                >
-                  <CheckCheckIcon size={15} /> {confirming ? 'Confirming…' : 'Confirm receipt'}
-                </button>
-                {(canRequestReturn || canDispute) && (
-                  <div className="space-y-2 border-t border-paper/15 pt-3">
-                    <p className="text-[12px] font-semibold text-paper/85">
-                      Something wrong — damaged, short or not what you ordered?
-                    </p>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      {canRequestReturn && (
-                        <button
-                          type="button"
-                          onClick={() => setReturnOpen(true)}
-                          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-paper/30 bg-paper/10 px-3 py-2.5 text-[13px] font-semibold text-paper transition-colors hover:bg-paper/20"
-                        >
-                          <RefreshCwIcon size={13} /> Request return
-                        </button>
-                      )}
-                      {canDispute && (
-                        <button
-                          type="button"
-                          onClick={() => setReasonFor('disputed')}
-                          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-paper/30 bg-paper/10 px-3 py-2.5 text-[13px] font-semibold text-paper transition-colors hover:bg-paper/20"
-                        >
-                          <AlertCircleIcon size={13} /> Report a problem
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-[11px] leading-relaxed text-paper/65">
-                      Funds stay held while a return or dispute is open.
-                    </p>
+          {order.status === 'delivered' &&
+            allowed.includes('completed') &&
+            !returnState?.open &&
+            !returnState?.full && (
+              <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-mint to-[#2f6f57] p-5 text-paper shadow-[0_24px_48px_-28px_rgba(61,139,110,0.9)]">
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-paper/10 blur-2xl"
+                />
+                <div className="relative space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex size-9 items-center justify-center rounded-xl bg-paper/15">
+                      <CheckCheckIcon size={17} />
+                    </span>
+                    <h3 className="font-display text-lg font-semibold">Goods arrived?</h3>
                   </div>
-                )}
-                {lifecycle?.autoCompleteAt && (
-                  <p className="flex items-center gap-1.5 text-[11px] text-paper/70">
-                    <ClockIcon size={11} /> Auto-completes{' '}
-                    {formatLifecycleDate(lifecycle.autoCompleteAt)}
-                    {returns.some((r) =>
-                      ['requested', 'approved', 'received'].includes(r.status),
-                    ) && ' (paused while a return is open)'}
+                  <p className="text-[13px] leading-relaxed text-paper/80">
+                    Confirm receipt if everything arrived in full and in good condition. This
+                    releases the held funds to the supplier.
                   </p>
-                )}
-              </div>
-            </section>
-          )}
+                  <button
+                    onClick={confirmReceipt}
+                    disabled={confirming}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-paper px-4 py-3 text-sm font-semibold text-ink transition-transform hover:-translate-y-px disabled:opacity-60"
+                  >
+                    <CheckCheckIcon size={15} /> {confirming ? 'Confirming…' : 'Confirm receipt'}
+                  </button>
+                  {(canRequestReturn || canDispute) && (
+                    <div className="space-y-2 border-t border-paper/15 pt-3">
+                      <p className="text-[12px] font-semibold text-paper/85">
+                        Something wrong — damaged, short or not what you ordered?
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        {canRequestReturn && (
+                          <button
+                            type="button"
+                            onClick={() => setReturnOpen(true)}
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-paper/30 bg-paper/10 px-3 py-2.5 text-[13px] font-semibold text-paper transition-colors hover:bg-paper/20"
+                          >
+                            <RefreshCwIcon size={13} /> Request return
+                          </button>
+                        )}
+                        {canDispute && (
+                          <button
+                            type="button"
+                            onClick={() => setReasonFor('disputed')}
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-paper/30 bg-paper/10 px-3 py-2.5 text-[13px] font-semibold text-paper transition-colors hover:bg-paper/20"
+                          >
+                            <AlertCircleIcon size={13} /> Report a problem
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-paper/65">
+                        Funds stay held while a return or dispute is open.
+                      </p>
+                    </div>
+                  )}
+                  {lifecycle?.autoCompleteAt && (
+                    <p className="flex items-center gap-1.5 text-[11px] text-paper/70">
+                      <ClockIcon size={11} /> Auto-completes{' '}
+                      {formatLifecycleDate(lifecycle.autoCompleteAt)}
+                      {returns.some((r) =>
+                        ['requested', 'approved', 'received'].includes(r.status),
+                      ) && ' (paused while a return is open)'}
+                    </p>
+                  )}
+                </div>
+              </section>
+            )}
 
           {(order.status === 'delivered' || order.status === 'completed') && (
             <ReviewPromptCard orderId={order.id} />

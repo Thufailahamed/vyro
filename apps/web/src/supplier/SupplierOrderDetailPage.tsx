@@ -32,6 +32,8 @@ import {
   formatLifecycleDate,
   lifecycleErrorMessage,
   podPhotoUrl,
+  poReturnState,
+  returnStateMeta,
   statusLabel,
   type DeliveryInfo,
   type LifecycleOrderDetail,
@@ -40,6 +42,7 @@ import {
 } from '@/lib/orderLifecycle';
 import { Modal, PaymentStateBadge, PodDialog, ReasonDialog } from '@/components/orders/LifecycleUi';
 import { OrderProgress } from '@/components/orders/OrderProgress';
+import { OrderItemThumb } from '@/components/orders/OrderItemThumb';
 import { PaymentPanel } from '@/components/payments/PaymentPanel';
 import { SupplierReturnsSection } from '@/components/orders/ReturnsPanels';
 import { useSupplierId } from './useSupplierId';
@@ -58,6 +61,15 @@ const ADVANCE_HINT: Partial<Record<OrderStatus, string>> = {
   ready_for_pickup: 'Flag the consignment as packed and waiting for collection.',
   out_for_delivery: 'Hand over to your driver or carrier. Add tracking first so the buyer can follow along.',
   delivered: 'Capture proof of delivery to close out the shipment.',
+};
+
+/** Supplier-facing "next step" copy while an order has a return on it. */
+const RETURN_NEXT: Record<string, { text: string; action?: string }> = {
+  requested: { text: 'The buyer asked to return goods on this order. Review the reason and approve or reject it.', action: 'Review return' },
+  approved: { text: 'Return approved. Mark the goods received once they are back at your depot — the refund is issued automatically.', action: 'Record receipt' },
+  received: { text: 'Returned goods received. VYRO is refunding the buyer — nothing more for you to do.' },
+  returned: { text: 'This order was fully returned and the buyer has been refunded. Nothing more to do.' },
+  partially_returned: { text: 'Part of this order was returned and refunded. The rest stands as delivered.' },
 };
 
 const ADVANCE_ORDER: OrderStatus[] = ['preparing', 'ready_for_pickup', 'out_for_delivery', 'delivered'];
@@ -143,6 +155,14 @@ export function SupplierOrderDetailPage() {
   const showDelivery = !['pending', 'rejected', 'cancelled'].includes(order.status);
   const trackingEditable = ['accepted', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(order.status);
   const units = items.reduce((n, it) => n + it.quantity, 0);
+  const retState = ['delivered', 'completed'].includes(order.status) ? poReturnState(returns, units) : null;
+  const ret = returnStateMeta(retState);
+  const liveReturns = returns.filter((r) => r.status !== 'rejected' && r.status !== 'cancelled');
+  const retCurrent = liveReturns.length ? liveReturns.reduce((a, b) => (b.requestedAt > a.requestedAt ? b : a)) : null;
+  const retRefundedCents = liveReturns
+    .filter((r) => r.status === 'refunded' || r.status === 'closed')
+    .reduce((n, r) => n + (r.refundCents ?? 0), 0);
+  const scrollToReturns = () => document.getElementById('order-returns')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const nextStep: OrderStatus | undefined = allowed.includes('accepted') ? 'accepted' : advances[0];
 
   function copyPo() {
@@ -201,8 +221,11 @@ export function SupplierOrderDetailPage() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-2 rounded-full border border-paper/15 bg-paper/[0.07] px-3 py-1 text-xs font-semibold text-paper">
-                  <span className={`size-1.5 rotate-45 ${HERO_STATUS_DOT[order.status] ?? 'bg-ink-5'}`} aria-hidden />
-                  {statusLabel(order.status)}
+                  <span
+                    className={`size-1.5 rotate-45 ${ret ? (ret.dot === 'bg-ink-3' ? 'bg-paper/60' : ret.dot) : (HERO_STATUS_DOT[order.status] ?? 'bg-ink-5')}`}
+                    aria-hidden
+                  />
+                  {ret?.label ?? statusLabel(order.status)}
                 </span>
                 <PaymentStateBadge state={paymentSummary?.state} />
                 {order.originalTotalCents != null && <Badge variant="purple">Partially fulfilled</Badge>}
@@ -223,6 +246,38 @@ export function SupplierOrderDetailPage() {
 
           <div className="mt-8 border-t border-dashed border-paper/15 pt-6">
             <OrderProgress status={order.status} events={events} placedAt={order.createdAt} tone="dark" />
+            {ret && retCurrent && (
+              <div className="mt-6 rounded-xl bg-paper/[0.06] p-4 ring-1 ring-copper/40">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <RefreshCwIcon size={15} className="text-copper" />
+                    <span className="font-semibold text-paper">{ret.label}</span>
+                    <span className="font-mono text-[11px] text-paper/50">{retCurrent.rmaNumber}</span>
+                  </div>
+                  {retRefundedCents > 0 && (
+                    <span className="font-mono text-xs font-semibold text-volt">{formatLKR(retRefundedCents)} refunded to buyer</span>
+                  )}
+                </div>
+                <ol className="mt-4 grid grid-cols-4 gap-2">
+                  {(
+                    [
+                      ['Requested', retCurrent.requestedAt],
+                      ['Approved', retCurrent.decidedAt],
+                      ['Received', retCurrent.receivedAt],
+                      ['Refunded', retCurrent.refundedAt],
+                    ] as const
+                  ).map(([label, at]) => (
+                    <li key={label} className="min-w-0">
+                      <div className={`h-1 rounded-full ${at ? 'bg-copper' : 'bg-paper/10'}`} />
+                      <div className={`mt-2 text-[11px] font-semibold ${at ? 'text-paper' : 'text-paper/40'}`}>{label}</div>
+                      <div className="hidden font-mono text-[10px] text-paper/45 sm:block">
+                        {at ? new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '—'}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
           </div>
 
           <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[11px] text-paper/45">
@@ -287,7 +342,7 @@ export function SupplierOrderDetailPage() {
 
           {/* Returns */}
           {(returns.length > 0 || lifecycle?.returnsEnabled) && ['delivered', 'completed', 'disputed'].includes(order.status) && (
-            <Section icon={<RefreshCwIcon size={15} />} title="Returns" meta={String(returns.length)}>
+            <Section id="order-returns" icon={<RefreshCwIcon size={15} />} title="Returns" meta={String(returns.length)}>
               <SupplierReturnsSection returns={returns} onChanged={() => void refresh()} />
             </Section>
           )}
@@ -307,14 +362,26 @@ export function SupplierOrderDetailPage() {
             <div className="space-y-4 p-5">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-ink">Next step</h3>
-                {nextStep && (
+                {(nextStep || retState === 'requested' || retState === 'approved') && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-volt-soft px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-volt-deep">
                     <SparklesIcon size={10} /> Your move
                   </span>
                 )}
               </div>
 
-              {allowed.length === 0 ? (
+              {retState && RETURN_NEXT[retState] ? (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 rounded-xl bg-copper/[0.08] p-4 ring-1 ring-copper/20">
+                    <RefreshCwIcon size={16} className="mt-0.5 shrink-0 text-copper" />
+                    <p className="text-sm leading-relaxed text-ink-2">{RETURN_NEXT[retState].text}</p>
+                  </div>
+                  {RETURN_NEXT[retState].action && (
+                    <Button variant="primary" size="lg" className="w-full justify-center" onClick={scrollToReturns}>
+                      {RETURN_NEXT[retState].action}
+                    </Button>
+                  )}
+                </div>
+              ) : allowed.length === 0 ? (
                 <div className="flex items-start gap-3 rounded-xl bg-bone/60 p-4">
                   <CheckCircleIcon size={16} className="mt-0.5 shrink-0 text-mint" />
                   <p className="text-sm text-ink-3">Nothing to do right now. We'll notify you when this order needs you.</p>
@@ -449,12 +516,14 @@ export function SupplierOrderDetailPage() {
 /* ── Section shell ── */
 
 function Section({
+  id,
   icon,
   title,
   meta,
   flush = false,
   children,
 }: {
+  id?: string;
   icon: ReactNode;
   title: string;
   meta?: string | undefined;
@@ -462,7 +531,7 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <Surface kind="elevated" className="rounded-2xl">
+    <Surface kind="elevated" className="scroll-mt-6 rounded-2xl" {...(id ? { id } : {})}>
       <div className="flex items-center justify-between gap-3 px-5 pt-5 sm:px-6">
         <h2 className="flex items-center gap-2.5 text-sm font-semibold text-ink">
           <span className="flex size-8 items-center justify-center rounded-lg bg-copper/10 text-copper">{icon}</span>
@@ -502,11 +571,22 @@ function ItemsTable({ items, totalCents }: { items: LifecycleOrderItem[]; totalC
               className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-5 py-4 transition-colors duration-200 hover:bg-bone/40 sm:grid-cols-[minmax(0,1fr)_80px_130px_140px] sm:px-6"
             >
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-ink font-display text-sm font-bold text-volt">
-                  {it.productNameSnapshot.trim().charAt(0).toUpperCase() || '·'}
-                </span>
+                <OrderItemThumb productId={it.productId} imageUrl={it.imageUrl} name={it.productNameSnapshot} className="size-10" />
                 <div className="min-w-0">
-                  <div className="truncate font-semibold text-ink">{it.productNameSnapshot}</div>
+                  {it.productId ? (
+                    <Link
+                      to={`/products/${it.productId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open the product page"
+                      className="inline-flex max-w-full items-center gap-1 font-semibold text-ink transition-colors hover:text-copper"
+                    >
+                      <span className="truncate">{it.productNameSnapshot}</span>
+                      <ExternalLinkIcon size={11} className="shrink-0 text-ink-4" />
+                    </Link>
+                  ) : (
+                    <div className="truncate font-semibold text-ink">{it.productNameSnapshot}</div>
+                  )}
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px]">
                     <span className="font-mono text-ink-4 sm:hidden">
                       {it.quantity} × {formatLKR(it.unitPriceCents)}

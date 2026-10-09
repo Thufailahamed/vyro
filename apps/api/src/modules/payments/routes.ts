@@ -39,7 +39,6 @@ import {
   ensureCodCollection,
   createBankTransfer,
   findBankTransferByPayment,
-  listSupplierBankAccounts,
 } from '../finance/repository';
 import { bankTransferReference, paymentNumber } from '../finance/numbers';
 import { notifyOrderParties } from '../notifications/dispatcher';
@@ -118,11 +117,14 @@ router.post('/', session(), async (c) => {
   if (!ALLOWED_PO_STATUSES.has(po.status)) {
     throw httpError(409, 'CONFLICT', TERMINAL_PO_BLOCK_MESSAGE[po.status] ?? `Cannot pay PO in status ${po.status}`);
   }
-  // Sellers may record an OFFLINE payment they received (bank/cash); card
-  // checkout stays buyer-only because only the buyer can authenticate it.
+  // Sellers may record cash they collected; card checkout stays buyer-only, and
+  // bank transfers land in VYRO's collection account, so only VYRO records them.
   if (role === 'supplier') {
     if (parsed.data.method === 'online') {
       throw httpError(403, 'FORBIDDEN', 'Only the buyer can start an online payment');
+    }
+    if (parsed.data.method === 'bank_transfer') {
+      throw httpError(403, 'FORBIDDEN', 'Bank transfers are paid to VYRO and verified by VYRO finance');
     }
     try {
       await requireSupplierConfirmRole(c.env.DB, po.supplierId, ctx.userId);
@@ -326,6 +328,12 @@ router.post('/:id/confirm', session(), async (c) => {
   const { role, po } = await rolesForPo(c.env.DB, payment.purchaseOrderId, ctx.userId, ctx.isAdmin);
   if (!po) throw httpError(404, 'NOT_FOUND', 'PO not found');
 
+  // Bank transfers are paid into VYRO's collection account: only VYRO finance
+  // (admin) can verify or reject them — never the seller.
+  if (payment.method === 'bank_transfer' && role === 'supplier') {
+    throw httpError(403, 'FORBIDDEN', 'Bank transfers are verified by VYRO finance');
+  }
+
   // RBAC: confirmed requires supplier (or admin); failed requires business (or admin)
   if (parsed.data.status === 'confirmed') {
     if (role !== 'supplier' && role !== 'admin') {
@@ -525,22 +533,11 @@ router.get('/by-po/:poId', session(), async (c) => {
       };
     }),
   );
-  // Where the buyer should send the money: the supplier's payout accounts, masked.
-  const { po } = await rolesForPo(c.env.DB, c.req.param('poId'), ctx.userId, ctx.isAdmin);
-  let bankAccounts: Array<{ bankName: string; accountHolder: string; accountNumberLast4: string; branch: string | null; isDefault: boolean }> = [];
-  if (po) {
-    const accts = (await listSupplierBankAccounts(c.env.DB, po.supplierId)) as any[];
-    bankAccounts = accts
-      .filter((a) => a.verificationStatus !== 'rejected')
-      .map((a) => ({
-        bankName: a.bankName,
-        accountHolder: a.accountHolder,
-        accountNumberLast4: a.accountNumberLast4,
-        branch: a.branch ?? null,
-        isDefault: !!a.isDefault,
-      }));
-  }
-  return c.json({ payments: enriched, bankAccounts });
+  // Bank transfers go to VYRO's collection account; VYRO verifies them and
+  // settles the supplier via payouts, so supplier bank details are never shown here.
+  const { vyroCollectionAccount } = await import('../finance/collectionAccount');
+  const collectionAccount = vyroCollectionAccount(c.env);
+  return c.json({ payments: enriched, collectionAccount });
 });
 
 // Online checkout: returns gateway redirect URL for payment method=online

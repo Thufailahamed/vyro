@@ -100,3 +100,58 @@ export async function listReturns(
   const num = new Map(pos.map((p) => [p.id, p.poNumber]));
   return hydrated.map((r) => ({ ...r, poNumber: num.get(r.purchaseOrderId) ?? null }));
 }
+
+/**
+ * Order-list return badge per PO: the latest live (non-rejected, non-cancelled) RMA's phase, or
+ * `returned` / `partially_returned` once refunds settle, judged by units sent back vs ordered.
+ */
+export type PoReturnState = 'requested' | 'approved' | 'received' | 'returned' | 'partially_returned';
+
+export async function returnStateByPo(d1: D1Database, poIds: string[]): Promise<Map<string, PoReturnState>> {
+  const out = new Map<string, PoReturnState>();
+  if (poIds.length === 0) return out;
+  const db = getDb(d1);
+  const rows: OrderReturn[] = [];
+  // D1 caps bound parameters per statement; chunk the IN list.
+  for (let i = 0; i < poIds.length; i += 90) {
+    const chunk = poIds.slice(i, i + 90);
+    rows.push(
+      ...((await db
+        .select()
+        .from(orderReturns)
+        .where(and(inArray(orderReturns.purchaseOrderId, chunk), inArray(orderReturns.status, ['requested', 'approved', 'received', 'refunded', 'closed'])))
+        .all()) as OrderReturn[]),
+    );
+  }
+  if (rows.length === 0) return out;
+
+  const affected = [...new Set(rows.map((r) => r.purchaseOrderId))];
+  const returnItems = await loadReturnItems(d1, rows.map((r) => r.id));
+  const orderedUnits = new Map<string, number>();
+  for (let i = 0; i < affected.length; i += 90) {
+    const lines = await db
+      .select({ poId: purchaseOrderItems.purchaseOrderId, quantity: purchaseOrderItems.quantity })
+      .from(purchaseOrderItems)
+      .where(inArray(purchaseOrderItems.purchaseOrderId, affected.slice(i, i + 90)))
+      .all();
+    for (const l of lines) orderedUnits.set(l.poId, (orderedUnits.get(l.poId) ?? 0) + l.quantity);
+  }
+
+  const byPo = new Map<string, OrderReturn[]>();
+  for (const r of rows) byPo.set(r.purchaseOrderId, [...(byPo.get(r.purchaseOrderId) ?? []), r]);
+
+  for (const [poId, list] of byPo) {
+    const latest = list.reduce((a, b) => (b.requestedAt > a.requestedAt ? b : a));
+    if (latest.status === 'requested' || latest.status === 'approved' || latest.status === 'received') {
+      out.set(poId, latest.status);
+      continue;
+    }
+    const settledIds = new Set(list.map((r) => r.id));
+    const returned = returnItems
+      .filter((it) => settledIds.has(it.returnId))
+      .reduce((n, it) => n + (it.receivedQuantity ?? it.approvedQuantity ?? it.quantity), 0);
+    const ordered = orderedUnits.get(poId) ?? 0;
+    out.set(poId, ordered > 0 && returned >= ordered ? 'returned' : 'partially_returned');
+  }
+  return out;
+}

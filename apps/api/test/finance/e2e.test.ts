@@ -305,9 +305,9 @@ async function buyerReportsTransfer(poId: string) {
   return { paymentId: p.body.id as string, bankTransferId: sub.body.bankTransfer.id as string, amountCents: p.body.amountCents as number };
 }
 
-describe('Accounts E2E: bank transfer proof → seller marks paid (B2)', () => {
-  it('seller sees the proof on the order and confirms it as paid', async () => {
-    const { paymentId, bankTransferId } = await buyerReportsTransfer(ids.poD);
+describe('Accounts E2E: bank transfer into VYRO → VYRO finance verifies (B2)', () => {
+  it('seller sees the proof but only VYRO finance can mark it paid', async () => {
+    const { paymentId, bankTransferId, amountCents } = await buyerReportsTransfer(ids.poD);
 
     actor.ctx = asCtx('supplier-u');
     const list = await api('GET', `/api/payments/by-po/${ids.poD}`);
@@ -316,14 +316,21 @@ describe('Accounts E2E: bank transfer proof → seller marks paid (B2)', () => {
     expect(row.status).toBe('pending');
     expect(row.bankTransfer).toMatchObject({ id: bankTransferId, status: 'pending_verification', hasProof: true, proofFileName: 'slip.png' });
     expect(JSON.stringify(list.body)).not.toContain('proofR2Key');
-    expect(Array.isArray(list.body.bankAccounts)).toBe(true);
+    // Buyers pay into VYRO's collection account — never the supplier's own bank.
+    expect(list.body).not.toHaveProperty('bankAccounts');
+    expect(list.body.collectionAccount).toMatchObject({ sandbox: true });
 
     const proof = await app.fetch(new Request(`http://localhost/api/finance/bank-transfer/proof/${bankTransferId}`), env);
     expect(proof.status).toBe(200);
     expect(proof.headers.get('content-type')).toBe('image/png');
 
-    const ok = await api('POST', `/api/payments/${paymentId}/confirm`, { status: 'confirmed' });
+    // The seller can't verify money that landed in VYRO's account.
+    expect((await api('POST', `/api/payments/${paymentId}/confirm`, { status: 'confirmed' })).status).toBe(403);
+
+    actor.ctx = adminCtx('fin1');
+    const ok = await api('POST', `/api/admin/finance/bank-transfers/${bankTransferId}/verify`, { verifiedCents: amountCents, bankReference: 'BUYER-REF' });
     expect(ok.status).toBe(200);
+    actor.ctx = asCtx('supplier-u');
     const after = await api('GET', `/api/payments/by-po/${ids.poD}`);
     const paid = after.body.payments.find((x: any) => x.id === paymentId);
     expect(paid.status).toBe('confirmed');
@@ -343,9 +350,11 @@ describe('Accounts E2E: bank transfer proof → seller marks paid (B2)', () => {
     expect(item).not.toHaveProperty('proofR2Key');
   });
 
-  it('seller rejects a transfer that never arrived → payment failed, transfer rejected', async () => {
+  it('VYRO rejects a transfer that never arrived → payment failed, transfer rejected (seller cannot)', async () => {
     const { paymentId } = await buyerReportsTransfer(ids.poE);
     actor.ctx = asCtx('supplier-u');
+    expect((await api('POST', `/api/payments/${paymentId}/confirm`, { status: 'failed', reason: 'Not in our account' })).status).toBe(403);
+    actor.ctx = adminCtx('fin1');
     const r = await api('POST', `/api/payments/${paymentId}/confirm`, { status: 'failed', reason: 'Not in our account' });
     expect(r.status).toBe(200);
     const after = await api('GET', `/api/payments/by-po/${ids.poE}`);
@@ -379,6 +388,9 @@ describe('Accounts E2E: seller records an offline payment (B3)', () => {
     actor.ctx = asCtx('supplier-u');
     const online = await api('POST', '/api/payments', { purchaseOrderId: ids.poF, method: 'online' });
     expect(online.status).toBe(403);
+    // Bank transfers are paid to VYRO, so sellers can't record them either.
+    const bank = await api('POST', '/api/payments', { purchaseOrderId: ids.poF, method: 'bank_transfer' });
+    expect(bank.status).toBe(403);
     const p = await api('POST', '/api/payments', { purchaseOrderId: ids.poF, method: 'cash', transactionReference: 'RCPT-9' });
     expect(p.status).toBe(201);
     const c = await api('POST', `/api/payments/${p.body.id}/confirm`, { status: 'confirmed' });

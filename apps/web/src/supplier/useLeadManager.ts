@@ -11,10 +11,6 @@ import type {
   AddNoteInput,
 } from '@vyro/validation';
 
-function basePath(supplierId: string) {
-  return `/supplier/crm?supplierId=${supplierId}`;
-}
-
 function withSupplierId(supplierId: string, query: Record<string, string | number | null | undefined> = {}): string {
   const params = new URLSearchParams({ supplierId });
   for (const [k, v] of Object.entries(query)) {

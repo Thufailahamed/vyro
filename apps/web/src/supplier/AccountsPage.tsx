@@ -47,6 +47,11 @@ type Overview = {
   availableCents: number;
   todayCents: number;
   monthCents: number;
+  pendingRefundCents?: number;
+  pendingRefundNetCents?: number;
+  pendingFeeRefundCents?: number;
+  returnsCents?: number;
+  returnsCount?: number;
 };
 
 type BankAccount = {
@@ -112,6 +117,14 @@ export function SupplierAccountsPage() {
         : d.paidOutCents > 0
           ? `Everything earned so far is paid out — ${formatLKR(d.paidOutCents)} to date.`
           : 'Confirmed buyer payments land here as soon as your first order completes.';
+
+  // Refunds still owed to buyers (e.g. bank-transfer returns awaiting payout) are already
+  // committed, so headline figures deduct them now rather than when the payout clears.
+  const pendingRefund = d?.pendingRefundCents ?? 0;
+  const refundsTotal = (d?.refundCents ?? 0) + pendingRefund;
+  const feesNet = (d?.commissionCents ?? 0) - (d?.pendingFeeRefundCents ?? 0);
+  const netAfterRefunds = (d?.netCents ?? 0) - (d?.pendingRefundNetCents ?? 0);
+  const returnsCount = d?.returnsCount ?? 0;
 
   const flowSegments = d
     ? [
@@ -243,24 +256,48 @@ export function SupplierAccountsPage() {
             </div>
           </Surface>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Kpi
-              icon={<TrendingUpIcon size={13} />}
-              label="Net earnings"
-              cents={d.netCents}
-              hint={`Today ${formatLKR(d.todayCents)} · This month ${formatLKR(d.monthCents)}`}
-            />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Kpi
               icon={<FileTextIcon size={13} />}
               label="Gross sales"
               cents={d.grossCents}
-              hint={d.refundCents > 0 ? `Refunds ${formatLKR(d.refundCents)}` : 'Confirmed buyer payments'}
+              hint="Confirmed buyer payments"
+            />
+            <Kpi
+              icon={<RefreshCwIcon size={13} />}
+              label="Returns & refunds"
+              cents={refundsTotal}
+              deduct
+              hint={
+                refundsTotal === 0
+                  ? 'No returns or refunds'
+                  : pendingRefund > 0
+                    ? `${formatLKR(pendingRefund)} awaiting payout to buyer${returnsCount ? ` · ${returnsCount} return${returnsCount === 1 ? '' : 's'}` : ''}`
+                    : `${returnsCount ? `${returnsCount} return${returnsCount === 1 ? '' : 's'} · ` : ''}Paid back to buyers`
+              }
             />
             <Kpi
               icon={<PercentIcon size={13} />}
               label="VYRO fees"
-              cents={d.commissionCents}
-              hint={d.adjustmentCents !== 0 ? `Adjustments ${formatLKR(d.adjustmentCents)}` : 'Platform commission'}
+              cents={feesNet}
+              deduct
+              hint={
+                d.adjustmentCents !== 0
+                  ? `Adjustments ${formatLKR(d.adjustmentCents)}`
+                  : refundsTotal > 0
+                    ? 'Commission is returned on refunded value'
+                    : 'Platform commission'
+              }
+            />
+            <Kpi
+              icon={<TrendingUpIcon size={13} />}
+              label="Net earnings"
+              cents={netAfterRefunds}
+              hint={
+                refundsTotal > 0
+                  ? 'Gross − returns − fees'
+                  : `Today ${formatLKR(d.todayCents)} · This month ${formatLKR(d.monthCents)}`
+              }
             />
           </div>
 
@@ -271,33 +308,37 @@ export function SupplierAccountsPage() {
                   <span className="size-2 rounded-full bg-volt" />
                   How your money moves
                 </div>
-                <span className="text-xs text-ink-4 font-mono">Gross − fees = net · net settles into payouts</span>
+                <span className="text-xs text-ink-4 font-mono">Gross − returns − fees = net · net settles into payouts</span>
               </div>
               <div className="grid gap-6 sm:grid-cols-4 sm:gap-4">
                 <FlowStep
                   phase="1"
-                  title="Buyer pays"
-                  body="Gross sales land when a buyer payment confirms."
+                  title="Buyer pays VYRO"
+                  body="Card or bank transfer into VYRO's account. VYRO finance verifies it."
                   value={formatLKR(d.grossCents)}
                   icon={<CreditCardIcon size={15} className="text-copper" />}
                 />
                 <FlowStep
                   phase="2"
-                  title="VYRO takes fees"
-                  body="Commission (and any refunds) come off the top."
-                  value={formatLKR(d.commissionCents)}
+                  title="Returns & fees"
+                  body={
+                    refundsTotal > 0
+                      ? `Refunds ${formatLKR(refundsTotal)} and VYRO commission ${formatLKR(feesNet)} come off the top.`
+                      : 'VYRO commission comes off the top.'
+                  }
+                  value={formatLKR(refundsTotal + feesNet)}
                   icon={<PercentIcon size={15} className="text-copper" />}
                 />
                 <FlowStep
                   phase="3"
                   title="You earn"
-                  body="Net earnings become eligible, then settle."
-                  value={formatLKR(d.netCents)}
+                  body="Once the buyer confirms receipt, net earnings become available."
+                  value={formatLKR(netAfterRefunds)}
                   icon={<CheckCircle2Icon size={15} className="text-mint" />}
                 />
                 <FlowStep
                   phase="4"
-                  title="You get paid"
+                  title="VYRO pays you"
                   body={
                     defaultBank
                       ? `Swept to ${defaultBank.bankName} ${defaultBank.accountNumberMasked}.`
@@ -360,11 +401,14 @@ function Kpi({
   label,
   cents,
   hint,
+  deduct = false,
 }: {
   icon: ReactNode;
   label: string;
   cents: number;
   hint: string;
+  /** Renders as a deduction (−Rs. x) from gross. */
+  deduct?: boolean;
 }) {
   return (
     <div className="group relative overflow-hidden vyro-surface p-5 transition-all duration-200 hover:border-ink/20 hover:shadow-soft-md">
@@ -378,8 +422,8 @@ function Kpi({
           {icon}
         </span>
       </div>
-      <MetricNumber size="md" className="mt-2.5 text-ink">
-        {formatLKR(cents)}
+      <MetricNumber size="md" className={`mt-2.5 ${deduct && cents > 0 ? 'text-rose' : 'text-ink'}`}>
+        {deduct && cents > 0 ? `−${formatLKR(cents)}` : formatLKR(cents)}
       </MetricNumber>
       <div className="mt-1.5 text-xs text-ink-4">{hint}</div>
     </div>

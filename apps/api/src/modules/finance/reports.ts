@@ -10,6 +10,7 @@ import {
   codCollections,
   bankTransfers,
   ledgerEntries,
+  orderReturns,
 } from '@vyro/db/schema';
 import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 
@@ -83,6 +84,15 @@ export interface SupplierOverview {
   availableCents: number;
   todayCents: number;
   monthCents: number;
+  /** Refunds owed to buyers but not yet paid back (e.g. bank-transfer refunds awaiting payout). */
+  pendingRefundCents: number;
+  /** Supplier's share of pending refunds — gross refund minus the commission VYRO hands back. */
+  pendingRefundNetCents: number;
+  /** Commission VYRO will reverse once pending refunds settle. */
+  pendingFeeRefundCents: number;
+  /** Value of goods taken back through returns (settled or awaiting buyer payout). */
+  returnsCents: number;
+  returnsCount: number;
   recentEarnings: any[];
 }
 
@@ -140,6 +150,22 @@ export async function supplierOverview(d1: D1Database, supplierId: string): Prom
     .orderBy(desc(supplierEarnings.createdAt))
     .limit(10)
     .all()) as any[];
+  const pend = (await db
+    .select({
+      amount: sql<number>`COALESCE(SUM(${refunds.amountCents}),0)`,
+      fee: sql<number>`COALESCE(SUM(${refunds.feeRefundCents}),0)`,
+    })
+    .from(refunds)
+    .innerJoin(purchaseOrders, eq(purchaseOrders.id, refunds.purchaseOrderId))
+    .where(and(eq(purchaseOrders.supplierId, supplierId), sql`${refunds.status} IN ('requested','approved','processing')`))
+    .get()) as any;
+  const pendingRefundCents = Number(pend?.amount ?? 0);
+  const pendingFeeRefundCents = Math.min(pendingRefundCents, Number(pend?.fee ?? 0));
+  const ret = (await db
+    .select({ s: sql<number>`COALESCE(SUM(${orderReturns.refundCents}),0)`, n: sql<number>`COUNT(*)` })
+    .from(orderReturns)
+    .where(and(eq(orderReturns.supplierId, supplierId), sql`${orderReturns.status} IN ('refunded','closed')`))
+    .get()) as any;
   const net = Number(agg?.net ?? 0);
   return {
     grossCents: Number(agg?.gross ?? 0),
@@ -152,6 +178,11 @@ export async function supplierOverview(d1: D1Database, supplierId: string): Prom
     availableCents: Number(agg?.eligible ?? 0),
     todayCents: today,
     monthCents: month,
+    pendingRefundCents,
+    pendingRefundNetCents: pendingRefundCents - pendingFeeRefundCents,
+    pendingFeeRefundCents,
+    returnsCents: Number(ret?.s ?? 0),
+    returnsCount: Number(ret?.n ?? 0),
     recentEarnings: recent,
   };
 }

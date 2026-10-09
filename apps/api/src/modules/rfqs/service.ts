@@ -211,7 +211,7 @@ export const rfqService = {
     for (const sid of [...new Set(input.supplierIds ?? [])]) {
       const s = await db.select().from(suppliers).where(eq(suppliers.id, sid)).get();
       if (!s) continue;
-      await db.insert(rfqSuppliers).values({ id: newId(), rfqId, supplierId: sid, status: 'invited', invitedAt: now });
+      await db.insert(rfqSuppliers).values({ id: newId(), rfqId, supplierId: sid, status: 'invited', invitedAt: now, conversionStatus: 'new' });
       await insertRfqEvent(d1, { rfqId, actorUserId: userId, action: 'SUPPLIER_INVITED', metadata: { supplierId: sid } });
       await notifyRfqSupplier(d1, queue, sid, rfqId, NotificationType.RFQ_INVITED, `New RFQ: ${input.title}`, `You were invited to quote ${rfqNumber}.`, userId);
     }
@@ -260,7 +260,7 @@ export const rfqService = {
     for (const sid of [...new Set(supplierIds)]) {
       const ex = await db.select().from(rfqSuppliers).where(and(eq(rfqSuppliers.rfqId, rfqId), eq(rfqSuppliers.supplierId, sid))).get();
       if (ex) continue;
-      await db.insert(rfqSuppliers).values({ id: newId(), rfqId, supplierId: sid, status: 'invited', invitedAt: now });
+      await db.insert(rfqSuppliers).values({ id: newId(), rfqId, supplierId: sid, status: 'invited', invitedAt: now, conversionStatus: 'new' });
       await insertRfqEvent(d1, { rfqId, actorUserId: userId, action: 'SUPPLIER_INVITED', metadata: { supplierId: sid } });
       await notifyRfqSupplier(d1, queue, sid, rfqId, NotificationType.RFQ_INVITED, `Invited to RFQ: ${rfq.title}`, `${rfq.rfqNumber} — please submit your quotation.`, userId);
     }

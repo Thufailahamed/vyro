@@ -1,6 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
-import { orderReturnItems, orderReturns, purchaseOrderItems, type OrderReturn } from '@vyro/db/schema';
+import { orderReturnItems, orderReturns, purchaseOrderItems, refunds, type OrderReturn } from '@vyro/db/schema';
 import {
   canTransitionReturn,
   formatLKR,
@@ -355,20 +355,66 @@ export async function receiveReturn(
     console.error('[returns] credit note failed', { id, err });
   }
 
-  const afterReceive = (await findReturn(d1, id))!;
-  await moveReturn(d1, afterReceive, 'refunded', { role: 'system', userId: null }, {
-    refundCents,
-    refundedAt: Date.now(),
-    creditNoteInvoiceId: creditNoteId,
-  });
-  const refunded = (await findReturn(d1, id))!;
-  await moveReturn(d1, refunded, 'closed', { role: 'system', userId: null }, {});
+  await db
+    .update(orderReturns)
+    .set({ refundCents, creditNoteInvoiceId: creditNoteId, updatedAt: Date.now() })
+    .where(eq(orderReturns.id, id))
+    .run();
+  // Card refunds settle instantly and close the return here. Refunds VYRO pays out
+  // by hand (bank transfer / cash) stay pending until finance marks them paid, so
+  // the return waits in `received` and closes from finalizeRefund later.
+  await settleReturnRefund(env, id, { notify: false });
   await recomputeEligibility(d1, po.id);
 
   const fresh = (await findReturn(d1, id))!;
-  await notifyReturn(env, fresh, `Return ${fresh.rmaNumber} received`, `The supplier received the goods. ${formatLKR(refundCents)} is being refunded.`, actor.userId, 'buyer');
+  const refundPending = fresh.status === 'received' && refundCents > 0;
+  await notifyReturn(
+    env,
+    fresh,
+    `Return ${fresh.rmaNumber} received`,
+    refundPending
+      ? `The supplier received the goods. VYRO will refund ${formatLKR(refundCents)} to you — you'll be notified once it's paid.`
+      : `The supplier received the goods. ${formatLKR(refundCents)} has been refunded.`,
+    actor.userId,
+    'buyer',
+  );
   await audit(d1, actor, 'return.received', fresh, { refundCents, refundIds, creditNoteId });
   return getReturnWithItems(d1, id);
+}
+
+/**
+ * Called when a return refund settles (e.g. VYRO finance marks a bank-transfer
+ * refund paid). Once every refund raised for the return is complete, the return
+ * moves received → refunded → closed and the supplier's settlement hold lifts.
+ */
+export async function settleReturnRefund(
+  env: LifecycleEnv,
+  returnId: string,
+  opts: { notify?: boolean } = {},
+): Promise<void> {
+  const d1 = env.DB;
+  const ret = await findReturn(d1, returnId);
+  if (!ret || ret.status !== 'received') return;
+  const outstanding = await getDb(d1)
+    .select({ id: refunds.id })
+    .from(refunds)
+    .where(
+      and(
+        eq(refunds.source, 'return'),
+        eq(refunds.sourceRefId, ret.id),
+        inArray(refunds.status, ['requested', 'approved', 'processing']),
+      ),
+    )
+    .get();
+  if (outstanding) return;
+  await moveReturn(d1, ret, 'refunded', { role: 'system', userId: null }, { refundedAt: Date.now() });
+  const refunded = (await findReturn(d1, returnId))!;
+  await moveReturn(d1, refunded, 'closed', { role: 'system', userId: null }, {});
+  await recomputeEligibility(d1, ret.purchaseOrderId);
+  const fresh = (await findReturn(d1, returnId))!;
+  if (opts.notify === false) return;
+  await notifyReturn(env, fresh, `Refund paid for ${fresh.rmaNumber}`, `VYRO has refunded ${formatLKR(fresh.refundCents)} to you.`, null, 'both');
+  await audit(d1, { userId: null }, 'return.refunded', fresh);
 }
 
 /** Open returns older than N days get flagged to ops (never auto-approved). */

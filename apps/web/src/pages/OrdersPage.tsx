@@ -5,6 +5,7 @@ import { usePageTitle } from '@/lib/usePageTitle';
 import { api, ApiError } from '@/lib/api';
 import { Button, ErrorBanner } from '@/components/ui';
 import { formatLKR } from '@/lib/format';
+import { returnStateMeta } from '@/lib/orderLifecycle';
 import { useAuth } from '@/lib/auth';
 import {
   PackageIcon,
@@ -31,6 +32,7 @@ interface Order {
   totalCents: number;
   currency: string;
   createdAt: number;
+  returnState?: string | null;
 }
 
 const STATUS_FILTERS = [
@@ -42,6 +44,7 @@ const STATUS_FILTERS = [
   { id: 'out_for_delivery', label: 'Out for Delivery' },
   { id: 'delivered', label: 'Delivered' },
   { id: 'completed', label: 'Completed' },
+  { id: 'returns', label: 'Returns' },
   { id: 'cancelled', label: 'Cancelled' },
   { id: 'rejected', label: 'Rejected' },
   { id: 'disputed', label: 'Disputed' },
@@ -123,7 +126,7 @@ export function OrdersPage() {
     let list = allOrders;
 
     if (filter !== 'all') {
-      list = list.filter((o) => o.status.toLowerCase() === filter);
+      list = list.filter((o) => matchesFilter(o, filter));
     }
 
     if (searchQuery.trim()) {
@@ -176,7 +179,7 @@ export function OrdersPage() {
 
   const tabs = STATUS_FILTERS.map((tab) => ({
     ...tab,
-    count: tab.id === 'all' ? allOrders.length : allOrders.filter((o) => o.status.toLowerCase() === tab.id).length,
+    count: tab.id === 'all' ? allOrders.length : allOrders.filter((o) => matchesFilter(o, tab.id)).length,
   })).filter((t) => t.id === 'all' || t.count > 0 || t.id === filter);
 
   return (
@@ -469,7 +472,9 @@ export function OrdersPage() {
                 <tbody>
                   {filteredOrders.map((o) => {
                     const status = o.status.toLowerCase();
-                    const meta = statusMeta(status);
+                    const base = statusMeta(status);
+                    const ret = returnStateMeta(o.returnState);
+                    const meta = ret ? { ...base, label: ret.label, dot: ret.dot, pill: ret.pill } : base;
                     const canReorder = REORDERABLE.has(status);
                     const isReordering = reorderingId === o.id;
                     const supplier = o.supplierName ?? 'Wholesale Supplier';
@@ -605,6 +610,14 @@ const STATUS_META: Record<string, StatusMeta> = {
   rejected: { label: 'Rejected', dot: 'bg-rose', pill: 'bg-rose/10 text-rose', step: null },
   disputed: { label: 'Disputed', dot: 'bg-rose', pill: 'bg-rose/10 text-rose', step: null },
 };
+
+/** Status tabs match on order status, except `returns`, which matches any order with a live return. */
+function matchesFilter(o: Order, filter: string): boolean {
+  if (filter === 'returns') return !!o.returnState;
+  // Returned orders live under the Returns tab, not Delivered / Completed.
+  if ((filter === 'delivered' || filter === 'completed') && o.returnState) return false;
+  return o.status.toLowerCase() === filter;
+}
 
 function statusMeta(status: string): StatusMeta {
   return (

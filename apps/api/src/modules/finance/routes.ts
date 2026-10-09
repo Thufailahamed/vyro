@@ -498,8 +498,8 @@ router.post('/payments/:id/bank-transfer/proof', async (c) => {
       { id: po.id, poNumber: po.poNumber, businessId: po.businessId, supplierId: po.supplierId },
       {
         type: NotificationType.PAYMENT_INITIATED,
-        title: `Transfer proof uploaded for PO ${po.poNumber}`,
-        body: 'The buyer uploaded a bank transfer receipt. Check your account and confirm the payment.',
+        title: `Buyer paid PO ${po.poNumber} by bank transfer`,
+        body: 'The buyer paid into the VYRO account. VYRO finance is verifying it — you will be notified once funds are confirmed.',
         link: `/supplier/orders/${po.id}`,
         audience: 'supplier',
         excludeUserId: ctx.userId,
@@ -507,6 +507,19 @@ router.post('/payments/:id/bank-transfer/proof', async (c) => {
     );
   } catch (err) {
     console.error('[finance.bank.proof] notify failed', err);
+  }
+  // VYRO finance verifies every transfer against the collection account.
+  for (const role of ['finance', 'super_admin'] as const) {
+    await notifyAdmins(c.env as Env, {
+      role,
+      severity: 'info',
+      category: 'admin_alert',
+      title: `Verify bank transfer · PO ${po.poNumber}`,
+      body: `Buyer uploaded a receipt for ${row.referenceNumber}. Check the VYRO collection account and verify the payment.`,
+      link: `/admin/accounts?tab=bank`,
+      sourceRef: `bank_transfer:${row.id}`,
+      actorUserId: ctx.userId,
+    });
   }
   return c.json({ ok: true });
 });

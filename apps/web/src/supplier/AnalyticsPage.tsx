@@ -28,6 +28,9 @@ type SupplierAnalytics = {
   range: Range;
   metrics: {
     revenueCents: number;
+    grossRevenueCents?: number;
+    returnsCents?: number;
+    returnedOrdersCount?: number;
     ordersCount: number;
     avgOrderValueCents: number;
     repeatCustomerRate: number;
@@ -165,7 +168,7 @@ export function SupplierAnalyticsPage() {
             {/* Headline numbers */}
             <div className="rounded-xl border border-paper/10 bg-paper/[0.04] p-5 backdrop-blur-sm">
               <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.16em] text-paper/45">
-                <span>Booked revenue · {rangeMeta.long}</span>
+                <span>Net revenue · {rangeMeta.long}</span>
                 <span>{totalOrders} order{totalOrders === 1 ? '' : 's'}</span>
               </div>
               <div className="mt-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
@@ -173,6 +176,13 @@ export function SupplierAnalyticsPage() {
                   <div className="font-display text-4xl font-bold leading-none tracking-tight text-paper sm:text-5xl">
                     {formatLKR(m?.revenueCents ?? 0)}
                   </div>
+                  {(m?.returnsCents ?? 0) > 0 && (
+                    <div className="mt-2 font-mono text-[11px] text-paper/50">
+                      {formatLKR(m?.grossRevenueCents ?? 0)} booked{' '}
+                      <span className="text-[#f0a597]">− {formatLKR(m?.returnsCents ?? 0)} returned</span>
+                      {m?.returnedOrdersCount ? ` · ${m.returnedOrdersCount} order${m.returnedOrdersCount === 1 ? '' : 's'}` : ''}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-6">
                   <HeroFigure label="Avg order" value={formatCompactLKR(m?.avgOrderValueCents ?? 0)} />
@@ -224,7 +234,7 @@ export function SupplierAnalyticsPage() {
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <ChartCard
           title="Revenue velocity"
-          sub="Gross invoiced wholesale order value per day"
+          sub="Order value per day, net of settled returns"
           badge={rangeMeta.label}
         >
           {revenuePoints.length === 0 || revenuePoints.every((p) => p.value === 0) ? (

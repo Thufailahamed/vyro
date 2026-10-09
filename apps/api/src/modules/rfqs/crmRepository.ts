@@ -1,4 +1,4 @@
-import { and, eq, desc, lt, gte, inArray } from 'drizzle-orm';
+import { and, eq, desc, lt, gte, inArray, or, isNull } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
 import { businesses, rfqs, rfqSuppliers, rfqSupplierNotes } from '@vyro/db/schema';
 import type { LeadsListQuery, Tag, ConversionStatus } from '@vyro/validation';
@@ -101,23 +101,48 @@ export const crmRepository = {
     const limit = filter.limit ?? 25;
     const where = [eq(rfqSuppliers.supplierId, supplierId)];
     if (filter.tag) where.push(eq(rfqSuppliers.tag, filter.tag));
-    if (filter.status) where.push(eq(rfqSuppliers.conversionStatus, filter.status));
+    if (filter.status) {
+      // Backward compat: legacy rows have conversion_status NULL — treat as 'new'.
+      if (filter.status === 'new') where.push(or(eq(rfqSuppliers.conversionStatus, 'new'), isNull(rfqSuppliers.conversionStatus))!);
+      else where.push(eq(rfqSuppliers.conversionStatus, filter.status));
+    }
     if (filter.rfqId) where.push(eq(rfqSuppliers.rfqId, filter.rfqId));
     if (filter.from !== undefined) where.push(gte(rfqSuppliers.invitedAt, filter.from));
     if (filter.to !== undefined) where.push(lt(rfqSuppliers.invitedAt, filter.to));
-    if (filter.cursor !== undefined) where.push(lt(rfqSuppliers.invitedAt, Number(filter.cursor)));
+    if (filter.cursor !== undefined) {
+      // Composite cursor `${invitedAt}_${id}` avoids skipping rows that share
+      // the same invitedAt (bulk invites use a single timestamp).
+      // Legacy numeric-only cursors fall back to timestamp comparison.
+      const sep = filter.cursor.indexOf('_');
+      if (sep > 0) {
+        const cursorTime = Number(filter.cursor.slice(0, sep));
+        const cursorId = filter.cursor.slice(sep + 1);
+        if (Number.isFinite(cursorTime) && cursorId) {
+          where.push(
+            or(
+              lt(rfqSuppliers.invitedAt, cursorTime),
+              and(eq(rfqSuppliers.invitedAt, cursorTime), lt(rfqSuppliers.id, cursorId)),
+            )!,
+          );
+        }
+      } else {
+        const cursorTime = Number(filter.cursor);
+        if (Number.isFinite(cursorTime)) where.push(lt(rfqSuppliers.invitedAt, cursorTime));
+      }
+    }
 
     const rows = await db
       .select()
       .from(rfqSuppliers)
       .where(and(...where))
-      .orderBy(desc(rfqSuppliers.invitedAt))
+      .orderBy(desc(rfqSuppliers.invitedAt), desc(rfqSuppliers.id))
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
     const slice = rows.slice(0, limit) as unknown as RawLead[];
     const leads = await enrichLeads(d1, slice);
-    const nextCursor = hasMore ? String(rows[limit - 1]!.invitedAt) : null;
+    const last = rows[limit - 1] as unknown as RawLead | undefined;
+    const nextCursor = hasMore && last ? `${last.invitedAt}_${last.id}` : null;
     return { leads, nextCursor };
   },
 
@@ -207,16 +232,34 @@ export const crmRepository = {
   ): Promise<{ notes: NoteRow[]; nextCursor: string | null }> {
     const db = getDb(d1);
     const where = [eq(rfqSupplierNotes.rfqSupplierId, rfqSupplierId)];
-    if (cursor !== undefined) where.push(lt(rfqSupplierNotes.createdAt, Number(cursor)));
+    if (cursor !== undefined) {
+      const sep = cursor.indexOf('_');
+      if (sep > 0) {
+        const cursorTime = Number(cursor.slice(0, sep));
+        const cursorId = cursor.slice(sep + 1);
+        if (Number.isFinite(cursorTime) && cursorId) {
+          where.push(
+            or(
+              lt(rfqSupplierNotes.createdAt, cursorTime),
+              and(eq(rfqSupplierNotes.createdAt, cursorTime), lt(rfqSupplierNotes.id, cursorId)),
+            )!,
+          );
+        }
+      } else {
+        const cursorTime = Number(cursor);
+        if (Number.isFinite(cursorTime)) where.push(lt(rfqSupplierNotes.createdAt, cursorTime));
+      }
+    }
     const rows = await db
       .select()
       .from(rfqSupplierNotes)
       .where(and(...where))
-      .orderBy(desc(rfqSupplierNotes.createdAt))
+      .orderBy(desc(rfqSupplierNotes.createdAt), desc(rfqSupplierNotes.id))
       .limit(limit + 1);
     const hasMore = rows.length > limit;
     const slice = rows.slice(0, limit) as unknown as NoteRow[];
-    const nextCursor = hasMore ? String(rows[limit - 1]!.createdAt) : null;
+    const last = rows[limit - 1] as unknown as NoteRow | undefined;
+    const nextCursor = hasMore && last ? `${last.createdAt}_${last.id}` : null;
     return { notes: slice, nextCursor };
   },
 
@@ -237,8 +280,10 @@ export const crmRepository = {
       else if (r.tag === 'warm') byTag.warm++;
       else if (r.tag === 'cold') byTag.cold++;
       else byTag.untagged++;
-      if (r.status && r.status in byStatus) {
-        byStatus[r.status as keyof typeof byStatus]++;
+      // Backward compat: legacy rows have conversion_status NULL — count as 'new'.
+      const status = r.status ?? 'new';
+      if (status in byStatus) {
+        byStatus[status as keyof typeof byStatus]++;
       }
     }
     const total = rows.length;

@@ -315,7 +315,7 @@ export async function finalizeRefund(
   if (po) {
     try {
       const { applyEarningRefundDelta } = await import('../finance/repository');
-      const updated = await applyEarningRefundDelta(d1, payment.id, po.supplierId, refund.amountCents);
+      const updated = await applyEarningRefundDelta(d1, payment.id, po.supplierId, refund.amountCents, fee);
       if (updated) {
         await writeLedgerEntry(db, {
           accountType: 'supplier',
@@ -339,6 +339,14 @@ export async function finalizeRefund(
 
   await recomputeForPayment(d1, payment.id);
   if (po) await notifyRefund(env, po.id, 'completed', refund.amountCents, opts.actorUserId ?? null);
+  if (refund.source === 'return' && refund.sourceRefId) {
+    try {
+      const { settleReturnRefund } = await import('../returns/service');
+      await settleReturnRefund(env as Parameters<typeof settleReturnRefund>[0], refund.sourceRefId);
+    } catch (err) {
+      console.error('[refunds.executor] return settle failed', { refundId, err });
+    }
+  }
   return true;
 }
 

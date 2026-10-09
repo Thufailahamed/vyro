@@ -11,6 +11,7 @@ import {
   XIcon,
 } from '@/components/icons';
 import { formatLKR } from '@/lib/format';
+import { returnStateMeta } from '@/lib/orderLifecycle';
 import { statusSpine, type ConsoleOrder } from './types';
 
 export function OrderRow({
@@ -35,6 +36,7 @@ export function OrderRow({
   onQuickView: () => void;
 }) {
   const isPending = o.status === 'pending';
+  const ret = returnStateMeta(o.returnState);
 
   return (
     <Surface
@@ -48,7 +50,7 @@ export function OrderRow({
       <span
         aria-hidden
         className="absolute inset-y-0 left-0 w-[3px]"
-        style={{ background: statusSpine(o.status) }}
+        style={{ background: ret?.spine ?? statusSpine(o.status) }}
       />
 
       <div className="flex flex-col gap-4 p-5 pl-6 md:flex-row md:items-center">
@@ -57,7 +59,14 @@ export function OrderRow({
             <span className="vyro-metric text-[15px] font-bold tracking-tight text-ink transition-colors duration-200 ease-vyro group-hover:text-copper-deep">
               {o.poNumber}
             </span>
-            <StatusDots status={(o.status as OrderStatus) ?? 'pending'} />
+            {ret ? (
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${ret.pill}`}>
+                <span className={`size-1.5 rotate-45 ${ret.dot}`} aria-hidden />
+                {ret.label}
+              </span>
+            ) : (
+              <StatusDots status={(o.status as OrderStatus) ?? 'pending'} />
+            )}
             <PaymentStateBadge state={o.paymentState} />
             {isPending && (
               <Badge variant="warning" className="font-mono">

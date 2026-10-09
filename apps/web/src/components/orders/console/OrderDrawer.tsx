@@ -6,7 +6,7 @@ import { Button, StatusDots, type OrderStatus } from '@/components/ui';
 import { PaymentStateBadge } from '@/components/orders/LifecycleUi';
 import { ArrowRightIcon, CalendarIcon, MapPinIcon, PackageIcon, XIcon } from '@/components/icons';
 import { OrderProgress } from '@/components/orders/OrderProgress';
-import { statusLabel } from '@/lib/orderLifecycle';
+import { poReturnState, returnStateMeta, statusLabel, type OrderReturn } from '@/lib/orderLifecycle';
 import { formatLKR } from '@/lib/format';
 import type { ConsoleOrderDetail } from './types';
 
@@ -55,6 +55,11 @@ export function OrderDrawer({ poId, onClose }: { poId: string; onClose: () => vo
   const order = detail?.order;
 
   const lineCount = detail?.items.length ?? 0;
+  const units = detail?.items.reduce((n, it) => n + it.quantity, 0) ?? 0;
+  const ret =
+    order && ['delivered', 'completed'].includes(order.status)
+      ? returnStateMeta(poReturnState(detail?.returns ?? [], units))
+      : null;
   const recent = detail ? [...detail.events].reverse().slice(0, 4) : [];
 
   return (
@@ -96,7 +101,14 @@ export function OrderDrawer({ poId, onClose }: { poId: string; onClose: () => vo
                 <h2 className="vyro-display mt-3 truncate text-2xl text-paper">{order.poNumber}</h2>
                 <div className="mt-2.5 flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center rounded-full border border-paper/15 bg-paper/[0.07] px-2.5 py-0.5 text-paper [&_span]:!text-paper">
-                    <StatusDots status={(order.status as OrderStatus) ?? 'pending'} />
+                    {ret ? (
+                      <span className="inline-flex items-center gap-2 text-sm">
+                        <span className="size-1.5 rotate-45 bg-copper" aria-hidden />
+                        {ret.label}
+                      </span>
+                    ) : (
+                      <StatusDots status={(order.status as OrderStatus) ?? 'pending'} />
+                    )}
                   </span>
                   <PaymentStateBadge state={order.paymentState} />
                 </div>

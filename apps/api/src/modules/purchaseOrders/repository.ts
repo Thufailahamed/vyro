@@ -1,6 +1,6 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
-import { purchaseOrders, purchaseOrderItems, orderEvents, suppliers } from '@vyro/db/schema';
+import { purchaseOrders, purchaseOrderItems, orderEvents, suppliers, supplierProducts, productImages } from '@vyro/db/schema';
 import { newId } from '@vyro/shared';
 import type { OrderStatus, ActorRole } from '@vyro/shared';
 
@@ -174,9 +174,42 @@ export async function findPo(d1: D1Database, id: string) {
   return (await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, id)).get()) ?? null;
 }
 
+/**
+ * PO lines plus the catalog product each line came from (`productId`) and its
+ * primary image, so order pages can link to and show the product.
+ */
 export async function listPoItems(d1: D1Database, poId: string) {
   const db = getDb(d1);
-  return db.select().from(purchaseOrderItems).where(eq(purchaseOrderItems.purchaseOrderId, poId)).all();
+  const items = await db.select().from(purchaseOrderItems).where(eq(purchaseOrderItems.purchaseOrderId, poId)).all();
+  const spIds = [...new Set(items.map((i) => i.supplierProductId).filter((x): x is string => !!x))];
+  if (spIds.length === 0) return items.map((i) => ({ ...i, productId: null, imageUrl: null }));
+  const sps = await db
+    .select({ id: supplierProducts.id, productId: supplierProducts.productId })
+    .from(supplierProducts)
+    .where(inArray(supplierProducts.id, spIds))
+    .all();
+  const productOf = new Map(sps.map((s) => [s.id, s.productId]));
+  const productIds = [...new Set(sps.map((s) => s.productId))];
+  const imgs = productIds.length
+    ? await db
+        .select({ productId: productImages.productId, r2Key: productImages.r2Key })
+        .from(productImages)
+        .where(inArray(productImages.productId, productIds))
+        .orderBy(asc(productImages.sortOrder))
+        .all()
+    : [];
+  const imageOf = new Map<string, string>();
+  for (const img of imgs) {
+    if (imageOf.has(img.productId)) continue;
+    imageOf.set(
+      img.productId,
+      /^https?:\/\//.test(img.r2Key) ? img.r2Key : `/api/products/images/${img.r2Key}`,
+    );
+  }
+  return items.map((i) => {
+    const productId = (i.supplierProductId && productOf.get(i.supplierProductId)) ?? null;
+    return { ...i, productId, imageUrl: productId ? (imageOf.get(productId) ?? null) : null };
+  });
 }
 
 export async function listPoEvents(d1: D1Database, poId: string) {

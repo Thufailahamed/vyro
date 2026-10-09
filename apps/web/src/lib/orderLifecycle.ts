@@ -36,6 +36,9 @@ export interface LifecycleOrderItem {
   lineTotalCents: number;
   discountPctSnapshot?: number | null;
   supplierProductId?: string | null;
+  /** Catalog product the line came from — links to `/products/:productId`. */
+  productId?: string | null;
+  imageUrl?: string | null;
 }
 
 export interface LifecycleOrderEvent {
@@ -232,4 +235,40 @@ export function eventKind(e: LifecycleOrderEvent): string | null {
 
 export function statusLabel(s: string): string {
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/* ── Return badge on order rows (mirrors API `returnState` on PO lists) ── */
+
+export type PoReturnState = 'requested' | 'approved' | 'received' | 'returned' | 'partially_returned';
+
+export const RETURN_STATE_META: Record<PoReturnState, { label: string; dot: string; pill: string; spine: string }> = {
+  requested: { label: 'Return requested', dot: 'bg-amber', pill: 'bg-amber/10 text-amber', spine: '#C4843A' },
+  approved: { label: 'Return approved', dot: 'bg-amber', pill: 'bg-amber/10 text-amber', spine: '#C4843A' },
+  received: { label: 'Return received', dot: 'bg-copper', pill: 'bg-copper/10 text-copper-deep', spine: '#B87A4E' },
+  returned: { label: 'Returned', dot: 'bg-ink-3', pill: 'bg-ink/[0.07] text-ink-2', spine: '#3F433C' },
+  partially_returned: {
+    label: 'Partially returned',
+    dot: 'bg-copper',
+    pill: 'bg-copper/10 text-copper-deep',
+    spine: '#B87A4E',
+  },
+};
+
+export function returnStateMeta(state: string | null | undefined) {
+  return state ? (RETURN_STATE_META[state as PoReturnState] ?? null) : null;
+}
+
+/** Client-side equivalent of the API's per-PO return state, from a full returns list. */
+export function poReturnState(returns: OrderReturn[], orderedUnits: number): PoReturnState | null {
+  const live = returns.filter((r) => r.status !== 'rejected' && r.status !== 'cancelled');
+  if (live.length === 0) return null;
+  const latest = live.reduce((a, b) => (b.requestedAt > a.requestedAt ? b : a));
+  if (latest.status === 'requested' || latest.status === 'approved' || latest.status === 'received') {
+    return latest.status;
+  }
+  const returned = live.reduce(
+    (n, r) => n + r.items.reduce((m, it) => m + (it.receivedQuantity ?? it.approvedQuantity ?? it.quantity), 0),
+    0,
+  );
+  return orderedUnits > 0 && returned >= orderedUnits ? 'returned' : 'partially_returned';
 }

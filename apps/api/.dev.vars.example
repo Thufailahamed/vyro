@@ -33,3 +33,11 @@ ENVIRONMENT="local"
 # Optional: encryption key for ledger entries at rest (32-byte hex string).
 # Without this, ledger rows are stored unencrypted (fine for dev).
 # LEDGER_ENCRYPTION_KEY=""
+
+# VYRO collection account (LKR) shown to buyers paying by bank transfer.
+# Buyers pay VYRO; VYRO finance verifies transfers and settles suppliers via payouts.
+# Unset outside production → a clearly-labelled sandbox account is shown.
+# VYRO_LKR_ACCOUNT_NAME="VYRO (Pvt) Ltd — Escrow"
+# VYRO_LKR_BANK_NAME="Commercial Bank of Ceylon"
+# VYRO_LKR_BRANCH="Colombo 03"
+# VYRO_LKR_ACCOUNT_NUMBER="1000 2345 6789"

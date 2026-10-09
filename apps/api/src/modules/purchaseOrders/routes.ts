@@ -33,7 +33,7 @@ import { acceptOrder } from '../orders/partialAccept';
 import { getPaymentSummary, getPaymentSummaries } from '../payments/summary';
 import { getLifecycleConfig, DAY_MS } from '../orders/config';
 import { findDeliveryByPo } from '../deliveries/repository';
-import { listReturnsForPo } from '../returns/repository';
+import { listReturnsForPo, returnStateByPo } from '../returns/repository';
 
 const ORDER_STATUS_VALUES = Object.values(OrderStatus) as [string, ...string[]];
 
@@ -43,10 +43,24 @@ const PO_BUSINESS_ROLES = ['owner', 'manager', 'purchasing'] as const;
 const PO_SUPPLIER_ROLES = ['owner', 'sales', 'operations'] as const;
 
 async function withPaymentState<T extends { id: string; totalCents: number }>(d1: D1Database, rows: T[]) {
-  const summaries = await getPaymentSummaries(d1, rows).catch(() => new Map());
+  const [summaries, returns] = await Promise.all([
+    getPaymentSummaries(d1, rows).catch(() => new Map()),
+    returnStateByPo(
+      d1,
+      rows.map((r) => r.id),
+    ).catch((e) => {
+      console.error('[purchase-orders] returnStateByPo failed', e);
+      return new Map<string, string>();
+    }),
+  ]);
   return rows.map((r) => {
     const s = summaries.get(r.id);
-    return { ...r, paymentState: s?.state ?? null, paymentMethodSummary: s?.method ?? null };
+    return {
+      ...r,
+      paymentState: s?.state ?? null,
+      paymentMethodSummary: s?.method ?? null,
+      returnState: returns.get(r.id) ?? null,
+    };
   });
 }
 

@@ -373,7 +373,19 @@ export async function upsertEarningForPayment(
   return row;
 }
 
-export async function applyEarningRefundDelta(d1: D1Database, paymentId: string, supplierId: string, refundCents: number) {
+/**
+ * Shrinks an earning by a settled refund. The platform reverses its commission
+ * pro-rata (`feeRefundCents`, mirrored by the platform REFUND_ADJUSTMENT ledger leg),
+ * so the supplier only gives back the net share — not the full refund on top of
+ * commission they were already charged.
+ */
+export async function applyEarningRefundDelta(
+  d1: D1Database,
+  paymentId: string,
+  supplierId: string,
+  refundCents: number,
+  feeRefundCents = 0,
+) {
   const db = getDb(d1);
   const row = (await db
     .select()
@@ -382,13 +394,14 @@ export async function applyEarningRefundDelta(d1: D1Database, paymentId: string,
     .get()) as any;
   if (!row) return null;
   const nextRefund = row.refundCents + refundCents;
-  const nextNet = row.grossCents - row.commissionCents - row.processingFeeCents + row.adjustmentCents - nextRefund;
+  const nextCommission = Math.max(0, row.commissionCents - Math.max(0, feeRefundCents));
+  const nextNet = row.grossCents - nextCommission - row.processingFeeCents + row.adjustmentCents - nextRefund;
   await db
     .update(supplierEarnings)
-    .set({ refundCents: nextRefund, netCents: nextNet, updatedAt: Date.now() })
+    .set({ refundCents: nextRefund, commissionCents: nextCommission, netCents: nextNet, updatedAt: Date.now() })
     .where(eq(supplierEarnings.id, row.id))
     .run();
-  return { ...row, refundCents: nextRefund, netCents: nextNet };
+  return { ...row, refundCents: nextRefund, commissionCents: nextCommission, netCents: nextNet };
 }
 
 export async function listEarningsForSupplier(

@@ -316,7 +316,7 @@ function Refunds() {
   const r = useRefresh([['admin-accounts', 'refunds']]);
   const q = useQuery({
     queryKey: ['admin-accounts', 'refunds', status],
-    queryFn: () => api.get<{ refunds: Array<{ id: string; refundNumber: string | null; paymentId: string; amountCents: number; status: string; reason: string | null; createdAt: number }> }>(
+    queryFn: () => api.get<{ refunds: Array<{ id: string; refundNumber: string | null; paymentId: string; purchaseOrderId: string | null; amountCents: number; status: string; reason: string | null; source: string | null; refundMethod: string | null; createdAt: number }> }>(
       `/admin/finance/refunds?${status ? `status=${status}` : ''}`,
     ),
   });
@@ -350,9 +350,22 @@ function Refunds() {
             <CellStack
               primary={<span className="font-semibold">{x.refundNumber ?? x.id.slice(0, 8)}</span>}
               secondary={
-                <span className="flex items-center gap-2">
+                <span className="flex flex-wrap items-center gap-2">
                   <StatusPill status={x.status} />
+                  {x.source && (
+                    <span className="rounded-full bg-copper/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-copper-deep">
+                      {x.source.replace(/_/g, ' ')}
+                    </span>
+                  )}
+                  {x.refundMethod && x.refundMethod !== 'gateway' && ['requested', 'approved', 'processing'].includes(x.status) && (
+                    <span className="text-amber">VYRO pays buyer by {x.refundMethod.replace(/_/g, ' ')}</span>
+                  )}
                   <span>{x.reason ?? ''} · {time(x.createdAt)}</span>
+                  {x.purchaseOrderId && (
+                    <Link to={`/admin/orders/${x.purchaseOrderId}`} className="text-copper hover:underline">
+                      Order →
+                    </Link>
+                  )}
                 </span>
               }
             />
@@ -365,7 +378,7 @@ function Refunds() {
                 </>
               )}
               {(x.status === 'approved' || x.status === 'processing') && (
-                <Button size="sm" onClick={() => act(x.id, 'complete', `Mark refund of ${formatLKR(x.amountCents)} complete?`, 'Mark complete', 'Confirm the money actually left VYRO (provider/bank/cash). This adjusts supplier earnings.')}>Complete</Button>
+                <Button size="sm" onClick={() => act(x.id, 'complete', `Mark ${formatLKR(x.amountCents)} paid to the buyer?`, 'Mark paid', "Confirm VYRO has sent this money back to the buyer (bank / cash / provider). This closes any linked return and adjusts the supplier's earnings.")}>Mark paid</Button>
               )}
             </div>
           </Card>
@@ -419,7 +432,7 @@ function BankTransfers() {
       {q.isLoading ? (
         <RowListSkeleton />
       ) : transfers.length === 0 ? (
-        <Card padded={false}><EmptyBlock icon={<Building2Icon size={22} />} title="Queue empty" description="Bank transfers reported by buyers appear here with their receipts." /></Card>
+        <Card padded={false}><EmptyBlock icon={<Building2Icon size={22} />} title="Queue empty" description="Buyers pay into VYRO's collection account. Each transfer appears here with its receipt — verify it against the VYRO bank statement to mark the order paid." /></Card>
       ) : (
         transfers.map((t) => <BankTransferItem key={t.id} t={t} />)
       )}

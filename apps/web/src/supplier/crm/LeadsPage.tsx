@@ -35,13 +35,9 @@ export function LeadsPage() {
   const summary = useCrmSummary(supplierId);
   const leads = useLeads(supplierId, filter);
 
-  if (!supplierId) {
-    return (
-      <div className="rounded-xl border border-ink/10 bg-paper p-8 text-center text-sm text-ink-4">
-        No active supplier context found.
-      </div>
-    );
-  }
+  // Note: supplier context is guaranteed by SupplierShell (renders
+  // NoSupplierMembership when absent) — useSupplierId throws otherwise,
+  // so no empty-supplier branch is needed here.
 
   const byTag = summary.data?.byTag;
   const byStatus = summary.data?.byStatus;

@@ -438,6 +438,8 @@ describe('returns (RMA)', () => {
   it('request → approve → receive: restocks, refunds, issues a credit note, holds then releases settlement', async () => {
     const { poId, total } = await mkPo({ qty: 10 });
     await pay(poId, total, 'online');
+    const paid = await db.select().from(schema.payments).where(M.drizzle.eq(schema.payments.purchaseOrderId, poId)).get();
+    await (await import('../../src/modules/finance/earnings')).ensureAllocationAndEarning(env.DB, paid!.id);
     await advanceTo(poId, 'delivered');
     const stockAfterDelivery = (await offer(ids.spRice)).stockQty;
     const [item] = await db.select().from(schema.purchaseOrderItems).where(M.drizzle.eq(schema.purchaseOrderItems.purchaseOrderId, poId)).all();
@@ -447,6 +449,8 @@ describe('returns (RMA)', () => {
     expect(created.status).toBe(201);
     const ret = created.body.return;
     expect(ret).toMatchObject({ status: 'requested', refundCents: 3 * PRICE });
+    const { returnStateByPo } = await import('../../src/modules/returns/repository');
+    expect((await returnStateByPo(env.DB, [poId])).get(poId)).toBe('requested');
 
     // Over-claiming the same units is rejected.
     const over = await api('POST', `/api/purchase-orders/${poId}/returns`, { reasonCode: 'damaged', lines: [{ itemId: item.id, quantity: 8 }] });
@@ -464,12 +468,26 @@ describe('returns (RMA)', () => {
     const received = await api('POST', `/api/returns/${ret.id}/receive`, {});
     expect(received.status).toBe(200);
     expect(received.body.return).toMatchObject({ status: 'closed', refundCents: 3 * PRICE });
+    // 3 of 10 units came back → partially returned on order lists.
+    expect((await returnStateByPo(env.DB, [poId])).get(poId)).toBe('partially_returned');
+    const list = await api('GET', `/api/purchase-orders?supplierId=${ids.sup}`);
+    expect(list.body.orders.find((o: any) => o.id === poId).returnState).toBe('partially_returned');
     expect(received.body.return.creditNoteInvoiceId).toBeTruthy();
 
     expect((await offer(ids.spRice)).stockQty).toBe(stockAfterDelivery + 3);
     const rs = (await refundsFor(poId)).filter((r: any) => r.source === 'return');
     expect(rs).toHaveLength(1);
     expect(rs[0]).toMatchObject({ status: 'completed', amountCents: 3 * PRICE });
+    // Supplier gives back only its net share: VYRO reverses the commission on refunded value.
+    const earn = await db.select().from(schema.supplierEarnings).where(M.drizzle.eq(schema.supplierEarnings.purchaseOrderId, poId)).get();
+    expect(earn).toBeTruthy();
+    if (earn) {
+      expect(earn.refundCents).toBe(3 * PRICE);
+      expect(earn.netCents).toBe(earn.grossCents - earn.commissionCents - earn.processingFeeCents + earn.adjustmentCents - earn.refundCents);
+      expect(rs[0].feeRefundCents).toBeGreaterThan(0);
+      const pay = await db.select().from(schema.payments).where(M.drizzle.eq(schema.payments.purchaseOrderId, poId)).get();
+      expect(earn.commissionCents).toBe(pay!.feeCents - rs[0].feeRefundCents);
+    }
     const note = await db.select().from(schema.invoices).where(M.drizzle.eq(schema.invoices.id, received.body.return.creditNoteInvoiceId)).get();
     expect(note).toMatchObject({ type: 'credit_note', totalCents: 3 * PRICE });
 

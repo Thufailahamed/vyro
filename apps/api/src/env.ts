@@ -104,4 +104,13 @@ export interface Env {
   VYRO_BANK_INTERMEDIARY_SWIFT?: string;
   /** Reference prefix prepended to wire references for matching. */
   VYRO_BANK_REFERENCE_PREFIX?: string;
+  /**
+   * Domestic (LKR) collection account buyers pay bank transfers into. VYRO
+   * holds the funds and settles suppliers via payouts. Falls back to the
+   * VYRO_BANK_* wire beneficiary when unset.
+   */
+  VYRO_LKR_ACCOUNT_NAME?: string;
+  VYRO_LKR_BANK_NAME?: string;
+  VYRO_LKR_BRANCH?: string;
+  VYRO_LKR_ACCOUNT_NUMBER?: string;
 }

@@ -1,10 +1,12 @@
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
 import {
   purchaseOrders,
   purchaseOrderItems,
   supplierProducts,
   supplierMembers,
+  orderReturns,
+  orderReturnItems,
 } from '@vyro/db/schema';
 
 export type AnalyticsRange = '7d' | '30d' | '90d';
@@ -12,7 +14,11 @@ export type AnalyticsRange = '7d' | '30d' | '90d';
 export type SupplierAnalytics = {
   range: AnalyticsRange;
   metrics: {
+    /** Net revenue: booked order value minus goods taken back through settled returns. */
     revenueCents: number;
+    grossRevenueCents: number;
+    returnsCents: number;
+    returnedOrdersCount: number;
     ordersCount: number;
     avgOrderValueCents: number;
     repeatCustomerRate: number;
@@ -72,12 +78,48 @@ export async function computeSupplierAnalytics(
       and(
         eq(purchaseOrders.supplierId, supplierId),
         gte(purchaseOrders.createdAt, start),
-        sql`${purchaseOrders.status} <> 'cancelled'`,
+        sql`${purchaseOrders.status} NOT IN ('cancelled', 'rejected')`,
       ),
     )
     .all();
 
-  const revenueCents = poRows.reduce((s, r) => s + (r.total ?? 0), 0);
+  // Settled returns (refund issued) reverse revenue on the order's booking day.
+  const poIds = poRows.map((r) => r.id);
+  const returnRows: Array<{ id: string; poId: string; refund: number }> = [];
+  for (let i = 0; i < poIds.length; i += 90) {
+    returnRows.push(
+      ...(await db
+        .select({ id: orderReturns.id, poId: orderReturns.purchaseOrderId, refund: orderReturns.refundCents })
+        .from(orderReturns)
+        .where(and(inArray(orderReturns.purchaseOrderId, poIds.slice(i, i + 90)), inArray(orderReturns.status, ['refunded', 'closed'])))
+        .all()),
+    );
+  }
+  const returnedByPo = new Map<string, number>();
+  for (const r of returnRows) returnedByPo.set(r.poId, (returnedByPo.get(r.poId) ?? 0) + (r.refund ?? 0));
+  const returnLines: Array<{ poItemId: string; qty: number; cents: number }> = [];
+  const retIds = returnRows.map((r) => r.id);
+  for (let i = 0; i < retIds.length; i += 90) {
+    const rows = await db
+      .select({
+        poItemId: orderReturnItems.purchaseOrderItemId,
+        qty: orderReturnItems.receivedQuantity,
+        approved: orderReturnItems.approvedQuantity,
+        requested: orderReturnItems.quantity,
+        unit: orderReturnItems.unitRefundCents,
+      })
+      .from(orderReturnItems)
+      .where(inArray(orderReturnItems.returnId, retIds.slice(i, i + 90)))
+      .all();
+    for (const r of rows) {
+      const q = r.qty ?? r.approved ?? r.requested;
+      returnLines.push({ poItemId: r.poItemId, qty: q, cents: q * r.unit });
+    }
+  }
+
+  const grossRevenueCents = poRows.reduce((s, r) => s + (r.total ?? 0), 0);
+  const returnsCents = [...returnedByPo.values()].reduce((s, n) => s + n, 0);
+  const revenueCents = Math.max(0, grossRevenueCents - returnsCents);
   const ordersCount = poRows.length;
   const avgOrderValueCents = ordersCount === 0 ? 0 : Math.floor(revenueCents / ordersCount);
 
@@ -93,7 +135,7 @@ export async function computeSupplierAnalytics(
   for (const r of poRows) {
     const d = dayBucket(r.created);
     const cur = dayMap.get(d) ?? { cents: 0, count: 0 };
-    cur.cents += r.total ?? 0;
+    cur.cents += Math.max(0, (r.total ?? 0) - (returnedByPo.get(r.id) ?? 0));
     cur.count += 1;
     dayMap.set(d, cur);
   }
@@ -112,6 +154,7 @@ export async function computeSupplierAnalytics(
 
   const items = await db
     .select({
+      id: purchaseOrderItems.id,
       productId: purchaseOrderItems.supplierProductId,
       productNameSnapshot: purchaseOrderItems.productNameSnapshot,
       qty: purchaseOrderItems.quantity,
@@ -123,16 +166,24 @@ export async function computeSupplierAnalytics(
       and(
         eq(purchaseOrders.supplierId, supplierId),
         gte(purchaseOrders.createdAt, start),
-        sql`${purchaseOrders.status} <> 'cancelled'`,
+        sql`${purchaseOrders.status} NOT IN ('cancelled', 'rejected')`,
       ),
     )
     .all();
 
+  const returnedByLine = new Map<string, { qty: number; cents: number }>();
+  for (const l of returnLines) {
+    const cur = returnedByLine.get(l.poItemId) ?? { qty: 0, cents: 0 };
+    cur.qty += l.qty;
+    cur.cents += l.cents;
+    returnedByLine.set(l.poItemId, cur);
+  }
   const byProduct = new Map<string, { name: string; cents: number; units: number }>();
   for (const it of items) {
+    const back = returnedByLine.get(it.id);
     const cur = byProduct.get(it.productId) ?? { name: it.productNameSnapshot, cents: 0, units: 0 };
-    cur.cents += it.total ?? 0;
-    cur.units += it.qty ?? 0;
+    cur.cents += Math.max(0, (it.total ?? 0) - (back?.cents ?? 0));
+    cur.units += Math.max(0, (it.qty ?? 0) - (back?.qty ?? 0));
     byProduct.set(it.productId, cur);
   }
   const topProducts = [...byProduct.entries()]
@@ -143,12 +194,16 @@ export async function computeSupplierAnalytics(
       units: v.units,
     }))
     .sort((a, b) => b.revenueCents - a.revenueCents)
+    .filter((p) => p.units > 0 || p.revenueCents > 0)
     .slice(0, 10);
 
   return {
     range,
     metrics: {
       revenueCents,
+      grossRevenueCents,
+      returnsCents,
+      returnedOrdersCount: returnedByPo.size,
       ordersCount,
       avgOrderValueCents,
       repeatCustomerRate,

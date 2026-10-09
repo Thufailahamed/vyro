@@ -85,12 +85,14 @@ export function SupplierPaymentsPage() {
   const [status, setStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Same source as the Accounts page: eligible net earnings, with refunds owed to buyers.
   const balance = useQuery({
-    queryKey: ['supplier', supplierId, 'balance'],
+    queryKey: ['supplier', supplierId, 'finance-overview'],
     queryFn: () =>
-      api.get<{ balanceCents: number; currency: string }>(
-        `/accounts/balance?accountType=supplier&accountId=${supplierId}`,
+      api.get<{ availableCents: number; refundCents: number; pendingRefundCents?: number; returnsCount?: number }>(
+        `/finance/supplier/overview?supplierId=${supplierId}`,
       ),
+    enabled: !!supplierId,
   });
 
   const settingsQuery = useQuery({
@@ -145,7 +147,9 @@ export function SupplierPaymentsPage() {
     );
   }, [list, searchQuery]);
 
-  const balanceCents = balance.data?.balanceCents ?? 0;
+  const balanceCents = balance.data?.availableCents ?? 0;
+  const pendingRefundCents = balance.data?.pendingRefundCents ?? 0;
+  const refundedCents = (balance.data?.refundCents ?? 0) + pendingRefundCents;
   const pendingCents = list
     .filter((p) => p.status === 'pending')
     .reduce((s, p) => s + p.netCents, 0);
@@ -166,7 +170,7 @@ export function SupplierPaymentsPage() {
         icon={BanknoteIcon}
         kicker={`${supplierName} / Treasury & Settlement`}
         title="Financial Ledger"
-        description="Automated escrow settlements, digital SVAT invoices, and weekly bank sweep payouts."
+        description="Buyers pay VYRO. VYRO verifies every payment, holds the funds until delivery, and pays you out every Friday."
         status={
           <HeroStatusPill
             tone="mint"
@@ -229,14 +233,14 @@ export function SupplierPaymentsPage() {
             <div className="size-8 rounded-lg bg-amber/15 text-amber flex items-center justify-center">
               <ClockIcon size={15} />
             </div>
-            <span className="text-[10px] text-amber font-mono font-semibold">In Transit</span>
+            <span className="text-[10px] text-amber font-mono font-semibold">VYRO Verifying</span>
           </div>
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">Pending Escrow</div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-4 font-bold">Awaiting Verification</div>
             <MetricNumber size="md" className="text-amber">
               {formatLKR(pendingCents)}
             </MetricNumber>
-            <div className="text-xs text-ink-4 mt-0.5">Locked pending delivery sign-off</div>
+            <div className="text-xs text-ink-4 mt-0.5">Buyer payments VYRO finance is checking</div>
           </div>
         </div>
 
@@ -252,7 +256,15 @@ export function SupplierPaymentsPage() {
             <MetricNumber size="md" className="text-mint">
               {formatLKR(confirmedCents)}
             </MetricNumber>
-            <div className="text-xs text-ink-4 mt-0.5">Verified buyer payments</div>
+            <div className="text-xs text-ink-4 mt-0.5">
+              {refundedCents > 0 ? (
+                <span className="text-rose">
+                  −{formatLKR(refundedCents)} {pendingRefundCents > 0 ? 'refund owed to buyers' : 'refunded to buyers'}
+                </span>
+              ) : (
+                'Verified buyer payments'
+              )}
+            </div>
           </div>
         </div>
 
@@ -293,7 +305,7 @@ export function SupplierPaymentsPage() {
         <div className="flex items-center justify-between border-b border-line pb-3">
           <div className="text-xs font-mono uppercase tracking-wider font-bold text-ink flex items-center gap-2">
             <span className="size-2 rounded-full bg-volt" />
-            Vyro Commercial Escrow & Payout Cycle
+            How VYRO handles your money
           </div>
           <span className="text-xs text-ink-4 font-mono">
             Weekly Bank Clearing: Every Friday
@@ -306,9 +318,10 @@ export function SupplierPaymentsPage() {
               <span className="text-[10px] font-mono text-copper font-bold uppercase">Phase 1</span>
               <ShieldCheckIcon size={14} className="text-copper" />
             </div>
-            <div className="text-xs font-semibold text-ink">Buyer Escrow Funded</div>
+            <div className="text-xs font-semibold text-ink">Buyer pays VYRO</div>
             <p className="text-[11px] text-ink-4 leading-relaxed">
-              Wholesale buyer funds are secured in escrow as soon as a purchase order is accepted.
+              Buyers pay by card or by bank transfer into VYRO's account. VYRO finance verifies every
+              transfer — you never need to check your own bank.
             </p>
           </div>
 
@@ -317,9 +330,10 @@ export function SupplierPaymentsPage() {
               <span className="text-[10px] font-mono text-copper font-bold uppercase">Phase 2</span>
               <CheckCircle2Icon size={14} className="text-mint" />
             </div>
-            <div className="text-xs font-semibold text-ink">Delivery Sign-off (eGRN)</div>
+            <div className="text-xs font-semibold text-ink">VYRO holds until delivery</div>
             <p className="text-[11px] text-ink-4 leading-relaxed">
-              Upon freight arrival at buyer dock, goods are verified and escrow is released to Available Balance.
+              Once the buyer confirms receipt, your earnings (after VYRO fees and any returns) move to
+              Available Balance. Refunds for returns are paid by VYRO.
             </p>
           </div>
 
@@ -328,9 +342,10 @@ export function SupplierPaymentsPage() {
               <span className="text-[10px] font-mono text-copper font-bold uppercase">Phase 3</span>
               <BanknoteIcon size={14} className="text-mint" />
             </div>
-            <div className="text-xs font-semibold text-ink">Automated Bank Sweep</div>
+            <div className="text-xs font-semibold text-ink">VYRO pays you</div>
             <p className="text-[11px] text-ink-4 leading-relaxed">
-              Net balance is transferred directly into your linked corporate bank account via SLIPS / CEFT.
+              VYRO transfers your available balance to your linked bank account via SLIPS / CEFT every
+              Friday.
             </p>
           </div>
         </div>
@@ -522,7 +537,7 @@ export function SupplierPaymentsPage() {
                               {new Date(p.createdAt).toLocaleDateString()}
                             </td>
                             <td className="px-5 py-4 text-right">
-                              <PaymentConfirmButton paymentId={p.id} status={p.status} />
+                              <PaymentConfirmButton paymentId={p.id} status={p.status} method={p.method} />
                             </td>
                           </tr>
                         ))}

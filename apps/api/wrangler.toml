@@ -242,6 +242,12 @@ OPS_EMAIL = "ops@vyro.lk"
 #   npx wrangler secret put VYRO_BANK_REFERENCE_PREFIX   --env production --config apps/api/wrangler.toml
 # BETTER_AUTH_SECRET is NOT set here on purpose — set it as a secret:
 #   npx wrangler secret put BETTER_AUTH_SECRET --env production --config apps/api/wrangler.toml
+# VYRO collection account buyers pay bank transfers into (shown to every buyer, so
+# not secret). TEST VALUES — replace with VYRO's real LKR account before go-live.
+VYRO_LKR_ACCOUNT_NAME = "VYRO (Pvt) Ltd - Escrow (TEST)"
+VYRO_LKR_BANK_NAME = "Commercial Bank of Ceylon"
+VYRO_LKR_BRANCH = "Colombo 03 (Kollupitiya)"
+VYRO_LKR_ACCOUNT_NUMBER = "8001 2345 6789"
 
 [env.production.triggers]
 crons = ["0 3 * * *", "*/15 * * * *", "0 * * * *", "13 * * * *", "0 2 * * *", "0 4 * * *", "0 5 * * *", "17 7 * * *", "*/5 * * * *", "30 1 * * *", "30 21 * * 4"]
