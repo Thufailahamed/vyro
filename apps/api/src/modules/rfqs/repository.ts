@@ -15,6 +15,7 @@ import {
   rfqDocuments,
   rfqTemplates,
   rfqTemplateItems,
+  suppliers,
 } from '@vyro/db/schema';
 
 export interface PageOpts { limit?: number | undefined; offset?: number | undefined; }
@@ -69,6 +70,32 @@ export async function listRfqItems(d1: D1Database, rfqId: string) {
 export async function listRfqInvites(d1: D1Database, rfqId: string) {
   const db = getDb(d1);
   return db.select().from(rfqSuppliers).where(eq(rfqSuppliers.rfqId, rfqId)).all();
+}
+
+/** Display info for the suppliers invited to / quoting on an RFQ (buyer view). */
+export async function rfqSupplierDirectory(d1: D1Database, rfqId: string) {
+  const db = getDb(d1);
+  const [inv, qs] = await Promise.all([
+    db.select({ supplierId: rfqSuppliers.supplierId }).from(rfqSuppliers).where(eq(rfqSuppliers.rfqId, rfqId)).all(),
+    db.select({ supplierId: supplierQuotes.supplierId }).from(supplierQuotes).where(eq(supplierQuotes.rfqId, rfqId)).all(),
+  ]);
+  const ids = [...new Set([...inv, ...qs].map((r) => r.supplierId))];
+  const out: Record<string, { id: string; name: string; city: string | null; district: string | null; verified: boolean; reviewAvg: number | null; reviewCount: number }> = {};
+  for (let i = 0; i < ids.length; i += 90) {
+    const rows = await db.select().from(suppliers).where(inArray(suppliers.id, ids.slice(i, i + 90))).all();
+    for (const s of rows) {
+      out[s.id] = {
+        id: s.id,
+        name: s.name,
+        city: s.city ?? null,
+        district: s.district ?? null,
+        verified: s.verificationStatus === 'verified',
+        reviewAvg: s.reviewCount > 0 ? s.reviewAvg / 100 : null,
+        reviewCount: s.reviewCount,
+      };
+    }
+  }
+  return out;
 }
 
 export async function listQuotesForRfq(d1: D1Database, rfqId: string, opts?: PageOpts) {

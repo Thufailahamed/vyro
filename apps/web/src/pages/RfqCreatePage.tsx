@@ -16,6 +16,8 @@ import { Surface } from '@/components/brand/Surface';
 import { FlowLine } from '@/components/brand/FlowLine';
 import { useToast } from '@vyro/ui';
 import { RfqTemplatesPanel } from '@/components/RfqTemplatesPanel';
+import { RfqProductCombobox } from '@/components/RfqProductCombobox';
+import { RfqSupplierPicker, type PickedSupplier, type RfqAudience } from '@/components/RfqSupplierPicker';
 import {
   ArrowLeftIcon,
   CalendarIcon,
@@ -41,6 +43,8 @@ interface RfqItem {
   targetPrice: string;
   specifications: string;
   productId?: string;
+  /** Display-only: catalog image for the picked product. */
+  imageUrl?: string | null;
 }
 
 const DEADLINES: Array<{ label: string; sub: string; days: number }> = [
@@ -56,7 +60,7 @@ const STEPS = [
   { label: 'Define', hint: 'Title & brief' },
   { label: 'Items', hint: 'Line items' },
   { label: 'Logistics', hint: 'Delivery & payment' },
-  { label: 'Invite', hint: 'Visibility & suppliers' },
+  { label: 'Send to', hint: 'All or specific suppliers' },
 ];
 
 const QUICK_TAGS = [
@@ -82,11 +86,15 @@ export function RfqCreatePage() {
   const [paymentTerms, setPaymentTerms] = useState('');
   const [deadlineDays, setDeadlineDays] = useState<number | 'custom'>(7);
   const [customDeadline, setCustomDeadline] = useState('');
+  /** Line whose product search opens focused (set when a line is added). */
+  const [focusLine, setFocusLine] = useState<number | null>(null);
   const [items, setItems] = useState<RfqItem[]>([
     { description: '', quantity: '500', unit: 'kg', targetPrice: '', specifications: '' },
   ]);
-  const [supplierIds, setSupplierIds] = useState('');
-  const [isOpen, setIsOpen] = useState(true);
+  const [audience, setAudience] = useState<RfqAudience>('all');
+  const [pickedSuppliers, setPickedSuppliers] = useState<PickedSupplier[]>([]);
+  const isOpen = audience === 'all';
+  const supplierIds = isOpen ? [] : pickedSuppliers.map((s) => s.id);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -150,6 +158,10 @@ export function RfqCreatePage() {
       setError('Title and valid items are required');
       return;
     }
+    if (publish && !isOpen && supplierIds.length === 0) {
+      setError('Pick at least one supplier, or send to all suppliers.');
+      return;
+    }
     setSaving(true);
     try {
       let out: { id: string };
@@ -158,12 +170,13 @@ export function RfqCreatePage() {
           businessId,
           title,
           deadline,
-          supplierIds: supplierIds.split(',').map((s) => s.trim()).filter(Boolean),
+          isOpen,
+          supplierIds,
         });
       } else {
         out = await api.post('/rfqs', {
           businessId, title, description, deliveryLocation, paymentTerms, deadline, isOpen,
-          supplierIds: supplierIds.split(',').map((s) => s.trim()).filter(Boolean),
+          supplierIds,
           items: items.map((i) => ({
             description: i.description, quantity: Number(i.quantity), unit: i.unit || 'kg',
             targetPriceCents: i.targetPrice ? Math.round(Number(i.targetPrice) * 100) : undefined,
@@ -172,7 +185,15 @@ export function RfqCreatePage() {
         });
       }
       if (publish) await api.post(`/rfqs/${out.id}/publish`, {});
-      toast.show(toast.success(publish ? 'RFQ published — suppliers notified' : 'RFQ draft created'));
+      toast.show(
+        toast.success(
+          !publish
+            ? 'RFQ draft created'
+            : isOpen
+              ? 'RFQ sent to all suppliers'
+              : `RFQ sent to ${supplierIds.length} supplier${supplierIds.length === 1 ? '' : 's'}`,
+        ),
+      );
       navigate(`/rfqs/${out.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed');
@@ -182,10 +203,15 @@ export function RfqCreatePage() {
   }
 
   function appendItem() {
+    setFocusLine(items.length);
     setItems([...items, { description: '', quantity: '100', unit: 'kg', targetPrice: '', specifications: '' }]);
   }
   function removeItem(i: number) {
     setItems(items.filter((_, idx) => idx !== i));
+  }
+  /** Sets a line's description and drops any catalog link (custom item / cleared). */
+  function setCustomProduct(i: number, description: string) {
+    setItems(items.map((x, j) => (j === i ? { description, quantity: x.quantity, unit: x.unit, targetPrice: x.targetPrice, specifications: x.specifications } : x)));
   }
   function updateItem(i: number, patch: Partial<RfqItem>) {
     setItems(items.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -345,11 +371,21 @@ export function RfqCreatePage() {
                       <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
                         <div className="sm:col-span-5">
                           <FieldHint>Product</FieldHint>
-                          <Input
+                          <RfqProductCombobox
                             value={it.description}
-                            onChange={(e) => updateItem(i, { description: e.target.value })}
-                            placeholder="e.g. Keeri Samba rice, 50kg bag"
-                            className="bg-paper"
+                            productId={it.productId}
+                            imageUrl={it.imageUrl}
+                            autoFocus={focusLine === i}
+                            onPick={(p) =>
+                              updateItem(i, {
+                                description: p.name,
+                                productId: p.id,
+                                imageUrl: p.imageUrl ?? null,
+                                unit: UNIT_OPTIONS.includes(p.unit) ? p.unit : it.unit,
+                              })
+                            }
+                            onCustom={(text) => setCustomProduct(i, text)}
+                            onClear={() => setCustomProduct(i, '')}
                           />
                         </div>
                         <div className="sm:col-span-2">
@@ -565,51 +601,17 @@ export function RfqCreatePage() {
           {/* SECTION 4 — Visibility & suppliers */}
           <SectionCard
             step={4}
-            eyebrow="Invite"
-            title="Visibility & suppliers"
-            sub="Decide who can quote, and which suppliers to invite directly."
+            eyebrow="Send to"
+            title="Who should quote?"
+            sub="Send to every supplier on VYRO, or pick one or more suppliers yourself."
           >
-            <label
-              className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                isOpen
-                  ? 'border-ink bg-ink/[0.04] ring-1 ring-volt/40'
-                  : 'border-ink/10 bg-paper hover:border-ink/30'
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={isOpen}
-                onChange={(e) => setIsOpen(e.target.checked)}
-                className="mt-0.5 size-4 accent-volt"
-              />
-              <div className="flex-1">
-                <div className="text-sm font-semibold text-ink-1 flex items-center gap-1.5">
-                  <UsersIcon size={14} className="text-copper" />
-                  Open to qualified suppliers
-                </div>
-                <p className="text-[11px] text-ink-3 mt-0.5 leading-relaxed">
-                  Verified suppliers in matching categories can also discover and quote on this RFQ. Leave off to keep the invite list private.
-                </p>
-              </div>
-            </label>
-
-            <div className="space-y-1.5 pt-2">
-              <Label htmlFor="rfq-suppliers" className="flex items-center gap-1.5">
-                <StoreIcon size={13} className="text-copper" />
-                <span>Direct supplier invites</span>
-                <span className="ml-1 font-mono text-[10px] uppercase tracking-wider text-ink-4">optional</span>
-              </Label>
-              <Input
-                id="rfq-suppliers"
-                value={supplierIds}
-                onChange={(e) => setSupplierIds(e.target.value)}
-                placeholder="Paste supplier IDs separated by commas — or invite after creating"
-                className="bg-paper font-mono text-xs"
-              />
-              <p className="text-[11px] text-ink-4">
-                Skip this — after creating the RFQ we'll suggest ranked suppliers based on catalog coverage.
-              </p>
-            </div>
+            <RfqSupplierPicker
+              audience={audience}
+              onAudience={setAudience}
+              selected={pickedSuppliers}
+              onSelected={setPickedSuppliers}
+              productIds={items.map((i) => i.productId).filter((x): x is string => !!x)}
+            />
           </SectionCard>
         </div>
 
@@ -724,16 +726,16 @@ export function RfqCreatePage() {
               <div className="pt-3 border-t border-paper/15 flex flex-wrap items-center gap-1.5">
                 {isOpen ? (
                   <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider bg-volt text-ink px-2 py-0.5 font-bold">
-                    <UsersIcon size={10} /> Open
+                    <UsersIcon size={10} /> All suppliers
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider bg-paper/10 text-paper/80 px-2 py-0.5">
-                    <XIcon size={10} /> Private
-                  </span>
-                )}
-                {supplierIds.trim() && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider bg-copper/20 text-copper border border-copper/30 px-2 py-0.5">
-                    <StoreIcon size={10} /> Direct invites
+                    <StoreIcon size={10} />
+                    {pickedSuppliers.length === 0
+                      ? 'No suppliers picked'
+                      : pickedSuppliers.length === 1
+                        ? pickedSuppliers[0]!.name
+                        : `${pickedSuppliers.length} suppliers`}
                   </span>
                 )}
                 <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-mint">
@@ -806,11 +808,15 @@ export function RfqCreatePage() {
               Save draft
             </Button>
             <Button
-              disabled={saving || !hasTitle || validItemCount === 0}
+              disabled={saving || !hasTitle || validItemCount === 0 || (!isOpen && supplierIds.length === 0)}
               onClick={() => void submit(true)}
               loading={saving}
             >
-              {fromCart ? 'Request quotes' : 'Publish & invite'}
+              {isOpen
+                ? 'Send to all suppliers'
+                : supplierIds.length === 1
+                  ? `Send to ${pickedSuppliers[0]!.name}`
+                  : `Send to ${supplierIds.length || ''} suppliers`.replace('  ', ' ')}
             </Button>
           </div>
         </div>
@@ -837,7 +843,9 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <Surface className="p-6 rounded-2xl space-y-5 animate-fade-in">
+    // Visible overflow + raised while focused so the product search dropdown isn't clipped
+    // by this card or painted under the next one.
+    <Surface className="p-6 rounded-2xl space-y-5 animate-fade-in !overflow-visible focus-within:z-20">
       <div className="flex items-start justify-between gap-3 pb-3 border-b border-ink/10">
         <div className="flex items-start gap-3">
           <div className="w-8 h-8 rounded-full bg-ink text-volt font-mono font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">

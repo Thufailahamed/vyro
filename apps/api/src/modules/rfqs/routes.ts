@@ -19,7 +19,7 @@ import {
   findRfq, listRfqItems, listRfqInvites, listQuotesForRfq, listQuoteItems, listTiersForItems,
   findQuote, listRfqEvents, listRfqsForBusiness, listRfqsForSupplier, listCounters,
   listVersions, listMessages, messagesSince, listDocuments, listTemplates, listTemplateItems, insertRfqEvent,
-  pageFromQuery, page,
+  pageFromQuery, page, rfqSupplierDirectory,
 } from './repository';
 
 const router = new Hono<{ Bindings: Env }>();
@@ -48,6 +48,15 @@ router.get('/thresholds', session(), async (c) => {
   return c.json(await rfqService.thresholds(c.env.DB));
 });
 
+// Supplier picker for the RFQ form (registered before `/:id` so it isn't shadowed).
+router.get('/supplier-search', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  const productIds = (c.req.query('productIds') ?? '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 100);
+  const suppliers = await rfqService.searchSuppliers(c.env.DB, { q: c.req.query('q'), productIds, limit: 20 });
+  return c.json({ suppliers });
+});
+
 // ---------- Business: CRUD ----------
 router.post('/', session(), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
@@ -62,10 +71,10 @@ router.post('/', session(), async (c) => {
 router.post('/from-cart', session(), async (c) => {
   const ctx = c.get('ctx') as Ctx | undefined;
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
-  const body = await c.req.json().catch(() => null) as { businessId?: string; supplierIds?: string[]; title?: string; deadline?: number } | null;
+  const body = await c.req.json().catch(() => null) as { businessId?: string; supplierIds?: string[]; title?: string; deadline?: number; isOpen?: boolean } | null;
   if (!body?.businessId) throw httpError(400, 'VALIDATION_ERROR', 'businessId required');
   requireBusinessRole(ctx, body.businessId, B_ROLES);
-  const out = await rfqService.createFromCart(c.env.DB, ctx.userId, body.businessId, { supplierIds: body.supplierIds, title: body.title, deadline: body.deadline }, c.env.NOTIFICATIONS_QUEUE);
+  const out = await rfqService.createFromCart(c.env.DB, ctx.userId, body.businessId, { supplierIds: body.supplierIds, title: body.title, deadline: body.deadline, isOpen: body.isOpen === true }, c.env.NOTIFICATIONS_QUEUE);
   return c.json(out, 201);
 });
 
@@ -129,7 +138,8 @@ router.get('/:id', session(), async (c) => {
   const items = await listRfqItems(c.env.DB, rfq.id);
   const invites = isBiz || ctx.isAdmin ? await listRfqInvites(c.env.DB, rfq.id) : undefined;
   const events = isBiz || ctx.isAdmin ? await listRfqEvents(c.env.DB, rfq.id) : undefined;
-  return c.json({ rfq, items, invites, events });
+  const supplierDirectory = isBiz || ctx.isAdmin ? await rfqSupplierDirectory(c.env.DB, rfq.id) : undefined;
+  return c.json({ rfq, items, invites, events, supplierDirectory });
 });
 
 async function isInvitedOrOpen(d1: D1Database, rfqId: string, ctx: Ctx): Promise<boolean> {

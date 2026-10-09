@@ -14,6 +14,7 @@ vi.mock('../src/modules/rfqs/repository', () => ({
   listRfqItems: vi.fn(async () => []),
   listRfqInvites: vi.fn(async () => []),
   listRfqEvents: vi.fn(async () => []),
+  rfqSupplierDirectory: vi.fn(async () => ({})),
   listQuotesForRfq: vi.fn(async () => []),
   listQuoteItems: vi.fn(async () => []),
   listTiersForItems: vi.fn(async () => []),

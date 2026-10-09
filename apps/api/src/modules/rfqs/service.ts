@@ -34,6 +34,9 @@ import { recordAudit } from '../supplierProducts/repository';
 import { notifyBusinessOrg, notifySupplierOrg, notifyUsers, listBusinessMemberIds, listSupplierMemberIds } from '../notifications/dispatcher';
 import { crm } from './crm';
 
+/** Upper bound on suppliers notified when an RFQ is published open to everyone. */
+const OPEN_RFQ_NOTIFY_CAP = 300;
+
 interface QueueLike { send: (body: unknown) => Promise<unknown>; }
 
 /**
@@ -213,14 +216,14 @@ export const rfqService = {
       if (!s) continue;
       await db.insert(rfqSuppliers).values({ id: newId(), rfqId, supplierId: sid, status: 'invited', invitedAt: now, conversionStatus: 'new' });
       await insertRfqEvent(d1, { rfqId, actorUserId: userId, action: 'SUPPLIER_INVITED', metadata: { supplierId: sid } });
-      await notifyRfqSupplier(d1, queue, sid, rfqId, NotificationType.RFQ_INVITED, `New RFQ: ${input.title}`, `You were invited to quote ${rfqNumber}.`, userId);
+      // Suppliers hear about it on publish — never while it's still a draft.
     }
     await insertRfqEvent(d1, { rfqId, actorUserId: userId, action: 'RFQ_CREATED', toStatus: 'draft', metadata: { rfqNumber, itemCount: input.items.length } });
     await recordAudit(d1, { actorUserId: userId, action: 'rfq.created', resourceType: 'rfq', resourceId: rfqId, metadata: { rfqNumber } });
     return { id: rfqId, rfqNumber };
   },
 
-  async createFromCart(d1: D1Database, userId: string, businessId: string, opts: { supplierIds?: string[] | undefined; title?: string | undefined; deadline?: number | undefined }, queue?: QueueLike) {
+  async createFromCart(d1: D1Database, userId: string, businessId: string, opts: { supplierIds?: string[] | undefined; title?: string | undefined; deadline?: number | undefined; isOpen?: boolean | undefined }, queue?: QueueLike) {
     const db = getDb(d1);
     const cart = await db.select().from(carts).where(and(eq(carts.businessId, businessId), eq(carts.status, 'open'))).get();
     if (!cart) throw httpError(400, 'VALIDATION_ERROR', 'No open cart');
@@ -233,7 +236,7 @@ export const rfqService = {
       const o = map.get(i.supplierProductId);
       return { description: o?.product.name ?? 'Item', productId: o?.product.id, supplierProductId: i.supplierProductId, quantity: i.quantity, unit: 'pcs' as string };
     });
-    return this.create(d1, userId, { businessId, title: opts.title ?? 'Bulk quote from cart', items: rfqItemsInput, supplierIds: opts.supplierIds ?? [], deadline: opts.deadline, currency: 'LKR', isOpen: false, fromCart: true }, queue);
+    return this.create(d1, userId, { businessId, title: opts.title ?? 'Bulk quote from cart', items: rfqItemsInput, supplierIds: opts.supplierIds ?? [], deadline: opts.deadline, currency: 'LKR', isOpen: opts.isOpen ?? false, fromCart: true }, queue);
   },
 
   async publish(d1: D1Database, userId: string, rfqId: string, actor: 'business' | 'admin', queue?: QueueLike) {
@@ -247,8 +250,75 @@ export const rfqService = {
     await db.update(rfqs).set({ status: 'open', publishedAt: now, updatedAt: now, version: rfq.version + 1 }).where(eq(rfqs.id, rfqId));
     await insertRfqEvent(d1, { rfqId, actorUserId: userId, action: 'RFQ_OPENED', fromStatus: rfq.status, toStatus: 'open' });
     const invites = await db.select().from(rfqSuppliers).where(eq(rfqSuppliers.rfqId, rfqId)).all();
-    for (const inv of invites) await notifyRfqSupplier(d1, queue, inv.supplierId, rfqId, NotificationType.RFQ_OPENED, `RFQ open: ${rfq.title}`, `${rfq.rfqNumber} is now open for quotations.`, userId);
+    for (const inv of invites) await notifyRfqSupplier(d1, queue, inv.supplierId, rfqId, NotificationType.RFQ_INVITED, `Invited to quote: ${rfq.title}`, `${rfq.rfqNumber} — you were invited to submit a quotation.`, userId);
+    if (rfq.isOpen) {
+      // Open to all suppliers: tell every active supplier, sellers of the requested products first.
+      const invited = new Set(invites.map((i) => i.supplierId));
+      const ranked = await this.searchSuppliers(d1, { productIds: items.map((i) => i.productId).filter((x): x is string => !!x), limit: OPEN_RFQ_NOTIFY_CAP });
+      for (const r of ranked) {
+        if (invited.has(r.supplier.id)) continue;
+        await notifyRfqSupplier(d1, queue, r.supplier.id, rfqId, NotificationType.RFQ_OPENED, `New open RFQ: ${rfq.title}`, `${rfq.rfqNumber} is open to all suppliers — submit a quotation.`, userId);
+      }
+    }
     return { ok: true };
+  },
+
+  /**
+   * Suppliers a buyer can send an RFQ to: active suppliers matching `q` by name /
+   * city / district, ranked by how many of `productIds` they sell, then rating.
+   */
+  async searchSuppliers(d1: D1Database, opts: { q?: string | undefined; productIds?: string[] | undefined; limit?: number | undefined }) {
+    const db = getDb(d1);
+    const limit = Math.min(Math.max(opts.limit ?? 20, 1), OPEN_RFQ_NOTIFY_CAP);
+    const productIds = [...new Set(opts.productIds ?? [])];
+    const q = opts.q?.trim().toLowerCase();
+    const conds = [eq(suppliers.status, 'active'), sql`${suppliers.deletedAt} IS NULL`];
+    if (q) {
+      const like = `%${q}%`;
+      conds.push(sql`(lower(${suppliers.name}) LIKE ${like} OR lower(${suppliers.city}) LIKE ${like} OR lower(${suppliers.district}) LIKE ${like})`);
+    }
+    const sups = await db.select().from(suppliers).where(and(...conds)).limit(q ? 50 : OPEN_RFQ_NOTIFY_CAP).all();
+    const coverage = new Map<string, Set<string>>();
+    if (productIds.length && sups.length) {
+      for (let i = 0; i < productIds.length; i += 90) {
+        const offers = await db
+          .select({ supplierId: supplierProducts.supplierId, productId: supplierProducts.productId, active: supplierProducts.active, deletedAt: supplierProducts.deletedAt })
+          .from(supplierProducts)
+          .where(inArray(supplierProducts.productId, productIds.slice(i, i + 90)))
+          .all();
+        for (const o of offers) {
+          if (o.deletedAt || !o.active) continue;
+          const set = coverage.get(o.supplierId) ?? new Set<string>();
+          set.add(o.productId);
+          coverage.set(o.supplierId, set);
+        }
+      }
+    }
+    return sups
+      .map((s) => {
+        const productCount = coverage.get(s.id)?.size ?? 0;
+        return {
+          supplier: {
+            id: s.id,
+            name: s.name,
+            city: s.city,
+            district: s.district,
+            verified: s.verificationStatus === 'verified',
+            reviewAvg: s.reviewCount > 0 ? s.reviewAvg / 100 : null,
+            reviewCount: s.reviewCount,
+          },
+          productCount,
+          coverage: productIds.length ? productCount / productIds.length : 0,
+        };
+      })
+      .sort(
+        (a, b) =>
+          b.coverage - a.coverage ||
+          Number(b.supplier.verified) - Number(a.supplier.verified) ||
+          (b.supplier.reviewAvg ?? 0) - (a.supplier.reviewAvg ?? 0) ||
+          a.supplier.name.localeCompare(b.supplier.name),
+      )
+      .slice(0, limit);
   },
 
   async invite(d1: D1Database, userId: string, rfqId: string, supplierIds: string[], queue?: QueueLike) {
@@ -262,7 +332,10 @@ export const rfqService = {
       if (ex) continue;
       await db.insert(rfqSuppliers).values({ id: newId(), rfqId, supplierId: sid, status: 'invited', invitedAt: now, conversionStatus: 'new' });
       await insertRfqEvent(d1, { rfqId, actorUserId: userId, action: 'SUPPLIER_INVITED', metadata: { supplierId: sid } });
-      await notifyRfqSupplier(d1, queue, sid, rfqId, NotificationType.RFQ_INVITED, `Invited to RFQ: ${rfq.title}`, `${rfq.rfqNumber} — please submit your quotation.`, userId);
+      // Draft invites are notified when the RFQ is published.
+      if (rfq.status !== 'draft') {
+        await notifyRfqSupplier(d1, queue, sid, rfqId, NotificationType.RFQ_INVITED, `Invited to RFQ: ${rfq.title}`, `${rfq.rfqNumber} — please submit your quotation.`, userId);
+      }
     }
     return { ok: true };
   },
