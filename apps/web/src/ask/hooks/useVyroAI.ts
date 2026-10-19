@@ -1,4 +1,5 @@
 import { useReducer, useCallback, useRef } from 'react';
+import { apiBase } from '@/lib/api';
 import {
   ComponentEnvelopeSchema,
   FinalEventSchema,
@@ -175,7 +176,7 @@ export function useVyroAI() {
     dispatch({ type: 'user', turn: { id: ++turnId, role: 'user', text, components: [], actions: [], tools: [] } });
     dispatch({ type: 'assistant_start', turn: { id: ++turnId, role: 'assistant', text: '', components: [], actions: [], tools: [], requestId } });
     try {
-      const res = await fetch((import.meta.env.VITE_API_URL?.replace(/\/$/,'') || '') + '/api/ai/ask', {
+      const res = await fetch(apiBase + '/ai/ask', {
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json', accept: 'text/event-stream' },

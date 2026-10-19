@@ -7,7 +7,9 @@ import {
   sponsoredCampaigns,
   sponsoredEvents,
   sponsoredInvoices,
+  auditLogs,
 } from '@vyro/db/schema';
+import { newId } from '@vyro/shared';
 
 export type Surface = 'search' | 'category' | 'homepage' | 'storefront';
 export type CampaignStatus =
@@ -19,7 +21,7 @@ export type CampaignStatus =
   | 'rejected'
   | 'revoked'
   | 'cancelled';
-export type InvoiceStatus = 'pending' | 'paid' | 'waived';
+export type InvoiceStatus = 'pending' | 'submitted' | 'paid' | 'waived';
 export type EventType = 'impression' | 'click';
 export type SubscriptionStatus = 'active' | 'expired' | 'cancelled';
 export type SponsorTier = 'bronze' | 'silver' | 'gold';
@@ -87,6 +89,7 @@ export interface InvoiceRow {
   supplierId: string;
   amountCents: number;
   status: InvoiceStatus;
+  paymentReference: string | null;
   createdAt: number;
   paidAt: number | null;
 }
@@ -478,6 +481,48 @@ export async function markInvoicePaid(
     .update(sponsoredInvoices)
     .set({ status: 'paid', paidAt })
     .where(eq(sponsoredInvoices.id, id));
+}
+
+/**
+ * Supplier-submitted proof of payment. The invoice is NOT paid yet — an admin
+ * has to verify the transfer and mark it paid, which is what releases the
+ * campaign.
+ */
+export async function submitInvoicePaymentProof(
+  d1: D1Database,
+  id: string,
+  paymentReference: string,
+): Promise<void> {
+  const db = getDb(d1);
+  await db
+    .update(sponsoredInvoices)
+    .set({ status: 'submitted', paymentReference })
+    .where(eq(sponsoredInvoices.id, id));
+}
+
+/** Audit trail for supplier-facing actions in this module. */
+export async function recordSponsoredAudit(
+  d1: D1Database,
+  entry: {
+    actorUserId: string | null;
+    action: string;
+    resourceType: string;
+    resourceId: string;
+    metadata?: unknown;
+  },
+): Promise<void> {
+  const db = getDb(d1);
+  await db.insert(auditLogs).values({
+    id: newId(),
+    actorUserId: entry.actorUserId,
+    action: entry.action,
+    resourceType: entry.resourceType,
+    resourceId: entry.resourceId,
+    metadata: entry.metadata != null ? JSON.stringify(entry.metadata) : null,
+    ip: null,
+    userAgent: null,
+    createdAt: Date.now(),
+  });
 }
 
 export async function waiveInvoice(d1: D1Database, id: string): Promise<void> {

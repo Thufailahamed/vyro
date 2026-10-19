@@ -116,24 +116,19 @@ adminRouter.post('/:id/mark-paid', requirePermission('payout:approve'), async (c
       })
       .where(eq(payoutsTable.id, payout.id))
       .run();
+    // Money leaving the supplier's balance is a DEBIT. The other completion
+    // route (`finance/adminSettlements.ts` → payouts/:id/complete) writes the
+    // same leg; the previous sign here credited the supplier instead, so the
+    // same event moved their balance by ±2× the payout depending on the route.
     writeLedgerEntry(tx as any, {
       accountType: 'supplier',
       accountId: payout.supplierId,
-      direction: 'credit',
-      amountCents: payout.netCents,
-      refType: 'payout',
-      refId: payout.id,
-      description: `Payout ${payout.id} paid (${payout.method})`,
-      createdByUserId: ctx.userId,
-    });
-    writeLedgerEntry(tx as any, {
-      accountType: 'platform',
-      accountId: 'platform',
       direction: 'debit',
       amountCents: payout.netCents,
       refType: 'payout',
       refId: payout.id,
-      description: `Platform owes supplier ${payout.supplierId} for payout ${payout.id}`,
+      category: 'PAYOUT',
+      description: `Payout ${payout.id} paid (${payout.method})`,
       createdByUserId: ctx.userId,
     });
   });

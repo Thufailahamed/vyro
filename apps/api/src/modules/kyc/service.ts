@@ -29,6 +29,7 @@ export async function submit(d1: D1Database, userId: string, body: SellerKycSubm
     bankBranch: body.bankBranch ?? null,
     bankAccountHolder: body.bankAccountHolder ?? null,
     extra: body.documentsJson ?? null,
+    notes: body.notes ?? null,
     supplierId: body.supplierId,
   });
   const current = await db

@@ -19,7 +19,7 @@ export function AiHomePage() {
   useEffect(() => {
     let cancelled = false;
     api
-      .get<HomePayload>('/api/ai/home')
+      .get<HomePayload>('/ai/home')
       .then((d) => {
         if (!cancelled) {
           setData(d);

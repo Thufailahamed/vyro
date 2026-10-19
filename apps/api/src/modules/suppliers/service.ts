@@ -68,7 +68,13 @@ export const supplierService = {
     const row = await db
       .select()
       .from(supplierMembers)
-      .where(and(eq(supplierMembers.supplierId, supplierId), eq(supplierMembers.userId, userId)))
+      .where(
+        and(
+          eq(supplierMembers.supplierId, supplierId),
+          eq(supplierMembers.userId, userId),
+          eq(supplierMembers.status, 'active'),
+        ),
+      )
       .get();
     if (!row) throw httpError(403, 'FORBIDDEN', 'Not a supplier member');
   },

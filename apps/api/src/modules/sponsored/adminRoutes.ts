@@ -191,6 +191,7 @@ router.post('/campaigns/:id/approve', async (c) => {
           endsAt: camp.endsAt,
         }),
         status: 'pending',
+        paymentReference: null,
         createdAt: now,
         paidAt: null,
       };

@@ -154,35 +154,11 @@ for (const [action, to] of [['approve', 'approved'], ['process', 'processing'], 
     if (to === 'processing') patch.processedAt = Date.now();
     if (to === 'completed') {
       patch.completedAt = Date.now();
-      // Settlement completion writes the supplier-payable ledger leg once.
-      // Prior-check + write happen inside the SAME transaction so two concurrent
-      // callers can't both pass the "no prior leg" check (api-008 audit). Note:
-      // a true serializable guarantee would require either a unique index on
-      // (refId, category) or BEGIN EXCLUSIVE; tracked for whole-branch review.
-      const db = getDb(c.env.DB);
-      await txBatch(db, async (tx) => {
-        const prior = (await tx
-          .select({ id: ledgerEntries.id })
-          .from(ledgerEntries)
-          .where(and(eq(ledgerEntries.refId, s.id), eq(ledgerEntries.category, 'SETTLEMENT' as never)))
-          .get()) as any;
-        if (!prior) {
-          writeLedgerEntry(tx as any, {
-            accountType: 'supplier',
-            accountId: s.supplierId,
-            direction: 'debit',
-            amountCents: s.netCents,
-            currency: s.currency,
-            refType: 'payout',
-            refId: s.id,
-            category: 'SETTLEMENT',
-            entityType: 'settlement',
-            entityId: s.id,
-            description: `Settlement ${s.settlementNumber} completed`,
-            createdByUserId: ctx.userId,
-          });
-        }
-      }).catch((err) => console.error('[admin.settlement] ledger skipped', err));
+      // NOTE: no ledger leg here on purpose. A settlement groups earnings that
+      // are already credited to the supplier (SALE legs); it is not a cash
+      // movement. The money leaves the supplier's balance when the PAYOUT is
+      // completed. Debiting on settlement completion as well double-charged
+      // the supplier the same amount twice and drove their balance negative.
     }
     if (to === 'failed') {
       const body = (await c.req.json().catch(() => ({}))) as { reason?: string };

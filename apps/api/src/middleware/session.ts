@@ -14,6 +14,12 @@ declare module 'hono' {
 }
 
 export const session = (): MiddlewareHandler => async (c, next) => {
+  // An earlier app-level middleware (the CSRF guard) may already have
+  // resolved the session — reuse it instead of hitting the auth layer twice.
+  if (c.get('ctx')) {
+    await next();
+    return;
+  }
   const env = c.env as Env;
   try {
     const auth = createAuth(authEnv(env));

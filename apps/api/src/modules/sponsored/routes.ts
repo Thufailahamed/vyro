@@ -1,10 +1,11 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import { httpError } from '../../lib/errors';
 import type { Env } from '../../env';
 import { session } from '../../middleware/session';
 import type { Ctx } from '../../middleware/session';
 import { isFeatureEnabled } from '../../lib/featureFlags';
-import { requireSupplierRole } from '@vyro/auth';
+import { requireSupplierRole, SUPPLIER_ROLES } from '@vyro/auth';
 import {
   createCampaignSchema,
   updateCampaignSchema,
@@ -16,7 +17,6 @@ import * as svc from './service';
 import { SponsoredError } from './errors';
 
 const FLAG = 'SPONSORED_LISTINGS_ENABLED';
-const SUPPLIER_ROLES = ['owner', 'sales', 'ops', 'finance'] as const;
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -183,6 +183,7 @@ router.post('/supplier/sponsored/campaigns', async (c) => {
     supplierId,
     amountCents,
     status: 'pending',
+    paymentReference: null,
     createdAt: now,
     paidAt: null,
   };
@@ -271,8 +272,20 @@ router.get('/supplier/sponsored/invoices', async (c) => {
   return c.json(list);
 });
 
+/**
+ * Supplier submits proof of payment. The invoice moves to 'submitted' and the
+ * campaign is NOT released — only an admin, after verifying the transfer, can
+ * mark the invoice paid (which approves the campaign). Letting the supplier
+ * mark their own invoice paid and approve the campaign gave away paid
+ * placement for free.
+ */
 router.post('/supplier/sponsored/invoices/:id/pay', async (c) => {
-  const { supplierId } = await ensureSupplierRole(c);
+  const { supplierId, ctx } = await ensureSupplierRole(c);
+  const body = z
+    .object({ reference: z.string().min(3).max(120) })
+    .strict()
+    .safeParse(await c.req.json().catch(() => null));
+  if (!body.success) throw httpError(400, 'VALIDATION_ERROR', 'A payment reference is required', body.error.flatten());
   const inv = await repo.getInvoice(c.env.DB, c.req.param('id'));
   if (!inv || inv.supplierId !== supplierId) {
     throw httpError(404, 'NOT_FOUND', 'Invoice not found');
@@ -280,13 +293,18 @@ router.post('/supplier/sponsored/invoices/:id/pay', async (c) => {
   if (inv.status === 'paid') {
     throw httpError(409, 'INVOICE_ALREADY_PAID', 'Invoice already paid');
   }
-  const now = Math.floor(Date.now() / 1000);
-  await repo.markInvoicePaid(c.env.DB, inv.id, now);
-  const camp = await repo.getCampaign(c.env.DB, inv.campaignId);
-  if (camp && camp.status === 'pending_payment') {
-    await repo.updateCampaignStatus(c.env.DB, camp.id, 'approved', now);
+  if (inv.status === 'waived') {
+    throw httpError(409, 'CONFLICT', 'Invoice was waived — no payment is due');
   }
-  return c.json({ ok: true });
+  await repo.submitInvoicePaymentProof(c.env.DB, inv.id, body.data.reference.trim());
+  await repo.recordSponsoredAudit(c.env.DB, {
+    actorUserId: ctx.userId,
+    action: 'sponsored.invoice.payment_proof_submitted',
+    resourceType: 'sponsored_invoice',
+    resourceId: inv.id,
+    metadata: { supplierId, amountCents: inv.amountCents, reference: body.data.reference.trim() },
+  });
+  return c.json({ ok: true, status: 'submitted' as const });
 });
 
 export default router;

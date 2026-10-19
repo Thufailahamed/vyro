@@ -197,6 +197,7 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  const [existingImageId, setExistingImageId] = useState<string | null>(null);
 
   // Commercial & inventory terms state
   const [supplierSku, setSupplierSku] = useState('');
@@ -218,11 +219,19 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const [tier3DiscountPct, setTier3DiscountPct] = useState('10');
 
   const [err, setErr] = useState<string | null>(null);
+  /** Field-level validation errors returned by the API (never shown before). */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Populate state in edit mode
+  // Populate state in edit mode.
+  // Hydrate ONCE per offer. React Query refetches on window focus and after any
+  // invalidation; re-applying the server values on every refetch silently
+  // reverted whatever the supplier was typing.
+  const offerHydratedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isEdit || !existingOffer) return;
+    if (offerHydratedRef.current === existingOffer.id) return;
+    offerHydratedRef.current = existingOffer.id;
     setSupplierSku(existingOffer.supplierSku ?? '');
     setPriceLkr((existingOffer.priceCents / 100).toFixed(2));
     setMinQty(String(existingOffer.minOrderQty));
@@ -273,11 +282,15 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
     setExistingImageUrl(null);
   }, [isCreateNew]);
 
-  // Populate product details when editing or attaching an existing SKU
+  // Populate product details when editing or attaching an existing SKU.
+  // Hydrate ONCE per product — see the offer effect above for why.
+  const productHydratedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!productQuery.data?.product) return;
     if (!isEdit && !isAttach) return;
     const p = productQuery.data.product;
+    if (productHydratedRef.current === p.id) return;
+    productHydratedRef.current = p.id;
     setCategoryId(p.categoryId);
     setProductName(p.name);
     setBrand(p.brand ?? '');
@@ -287,6 +300,8 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
     setHsCode(p.hsCode ?? '');
     setCountryOfOrigin((p.countryOfOrigin ?? 'LK').toUpperCase());
     if (p.imageUrl) setExistingImageUrl(p.imageUrl);
+    const img = productQuery.data?.images?.[0];
+    setExistingImageId(img?.id ?? null);
   }, [productQuery.data, isEdit, isAttach]);
 
   // Handle URL query parameter pre-selection for category
@@ -346,6 +361,26 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
     }
   };
 
+  /** Removes the persisted product photo (not just the local preview). */
+  const removeExistingImage = async () => {
+    if (!catalogProductId || !existingImageId) {
+      removeSelectedImage();
+      return;
+    }
+    try {
+      await api.del(`/products/${catalogProductId}/images/${existingImageId}`);
+      setExistingImageId(null);
+      removeSelectedImage();
+      toast.show(toast.success('Photo removed'));
+      void qc.invalidateQueries({ queryKey: ['product', catalogProductId] });
+      void qc.invalidateQueries({ queryKey: ['products', 'catalog'] });
+    } catch (e) {
+      toast.show(
+        toast.error('Could not remove photo', e instanceof ApiError ? e.message : 'Please try again.'),
+      );
+    }
+  };
+
   const priceCentsValue = (): number => {
     const n = Number.parseFloat(priceLkr);
     if (Number.isNaN(n) || n <= 0) return 0;
@@ -400,7 +435,16 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const handleSubmit = async (e?: FormEvent) => {
     e?.preventDefault();
     setErr(null);
+    setFieldErrors({});
     if (isSearch) return;
+
+    // The publish button is `type="button"`, so pressing Enter in a field
+    // submits the form without going through the readiness gate. Re-check it
+    // here so an incomplete listing can never be sent.
+    if (!canPublish) {
+      setErr('Complete the required fields (category, title, unit, price and MOQ) before saving.');
+      return;
+    }
 
     if (!isAttach) {
       if (!categoryId) {
@@ -425,6 +469,20 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
       return;
     }
 
+    // MOQ and lead time are integer fields — reject out-of-range values
+    // instead of silently rewriting them (the old `Number(x) || 1` turned a
+    // deliberate 0-day lead time into 1).
+    const moqValue = Number(minQty);
+    if (!Number.isInteger(moqValue) || moqValue < 1) {
+      setErr('Minimum order quantity must be a whole number of at least 1.');
+      return;
+    }
+    const leadValue = Number(lead);
+    if (!Number.isInteger(leadValue) || leadValue < 0 || leadValue > 365) {
+      setErr('Dispatch lead time must be a whole number of days between 0 and 365.');
+      return;
+    }
+
     if (enableTiers) {
       const t1Qty = Number(tier1MinQty) || 0;
       const t2Qty = Number(tier2MinQty) || 0;
@@ -433,12 +491,49 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
       const t2Pct = Number(tier2DiscountPct) || 0;
       const t3Pct = Number(tier3DiscountPct) || 0;
 
+      // Mirror the server's rules exactly (see `tierOrderOk` in
+      // @vyro/validation): increasing minimums AND non-shrinking discounts,
+      // each within the 0–50% band. A weaker client check meant the API
+      // rejected the save with a bare "Invalid input".
+      if ([t1Pct, t2Pct, t3Pct].some((p) => p < 0 || p > 50)) {
+        setErr('Tier discounts must be between 0% and 50%.');
+        return;
+      }
+      if (t1Pct > 0 && t1Qty < 1) {
+        setErr('Tier 1 minimum quantity must be at least 1.');
+        return;
+      }
+      if (t2Pct > 0 && t2Qty < 1) {
+        setErr('Tier 2 minimum quantity must be at least 1.');
+        return;
+      }
+      if (t3Pct > 0 && t3Qty < 1) {
+        setErr('Tier 3 minimum quantity must be at least 1.');
+        return;
+      }
       if (t2Pct > 0 && t2Qty <= t1Qty) {
         setErr('Tier 2 minimum quantity must be strictly greater than Tier 1.');
         return;
       }
       if (t3Pct > 0 && t3Qty <= t2Qty) {
         setErr('Tier 3 minimum quantity must be strictly greater than Tier 2.');
+        return;
+      }
+      if (t2Pct > 0 && t1Pct > 0 && t2Pct < t1Pct) {
+        setErr('Tier 2 discount cannot be smaller than the Tier 1 discount.');
+        return;
+      }
+      if (t3Pct > 0 && t2Pct > 0 && t3Pct < t2Pct) {
+        setErr('Tier 3 discount cannot be smaller than the Tier 2 discount.');
+        return;
+      }
+    }
+
+    // Delivery radius is capped at 500 km by the API.
+    if (radius !== '') {
+      const r = Number(radius);
+      if (!Number.isFinite(r) || r < 0 || r > 500) {
+        setErr('Delivery radius must be between 0 and 500 km.');
         return;
       }
     }
@@ -480,22 +575,26 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
           name: string;
           categoryId: string;
           unit: string;
-          brand?: string;
-          packSize?: string;
-          description?: string;
-          hsCode?: string;
-          countryOfOrigin?: string;
+          brand?: string | null;
+          packSize?: string | null;
+          description?: string | null;
+          hsCode?: string | null;
+          countryOfOrigin?: string | null;
         } = {
           name: productName.trim(),
           categoryId,
           unit: unit.trim(),
         };
-        if (brand.trim()) updatePayload.brand = brand.trim();
-        if (packSize.trim()) updatePayload.packSize = packSize.trim();
-        if (description.trim()) updatePayload.description = description.trim();
-        if (hsCode.trim()) updatePayload.hsCode = hsCode.trim();
-        if (countryOfOrigin.trim())
-          updatePayload.countryOfOrigin = countryOfOrigin.trim().toUpperCase();
+        // Send explicit `null` for cleared fields: the API's update schema
+        // accepts null to mean "remove this value". Omitting the key left the
+        // old value in place, so a supplier could never clear a field.
+        updatePayload.brand = brand.trim() || null;
+        updatePayload.packSize = packSize.trim() || null;
+        updatePayload.description = description.trim() || null;
+        updatePayload.hsCode = hsCode.trim() || null;
+        updatePayload.countryOfOrigin = countryOfOrigin.trim()
+          ? countryOfOrigin.trim().toUpperCase()
+          : null;
 
         await api.patch(`/products/${targetProductId}`, updatePayload);
       }
@@ -511,8 +610,10 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
       const offerPayload: Record<string, unknown> = {
         priceCents: cents,
-        minOrderQty: Number(minQty) || 1,
-        leadTimeDays: Number(lead) || 1,
+        // Validated above: whole numbers, MOQ >= 1, lead time >= 0 (0 = same
+        // day, which the old `Number(lead) || 1` silently turned into 1).
+        minOrderQty: moqValue,
+        leadTimeDays: leadValue,
         availabilityStatus: avail,
         deliveryAvailable,
         tier1DiscountPct: enableTiers ? Number(tier1DiscountPct) || 0 : 0,
@@ -557,6 +658,10 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
       await qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'offers'] });
       await qc.invalidateQueries({ queryKey: ['products', 'catalog'] });
+      if (targetProductId) {
+        await qc.invalidateQueries({ queryKey: ['product', targetProductId] });
+        await qc.invalidateQueries({ queryKey: ['product-offers', targetProductId] });
+      }
       toast.show(
         toast.success(
           isEdit
@@ -568,7 +673,26 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
       );
       navigate('/supplier/products');
     } catch (e) {
-      setErr(e instanceof ApiError ? e.message : 'Failed to save product listing. Please check inputs.');
+      // The API returns field-level errors in `error.details` — surface them
+      // instead of only "Invalid input", which told the supplier nothing about
+      // which field the server rejected.
+      if (e instanceof ApiError) {
+        const details = e.details as { fieldErrors?: Record<string, string[]> } | undefined;
+        const fe = details?.fieldErrors;
+        if (fe && Object.keys(fe).length > 0) {
+          setFieldErrors(fe);
+          const first = Object.entries(fe)[0];
+          setErr(
+            first
+              ? `${first[0]}: ${first[1][0]}`
+              : e.message,
+          );
+        } else {
+          setErr(e.message);
+        }
+      } else {
+        setErr('Failed to save product listing. Please check inputs.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -583,6 +707,15 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
       <SupplierErrorState
         message="Could not load the requested product listing. It may have been removed."
       />
+    );
+  }
+
+  // The offer list loaded fine but does not contain this id — the listing was
+  // deleted, belongs to another supplier, or the URL is wrong. Rendering an
+  // enabled form here sent PATCH requests to /products/ and failed with 404.
+  if (isEdit && !existingOffer) {
+    return (
+      <SupplierErrorState message="That listing does not exist or is no longer yours." />
     );
   }
 
@@ -727,6 +860,22 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
       )}
 
       {err && <ErrorBanner message={err} />}
+
+      {Object.keys(fieldErrors).length > 0 ? (
+        <div
+          role="alert"
+          className="rounded-xl bg-rose/10 p-3.5 text-xs text-rose shadow-[inset_0_0_0_1px_rgba(196,90,74,0.3)]"
+        >
+          <div className="font-semibold mb-1">Some fields need attention</div>
+          <ul className="space-y-0.5">
+            {Object.entries(fieldErrors).map(([field, msgs]) => (
+              <li key={field}>
+                <span className="font-mono">{field}</span>: {msgs[0]}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <LearningCta />
 
@@ -1059,7 +1208,13 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={removeSelectedImage}
+                      onClick={() => {
+                        if (existingImageId && !selectedImageFile) {
+                          void removeExistingImage();
+                        } else {
+                          removeSelectedImage();
+                        }
+                      }}
                       className="text-xs text-rose hover:text-rose gap-1.5"
                     >
                       <XIcon size={12} /> Remove
@@ -1143,6 +1298,8 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                   onChange={setMinQty}
                   presets={MOQ_PRESETS.map((q) => ({ label: String(q), value: String(q) }))}
                   inputMode="numeric"
+                  min={1}
+                  max={1000000}
                   mono
                 />
                 <PresetField
@@ -1153,6 +1310,8 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                   onChange={setLead}
                   presets={LEAD_PRESETS}
                   inputMode="numeric"
+                  min={0}
+                  max={365}
                   mono
                 />
               </div>
@@ -1286,6 +1445,10 @@ export function SupplierProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
                 >
                   <Input
                     type="number"
+                    // The API accepts 0–500 km.
+                    min="0"
+                    max="500"
+                    step="1"
                     placeholder="e.g. 50 (blank = island-wide)"
                     value={radius}
                     onChange={(e) => setRadius(e.target.value)}
@@ -1727,6 +1890,8 @@ function PresetField({
   onChange,
   presets,
   inputMode,
+  min,
+  max,
   mono,
 }: {
   label: string;
@@ -1736,6 +1901,10 @@ function PresetField({
   onChange: (v: string) => void;
   presets: { label: string; value: string }[];
   inputMode?: 'numeric' | 'decimal' | 'text';
+  /** Documented bounds — the field itself is a text input, so they are
+   *  enforced on submit rather than by the browser. */
+  min?: number;
+  max?: number;
   mono?: boolean;
 }) {
   return (
@@ -1819,6 +1988,8 @@ function TierCard({
           <Label className="text-[10px] text-ink-4">Min qty</Label>
           <Input
             type="number"
+            min="1"
+            step="1"
             value={qtyValue}
             onChange={(e) => qtyOnChange(e.target.value)}
             className="bg-paper font-mono text-xs"
@@ -1829,7 +2000,9 @@ function TierCard({
           <Input
             type="number"
             min="0"
-            max="90"
+            // The API caps tier discounts at 50%.
+            max="50"
+            step="1"
             value={pctValue}
             onChange={(e) => pctOnChange(e.target.value)}
             className="bg-paper font-mono text-xs font-bold"

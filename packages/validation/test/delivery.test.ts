@@ -27,6 +27,10 @@ describe('delivery state machine', () => {
     expect(canTransitionDelivery('failed', 'pending', 'admin')).toBe(true);
     expect(canTransitionDelivery('failed', 'pending', 'supplier')).toBe(false);
   });
+  it('allows a supplier to re-dispatch a failed delivery', () => {
+    expect(canTransitionDelivery('failed', 'assigned', 'supplier')).toBe(true);
+    expect(canTransitionDelivery('failed', 'assigned', 'admin')).toBe(true);
+  });
   it('allows supplier to mark in_transit → delivered', () => {
     expect(canTransitionDelivery('in_transit', 'delivered', 'supplier')).toBe(true);
   });

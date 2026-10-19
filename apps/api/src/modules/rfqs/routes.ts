@@ -17,7 +17,7 @@ import { hasBusinessAccess, hasSupplierAccess, requireBusinessRole, requireSuppl
 import { rfqService } from './service';
 import {
   findRfq, listRfqItems, listRfqInvites, listQuotesForRfq, listQuoteItems, listTiersForItems,
-  findQuote, listRfqEvents, listRfqsForBusiness, listRfqsForSupplier, listCounters,
+  findQuote, listRfqEvents, listRfqsForBusiness, listRfqsForSupplier, listCounters, findCounterOffer,
   listVersions, listMessages, messagesSince, listDocuments, listTemplates, listTemplateItems, insertRfqEvent,
   pageFromQuery, page, rfqSupplierDirectory,
 } from './repository';
@@ -266,8 +266,8 @@ router.get('/:id/quotes', session(), async (c) => {
     // Supplier: only their own quotes — never competitors'.
     const supplierId = c.req.query('supplierId');
     if (!supplierId || !hasSupplierAccess(ctx, supplierId)) throw httpError(403, 'FORBIDDEN', 'No access');
-    const all = await listQuotesForRfq(c.env.DB, rfq.id, opts);
-    const mine = all.filter((q) => q.supplierId === supplierId);
+    const all = await listQuotesForRfq(c.env.DB, rfq.id, { ...opts, supplierId });
+    const mine = all;
     const enriched = [];
     for (const q of mine) {
       const items = await listQuoteItems(c.env.DB, q.id);
@@ -498,6 +498,11 @@ router.post('/supplier/view', session(), async (c) => {
   const body = z.object({ rfqId: z.string().min(1), supplierId: z.string().min(1) }).strict().safeParse(await c.req.json().catch(() => null));
   if (!body.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', body.error.flatten());
   requireSupplierRole(ctx, body.data.supplierId, S_ROLES);
+  // Only suppliers who are invited to (or may see) this RFQ may read it — the
+  // same guard the GET /rfqs/:id read path applies. Otherwise a supplier could
+  // read a buyer's private invite-only RFQ and its target prices.
+  const allowed = await isInvitedOrOpen(c.env.DB, body.data.rfqId, ctx);
+  if (!allowed && !ctx.isAdmin) throw httpError(403, 'FORBIDDEN', 'Not invited to this RFQ');
   await rfqService.markViewed(c.env.DB, body.data.rfqId, body.data.supplierId, c.env.NOTIFICATIONS_QUEUE);
   const rfq = await findRfq(c.env.DB, body.data.rfqId);
   const items = await listRfqItems(c.env.DB, body.data.rfqId);
@@ -583,6 +588,25 @@ router.post('/counters/:counterId/respond', session(), async (c) => {
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const body = z.object({ accept: z.boolean() }).strict().safeParse(await c.req.json().catch(() => null));
   if (!body.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', body.error.flatten());
+  // Only the counter-party may answer a counter-offer: a counter raised by the
+  // buyer is answered by the supplier (and vice-versa). Without this check any
+  // authenticated user could accept a competitor's counter-offer.
+  const counter = await findCounterOffer(c.env.DB, c.req.param('counterId'));
+  if (!counter) throw httpError(404, 'NOT_FOUND', 'Counter-offer not found');
+  const quote = await findQuote(c.env.DB, counter.quoteId);
+  if (!quote) throw httpError(404, 'NOT_FOUND', 'Quote not found');
+  const rfq = await findRfq(c.env.DB, quote.rfqId);
+  if (!rfq) throw httpError(404, 'NOT_FOUND', 'RFQ not found');
+  const isSupplier = hasSupplierAccess(ctx, quote.supplierId);
+  const isBuyer = hasBusinessAccess(ctx, rfq.businessId);
+  if (!isSupplier && !isBuyer && !ctx.isAdmin) throw httpError(403, 'FORBIDDEN', 'No access');
+  const responder = counter.offeredByType === 'supplier' ? 'business' : 'supplier';
+  if (responder === 'supplier' && !isSupplier && !ctx.isAdmin) {
+    throw httpError(403, 'FORBIDDEN', 'Only the supplier may respond to this counter-offer');
+  }
+  if (responder === 'business' && !isBuyer && !ctx.isAdmin) {
+    throw httpError(403, 'FORBIDDEN', 'Only the buyer may respond to this counter-offer');
+  }
   return c.json(await rfqService.respondCounter(c.env.DB, ctx.userId, c.req.param('counterId'), body.data.accept, c.env.NOTIFICATIONS_QUEUE));
 });
 

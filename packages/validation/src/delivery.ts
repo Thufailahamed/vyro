@@ -30,6 +30,11 @@ export const DELIVERY_TRANSITIONS: readonly DeliveryTransitionRule[] = [
   { from: 'in_transit', to: 'failed', actors: ['supplier', 'admin'] },
   { from: 'delivered', to: 'in_transit', actors: ['admin'] }, // reversal — admin only
   { from: 'failed', to: 'pending', actors: ['admin'] }, // retry — admin only
+  // Re-dispatch: the supplier assigns a (possibly new) driver straight from
+  // `failed`. Without this the supplier UI's "Assign Driver" button on a
+  // failed delivery always returned 409 and the delivery could never be
+  // retried outside the admin queue.
+  { from: 'failed', to: 'assigned', actors: ['supplier', 'admin'] },
 ];
 
 export function canTransitionDelivery(

@@ -3,12 +3,13 @@ import { api, ApiError } from './api';
 
 export interface Membership {
   businessId: string;
-  role: 'owner' | 'manager' | 'staff';
+  role: 'owner' | 'manager' | 'purchasing' | 'accountant';
   businessName: string;
 }
 export interface SupplierMembership {
   supplierId: string;
-  role: 'owner' | 'manager' | 'staff';
+  /** Mirrors `supplier_members.role` in the database. */
+  role: 'owner' | 'sales' | 'operations';
   supplierName: string;
 }
 export interface SessionUser {

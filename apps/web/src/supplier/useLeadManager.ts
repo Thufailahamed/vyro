@@ -19,10 +19,19 @@ function withSupplierId(supplierId: string, query: Record<string, string | numbe
   return `?${params.toString()}`;
 }
 
+/**
+ * The CRM lead list.
+ *
+ * Uses an infinite query so "Load older leads" *appends* the next page. With
+ * the cursor in the query key the button started a fresh query and replaced
+ * the list with only the older leads.
+ */
 export function useLeads(supplierId: string, filter: LeadsListQuery) {
-  return useQuery({
-    queryKey: ['crm-leads', supplierId, filter],
-    queryFn: () =>
+  return useInfiniteQuery({
+    queryKey: ['crm-leads', supplierId, filter.tag, filter.status, filter.from, filter.to, filter.limit],
+    initialPageParam: filter.cursor as string | undefined,
+    getNextPageParam: (lastPage: LeadsListResult) => lastPage.nextCursor ?? undefined,
+    queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
       api.get<LeadsListResult>(
         `/supplier/crm/leads${withSupplierId(supplierId, {
           tag: filter.tag,
@@ -30,7 +39,7 @@ export function useLeads(supplierId: string, filter: LeadsListQuery) {
           from: filter.from,
           to: filter.to,
           limit: filter.limit,
-          cursor: filter.cursor,
+          cursor: pageParam,
         })}`,
       ),
     enabled: !!supplierId,

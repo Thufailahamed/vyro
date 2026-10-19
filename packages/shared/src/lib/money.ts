@@ -14,6 +14,26 @@
 
 export const DEFAULT_CURRENCY = 'LKR';
 
+/**
+ * Sri Lanka is UTC+05:30 with no daylight saving. "Today" and "this month"
+ * have to be bucketed in the business timezone — bucketing in UTC made a
+ * transaction at 20:00 UTC count as "tomorrow" to a local supplier.
+ */
+export const BUSINESS_TZ_OFFSET_MINUTES = 330;
+
+/** Start of the local day (business timezone) containing `now`. */
+export function startOfBusinessDay(now: number): number {
+  const shifted = now + BUSINESS_TZ_OFFSET_MINUTES * 60_000;
+  return Math.floor(shifted / 86_400_000) * 86_400_000 - BUSINESS_TZ_OFFSET_MINUTES * 60_000;
+}
+
+/** Start of the local month (business timezone) containing `now`. */
+export function startOfBusinessMonth(now: number): number {
+  const shifted = new Date(now + BUSINESS_TZ_OFFSET_MINUTES * 60_000);
+  const start = Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), 1);
+  return start - BUSINESS_TZ_OFFSET_MINUTES * 60_000;
+}
+
 /** Assert a value is a safe non-negative integer minor-unit amount. */
 export function assertCents(value: number, field = 'amountCents'): void {
   if (!Number.isSafeInteger(value) || value < 0) {
@@ -28,12 +48,15 @@ export function assertPositiveCents(value: number, field = 'amountCents'): void 
   }
 }
 
+/**
+ * Display formatter for LKR.
+ *
+ * Always 2dp: this is used in notifications that state an amount due (credit
+ * dunning, refunds, partial accepts), and rounding to whole rupees told
+ * buyers to pay a different amount than the one owed.
+ */
 export function formatLKR(cents: number): string {
-  return new Intl.NumberFormat('en-LK', {
-    style: 'currency',
-    currency: 'LKR',
-    maximumFractionDigits: 0,
-  }).format(cents / 100);
+  return formatMoney(cents, 'LKR');
 }
 
 /** Display formatter with 2dp (Rs. 1,250.50). Display-only, not for math. */

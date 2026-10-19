@@ -16,7 +16,7 @@ import { Surface } from '@/components/brand/Surface';
 import { PageHero, HeroStatusPill, heroActionClass } from '@/components/brand/PageHero';
 import { SavedCardsPanel } from '@/components/payments/SavedCardsPanel';
 import { useToast } from '@vyro/ui';
-import { Money, StatusPill, time, useBusinessId, useConfirm } from '@/accounts/shared';
+import { Money, StatusPill, time, useActiveBusiness, useConfirm } from '@/accounts/shared';
 import {
   BanknoteIcon,
   CreditCardIcon,
@@ -68,7 +68,7 @@ function methodLabel(method: string): string {
 }
 
 export function AccountsPage() {
-  const businessId = useBusinessId();
+  const { businessId, businesses, setActiveBusinessId } = useActiveBusiness();
   const [params, setParams] = useSearchParams();
   const tab = (params.get('tab') as Tab | null) ?? 'overview';
   const setTab = (t: Tab) => {
@@ -116,6 +116,25 @@ export function AccountsPage() {
       />
 
       <div className="sticky top-[65px] z-20 -mx-4 px-4 py-3 bg-bone/85 backdrop-blur-md border-b border-ink/[0.08] flex items-center justify-between gap-4">
+        {businesses.length > 1 ? (
+          <label className="flex items-center gap-2 text-xs text-ink-4">
+            <span className="font-mono uppercase tracking-[0.14em] text-[10px]">Business</span>
+            <select
+              value={businessId ?? ''}
+              onChange={(e) => setActiveBusinessId(e.target.value)}
+              className="rounded-md border border-ink/15 bg-paper px-2 py-1 text-[13px] text-ink"
+              aria-label="Active business"
+            >
+              {businesses.map((b) => (
+                <option key={b.businessId} value={b.businessId}>
+                  {b.businessName ?? b.businessId}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <span />
+        )}
         <nav
           role="tablist"
           aria-label="Accounts sections"

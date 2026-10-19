@@ -2,11 +2,20 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCampaigns, useInvoices } from '../../hooks/useSponsored';
 import { useSupplierId } from '../useSupplierId';
+import { ApiError } from '@/lib/api';
+import { SupplierErrorState } from '../SupplierPageState';
 
 export function SponsoredIndex() {
   const { supplierId } = useSupplierId();
   const campaigns = useCampaigns(supplierId);
   const invoices = useInvoices(supplierId);
+  const disabled =
+    campaigns.error instanceof ApiError && campaigns.error.code === 'FEATURE_DISABLED';
+  if (disabled) {
+    return (
+      <SupplierErrorState message="Sponsored listings are not enabled for this environment yet." />
+    );
+  }
   const active = (campaigns.data ?? []).filter((c) => c.status === 'live').length;
   const expiringSoon = (campaigns.data ?? []).filter(
     (c) => c.status === 'live' && c.endsAt - Math.floor(Date.now() / 1000) < 3 * 86400,

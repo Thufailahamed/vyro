@@ -5,6 +5,7 @@ import { cors } from './middleware/cors';
 import { securityHeaders } from './middleware/securityHeaders';
 import { rateLimit } from './middleware/rateLimit';
 import { verifyCsrf } from './middleware/verifyCsrf';
+import { loadSessionIfPresent } from './middleware/loadSession';
 import { accessLog } from './middleware/accessLog';
 import { cacheControl } from './middleware/cacheControl';
 import { errorEnvelope, HttpError } from './lib/errors';
@@ -116,6 +117,9 @@ app.use('/api/auth/2fa/*', rateLimit({ key: 'auth-2fa', limit: 10, window: 60 })
 app.use('/api/webhooks/*', rateLimit({ key: 'webhook', limit: 30, window: 60 }));
 app.use('/api/categories/*', cacheControl({ public: true, maxAge: 3600 }));
 app.use('/api/products/*', cacheControl({ public: true, maxAge: 300 }));
+// Resolve the session before the CSRF guard so the guard can tell whether the
+// caller is authenticated (it must run after, or it is a no-op).
+app.use('/api/*', loadSessionIfPresent());
 app.use('/api/*', verifyCsrf());
 
 app.onError((err, c) => {
@@ -162,8 +166,12 @@ app.route('/api/purchase-orders', reconciliationRouter);
 app.route('/api/orders', reconciliationRouter);
 app.route('/api/deliveries', deliveryRouter);
 app.route('/api/payments', paymentRouter);
-app.route('/api/payments', refundsRouter);
+// Mount the saved-cards router BEFORE the refunds router: `refundsRouter`
+// exposes `GET /api/payments/:id`, and Hono matches in registration order —
+// mounting it first would shadow `GET /api/payments/saved-cards` and make the
+// buyer's saved-cards panel 404 with "Refund not found".
 app.route('/api/payments/saved-cards', savedCardsRouter);
+app.route('/api/payments', refundsRouter);
 app.route('/api/finance', financeRouter);
 app.route('/api/admin/finance', financeAdminRouter);
 app.route('/api/admin/finance', financeSettlementsRouter);

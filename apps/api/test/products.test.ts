@@ -25,6 +25,12 @@ vi.mock('../src/modules/products/repository', () => ({
     if (found) { found.deletedAt = Date.now(); found.active = false; }
   }),
   listProductImages: vi.fn(async (_d1, productId) => images.filter((i) => i.productId === productId)),
+  nextProductImageSortOrder: vi.fn(async (_d1, productId) => {
+    const mine = images.filter((i) => i.productId === productId);
+    if (!mine.length) return 0;
+    return Math.min(...mine.map((i) => i.sortOrder ?? 0)) - 1;
+  }),
+  hasOfferForProduct: vi.fn(async () => false),
   addProductImage: vi.fn(async (_d1, productId, input) => {
     const id = 'img-' + (images.length + 1);
     images.push({ id, productId, ...input });

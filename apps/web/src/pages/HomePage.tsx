@@ -238,36 +238,42 @@ const CATEGORIES: Array<{
 const BUSINESSES = [
   {
     name: 'Restaurants & Kitchens',
+    query: 'cooking oil',
     note: 'Bulk cooking oil, rice sacks, spices, poultry & take-out packaging.',
     image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
     tag: 'F&B Operators',
   },
   {
     name: 'Hotels & Luxury Resorts',
+    query: 'tea',
     note: 'High-volume culinary inputs, premium Ceylon tea, dairy & housekeeping items.',
     image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
     tag: 'Hospitality',
   },
   {
     name: 'Retailers & Supermarkets',
+    query: 'rice',
     note: 'Direct mill rice, consumer sugar packs, FMCG restocks & wholesale lots.',
     image: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=800&q=80',
     tag: 'Grocery Stores',
   },
   {
     name: 'Commercial Bakeries',
+    query: 'flour',
     note: 'Hard wheat flour, 50kg sugar bags, yeast, margarine & pastry packaging.',
     image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80',
     tag: 'Confectionery',
   },
   {
     name: 'Catering & Cloud Kitchens',
+    query: 'packaging',
     note: 'Commercial meal lots, disposable trays, cooking gas & scheduled daily drops.',
     image: 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=800&q=80',
     tag: 'Event Foodservice',
   },
   {
     name: 'Corporate Facilities & Offices',
+    query: 'coffee',
     note: 'Pantry coffee & tea, sanitary supplies, paper products & water carboys.',
     image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80',
     tag: 'Enterprises',
@@ -345,6 +351,7 @@ const FAQ = [
 
 export function HomePage() {
   const { user } = useAuth();
+  const isSupplier = (user?.supplierMemberships.length ?? 0) > 0;
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [hoveredProduct, setHoveredProduct] = useState<ProductPreviewItem | null>(null);
@@ -716,7 +723,7 @@ export function HomePage() {
               return (
                 <Link
                   key={b.name}
-                  to="/onboarding/business"
+                  to={`/search?q=${encodeURIComponent(b.query)}`}
                   className={`group relative isolate flex flex-col justify-end overflow-hidden rounded-3xl p-6 sm:p-7 ${
                     feature ? 'sm:col-span-2 lg:row-span-2' : ''
                   }`}
@@ -995,10 +1002,10 @@ export function HomePage() {
             </ul>
             <div className="mt-auto pt-8">
               <Link
-                to="/onboarding/supplier"
+                to={isSupplier ? '/supplier' : '/onboarding/supplier'}
                 className="inline-flex h-12 items-center gap-2 rounded-xl bg-paper px-6 text-sm font-semibold text-ink transition-colors duration-180 hover:bg-volt"
               >
-                List as a supplier
+                {isSupplier ? 'Open supplier portal' : 'List as a supplier'}
                 <ArrowRightIcon size={15} />
               </Link>
             </div>

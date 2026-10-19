@@ -1,4 +1,5 @@
 import { getDb } from '@vyro/db';
+import { startOfBusinessDay, startOfBusinessMonth } from '@vyro/shared';
 import {
   payments,
   refunds,
@@ -124,23 +125,23 @@ export async function supplierOverview(d1: D1Database, supplierId: string): Prom
       .where(and(eq(supplierEarnings.supplierId, supplierId), eq(supplierEarnings.eligibility, 'settled')))
       .get()) as any)?.s ?? 0,
   );
-  const dayStart = new Date();
-  dayStart.setUTCHours(0, 0, 0, 0);
-  const monthStart = new Date();
-  monthStart.setUTCDate(1);
-  monthStart.setUTCHours(0, 0, 0, 0);
+  // "Today" and "this month" are bucketed in the business timezone
+  // (Asia/Colombo, UTC+05:30) — the web renders the same rows in local time.
+  const now = Date.now();
+  const dayStart = startOfBusinessDay(now);
+  const monthStart = startOfBusinessMonth(now);
   const today = Number(
     ((await db
       .select({ s: sql<number>`COALESCE(SUM(net_cents),0)` })
       .from(supplierEarnings)
-      .where(and(eq(supplierEarnings.supplierId, supplierId), gte(supplierEarnings.createdAt, dayStart.getTime())))
+      .where(and(eq(supplierEarnings.supplierId, supplierId), gte(supplierEarnings.createdAt, dayStart)))
       .get()) as any)?.s ?? 0,
   );
   const month = Number(
     ((await db
       .select({ s: sql<number>`COALESCE(SUM(net_cents),0)` })
       .from(supplierEarnings)
-      .where(and(eq(supplierEarnings.supplierId, supplierId), gte(supplierEarnings.createdAt, monthStart.getTime())))
+      .where(and(eq(supplierEarnings.supplierId, supplierId), gte(supplierEarnings.createdAt, monthStart)))
       .get()) as any)?.s ?? 0,
   );
   const recent = (await db

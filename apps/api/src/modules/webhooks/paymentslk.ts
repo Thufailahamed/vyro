@@ -266,17 +266,9 @@ export async function applyGatewayPaymentEvent(
         refId: payment.id,
         description: `Payment ${payment.id} confirmed via ${provider} webhook`,
       });
-      if (payment.feeCents > 0) {
-        writeLedgerEntry(tx as any, {
-          accountType: 'platform',
-          accountId: 'platform',
-          direction: 'credit',
-          amountCents: payment.feeCents,
-          refType: 'fee',
-          refId: payment.id,
-          description: `Platform fee for payment ${payment.id}`,
-        });
-      }
+      // The platform's commission leg is written once by
+      // `finance/earnings.ts` (category COMMISSION, bps snapshot, idempotent).
+      // Crediting the fee here too double-counted platform revenue.
     });
     // Attempt outcome: close the matching open attempt.
     await closeOpenAttempt(env, payment.id, provider, providerPaymentId, 'paid');

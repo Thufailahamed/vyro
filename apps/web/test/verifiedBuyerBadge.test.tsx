@@ -8,8 +8,11 @@ describe('VerifiedBuyerBadge', () => {
     const html = renderToStaticMarkup(
       createElement(VerifiedBuyerBadge, { verified: true, level: 'basic', verifiedAt: 1700000000000 }),
     );
-    expect(html).toMatch(/VERIFIED/);
-    expect(html).toMatch(/BASIC/);
+    // The badge is uppercased in CSS (`uppercase` class), so assert the DOM
+    // text and the accessible label rather than a capitalised string.
+    expect(html).toMatch(/Verified/);
+    expect(html).toMatch(/basic/);
+    expect(html).toMatch(/aria-label="Verified buyer"/);
   });
 
   it('renders nothing when unverified', () => {

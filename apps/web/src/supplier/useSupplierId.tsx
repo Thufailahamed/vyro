@@ -3,7 +3,8 @@ import { useAuth } from '@/lib/auth';
 
 interface SupplierIdCtx {
   supplierId: string;
-  role: 'owner' | 'manager' | 'staff' | 'sales';
+  /** Mirrors `supplier_members.role` in the database. */
+  role: 'owner' | 'sales' | 'operations';
   supplierName: string;
 }
 

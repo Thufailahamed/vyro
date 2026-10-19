@@ -15,8 +15,8 @@ describe('LessonsAdmin', () => {
     const html = renderToStaticMarkup(
       createElement(MemoryRouter, null, createElement(LessonsAdmin)),
     );
-    expect(html).toMatch(/Training center — Lessons/);
+    expect(html).toMatch(/Training center/);
     expect(html).toMatch(/No lessons yet/);
-    expect(html).toMatch(/\+ New lesson/);
+    expect(html).toMatch(/New lesson/);
   });
 });

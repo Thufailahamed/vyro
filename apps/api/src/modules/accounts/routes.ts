@@ -6,7 +6,7 @@ import type { Env } from '../../env';
 import { getDb } from '@vyro/db';
 import { businessMembers } from '@vyro/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { computeBalance, listStatement, type AccountType } from '../ledger';
+import { computeBalance, decodeLedgerCursor, listStatement, type AccountType } from '../ledger';
 import { isSupplierMember } from '../payments/membership';
 
 const router = new Hono<{ Bindings: Env }>();
@@ -25,7 +25,16 @@ async function assertAccountAccess(
     const member = (await db
       .select({ id: businessMembers.id })
       .from(businessMembers)
-      .where(and(eq(businessMembers.businessId, accountId), eq(businessMembers.userId, ctx.userId)))
+      .where(
+        and(
+          eq(businessMembers.businessId, accountId),
+          eq(businessMembers.userId, ctx.userId),
+          // An invited (never accepted) or suspended member must not be able
+          // to read the business ledger — the same rule the finance routes
+          // apply via `assertBusinessAccess`.
+          eq(businessMembers.status, 'active'),
+        ),
+      )
       .get()) as any;
     if (!member) throw httpError(403, 'FORBIDDEN', 'Not a member of this business');
   } else if (accountType === 'supplier') {
@@ -34,6 +43,13 @@ async function assertAccountAccess(
   } else if (accountType === 'platform') {
     throw httpError(403, 'FORBIDDEN', 'Platform balance is admin-only');
   }
+}
+
+/** RFC 4180 field escaping — descriptions contain commas and quotes. */
+function csvField(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const s = String(value);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 router.get('/balance', session(), async (c) => {
@@ -67,9 +83,14 @@ router.get('/statement', session(), async (c) => {
   const cursorRaw = c.req.query('cursor');
   const from = fromRaw ? Number(fromRaw) : undefined;
   const to = toRaw ? Number(toRaw) : undefined;
-  const cursor = cursorRaw ? Number(cursorRaw) : undefined;
-  if ([from, to, cursor].some((n) => n !== undefined && Number.isNaN(n))) {
-    throw httpError(400, 'VALIDATION_ERROR', 'from/to/cursor must be numbers');
+  if ([from, to].some((n) => n !== undefined && Number.isNaN(n))) {
+    throw httpError(400, 'VALIDATION_ERROR', 'from/to must be numbers');
+  }
+  // The cursor is opaque ("<createdAt>_<id>"); a legacy bare timestamp is
+  // still accepted.
+  const cursor = cursorRaw && decodeLedgerCursor(cursorRaw) ? cursorRaw : undefined;
+  if (cursorRaw && !cursor) {
+    throw httpError(400, 'VALIDATION_ERROR', 'Invalid cursor');
   }
 
   const db = getDb(c.env.DB);
@@ -88,11 +109,21 @@ router.get('/statement', session(), async (c) => {
     const lines = ['createdAt,direction,refType,refId,description,amount_cents,running_balance_cents'];
     for (const e of all) {
       lines.push(
-        [new Date(e.createdAt).toISOString(), e.direction, e.refType, e.refId, JSON.stringify(e.description), e.amountCents, e.runningBalanceCents].join(','),
+        [
+          new Date(e.createdAt).toISOString(),
+          csvField(e.direction),
+          csvField(e.refType),
+          csvField(e.refId),
+          csvField(e.description),
+          e.amountCents,
+          e.runningBalanceCents,
+        ].join(','),
       );
     }
     c.header('Content-Type', 'text/csv');
-    c.header('Content-Disposition', `attachment; filename="statement-${accountId}.csv"`);
+    // The account id goes into a response header — keep it to a safe charset.
+    const safeAccountId = accountId.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 64);
+    c.header('Content-Disposition', `attachment; filename="statement-${safeAccountId}.csv"`);
     return c.body(lines.join('\n'));
   }
 

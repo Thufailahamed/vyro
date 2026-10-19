@@ -139,11 +139,11 @@ test('buyer: tracking visible → confirm receipt → request return', async () 
   await expect(buyer.getByText('E2E Logistics')).toBeVisible();
 
   // Confirm receipt → completed (releases funds).
-  await buyer.getByRole('button', { name: /yes — confirm receipt/i }).click();
+  await buyer.getByRole('button', { name: 'Confirm receipt', exact: true }).click();
   await expect(buyer.getByText(/receipt confirmed/i).first()).toBeVisible();
 
   // Request a return for part of the order.
-  await buyer.getByRole('button', { name: /request a return/i }).click();
+  await buyer.getByRole('button', { name: 'Request return', exact: true }).click();
   await buyer.locator('#return-note').fill('E2E: cartons damaged on arrival');
   await buyer.locator('input[aria-label^="Return quantity"]').first().fill(String(RETURN_QTY));
   await buyer.getByRole('button', { name: /submit return/i }).click();

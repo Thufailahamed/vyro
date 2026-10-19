@@ -10,6 +10,7 @@ import { newId } from '@vyro/shared';
 
 export type CreateRefundInput = {
   paymentId: string;
+  purchaseOrderId?: string | null;
   amountCents: number;
   reason?: string | null;
   requestedByUserId: string;
@@ -26,6 +27,11 @@ export async function createRefund(
     .values({
       id,
       paymentId: input.paymentId,
+      // Denormalised PO link: the supplier finance report joins refunds to
+      // purchase orders on this column. Leaving it null made every
+      // buyer-requested refund invisible in the supplier's pending-refund
+      // figures (an inner join on NULL never matches).
+      purchaseOrderId: input.purchaseOrderId ?? null,
       amountCents: input.amountCents,
       reason: input.reason ?? null,
       status: 'requested',

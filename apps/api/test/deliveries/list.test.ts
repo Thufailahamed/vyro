@@ -74,7 +74,7 @@ describe('GET /api/deliveries?supplierId=', () => {
   });
 
   it('returns rows filtered by supplier', async () => {
-    state.member = { role: 'manager' };
+    state.member = { role: 'owner' };
     state.rows = [
       { id: 'd-1', purchaseOrderId: 'po-1', supplierId: 'sup-1', status: 'in_transit', estimatedAt: 1000, deliveredAt: null, driverName: 'Driver A' },
     ];

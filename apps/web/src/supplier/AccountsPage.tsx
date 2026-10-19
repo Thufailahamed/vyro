@@ -876,6 +876,10 @@ function BankDetails({ supplierId }: { supplierId: string }) {
   const toast = useToast();
   const qc = useQueryClient();
   const { ask, dialog } = useConfirm();
+  // The API only lets an `owner` or `operations` member manage payout bank
+  // details — a `sales` member could only ever get a 403 from this form.
+  const { role } = useSupplierId();
+  const canManageBank = role === 'owner' || role === 'operations';
   const q = useQuery({
     queryKey: ['supplier-accounts', 'bank', supplierId],
     queryFn: () => api.get<{ accounts: BankAccount[] }>(`/finance/supplier/bank-accounts?supplierId=${supplierId}`),
@@ -974,6 +978,7 @@ function BankDetails({ supplierId }: { supplierId: string }) {
         </p>
       </div>
 
+      {canManageBank ? (
       <form
         className="lg:col-span-7 space-y-4 vyro-surface p-5 sm:p-6"
         onSubmit={(e) => {
@@ -1050,6 +1055,12 @@ function BankDetails({ supplierId }: { supplierId: string }) {
           <Button type="submit">Save account</Button>
         </div>
       </form>
+      ) : (
+        <p className="lg:col-span-7 rounded-xl border border-ink/10 bg-bone/60 px-4 py-3 text-xs text-ink-4">
+          Only a supplier owner or operations member can add payout account details. Ask an
+          administrator on your team to update them.
+        </p>
+      )}
       {dialog}
     </div>
   );

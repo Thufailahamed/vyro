@@ -98,13 +98,22 @@ export async function rfqSupplierDirectory(d1: D1Database, rfqId: string) {
   return out;
 }
 
-export async function listQuotesForRfq(d1: D1Database, rfqId: string, opts?: PageOpts) {
+export async function listQuotesForRfq(
+  d1: D1Database,
+  rfqId: string,
+  opts?: PageOpts & { supplierId?: string | undefined },
+) {
   const db = getDb(d1);
   const { limit, offset } = page(opts);
+  const conds = [eq(supplierQuotes.rfqId, rfqId)];
+  // Filter by supplier in SQL, not after the limit — filtering afterwards
+  // meant a supplier's own quote fell off the page once 20 other suppliers
+  // had quoted, and the page claimed they had never quoted.
+  if (opts?.supplierId) conds.push(eq(supplierQuotes.supplierId, opts.supplierId));
   return db
     .select()
     .from(supplierQuotes)
-    .where(eq(supplierQuotes.rfqId, rfqId))
+    .where(and(...conds))
     .orderBy(desc(supplierQuotes.updatedAt))
     .limit(limit)
     .offset(offset)
@@ -183,13 +192,23 @@ export async function listRfqsForSupplier(d1: D1Database, supplierId: string, in
   const invitedIds = invites.map((i) => i.rfqId);
   let rows: Array<typeof rfqs.$inferSelect> = [];
   if (invitedIds.length) {
-    rows = await db.select().from(rfqs).where(inArray(rfqs.id, invitedIds)).limit(limit).offset(offset).all();
+    // Newest first — without an ORDER BY SQLite returns rows in insertion
+    // order, so the supplier's list was arbitrary.
+    rows = await db
+      .select()
+      .from(rfqs)
+      .where(inArray(rfqs.id, invitedIds))
+      .orderBy(desc(rfqs.createdAt))
+      .limit(limit)
+      .offset(offset)
+      .all();
   }
   if (includeOpen) {
     const openRfqs = await db
       .select()
       .from(rfqs)
       .where(and(eq(rfqs.isOpen, 1), sql`${rfqs.status} IN ('open','quoting','quotes_received','under_review')`))
+      .orderBy(desc(rfqs.deadline))
       .limit(50)
       .all();
     const seen = new Set(rows.map((r) => r.id));
@@ -206,6 +225,11 @@ export async function listCounters(d1: D1Database, quoteId: string) {
     .where(eq(quoteCounterOffers.quoteId, quoteId))
     .orderBy(asc(quoteCounterOffers.createdAt))
     .all();
+}
+
+export async function findCounterOffer(d1: D1Database, id: string) {
+  const db = getDb(d1);
+  return db.select().from(quoteCounterOffers).where(eq(quoteCounterOffers.id, id)).get() ?? null;
 }
 
 export async function listVersions(d1: D1Database, quoteId: string) {

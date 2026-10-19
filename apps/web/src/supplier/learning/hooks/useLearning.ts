@@ -30,7 +30,15 @@ export function useCompleteArticle(supplierId: string, slug: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => learningApi.completeArticle(supplierId, slug),
-    onSuccess: () => qc.invalidateQueries({ queryKey: learningKeys.detail(supplierId, slug) }),
+    onSuccess: () => {
+      // The lesson list and the publish gate also change when a lesson is
+      // completed — invalidating only the detail left the Training Center
+      // showing "Not started" and a stale gate.
+      void qc.invalidateQueries({ queryKey: learningKeys.detail(supplierId, slug) });
+      // Prefix (no track segment) so every track filter is invalidated too.
+      void qc.invalidateQueries({ queryKey: ['learning', 'list', supplierId] });
+      void qc.invalidateQueries({ queryKey: learningKeys.gate(supplierId) });
+    },
   });
 }
 
@@ -39,7 +47,12 @@ export function useSubmitQuiz(supplierId: string, slug: string) {
   return useMutation({
     mutationFn: (answers: Array<{ questionId: string; optionId: string }>) =>
       learningApi.submitQuiz(supplierId, slug, answers),
-    onSuccess: () => qc.invalidateQueries({ queryKey: learningKeys.detail(supplierId, slug) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: learningKeys.detail(supplierId, slug) });
+      // Prefix (no track segment) so every track filter is invalidated too.
+      void qc.invalidateQueries({ queryKey: ['learning', 'list', supplierId] });
+      void qc.invalidateQueries({ queryKey: learningKeys.gate(supplierId) });
+    },
   });
 }
 

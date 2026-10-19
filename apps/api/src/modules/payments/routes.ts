@@ -381,7 +381,10 @@ router.post('/:id/confirm', session(), async (c) => {
       .run();
 
     if (parsed.data.status === 'confirmed') {
-      // Ledger entries: business.credit(netCents) + platform.credit(feeCents)
+      // Ledger entries: business.credit(netCents). The platform's commission leg
+      // is written once, by `finance/earnings.ts` (category COMMISSION) — it
+      // carries the bps snapshot and an idempotency guard. Crediting the fee
+      // here as well double-counted platform revenue.
       writeLedgerEntry(tx as any, {
         accountType: 'business',
         accountId: po.businessId,
@@ -392,18 +395,6 @@ router.post('/:id/confirm', session(), async (c) => {
         description: `Payment ${payment.id} for PO ${po.poNumber}`,
         createdByUserId: ctx.userId,
       });
-      if (payment.feeCents > 0) {
-        writeLedgerEntry(tx as any, {
-          accountType: 'platform',
-          accountId: 'platform',
-          direction: 'credit',
-          amountCents: payment.feeCents,
-          refType: 'fee',
-          refId: payment.id,
-          description: `Platform fee for payment ${payment.id}`,
-          createdByUserId: ctx.userId,
-        });
-      }
     }
   });
 

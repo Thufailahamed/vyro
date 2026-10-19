@@ -6,7 +6,7 @@ import { ConversionBadge } from '../src/supplier/crm/ConversionBadge';
 describe('ConversionBadge', () => {
   it('renders untracked when status is null', () => {
     const html = renderToStaticMarkup(createElement(ConversionBadge, { status: null }));
-    expect(html).toMatch(/untracked/);
+    expect(html).toMatch(/Untracked/);
   });
 
   it('renders status text with styled dot for known statuses', () => {

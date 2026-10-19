@@ -10,6 +10,8 @@ export const sellerKycSubmitBody = z
     bankBranch: z.string().max(120).optional(),
     bankAccountHolder: z.string().max(160).optional(),
     documentsJson: z.string().max(8000).optional(),
+    /** Supplier-authored note to the reviewer (shown on resubmission). */
+    notes: z.string().max(2000).optional(),
   })
   .strict();
 

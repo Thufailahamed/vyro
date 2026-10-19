@@ -221,7 +221,15 @@ router.post('/supplier/bank-accounts', async (c) => {
       throw httpError(403, 'FORBIDDEN', 'Only supplier owner/operations manage bank details');
     }
   }
-  const parsed = supplierBankAccountSchema.safeParse(body);
+  // `supplierId` is a routing/auth concern, not part of the payload — the
+  // schema is strict, so parse only the declared fields.
+  const parsed = supplierBankAccountSchema.safeParse({
+    bankName: body?.bankName,
+    accountHolder: body?.accountHolder,
+    accountNumber: body?.accountNumber,
+    branch: body?.branch,
+    accountType: body?.accountType,
+  });
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
   const digits = parsed.data.accountNumber.replace(/\D/g, '');
   // Workers-safe hash: pure-TS md5 from @vyro/payments with a domain prefix.
@@ -233,8 +241,8 @@ router.post('/supplier/bank-accounts', async (c) => {
     accountHolder: parsed.data.accountHolder,
     accountNumberLast4: digits.slice(-4),
     accountNumberHash: md5(`vyro-bank:${supplierId}:${digits}`),
-    branch: parsed.data.branch ?? null,
-    accountType: parsed.data.accountType ?? null,
+    branch: parsed.data.branch?.trim() || null,
+    accountType: parsed.data.accountType?.trim() || null,
     createdByUserId: ctx.userId,
   });
   await recordAudit(c.env.DB, {
@@ -295,6 +303,7 @@ router.post('/payments/:id/refunds', async (c) => {
   }
   const refund = await createRefund(c.env.DB, {
     paymentId: payment.id,
+    purchaseOrderId: po.id,
     amountCents: refundCents,
     reason: parsed.data.reason ?? null,
     requestedByUserId: ctx.userId,

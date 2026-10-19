@@ -22,12 +22,15 @@ export const products = sqliteTable(
     hsCode: text('hs_code'),
     countryOfOrigin: text('country_of_origin'),
     isExportControlled: integer('is_export_controlled', { mode: 'boolean' }).notNull().default(false),
+    /** Supplier member who created the catalog row (null for admin/seed rows). */
+    createdByUserId: text('created_by_user_id'),
   },
   (t) => ({
     categoryIdx: index('products_category_idx').on(t.categoryId),
     nameIdx: index('products_name_idx').on(t.name),
     featuredIdx: index('products_featured_idx').on(t.featured),
     hsIdx: index('products_hs_idx').on(t.hsCode),
+    createdByIdx: index('products_created_by_idx').on(t.createdByUserId),
   }),
 );
 

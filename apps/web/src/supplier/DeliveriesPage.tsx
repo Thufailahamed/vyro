@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Badge, Button, Input } from '@/components/ui';
 import { Surface, MetricNumber } from '@/components/brand/Surface';
@@ -78,11 +78,14 @@ export function SupplierDeliveriesPage() {
   const [status, setStatus] = useState<(typeof STATUSES)[number]['id']>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const deliveries = useQuery({
+  const deliveries = useInfiniteQuery({
     queryKey: ['supplier', supplierId, 'deliveries', status],
-    queryFn: () =>
-      api.get<{ items: Delivery[] }>(
-        `/deliveries?supplierId=${supplierId}${status === 'all' ? '' : `&status=${status}`}`,
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (lastPage: { items: Delivery[]; nextCursor: number | null }) =>
+      lastPage.nextCursor ?? undefined,
+    queryFn: ({ pageParam }: { pageParam: number | undefined }) =>
+      api.get<{ items: Delivery[]; nextCursor: number | null }>(
+        `/deliveries?supplierId=${supplierId}&limit=100${status === 'all' ? '' : `&status=${status}`}${pageParam ? `&cursor=${pageParam}` : ''}`,
       ),
     retry: false,
     refetchInterval: POLL_MS,
@@ -100,7 +103,11 @@ export function SupplierDeliveriesPage() {
     enabled: !!supplierId,
   });
 
-  const list = deliveries.data?.items ?? [];
+  const list = useMemo(
+    () => (deliveries.data?.pages ?? []).flatMap((p) => p.items),
+    [deliveries.data],
+  );
+  const hasMoreDeliveries = deliveries.data?.pages?.[deliveries.data.pages.length - 1]?.nextCursor != null;
   const orders = ordersQuery.data?.orders ?? [];
   const settings = settingsQuery.data?.settings;
   const orderById = useMemo(() => new Map(orders.map((o) => [o.id, o])), [orders]);
@@ -474,6 +481,20 @@ export function SupplierDeliveriesPage() {
                 </tbody>
               </table>
             </div>
+            {hasMoreDeliveries ? (
+              <div className="mt-4 flex justify-center">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={deliveries.isFetchingNextPage}
+                  disabled={deliveries.isFetchingNextPage}
+                  onClick={() => void deliveries.fetchNextPage()}
+                  className="text-xs font-semibold"
+                >
+                  Load more deliveries
+                </Button>
+              </div>
+            ) : null}
           </Surface>
         )}
       </div>

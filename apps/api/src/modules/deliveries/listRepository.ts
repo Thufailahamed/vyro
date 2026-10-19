@@ -1,6 +1,7 @@
 import { and, desc, eq, lt } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
 import { deliveries, purchaseOrders, supplierMembers } from '@vyro/db/schema';
+import { SUPPLIER_ROLES } from '@vyro/auth';
 
 export type DeliveryListItem = {
   id: string;
@@ -18,11 +19,13 @@ export async function listDeliveriesForSupplier(
   supplierId: string,
   cursor: number | undefined,
   status: string | undefined,
-): Promise<DeliveryListItem[]> {
+  limit = 50,
+): Promise<{ items: DeliveryListItem[]; nextCursor: number | null }> {
   const db = getDb(d1);
   const conds = [eq(purchaseOrders.supplierId, supplierId)];
   if (cursor) conds.push(lt(deliveries.createdAt, cursor));
   if (status) conds.push(eq(deliveries.status, status as any));
+  const capped = Math.min(Math.max(Math.trunc(limit) || 50, 1), 200);
   const rows = await db
     .select({
       id: deliveries.id,
@@ -33,14 +36,23 @@ export async function listDeliveriesForSupplier(
       deliveredAt: deliveries.deliveredAt,
       driverName: deliveries.driverName,
       driverPhone: deliveries.driverPhone,
+      createdAt: deliveries.createdAt,
     })
     .from(deliveries)
     .innerJoin(purchaseOrders, eq(purchaseOrders.id, deliveries.purchaseOrderId))
     .where(and(...conds))
     .orderBy(desc(deliveries.createdAt))
-    .limit(50)
+    .limit(capped + 1)
     .all();
-  return rows;
+  const hasMore = rows.length > capped;
+  const items = rows.slice(0, capped);
+  // Keyset cursor for the next page (the client could not page before —
+  // the route never returned a cursor).
+  const last = items[items.length - 1];
+  return {
+    items,
+    nextCursor: hasMore && last ? last.createdAt : null,
+  };
 }
 
 export async function requireSupplierMember(
@@ -54,7 +66,7 @@ export async function requireSupplierMember(
     .from(supplierMembers)
     .where(and(eq(supplierMembers.supplierId, supplierId), eq(supplierMembers.userId, userId), eq(supplierMembers.status, 'active')))
     .get();
-  if (!m || !['owner', 'manager', 'sales', 'operations'].includes(m.role)) {
+  if (!m || !SUPPLIER_ROLES.includes(m.role as (typeof SUPPLIER_ROLES)[number])) {
     throw new Error('FORBIDDEN');
   }
 }

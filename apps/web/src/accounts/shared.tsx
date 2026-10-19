@@ -1,12 +1,63 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { useAuth } from '@/lib/auth';
 import { formatLKR } from '@/lib/format';
 import { Button } from '@/components/ui';
-import { cn } from '@vyro/ui';
+import { cn, useToast } from '@vyro/ui';
+
+export interface BusinessMembershipLike {
+  businessId: string;
+  businessName?: string | undefined;
+}
+
+const ACTIVE_BUSINESS_KEY = 'vyro.activeBusinessId';
+
+function readStoredBusinessId(): string | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage.getItem(ACTIVE_BUSINESS_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The business the user is currently working in.
+ *
+ * A user can belong to several businesses; picking `memberships[0]` always
+ * showed the first one's balances with no way to switch. The choice is
+ * persisted per browser and falls back to the first membership.
+ */
+export function useActiveBusiness(): {
+  businessId: string | undefined;
+  businesses: BusinessMembershipLike[];
+  setActiveBusinessId: (id: string) => void;
+} {
+  const { user } = useAuth();
+  const businesses = (user as unknown as { memberships?: BusinessMembershipLike[] })?.memberships ?? [];
+  const [activeId, setActiveId] = useState<string | null>(() => readStoredBusinessId());
+
+  useEffect(() => {
+    const onChange = () => setActiveId(readStoredBusinessId());
+    window.addEventListener('vyro:active-business-changed', onChange);
+    return () => window.removeEventListener('vyro:active-business-changed', onChange);
+  }, []);
+
+  const stored = activeId ?? readStoredBusinessId();
+  const businessId =
+    (stored && businesses.some((m) => m.businessId === stored) ? stored : undefined) ??
+    businesses[0]?.businessId;
+  const setActiveBusinessId = (id: string) => {
+    try {
+      window.localStorage.setItem(ACTIVE_BUSINESS_KEY, id);
+    } catch {
+      // Storage unavailable (private mode) — the in-session value still works.
+    }
+    setActiveId(id);
+  };
+  return { businessId, businesses, setActiveBusinessId };
+}
 
 export function useBusinessId(): string | undefined {
-  const { user } = useAuth();
-  return (user as unknown as { memberships?: Array<{ businessId: string }> })?.memberships?.[0]?.businessId;
+  return useActiveBusiness().businessId;
 }
 
 const PILL: Record<string, string> = {
@@ -83,6 +134,7 @@ export function ConfirmDialog({
   body,
   confirmLabel,
   busy,
+  error,
   onConfirm,
   onClose,
 }: {
@@ -90,6 +142,7 @@ export function ConfirmDialog({
   body: ReactNode;
   confirmLabel: string;
   busy?: boolean;
+  error?: string;
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -98,6 +151,11 @@ export function ConfirmDialog({
       <div className="w-full max-w-md rounded-2xl bg-paper p-6 shadow-xl">
         <h3 className="vyro-display text-xl text-ink">{title}</h3>
         <div className="mt-2 text-sm text-ink-3">{body}</div>
+        {error ? (
+          <div role="alert" className="mt-3 rounded-lg border border-rose/30 bg-rose/5 px-3 py-2 text-xs text-rose">
+            {error}
+          </div>
+        ) : null}
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
           <Button onClick={onConfirm} disabled={busy}>{busy ? 'Working…' : confirmLabel}</Button>
@@ -115,19 +173,32 @@ export function useConfirm() {
     action: () => Promise<void>;
   }>(null);
   const [busy, setBusy] = useState(false);
-  const ask = (s: NonNullable<typeof state>) => setState(s);
+  const [error, setError] = useState('');
+  const toast = useToast();
+  const ask = (s: NonNullable<typeof state>) => {
+    setError('');
+    setState(s);
+  };
   const dialog = state ? (
     <ConfirmDialog
       title={state.title}
       body={state.body}
       confirmLabel={state.confirmLabel}
       busy={busy}
-      onClose={() => { if (!busy) setState(null); }}
+      error={error}
+      onClose={() => { if (!busy) { setState(null); setError(''); } }}
       onConfirm={async () => {
         setBusy(true);
+        setError('');
         try {
           await state.action();
           setState(null);
+        } catch (e) {
+          // Surface the failure instead of leaving the dialog spinning on a
+          // rejected promise — the action may be a money movement.
+          const message = e instanceof Error ? e.message : 'Something went wrong. Please try again.';
+          setError(message);
+          toast.show(toast.error('Action failed', message));
         } finally {
           setBusy(false);
         }
@@ -138,6 +209,6 @@ export function useConfirm() {
 }
 
 export function time(ts?: number | null): string {
-  if (!ts) return '—';
+  if (ts == null) return '—';
   return new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }

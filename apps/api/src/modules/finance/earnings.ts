@@ -99,6 +99,12 @@ export async function ensureAllocationAndEarning(
   // happen INSIDE the transaction so concurrent webhook retries can't both pass
   // the "no prior leg" guard (api-009 audit). Future hardening: unique index
   // on (refId, category) for true DB-level enforcement.
+  //
+  // The SALE leg credits the supplier their NET entitlement (gross − commission),
+  // not the gross: the platform's commission is credited to the platform account
+  // below, so crediting the supplier gross would pay the commission twice. The
+  // PAYOUT leg (written when money actually leaves) debits the same net amount,
+  // so an unpaid-but-earned balance sits at net and falls to zero once paid.
   if (createdByUserId !== undefined) {
     try {
       const dbTx = getDb(d1);
@@ -114,7 +120,7 @@ export async function ensureAllocationAndEarning(
           accountType: 'supplier',
           accountId: po.supplierId,
           direction: 'credit',
-          amountCents: allocation.grossCents,
+          amountCents: net,
           currency: payment.currency,
           refType: 'payment',
           refId: payment.id,

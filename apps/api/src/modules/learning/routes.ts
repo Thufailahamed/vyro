@@ -4,7 +4,7 @@ import type { Env } from '../../env';
 import { session } from '../../middleware/session';
 import type { Ctx } from '../../middleware/session';
 import { isFeatureEnabled } from '../../lib/featureFlags';
-import { requireSupplierRole } from '@vyro/auth';
+import { requireSupplierRole, SUPPLIER_ROLES } from '@vyro/auth';
 import {
   learningListQuerySchema,
   submitQuizSchema,
@@ -13,7 +13,6 @@ import * as svc from './service';
 import { LearningError } from './errors';
 
 const FLAG = 'LEARNING_CENTER_ENABLED';
-const SUPPLIER_ROLES = ['owner', 'sales', 'ops', 'finance'] as const;
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -28,8 +27,7 @@ async function ensureSupplierRole(c: any): Promise<{ ctx: Ctx; supplierId: strin
   if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const supplierId = supplierIdFromQuery(c);
   try {
-    requireSupplierRole(ctx, supplierId, SUPPLIER_ROLES);
-  } catch (e: any) {
+    requireSupplierRole(ctx, supplierId, SUPPLIER_ROLES);  } catch (e: any) {
     throw httpError(403, 'FORBIDDEN', e?.message ?? 'Not a supplier member');
   }
   return { ctx, supplierId };

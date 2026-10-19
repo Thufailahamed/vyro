@@ -13,7 +13,7 @@ export const campaignStatusSchema = z.enum([
   'revoked',
   'cancelled',
 ]);
-export const invoiceStatusSchema = z.enum(['pending', 'paid', 'waived']);
+export const invoiceStatusSchema = z.enum(['pending', 'submitted', 'paid', 'waived']);
 export const subscriptionStatusSchema = z.enum(['active', 'expired', 'cancelled']);
 
 export const slotResolveQuerySchema = z.object({
@@ -112,6 +112,7 @@ export const sponsorInvoiceSchema = z.object({
   campaignId: z.string(),
   amountCents: z.number().int(),
   status: invoiceStatusSchema,
+  paymentReference: z.string().nullable().optional(),
   createdAt: z.number().int(),
   paidAt: z.number().int().nullable(),
 });

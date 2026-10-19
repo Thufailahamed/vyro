@@ -110,6 +110,8 @@ export const sponsoredInvoices = sqliteTable(
     supplierId: text('supplier_id').notNull(),
     amountCents: integer('amount_cents').notNull(),
     status: text('status').notNull(),
+    /** Bank transfer / gateway reference supplied with the supplier's proof. */
+    paymentReference: text('payment_reference'),
     createdAt: integer('created_at').notNull(),
     paidAt: integer('paid_at'),
   },

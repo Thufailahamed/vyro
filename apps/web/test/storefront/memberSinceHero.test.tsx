@@ -22,8 +22,9 @@ describe('SupplierHero member since', () => {
       }),
     );
     expect(html).toMatch(/Fresh Dairy/);
-    expect(html).toMatch(/TRUSTSEAL/);
-    expect(html).toMatch(/MEMBER SINCE 2021/);
+    expect(html).toMatch(/TrustSEAL/);
+    expect(html).toMatch(/On VYRO since/);
+    expect(html).toMatch(/2021/);
     expect(html).toMatch(/5 yrs/);
   });
   it('renders generic badge even without TrustSEAL', () => {
@@ -41,10 +42,11 @@ describe('SupplierHero member since', () => {
         supplierSinceDate: null,
       }),
     );
-    expect(html).toMatch(/MEMBER SINCE 2025/);
-    expect(html).not.toMatch(/TRUSTSEAL/);
+    expect(html).toMatch(/On VYRO since/);
+    expect(html).toMatch(/2025/);
+    expect(html).not.toMatch(/TrustSEAL/);
   });
-  it('hides generic badge when tenure is null', () => {
+  it('shows no membership year when tenure is null', () => {
     const html = renderToStaticMarkup(
       createElement(SupplierHero, {
         name: 'No Tenure',
@@ -58,6 +60,9 @@ describe('SupplierHero member since', () => {
         supplierSinceDate: null,
       }),
     );
-    expect(html).not.toMatch(/MEMBER SINCE/);
+    // The tile still renders, but with no year claimed and the "New member"
+    // hint — the supplier has no tenure to show.
+    expect(html).toMatch(/On VYRO since/);
+    expect(html).toMatch(/New member/);
   });
 });

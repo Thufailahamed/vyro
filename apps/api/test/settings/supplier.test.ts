@@ -101,7 +101,7 @@ describe('settings supplier routes', () => {
     expect(res.status).toBe(404);
   });
 
-  it('sales role gets 404 (only owner/manager allowed)', async () => {
+  it('sales role gets 404 (only owner/operations allowed)', async () => {
     setMember('sales');
     const app = buildApp();
     const res = await app.fetch(new Request('http://localhost/api/suppliers/sup-1/settings'), env);
@@ -118,8 +118,8 @@ describe('settings supplier routes', () => {
     expect(body.settings.payoutMethod).toBeNull();
   });
 
-  it('manager can PATCH company fields', async () => {
-    setMember('manager');
+  it('operations role can PATCH company fields', async () => {
+    setMember('operations');
     const app = buildApp();
     const init: RequestInit = {
       method: 'PATCH',

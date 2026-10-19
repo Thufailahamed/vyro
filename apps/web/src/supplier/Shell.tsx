@@ -81,6 +81,7 @@ const NAV_GROUPS: SupplierNavGroup[] = [
     items: [
       { to: '/supplier/analytics', label: 'Analytics', icon: TrendingUpIcon },
       { to: '/supplier/customers', label: 'Customers', icon: UsersIcon },
+      { to: '/supplier/sponsored', label: 'Sponsored', icon: SparklesIcon },
       { to: '/supplier/settings', label: 'Facility Settings', icon: SettingsIcon },
     ],
   },

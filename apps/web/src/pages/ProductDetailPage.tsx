@@ -90,7 +90,10 @@ export function ProductDetailPage() {
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['product', id],
+    // Distinct key from the supplier form's `['product', id]` (which reads
+    // /products/:id). Sharing a key across two different response envelopes
+    // made each page read the other's shape out of the cache.
+    queryKey: ['product-offers', id],
     queryFn: () =>
       api.get<{
         product: {

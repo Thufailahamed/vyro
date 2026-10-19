@@ -99,7 +99,7 @@ describe('GET /api/payments?supplierId=', () => {
   });
 
   it('returns rows', async () => {
-    state.member = { role: 'manager' };
+    state.member = { role: 'owner' };
     state.rows = [
       { id: 'pay-1', purchaseOrderId: 'po-1', supplierId: 'sup-1', amountCents: 10000, status: 'pending', createdAt: 2000 },
     ];

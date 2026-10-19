@@ -86,7 +86,8 @@ export function useInvoices(supplierId: string, status?: string) {
 export function usePayInvoice(supplierId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => sponsoredApi.payInvoice(id, supplierId),
+    mutationFn: (vars: { id: string; reference: string }) =>
+      sponsoredApi.payInvoice(vars.id, supplierId, vars.reference),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sponsored', 'invoices', supplierId] }),
   });
 }

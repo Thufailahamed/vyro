@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { cn } from '@vyro/ui';
 import { Link } from 'react-router-dom';
 import { useCrmSummary, useLeads } from '../useLeadManager';
@@ -34,6 +34,13 @@ export function LeadsPage() {
 
   const summary = useCrmSummary(supplierId);
   const leads = useLeads(supplierId, filter);
+  // Flatten the infinite pages so "Load older leads" appends instead of
+  // replacing the list.
+  const leadRows: LeadRow[] = useMemo(
+    () => (leads.data?.pages ?? []).flatMap((p) => p.leads),
+    [leads.data],
+  );
+  const leadCursor = leads.data?.pages?.[leads.data.pages.length - 1]?.nextCursor ?? null;
 
   // Note: supplier context is guaranteed by SupplierShell (renders
   // NoSupplierMembership when absent) — useSupplierId throws otherwise,
@@ -219,7 +226,7 @@ export function LeadsPage() {
         <div className="flex items-center gap-3 text-xs text-ink-4">
           {leads.data ? (
             <span>
-              <strong className="font-semibold text-ink">{leads.data.leads.length}</strong> {leads.data.leads.length === 1 ? 'lead' : 'leads'}
+              <strong className="font-semibold text-ink">{leadRows.length}</strong> {leadRows.length === 1 ? 'lead' : 'leads'}
               {hasActiveFilters ? ' match' : ''}
             </span>
           ) : null}
@@ -270,7 +277,7 @@ export function LeadsPage() {
               </button>
             </div>
           </div>
-        ) : (leads.data?.leads ?? []).length === 0 ? (
+        ) : leadRows.length === 0 ? (
           <EmptyState
             icon={<TargetIcon size={24} />}
             title={hasActiveFilters ? 'No matching leads' : 'No buyer leads yet'}
@@ -303,7 +310,7 @@ export function LeadsPage() {
             </div>
 
             <ul className="divide-y divide-ink/[0.06]">
-              {(leads.data?.leads ?? []).map((l: LeadRow) => {
+              {leadRows.map((l: LeadRow) => {
                 const meta = l.tag ? TAG_META[l.tag] : null;
                 return (
                   <li key={l.id}>
@@ -368,18 +375,20 @@ export function LeadsPage() {
           </div>
         )}
 
-        {leads.data?.nextCursor && (
+        {leadCursor ? (
           <div className="mt-4 flex justify-center">
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => setFilter({ ...filter, cursor: leads.data!.nextCursor ?? undefined })}
+              loading={leads.isFetchingNextPage}
+              disabled={leads.isFetchingNextPage}
+              onClick={() => void leads.fetchNextPage()}
               className="text-xs font-semibold"
             >
               Load older leads
             </Button>
           </div>
-        )}
+        ) : null}
       </section>
 
       {/* Drawer */}

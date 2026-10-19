@@ -26,7 +26,7 @@
     "@vyro/shared": "workspace:*",
     "@vyro/validation": "workspace:*",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.6.0",
+    "hono": "^4.13.7",
     "pdf-lib": "^1.17.1",
     "resend": "^6.30.0",
     "uuid": "^11.0.0",

@@ -42,7 +42,10 @@ router.get('/products', async (c) => {
   const db = getDb(c.env.DB);
   const qStr = parsed.data.q.trim().toLowerCase();
 
-  const conds: any[] = [isNull(products.deletedAt)];
+  // Only live catalog rows are searchable. The AI product-upload path creates
+  // products with `active = false` and relies on an admin activating them, so
+  // a moderation block has to actually hide the product from the marketplace.
+  const conds: any[] = [isNull(products.deletedAt), eq(products.active, true as never)];
   if (qStr) {
     conds.push(sql`lower(${products.name}) like ${`%${qStr}%`}`);
   }

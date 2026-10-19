@@ -83,24 +83,32 @@ export const supplierTaxSchema = z
   })
   .strict();
 
+/**
+ * Facility settings patch.
+ *
+ * Text fields are nullable: omitting a key leaves the stored value alone,
+ * sending `null` clears it. Without the nullable variant a supplier could
+ * never empty a field — the web sent `undefined` for an empty input, which
+ * the server read as "no change".
+ */
 export const supplierSettingsPatchSchema = z
   .object({
-    companyName: supplierCompanySchema.shape.companyName,
-    registrationNo: supplierCompanySchema.shape.registrationNo,
-    taxId: supplierCompanySchema.shape.taxId,
-    contactEmail: supplierCompanySchema.shape.contactEmail,
-    contactPhone: supplierCompanySchema.shape.contactPhone,
-    warehouseAddress: supplierWarehouseSchema.shape.warehouseAddress,
-    warehouseCity: supplierWarehouseSchema.shape.warehouseCity,
-    warehouseDistrict: supplierWarehouseSchema.shape.warehouseDistrict,
-    warehouseLat: supplierWarehouseSchema.shape.warehouseLat,
-    warehouseLng: supplierWarehouseSchema.shape.warehouseLng,
-    defaultLeadTimeDays: supplierWarehouseSchema.shape.defaultLeadTimeDays,
-    payoutMethod: supplierPayoutsSchema.shape.payoutMethod,
-    bankName: supplierPayoutsSchema.shape.bankName,
-    bankAccountNo: supplierPayoutsSchema.shape.bankAccountNo,
-    bankBranch: supplierPayoutsSchema.shape.bankBranch,
-    bankAccountHolder: supplierPayoutsSchema.shape.bankAccountHolder,
+    companyName: z.string().min(1).max(120).nullable().optional(),
+    registrationNo: z.string().max(60).nullable().optional(),
+    taxId: z.string().max(60).nullable().optional(),
+    contactEmail: z.string().email().nullable().optional(),
+    contactPhone: z.string().min(6).max(20).nullable().optional(),
+    warehouseAddress: z.string().min(1).max(200).nullable().optional(),
+    warehouseCity: z.string().min(1).max(80).nullable().optional(),
+    warehouseDistrict: z.string().min(1).max(80).nullable().optional(),
+    warehouseLat: z.number().min(-90).max(90).nullable().optional(),
+    warehouseLng: z.number().min(-180).max(180).nullable().optional(),
+    defaultLeadTimeDays: z.number().int().min(0).max(365).nullable().optional(),
+    payoutMethod: z.union([z.literal('bank'), z.literal('cash')]).nullable().optional(),
+    bankName: z.string().max(120).nullable().optional(),
+    bankAccountNo: z.string().max(60).nullable().optional(),
+    bankBranch: z.string().max(120).nullable().optional(),
+    bankAccountHolder: z.string().max(120).nullable().optional(),
     notifyNewOrders: supplierNotificationsSchema.shape.notifyNewOrders,
     notifyLowStock: supplierNotificationsSchema.shape.notifyLowStock,
     notifyPaymentReceived: supplierNotificationsSchema.shape.notifyPaymentReceived,

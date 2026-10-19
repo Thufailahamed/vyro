@@ -101,14 +101,40 @@ export function SupplierInventoryPage() {
   };
 
   const setStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: Offer['availabilityStatus'] }) =>
-      api.patch(`/supplier-products/${id}`, { availabilityStatus: status }),
+    mutationFn: async ({ id, status }: { id: string; status: Offer['availabilityStatus'] }) => {
+      const offer = list.find((o) => o.id === id);
+      // When the offer tracks inventory the platform derives availability from
+      // the stock count, so PATCHing `availabilityStatus` was ignored and the
+      // pill silently snapped back on the next refetch. Write through the
+      // stock ledger instead so the chosen state is the one that sticks.
+      if (offer?.trackInventory) {
+        const threshold = offer.lowStockThreshold ?? 0;
+        const current = offer.stockQty ?? 0;
+        const quantity =
+          status === 'out_of_stock'
+            ? 0
+            : status === 'low'
+              ? threshold > 0
+                ? threshold
+                : Math.max(current, 1)
+              : Math.max(current, threshold + 1, 1);
+        await api.post<{ offer: Offer }>(`/supplier-products/${id}/stock`, {
+          mode: 'set',
+          quantity,
+          trackInventory: true,
+          note: `Availability set to ${LABEL[status]}`,
+        });
+        return;
+      }
+      await api.patch(`/supplier-products/${id}`, { availabilityStatus: status });
+    },
     onSuccess: (_, variables) => {
       toast.success(`Updated stock to ${LABEL[variables.status]}`);
       void qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'offers'] });
+      void qc.invalidateQueries({ queryKey: ['stock-movements'] });
     },
-    onError: () => {
-      toast.error('Failed to update stock status');
+    onError: (err: any) => {
+      toast.error(err?.message ?? 'Failed to update stock status');
     },
   });
 
@@ -118,7 +144,9 @@ export function SupplierInventoryPage() {
     onSuccess: () => {
       toast.success('Stock updated');
       void qc.invalidateQueries({ queryKey: ['supplier', supplierId, 'offers'] });
-      void qc.invalidateQueries({ queryKey: ['stock-movements', stockOfferId] });
+      // Prefix — the open ledger drawer may be showing a different offer than
+      // the one that was just edited.
+      void qc.invalidateQueries({ queryKey: ['stock-movements'] });
     },
     onError: (err: any) => toast.error(err?.message ?? 'Stock update failed'),
   });

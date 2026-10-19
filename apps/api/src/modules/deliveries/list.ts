@@ -19,14 +19,23 @@ router.get('/', async (c) => {
   }
   const cursorRaw = c.req.query('cursor');
   const cursor = cursorRaw ? Number(cursorRaw) : undefined;
+  const limitRaw = c.req.query('limit');
+  const limit = limitRaw ? Number(limitRaw) : undefined;
+  if (cursor !== undefined && !Number.isFinite(cursor)) {
+    throw httpError(400, 'VALIDATION_ERROR', 'Invalid cursor');
+  }
+  if (limit !== undefined && (!Number.isFinite(limit) || limit < 1)) {
+    throw httpError(400, 'VALIDATION_ERROR', 'Invalid limit');
+  }
   const status = c.req.query('status');
-  const items = await listDeliveriesForSupplier(
+  const { items, nextCursor } = await listDeliveriesForSupplier(
     c.env.DB,
     supplierId,
     cursor,
     status,
+    limit,
   );
-  return c.json({ items });
+  return c.json({ items, nextCursor });
 });
 
 export default router;

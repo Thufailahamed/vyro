@@ -7,6 +7,7 @@ import { FeedbackButtons } from './components/FeedbackButtons';
 import { Button } from '@/components/ui';
 import { Surface } from '@/components/brand/Surface';
 import { useAuth } from '@/lib/auth';
+import { apiBase } from '@/lib/api';
 import { usePageTitle } from '@/lib/usePageTitle';
 import {
   SparklesIcon,
@@ -185,7 +186,7 @@ export function AskPage() {
   const inConversation = state.turns.length > 0;
 
   useEffect(() => {
-    fetch((import.meta.env.VITE_API_URL?.replace(/\/$/, '') || '') + '/api/ai/suggestions', {
+    fetch(apiBase + '/ai/suggestions', {
       credentials: 'include',
     })
       .then((r) => (r.ok ? r.json() : null))

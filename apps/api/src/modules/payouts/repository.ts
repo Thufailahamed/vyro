@@ -95,7 +95,11 @@ export async function aggregatePayableForSupplier(
   );
 
   return {
-    amountCents: sum.netCents,
+    // Gross collected from buyers = net paid to the supplier + the platform
+    // commission deducted from it. Returning `amount === net` while also
+    // reporting a non-zero fee made the row read as if the fee were charged
+    // on top of the amount that was actually paid out.
+    amountCents: sum.netCents + sum.feeCents,
     feeCents: sum.feeCents,
     netCents: sum.netCents, // supplier receives net (we've already subtracted platform fee)
     paymentCount: paymentIds.length,

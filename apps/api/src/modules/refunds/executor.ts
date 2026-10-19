@@ -257,11 +257,18 @@ export async function finalizeRefund(
   // Refund accounting (finance spec §20): reverse the business credit, reverse
   // the platform fee pro-rata, shrink the supplier earning by the refunded
   // amount and record the supplier-side adjustment.
+  //
+  // The buyer's gross refund is `refund.amountCents`. The platform returns its
+  // fee share (`fee`) out of its own revenue, so the part that came out of the
+  // supplier's money is `netRefund = refund.amountCents - fee`. Both the
+  // business and the supplier were credited/debited only their NET amounts, so
+  // reversing the full gross amount over-charged them by the fee share.
   let fee = refund.feeRefundCents ?? 0;
   if (fee === 0 && payment.feeCents > 0) {
     fee = feeShare(payment, refund.amountCents);
     await db.update(refunds).set({ feeRefundCents: fee }).where(eq(refunds.id, refund.id)).run();
   }
+  const netRefund = refund.amountCents - fee;
   if (opts.providerReference) {
     await db.update(refunds).set({ providerReference: opts.providerReference }).where(eq(refunds.id, refund.id)).run();
   }
@@ -270,7 +277,7 @@ export async function finalizeRefund(
       accountType: 'business',
       accountId: po.businessId,
       direction: 'debit',
-      amountCents: refund.amountCents,
+      amountCents: netRefund,
       currency: refund.currency,
       refType: 'refund',
       refId: refund.id,
@@ -317,11 +324,13 @@ export async function finalizeRefund(
       const { applyEarningRefundDelta } = await import('../finance/repository');
       const updated = await applyEarningRefundDelta(d1, payment.id, po.supplierId, refund.amountCents, fee);
       if (updated) {
+        // The earning's net falls by (refund − feeShare): the platform returns
+        // its commission share, so only the net leaves the supplier's balance.
         await writeLedgerEntry(db, {
           accountType: 'supplier',
           accountId: po.supplierId,
           direction: 'debit',
-          amountCents: refund.amountCents,
+          amountCents: netRefund,
           currency: refund.currency,
           refType: 'refund',
           refId: refund.id,

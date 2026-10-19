@@ -1,6 +1,6 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
-import { supplierProducts, auditLogs } from '@vyro/db/schema';
+import { supplierProducts, auditLogs, products } from '@vyro/db/schema';
 import { newId } from '@vyro/shared';
 
 export async function listOffersForProduct(d1: D1Database, productId: string) {
@@ -15,6 +15,33 @@ export async function listOffersForSupplier(d1: D1Database, supplierId: string) 
   return db.select().from(supplierProducts)
     .where(and(eq(supplierProducts.supplierId, supplierId), isNull(supplierProducts.deletedAt)))
     .all();
+}
+
+/**
+ * The supplier's own listings, joined with the catalog product.
+ *
+ * The web used to resolve product names from a separate, globally truncated
+ * catalog read (`/products?limit=500`, no ordering), so once the catalog grew
+ * past 500 rows a supplier's newest listings fell outside that window and
+ * rendered as "Standard commodity" with no brand, unit or photo.
+ */
+export async function listOffersForSupplierWithProducts(d1: D1Database, supplierId: string) {
+  const db = getDb(d1);
+  const rows = await db
+    .select({
+      offer: supplierProducts,
+      productName: products.name,
+      productBrand: products.brand,
+      productUnit: products.unit,
+      productPackSize: products.packSize,
+      productCategoryId: products.categoryId,
+    })
+    .from(supplierProducts)
+    .innerJoin(products, eq(products.id, supplierProducts.productId))
+    .where(and(eq(supplierProducts.supplierId, supplierId), isNull(supplierProducts.deletedAt)))
+    .orderBy(desc(supplierProducts.updatedAt))
+    .all();
+  return rows;
 }
 
 export async function findOffer(d1: D1Database, id: string) {
@@ -53,7 +80,7 @@ export async function createOffer(
   input: {
     supplierId: string;
     productId: string;
-    supplierSku?: string | undefined;
+    supplierSku?: string | null | undefined;
     priceCents: number;
     minOrderQty?: number | undefined;
     leadTimeDays?: number | undefined;
@@ -119,6 +146,35 @@ export async function updateOffer(
 export async function softDeleteOffer(d1: D1Database, id: string) {
   const db = getDb(d1);
   await db.update(supplierProducts).set({ deletedAt: Date.now(), active: false, updatedAt: Date.now() }).where(eq(supplierProducts.id, id));
+}
+
+/**
+ * Revives a soft-deleted listing with new terms. The unique index on
+ * (supplierId, productId) still holds the archived row, so re-listing the
+ * same product has to reuse it rather than insert a duplicate.
+ */
+export async function reviveOffer(
+  d1: D1Database,
+  id: string,
+  input: {
+    supplierSku?: string | null | undefined;
+    priceCents?: number | undefined;
+    minOrderQty?: number | undefined;
+    leadTimeDays?: number | undefined;
+    deliveryAvailable?: boolean | undefined;
+    deliveryRadiusKm?: number | null | undefined;
+    availabilityStatus?: 'in_stock' | 'low' | 'out_of_stock' | undefined;
+    stockQty?: number | undefined;
+    lowStockThreshold?: number | undefined;
+    trackInventory?: boolean | undefined;
+  } & TierFields,
+) {
+  const db = getDb(d1);
+  const patch: Record<string, unknown> = { deletedAt: null, active: true, updatedAt: Date.now() };
+  for (const [k, v] of Object.entries(input)) {
+    if (v !== undefined) patch[k] = v;
+  }
+  await db.update(supplierProducts).set(patch).where(eq(supplierProducts.id, id));
 }
 
 export async function recordAudit(

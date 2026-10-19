@@ -31,6 +31,17 @@ export function isAdmin(ctx: SessionContext): boolean {
 }
 
 /**
+ * Every role a supplier member can hold (mirrors `supplier_members.role`).
+ *
+ * Use this list for *read* access to a supplier's own data. Several modules
+ * used their own allowlists that named roles which do not exist ('manager',
+ * 'ops', 'finance') and omitted real ones ('operations') — which locked
+ * operations staff out of Learning, Sponsored, Analytics, Customers and
+ * Facility Settings.
+ */
+export const SUPPLIER_ROLES = ['owner', 'sales', 'operations'] as const;
+
+/**
  * Returns true if the session is bound to the given business (active membership).
  * Admins always return true.
  */

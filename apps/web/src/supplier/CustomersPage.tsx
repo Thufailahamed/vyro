@@ -119,7 +119,11 @@ export function SupplierCustomersPage() {
   const [openId, setOpenId] = useState<string | null>(null);
 
   const customers = useInfiniteQuery({
-    queryKey: ['supplier', supplierId, 'customers'],
+    // Distinct key from the dashboard's plain `['supplier', id, 'customers']`
+    // query: sharing a key between a useQuery and a useInfiniteQuery made each
+    // page read the other's cache shape ({items} vs {pages}) — the list page
+    // rendered "no customers" while the dashboard showed them.
+    queryKey: ['supplier', supplierId, 'customers', 'infinite'],
     queryFn: ({ pageParam }: { pageParam: string | null }) =>
       api.get<{ items: Customer[]; nextCursor: string | null }>(
         `/suppliers/${supplierId}/customers?limit=50${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,

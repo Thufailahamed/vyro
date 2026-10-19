@@ -2,6 +2,7 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
 import { businesses, purchaseOrders, supplierMembers } from '@vyro/db/schema';
 import { httpError } from '../../lib/errors';
+import { SUPPLIER_ROLES } from '@vyro/auth';
 
 export type CustomerSummary = {
   businessId: string;
@@ -22,7 +23,7 @@ export async function ensureSupplierMember(
     .from(supplierMembers)
     .where(and(eq(supplierMembers.supplierId, supplierId), eq(supplierMembers.userId, userId)))
     .get();
-  if (!m || !['owner', 'manager', 'sales'].includes(m.role)) {
+  if (!m || !SUPPLIER_ROLES.includes(m.role as (typeof SUPPLIER_ROLES)[number])) {
     throw httpError(404, 'NOT_FOUND', 'Supplier not found');
   }
 }

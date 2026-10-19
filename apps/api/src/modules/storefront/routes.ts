@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { Ctx } from '../../middleware/session';
+import { session } from '../../middleware/session';
 import type { Env } from '../../env';
 import { httpError } from '../../lib/errors';
 import { updateSupplierSlugSchema } from '@vyro/validation';
@@ -14,7 +15,7 @@ function ctxOf(c: { get(k: string): unknown }): Ctx {
   return ctx;
 }
 
-router.patch('/suppliers/me/slug', async (c) => {
+router.patch('/suppliers/me/slug', session(), async (c) => {
   const ctx = ctxOf(c);
   const supplierId = ctx.suppliers?.[0]?.supplierId;
   if (!supplierId) throw httpError(403, 'FORBIDDEN', 'Supplier only');

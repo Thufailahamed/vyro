@@ -43,6 +43,13 @@ type Offer = {
   tier2DiscountPct?: number;
   tier3MinQty?: number;
   tier3DiscountPct?: number;
+  // Catalog product resolved server-side — the listing must not depend on a
+  // truncated global catalog read for its own name/brand/unit/photo.
+  productName?: string | null;
+  productBrand?: string | null;
+  productUnit?: string | null;
+  productPackSize?: string | null;
+  productImageUrl?: string | null;
 };
 
 type Product = {
@@ -79,7 +86,7 @@ export function SupplierProductsPage() {
 
   const catalog = useQuery({
     queryKey: ['products', 'catalog'],
-    queryFn: () => api.get<{ products: Product[] }>('/products?limit=500'),
+    queryFn: () => api.get<{ products: Product[] }>('/products?limit=200'),
   });
 
   const del = useMutation({
@@ -97,6 +104,27 @@ export function SupplierProductsPage() {
     [catalog.data],
   );
 
+  /**
+   * Resolve a listing's product: the server-resolved copy first, then the
+   * (truncated) catalog map as a fallback for older cached responses.
+   */
+  const productFor = useMemo(() => {
+    return (o: Offer): Product | null => {
+      if (o.productName) {
+        return {
+          id: o.productId,
+          name: o.productName,
+          description: null,
+          brand: o.productBrand ?? null,
+          unit: o.productUnit ?? null,
+          packSize: o.productPackSize ?? null,
+          imageUrl: o.productImageUrl ?? null,
+        };
+      }
+      return nameMap.get(o.productId) ?? null;
+    };
+  }, [nameMap]);
+
   const list = offers.data?.offers ?? [];
   const catalogProducts = catalog.data?.products ?? [];
 
@@ -108,7 +136,7 @@ export function SupplierProductsPage() {
 
   const filteredList = useMemo(() => {
     return list.filter((o) => {
-      const p = nameMap.get(o.productId);
+      const p = productFor(o);
       const matchesSearch =
         !searchQuery ||
         p?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -399,7 +427,7 @@ export function SupplierProductsPage() {
                   </thead>
                   <tbody className="divide-y divide-ink/[0.05]">
                     {filteredList.map((o) => {
-                      const p = nameMap.get(o.productId);
+                      const p = productFor(o);
                       const hasTiers =
                         (o.tier1DiscountPct ?? 0) > 0 ||
                         (o.tier2DiscountPct ?? 0) > 0 ||

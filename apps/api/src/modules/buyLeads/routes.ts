@@ -49,8 +49,10 @@ router.get('/', async (c) => {
 
 router.put('/', async (c) => {
   const { supplierId } = requireSupplier(c);
-  const body = buyLeadsSubscriptionSchema.parse(await c.req.json().catch(() => null));
-  const sub = await buyLeads.updateMySubscription(c.env.DB, supplierId, body);
+  // `.parse()` throws a ZodError → 500. Use safeParse so bad input is a 400.
+  const parsed = buyLeadsSubscriptionSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
+  const sub = await buyLeads.updateMySubscription(c.env.DB, supplierId, parsed.data);
   return c.json(sub);
 });
 

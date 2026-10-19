@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '@vyro/db';
 import { supplierMembers } from '@vyro/db/schema';
+import { SUPPLIER_ROLES } from '@vyro/auth';
 
 export async function requireSupplierMember(
   d1: D1Database,
@@ -11,9 +12,15 @@ export async function requireSupplierMember(
   const m = await db
     .select({ role: supplierMembers.role })
     .from(supplierMembers)
-    .where(and(eq(supplierMembers.supplierId, supplierId), eq(supplierMembers.userId, userId)))
+    .where(
+      and(
+        eq(supplierMembers.supplierId, supplierId),
+        eq(supplierMembers.userId, userId),
+        eq(supplierMembers.status, 'active'),
+      ),
+    )
     .get();
-  if (!m || !['owner', 'manager', 'sales'].includes(m.role)) {
+  if (!m || !SUPPLIER_ROLES.includes(m.role as (typeof SUPPLIER_ROLES)[number])) {
     throw new Error('FORBIDDEN');
   }
 }

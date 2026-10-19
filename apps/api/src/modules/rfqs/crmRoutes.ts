@@ -50,12 +50,16 @@ const crmMutate = rateLimit({ key: 'crm-mutate', limit: 60, window: 60 });
 
 router.get('/leads', async (c) => {
   const { supplierId } = requireSupplier(c);
-  const filter = leadsListQuerySchema.parse({
+  // `.parse()` throws a ZodError, which the error envelope maps to 500.
+  // Use safeParse so a bad query string is a 400.
+  const filterParsed = leadsListQuerySchema.safeParse({
     ...c.req.query(),
     from: c.req.query('from') ? Number(c.req.query('from')) : undefined,
     to: c.req.query('to') ? Number(c.req.query('to')) : undefined,
     limit: c.req.query('limit') ? Number(c.req.query('limit')) : undefined,
   });
+  if (!filterParsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', filterParsed.error.flatten());
+  const filter = filterParsed.data;
   const result = await crm.crmList(c.env.DB, supplierId, filter);
   return c.json(result);
 });
@@ -70,7 +74,9 @@ router.get('/leads/:id', async (c) => {
 router.patch('/leads/:id/tag', crmMutate, async (c) => {
   const { ctx, supplierId } = requireSupplier(c);
   const leadId = c.req.param('id');
-  const body = setTagSchema.parse(await c.req.json().catch(() => null));
+  const tagBody = setTagSchema.safeParse(await c.req.json().catch(() => null));
+  if (!tagBody.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', tagBody.error.flatten());
+  const body = tagBody.data;
   try {
     await crm.crmSetTag(c.env.DB, supplierId, leadId, body.tag);
   } catch (e) {
@@ -89,7 +95,9 @@ router.patch('/leads/:id/tag', crmMutate, async (c) => {
 router.patch('/leads/:id/status', crmMutate, async (c) => {
   const { ctx, supplierId } = requireSupplier(c);
   const leadId = c.req.param('id');
-  const body = setStatusSchema.parse(await c.req.json().catch(() => null));
+  const statusBody = setStatusSchema.safeParse(await c.req.json().catch(() => null));
+  if (!statusBody.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', statusBody.error.flatten());
+  const body = statusBody.data;
   try {
     await crm.crmSetStatus(c.env.DB, supplierId, leadId, body.status);
   } catch (e) {
@@ -110,7 +118,9 @@ router.patch('/leads/:id/status', crmMutate, async (c) => {
 router.post('/leads/:id/notes', crmMutate, async (c) => {
   const { ctx, supplierId } = requireSupplier(c);
   const leadId = c.req.param('id');
-  const body = addNoteSchema.parse(await c.req.json().catch(() => null));
+  const noteBody = addNoteSchema.safeParse(await c.req.json().catch(() => null));
+  if (!noteBody.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', noteBody.error.flatten());
+  const body = noteBody.data;
   try {
     const note = await crm.crmAddNote(c.env.DB, supplierId, leadId, ctx.userId, body.body);
     await recordAudit(c.env.DB, {

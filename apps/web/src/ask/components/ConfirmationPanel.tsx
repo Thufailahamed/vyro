@@ -38,7 +38,7 @@ export function ConfirmationPanel({ card }: ConfirmationCardProps) {
     setError(null);
     try {
       const result = await api.post<{ poRef?: string }>(
-        '/api/ai/confirm',
+        '/ai/confirm',
         { items: card.data.items },
         { idempotencyKey: card.data.idempotencyKey },
       );

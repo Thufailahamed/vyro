@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import type { Ctx } from '../../middleware/session';
+import { session, type Ctx } from '../../middleware/session';
 import { httpError, type ErrorCode } from '../../lib/errors';
 import type { Env } from '../../env';
 import {
@@ -24,21 +24,16 @@ const router = new Hono<{ Bindings: Env }>();
 
 router.use('/reviews*', rateLimit({ key: 'reviews-mutate', limit: 60, window: 60 }));
 
-function ctxOf(c: { get(k: string): unknown }): Ctx {
-  const ctx = c.get('ctx') as Ctx | undefined;
-  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
-  return ctx;
-}
-
 async function isReviewsEnabled(d1: D1Database): Promise<boolean> {
   const section = await cfgSvc.read(d1, 'feature_flags');
   const value = (section.value ?? {}) as Record<string, unknown>;
   return value['REVIEWS_ENABLED'] !== false; // default ON when flag absent
 }
 
-router.post('/reviews', async (c) => {
+router.post('/reviews', session(), async (c) => {
   if (!(await isReviewsEnabled(c.env.DB))) throw httpError(404, 'NOT_FOUND', 'Reviews disabled');
-  const ctx = ctxOf(c);
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const parsed = submitReviewSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
   const allowedBusinessIds = ctx.businesses.map((b) => b.businessId).filter((x): x is string => !!x);
@@ -119,9 +114,10 @@ router.get('/suppliers/:id/review-summary', async (c) => {
   });
 });
 
-router.post('/suppliers/:id/reviews/:reviewId/reply', async (c) => {
+router.post('/suppliers/:id/reviews/:reviewId/reply', session(), async (c) => {
   if (!(await isReviewsEnabled(c.env.DB))) throw httpError(404, 'NOT_FOUND', 'Reviews disabled');
-  const ctx = ctxOf(c);
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const supplierId = c.req.param('id');
   if (!hasSupplierAccess(ctx, supplierId)) throw httpError(403, 'FORBIDDEN', 'Not supplier owner');
   const parsed = replySchema.safeParse(await c.req.json().catch(() => null));
@@ -140,9 +136,10 @@ router.post('/suppliers/:id/reviews/:reviewId/reply', async (c) => {
   }
 });
 
-router.patch('/suppliers/:id/reviews/:reviewId/flag', async (c) => {
+router.patch('/suppliers/:id/reviews/:reviewId/flag', session(), async (c) => {
   if (!(await isReviewsEnabled(c.env.DB))) throw httpError(404, 'NOT_FOUND', 'Reviews disabled');
-  const ctx = ctxOf(c);
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const supplierId = c.req.param('id');
   if (!hasSupplierAccess(ctx, supplierId)) throw httpError(403, 'FORBIDDEN', 'Not supplier owner');
   const parsed = flagSchema.safeParse(await c.req.json().catch(() => null));
@@ -161,8 +158,9 @@ router.patch('/suppliers/:id/reviews/:reviewId/flag', async (c) => {
   }
 });
 
-router.get('/admin/reviews/flags', async (c) => {
-  const ctx = ctxOf(c);
+router.get('/admin/reviews/flags', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   if (!ctx.adminRole && !ctx.isAdmin) throw httpError(403, 'FORBIDDEN', 'Admin only');
   const q = adminFlagsQuerySchema.safeParse(c.req.query());
   if (!q.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid query', q.error.flatten());
@@ -170,8 +168,9 @@ router.get('/admin/reviews/flags', async (c) => {
   return c.json({ flags });
 });
 
-router.post('/admin/reviews/flags/:flagId/resolve', async (c) => {
-  const ctx = ctxOf(c);
+router.post('/admin/reviews/flags/:flagId/resolve', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   if (!ctx.adminRole && !ctx.isAdmin) throw httpError(403, 'FORBIDDEN', 'Admin only');
   const parsed = resolveFlagSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
@@ -185,8 +184,9 @@ router.post('/admin/reviews/flags/:flagId/resolve', async (c) => {
   }
 });
 
-router.get('/admin/reviews/flag-burst', async (c) => {
-  const ctx = ctxOf(c);
+router.get('/admin/reviews/flag-burst', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   if (!ctx.adminRole && !ctx.isAdmin) throw httpError(403, 'FORBIDDEN', 'Admin only');
   const windowHours = Number(c.req.query('windowHours') ?? '24');
   const minCount = Number(c.req.query('minCount') ?? '3');
@@ -196,8 +196,9 @@ router.get('/admin/reviews/flag-burst', async (c) => {
   return c.json({ windowHours, minCount: min, items });
 });
 
-router.delete('/admin/reviews/:reviewId', async (c) => {
-  const ctx = ctxOf(c);
+router.delete('/admin/reviews/:reviewId', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   if (!ctx.adminRole && !ctx.isAdmin) throw httpError(403, 'FORBIDDEN', 'Admin only');
   // Read supplierId first to recompute aggregate after delete.
   const review = await repo.findReviewById(c.env.DB, c.req.param('reviewId'));
@@ -208,18 +209,20 @@ router.delete('/admin/reviews/:reviewId', async (c) => {
   return c.json({ ok: true });
 });
 
-router.get('/orders/:id/eligibility', async (c) => {
+router.get('/orders/:id/eligibility', session(), async (c) => {
   if (!(await isReviewsEnabled(c.env.DB))) return c.json({ canReview: false, reason: 'disabled' });
-  const ctx = ctxOf(c);
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const allowedBusinessIds = ctx.businesses.map((b) => b.businessId).filter((x): x is string => !!x);
   const orderId = c.req.param('id');
   const result = await svc.checkEligibility(c.env.DB, orderId, { userId: ctx.userId, allowedBusinessIds, role: 'buyer' });
   return c.json({ canReview: result.canReview, reason: result.reason });
 });
 
-router.patch('/reviews/:id', async (c) => {
+router.patch('/reviews/:id', session(), async (c) => {
   if (!(await isReviewsEnabled(c.env.DB))) throw httpError(404, 'NOT_FOUND', 'Reviews disabled');
-  const ctx = ctxOf(c);
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const parsed = editReviewSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid input', parsed.error.flatten());
   const allowedBusinessIds = ctx.businesses.map((b) => b.businessId).filter((x): x is string => !!x);
@@ -236,9 +239,10 @@ router.patch('/reviews/:id', async (c) => {
   }
 });
 
-router.delete('/reviews/:id', async (c) => {
+router.delete('/reviews/:id', session(), async (c) => {
   if (!(await isReviewsEnabled(c.env.DB))) throw httpError(404, 'NOT_FOUND', 'Reviews disabled');
-  const ctx = ctxOf(c);
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const allowedBusinessIds = ctx.businesses.map((b) => b.businessId).filter((x): x is string => !!x);
   try {
     await svc.deleteReviewByBuyer(c.env.DB, c.req.param('id'), { userId: ctx.userId, allowedBusinessIds });
@@ -250,8 +254,9 @@ router.delete('/reviews/:id', async (c) => {
   }
 });
 
-router.post('/reviews/:id/helpful', async (c) => {
-  const ctx = ctxOf(c);
+router.post('/reviews/:id/helpful', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   try {
     await svc.toggleHelpful(c.env.DB, c.req.param('id'), ctx.userId, true);
     analytics.emit('review_helpful', { reviewId: c.req.param('id'), on: true });
@@ -262,8 +267,9 @@ router.post('/reviews/:id/helpful', async (c) => {
   }
 });
 
-router.delete('/reviews/:id/helpful', async (c) => {
-  const ctx = ctxOf(c);
+router.delete('/reviews/:id/helpful', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
   try {
     await svc.toggleHelpful(c.env.DB, c.req.param('id'), ctx.userId, false);
     return c.json({ ok: true });
@@ -273,9 +279,9 @@ router.delete('/reviews/:id/helpful', async (c) => {
   }
 });
 
-router.post('/reviews/images/upload-direct', async (c) => {
+router.post('/reviews/images/upload-direct', session(), async (c) => {
   if (!(await isReviewsEnabled(c.env.DB))) throw httpError(404, 'NOT_FOUND', 'Reviews disabled');
-  ctxOf(c);
+  if (!c.get('ctx')) throw httpError(401, 'UNAUTHORIZED', 'No session');
   const form = await c.req.parseBody();
   const file = form['file'];
   if (!(file instanceof File)) throw httpError(400, 'VALIDATION_ERROR', 'file required');

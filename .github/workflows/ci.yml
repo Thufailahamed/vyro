@@ -70,3 +70,19 @@ jobs:
           version: 9
       - run: pnpm install --frozen-lockfile
       - run: pnpm audit:secrets
+
+  route-crosscheck:
+    # Every API path the SPA calls must exist on the Worker. Catches
+    # client/server route drift (e.g. a double base prefix or a renamed
+    # endpoint) that would otherwise only surface at runtime.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/route-crosscheck.mjs .

@@ -15,9 +15,13 @@ export function QuoteRequestsPage() {
   usePageTitle('Quote requests');
   const { supplierId } = useSupplierId();
   const [filter, setFilter] = useState<'all' | 'new' | 'viewed' | 'in_progress' | 'submitted' | 'expiring' | 'expired' | 'awarded' | 'not_selected'>('all');
+  const PAGE_SIZE = 100;
   const { data, isLoading } = useQuery({
     queryKey: ['supplier-rfqs', supplierId],
-    queryFn: () => api.get<{ rfqs: Array<{ rfq: { id: string; rfqNumber: string; title: string; status: string; deadline: number | null; deliveryLocation?: string; requiredDeliveryDate?: number }; itemCount: number; myQuotes: number; myStatus: string | null; inviteStatus: string | null; expiringSoon: boolean }> }>(`/rfqs/supplier/list?supplierId=${supplierId}`),
+    // Ask for the full page: the API defaults to 20, and the filters below
+    // run client-side, so a truncated response silently emptied the
+    // "Expired" / "Expiring soon" tabs.
+    queryFn: () => api.get<{ rfqs: Array<{ rfq: { id: string; rfqNumber: string; title: string; status: string; deadline: number | null; deliveryLocation?: string; requiredDeliveryDate?: number }; itemCount: number; myQuotes: number; myStatus: string | null; inviteStatus: string | null; expiringSoon: boolean }> }>(`/rfqs/supplier/list?supplierId=${supplierId}&limit=${PAGE_SIZE}`),
     enabled: !!supplierId,
   });
   const rows = (data?.rfqs ?? []).filter((r) => {
@@ -52,6 +56,7 @@ export function QuoteRequestsPage() {
             <span>Quotes convert to purchase orders on buyer acceptance</span>
             <span className="text-paper/40">
               {rows.length} of {data?.rfqs.length ?? 0} requests shown
+              {(data?.rfqs.length ?? 0) >= PAGE_SIZE ? ' (showing the most recent 100)' : ''}
             </span>
           </>
         }

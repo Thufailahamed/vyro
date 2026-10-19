@@ -83,8 +83,12 @@ export const sponsoredApi = {
     if (status) qs.set('status', status);
     return api.get<SponsorInvoice[]>(`/supplier/sponsored/invoices?${qs.toString()}`);
   },
-  payInvoice(id: string, supplierId: string) {
-    return api.post<{ ok: true }>(`/supplier/sponsored/invoices/${id}/pay?supplierId=${encodeURIComponent(supplierId)}`);
+  /** Submits proof of payment. The platform verifies and marks it paid. */
+  payInvoice(id: string, supplierId: string, reference: string) {
+    return api.post<{ ok: true; status: string }>(
+      `/supplier/sponsored/invoices/${id}/pay?supplierId=${encodeURIComponent(supplierId)}`,
+      { reference },
+    );
   },
 
   // Admin

@@ -11,15 +11,18 @@ import {
   findOfferForSupplierProduct,
   listOffersForProduct,
   listOffersForSupplier,
+  listOffersForSupplierWithProducts,
   recordAudit,
+  reviveOffer,
   softDeleteOffer,
   updateOffer,
 } from './repository';
 import { getDb } from '@vyro/db';
-import { suppliers } from '@vyro/db/schema';
-import { eq } from 'drizzle-orm';
+import { suppliers, productImages } from '@vyro/db/schema';
+import { eq, sql } from 'drizzle-orm';
 import { inventoryService } from '../inventory/service';
 import { availableQty, deriveAvailability } from '@vyro/shared';
+import { resolveImageUrl } from '../products/routes';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -34,16 +37,74 @@ function withInventory<T extends Parameters<typeof deriveAvailability>[0]>(offer
   };
 }
 
+/**
+ * Public read: which suppliers offer a catalog product. Returns only
+ * commercial terms a buyer is allowed to see — no internal stock, reserved
+ * quantity or supplier SKU.
+ */
 router.get('/by-product/:productId', async (c) => {
   const parsed = productIdParam.safeParse(c.req.param());
   if (!parsed.success) throw httpError(400, 'VALIDATION_ERROR', 'Invalid productId');
   const offers = await listOffersForProduct(c.env.DB, parsed.data.productId);
-  return c.json({ offers: offers.map(withInventory) });
+  return c.json({
+    offers: offers.map((o) => ({
+      supplierId: o.supplierId,
+      priceCents: o.priceCents,
+      minOrderQty: o.minOrderQty,
+      leadTimeDays: o.leadTimeDays,
+      deliveryAvailable: o.deliveryAvailable,
+      deliveryRadiusKm: o.deliveryRadiusKm,
+      availabilityStatus: o.availabilityStatus,
+      tier1MinQty: o.tier1MinQty,
+      tier1DiscountPct: o.tier1DiscountPct,
+      tier2MinQty: o.tier2MinQty,
+      tier2DiscountPct: o.tier2DiscountPct,
+      tier3MinQty: o.tier3MinQty,
+      tier3DiscountPct: o.tier3DiscountPct,
+    })),
+  });
 });
 
-router.get('/by-supplier/:supplierId', async (c) => {
-  const offers = await listOffersForSupplier(c.env.DB, c.req.param('supplierId'));
-  return c.json({ offers: offers.map(withInventory) });
+/**
+ * The supplier's own price book, with the catalog product resolved server-side.
+ *
+ * Authenticated + membership-scoped: this exposes wholesale pricing, MOQ,
+ * lead times, stock levels and discount ladders, so it must never be readable
+ * without a supplier session. The product details are joined in here so the
+ * supplier's own listings never depend on a truncated global catalog read.
+ */
+router.get('/by-supplier/:supplierId', session(), async (c) => {
+  const ctx = c.get('ctx') as Ctx | undefined;
+  if (!ctx) throw httpError(401, 'UNAUTHORIZED', 'No session');
+  await ensureSupplierMember(c.env.DB, c.req.param('supplierId'), ctx.userId);
+  const rows = await listOffersForSupplierWithProducts(c.env.DB, c.req.param('supplierId'));
+  const productIds = [...new Set(rows.map((r) => r.offer.productId))];
+  const imageMap = new Map<string, string>();
+  if (productIds.length) {
+    const db = getDb(c.env.DB);
+    const imgs = await db
+      .select()
+      .from(productImages)
+      .where(sql`${productImages.productId} in (${sql.join(productIds.map((id) => sql`${id}`), sql.raw(','))})`)
+      .orderBy(productImages.sortOrder)
+      .all();
+    for (const img of imgs) {
+      if (!imageMap.has(img.productId)) {
+        imageMap.set(img.productId, resolveImageUrl(img.r2Key));
+      }
+    }
+  }
+  return c.json({
+    offers: rows.map((r) => ({
+      ...withInventory(r.offer),
+      productName: r.productName,
+      productBrand: r.productBrand,
+      productUnit: r.productUnit,
+      productPackSize: r.productPackSize,
+      productCategoryId: r.productCategoryId,
+      productImageUrl: imageMap.get(r.offer.productId) ?? null,
+    })),
+  });
 });
 
 async function ensureSupplierMember(d1: D1Database, supplierId: string, userId: string) {
@@ -78,15 +139,32 @@ router.post('/', session(), async (c) => {
     parsed.data.supplierId,
     parsed.data.productId,
   );
-  if (existing) {
+  if (existing && !existing.deletedAt) {
     throw httpError(
       409,
       'CONFLICT',
-      existing.deletedAt
-        ? 'You previously listed this product. Restore that listing instead of creating a duplicate.'
-        : 'You already list this product. Update your existing wholesale rate instead.',
+      'You already list this product. Update your existing wholesale rate instead.',
       { offerId: existing.id },
     );
+  }
+  if (existing?.deletedAt) {
+    // The supplier previously delisted this product. The unique index on
+    // (supplierId, productId) still holds the row, so refusing to create a
+    // second one left the SKU permanently un-listable (the old 409 told the
+    // user to "restore" it, but no restore endpoint existed). Revive the
+    // archived listing with the new terms instead.
+    const { supplierId: _sid, productId: _pid, ...rest } = parsed.data;
+    await reviveOffer(c.env.DB, existing.id, rest);
+    await recordAudit(c.env.DB, {
+      actorUserId: ctx.userId,
+      action: 'supplier_product.relist',
+      resourceType: 'supplier_product',
+      resourceId: existing.id,
+      metadata: { supplierId: parsed.data.supplierId, productId: parsed.data.productId },
+      ip: c.req.header('cf-connecting-ip') ?? null,
+      userAgent: c.req.header('user-agent') ?? null,
+    });
+    return c.json({ id: existing.id, restored: true }, 201);
   }
   const { supplierId, ...rest } = parsed.data;
   const id = await createOffer(c.env.DB, { supplierId, ...rest });

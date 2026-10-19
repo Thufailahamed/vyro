@@ -41,7 +41,9 @@ export const createSupplierProductSchema = z
   .object({
     supplierId: z.string().min(1),
     productId: z.string().min(1),
-    supplierSku: z.string().max(60).optional(),
+    // Nullable to mirror `updateSupplierProductSchema`: an empty SKU is a valid
+    // "no supplier SKU" state and the web form sends `null` for it.
+    supplierSku: z.string().max(60).nullable().optional(),
     priceCents: z.number().int().min(0),
     minOrderQty: z.number().int().min(1).optional(),
     leadTimeDays: z.number().int().min(0).optional(),

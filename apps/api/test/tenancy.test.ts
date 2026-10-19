@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import app from '../src/index';
 import type { Env } from '../src/env';
+import { makeD1, applyMigrations } from './helpers/d1';
 
 const env: Env = {
   DB: {} as D1Database,
@@ -61,17 +62,29 @@ describe('tenant routes reject anonymous requests', () => {
     const res = await app.request('/api/suppliers/me', {}, env);
     expect(res.status).toBe(401);
   });
+});
 
-  it.skip('GET /api/suppliers/:id returns 404 when no row found (TODO-AUTHHELPERS)', async () => {
-    // Requires @cloudflare/vitest-pool-workers (Phase 4) so the public-read
-    // path can hit a real D1. With stub DB, drizzle throws because
-    // `client.prepare` is not a function, which surfaces as 500. The route
-    // itself returns 404 on a real empty D1.
+/**
+ * The public supplier read path is intentionally unauthenticated, so it needs
+ * a real (empty) D1 to prove it 404s rather than leaking a row or throwing.
+ */
+describe('public supplier read', () => {
+  let d1Env: Env;
+
+  beforeAll(async () => {
+    const d1 = makeD1();
+    await applyMigrations(d1);
+    d1Env = { ...env, DB: d1 };
+  });
+
+  it('GET /api/suppliers/:id returns 404 when no row found', async () => {
     const res = await app.request(
       '/api/suppliers/00000000-0000-0000-0000-000000000000',
       {},
-      env,
+      d1Env,
     );
     expect(res.status).toBe(404);
+    const body = (await res.json()) as any;
+    expect(body?.error?.code).toBe('NOT_FOUND');
   });
 });

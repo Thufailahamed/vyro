@@ -8,6 +8,7 @@ import {
   orderReturns,
   orderReturnItems,
 } from '@vyro/db/schema';
+import { SUPPLIER_ROLES } from '@vyro/auth';
 
 export type AnalyticsRange = '7d' | '30d' | '90d';
 
@@ -53,7 +54,7 @@ export async function ensureSupplierMember(
     .from(supplierMembers)
     .where(and(eq(supplierMembers.supplierId, supplierId), eq(supplierMembers.userId, userId)))
     .get();
-  if (!m || !['owner', 'manager', 'sales'].includes(m.role)) {
+  if (!m || !SUPPLIER_ROLES.includes(m.role as (typeof SUPPLIER_ROLES)[number])) {
     throw new Error('FORBIDDEN');
   }
 }

@@ -46,6 +46,8 @@ interface QuoteLine {
   productId?: string | undefined;
   description: string;
   quantity: string;
+  /** Unit of measure for the line (kg, bag, litre, …). Sent with the quote. */
+  unit?: string | undefined;
   unitPrice: string;
   discount: string;
   isAlternative?: boolean | undefined;
@@ -100,8 +102,24 @@ type MyQuote = {
     quoteNumber: string;
     validUntil?: number;
     isPartial?: number | boolean;
+    deliveryFeeCents?: number;
+    paymentTerms?: string | null;
+    notes?: string | null;
   };
-  items: unknown[];
+  items: QuoteItemRow[];
+};
+type QuoteItemRow = {
+  id: string;
+  rfqItemId?: string | null;
+  productId?: string | null;
+  description: string;
+  quantity: number;
+  unit?: string | null;
+  unitPriceCents: number;
+  discountCents?: number;
+  isAlternative?: number | boolean;
+  alternativeForRfqItemId?: string | null;
+  notes?: string | null;
 };
 
 const toCents = (s: string | undefined) => Math.round(Number(s || 0) * 100);
@@ -251,6 +269,7 @@ function HeroStat({
 
 function CounterOffers({ quoteId, onChanged }: { quoteId: string; onChanged: () => void }) {
   const qc = useQueryClient();
+  const toast = useToast();
   const { data } = useQuery({
     queryKey: ['sup-counters', quoteId],
     queryFn: () =>
@@ -263,10 +282,18 @@ function CounterOffers({ quoteId, onChanged }: { quoteId: string; onChanged: () 
   );
   if (!pending.length) return null;
   const respond = (id: string, accept: boolean) =>
-    void api.post(`/rfqs/counters/${id}/respond`, { accept }).then(() => {
-      void qc.invalidateQueries({ queryKey: ['sup-counters', quoteId] });
-      onChanged();
-    });
+    void api
+      .post(`/rfqs/counters/${id}/respond`, { accept })
+      .then(() => {
+        void qc.invalidateQueries({ queryKey: ['sup-counters', quoteId] });
+        onChanged();
+      })
+      .catch((e: unknown) => {
+        // Without this the rejection was unhandled: no toast, no banner, and
+        // the panel looked unchanged even though the API refused.
+        const message = e instanceof Error ? e.message : 'Could not respond to the counter-offer';
+        toast.show(toast.error('Counter-offer not updated', message));
+      });
   return (
     <Surface className="relative overflow-hidden p-0 ring-1 ring-copper/30">
       <span className="absolute inset-y-0 left-0 w-1 bg-copper" aria-hidden />
@@ -358,20 +385,44 @@ export function SupplierQuoteDetailPage() {
   });
 
   const items = detail.data?.items ?? [];
+  const myQuoteItems = mine.data?.quotes[0]?.items ?? [];
   useEffect(() => {
-    if (lines.length === 0 && items.length > 0) {
+    if (lines.length !== 0) return;
+    // Seed from the supplier's OWN previous quote when there is one. Falling
+    // back to the buyer's target price silently quoted the buyer at their
+    // target — a direct money bug on a live RFQ.
+    if (myQuoteItems.length > 0) {
+      setLines(
+        myQuoteItems.map((it) => ({
+          rfqItemId: it.rfqItemId ?? undefined,
+          ...(it.productId ? { productId: it.productId } : {}),
+          description: it.description,
+          quantity: String(it.quantity),
+          unit: it.unit ?? 'kg',
+          unitPrice: String((it.unitPriceCents ?? 0) / 100),
+          discount: String((it.discountCents ?? 0) / 100),
+          isAlternative: !!it.isAlternative,
+          ...(it.alternativeForRfqItemId ? { alternativeFor: it.alternativeForRfqItemId } : {}),
+        })),
+      );
+      return;
+    }
+    if (items.length > 0) {
       setLines(
         items.map((i) => ({
           rfqItemId: i.id,
           ...(i.productId ? { productId: i.productId } : {}),
           description: i.description,
           quantity: String(i.quantity),
-          unitPrice: i.targetPriceCents ? String(i.targetPriceCents / 100) : '',
+          unit: i.unit ?? 'kg',
+          // Leave the price blank for a first-time quote: pre-filling the
+          // buyer's target price made it look like the supplier had priced it.
+          unitPrice: '',
           discount: '0',
         })),
       );
     }
-  }, [items, lines.length]);
+  }, [items, myQuoteItems, lines.length]);
 
   const update = (i: number, patch: Partial<QuoteLine>) =>
     setLines((ls) => ls.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -390,8 +441,24 @@ export function SupplierQuoteDetailPage() {
       return [...ls.slice(0, i + 1), copy, ...ls.slice(i + 1)];
     });
 
+  /**
+   * Effective unit price after the line's volume tier. Mirrors the server's
+   * `applyQuantityBreaks`: the qualifying tier lowers the unit price, so the
+   * displayed total has to use it too or the supplier sees a different number
+   * from the one that gets stored.
+   */
+  const effectiveUnitPriceCents = (l: QuoteLine): number => {
+    const base = toCents(l.unitPrice);
+    const tierQty = Number(l.tierQty);
+    const tierPrice = toCents(l.tierPrice);
+    if (!l.tierQty || !l.tierPrice) return base;
+    if (!Number.isFinite(tierQty) || tierQty <= 0) return base;
+    if (Number(l.quantity || 0) < tierQty) return base;
+    // The server only applies a tier that is strictly cheaper than the base.
+    return tierPrice < base ? tierPrice : base;
+  };
   const lineTotal = (l: QuoteLine) =>
-    Math.max(0, Number(l.quantity || 0) * toCents(l.unitPrice) - toCents(l.discount));
+    Math.max(0, Number(l.quantity || 0) * effectiveUnitPriceCents(l) - toCents(l.discount));
   const priced = lines.filter(
     (l) =>
       l.description.trim() &&
@@ -420,6 +487,9 @@ export function SupplierQuoteDetailPage() {
         productId: l.productId,
         description: l.description,
         quantity: Number(l.quantity),
+        // The unit was never sent, so the server stored every line as "kg" —
+        // the buyer's comparison view showed mismatched units.
+        unit: l.unit ?? 'kg',
         unitPriceCents: toCents(l.unitPrice),
         discountCents: toCents(l.discount),
         isAlternative: !!l.isAlternative,
@@ -437,7 +507,15 @@ export function SupplierQuoteDetailPage() {
     }
     setSubmitting(true);
     try {
-      await api.post(`/rfqs/${rfqId}/quote?supplierId=${supplierId}`, payload);
+      if (myQuote) {
+        // Revise the existing quote in place. Posting a new quote created a
+        // second, competing quote on the same RFQ (the server only reused a
+        // row whose status was 'draft'), leaving the buyer with two live
+        // offers from the same supplier.
+        await api.patch(`/rfqs/quotes/${myQuote.id}`, payload);
+      } else {
+        await api.post(`/rfqs/${rfqId}/quote?supplierId=${supplierId}`, payload);
+      }
       toast.show(toast.success(myQuote ? 'Revised quote sent' : 'Quote submitted'));
       void qc.invalidateQueries({ queryKey: ['sup-quotes', rfqId] });
     } catch (e) {
@@ -1246,7 +1324,16 @@ export function SupplierQuoteDetailPage() {
           ) : null}
 
           <Card title="Attachments" icon={<FileTextIcon size={14} />}>
-            <RfqDocsUpload rfqId={rfqId!} />
+            {myQuote ? (
+              <RfqDocsUpload rfqId={rfqId!} />
+            ) : (
+              // The API can only attach a document to an existing supplier
+              // quote — before quoting, the upload would 403 with no
+              // explanation.
+              <p className="text-sm text-ink-4">
+                Send your quote first — then you can attach specifications and certificates here.
+              </p>
+            )}
           </Card>
         </aside>
       </div>
