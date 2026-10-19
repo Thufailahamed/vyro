@@ -4,6 +4,7 @@ import { cn } from '@vyro/ui';
 import { Button } from '@/components/ui';
 import { BrandMark, BrandWordmark } from '@/components/brand/BrandMark';
 import { MenuIcon, XIcon } from '@/components/icons';
+import type { SessionUser } from '@/lib/auth';
 
 const MARKETING_LINKS = [
   { to: '/how-it-works', label: 'How it works' },
@@ -11,12 +12,19 @@ const MARKETING_LINKS = [
   { to: '/search', label: 'Catalog' },
 ];
 
-const AUDIENCE_LINKS = [
-  { to: '/onboarding/business', label: 'For buyers' },
-  { to: '/onboarding/supplier', label: 'For suppliers' },
-];
-
-const ALL_MARKETING_LINKS = [...MARKETING_LINKS, ...AUDIENCE_LINKS];
+/**
+ * "For buyers" / "For suppliers" lead visitors into onboarding. Signed-in users
+ * who already belong to a buyer business or supplier org go to that workspace
+ * instead of being asked to register again.
+ */
+export function audienceLinks(user: SessionUser | null) {
+  const hasBusiness = (user?.memberships.length ?? 0) > 0;
+  const hasSupplier = (user?.supplierMemberships.length ?? 0) > 0;
+  return [
+    { to: hasBusiness ? '/dashboard' : '/onboarding/business', label: 'For buyers' },
+    { to: hasSupplier ? '/supplier' : '/onboarding/supplier', label: 'For suppliers' },
+  ];
+}
 
 export function marketingBarClass(elevated: boolean) {
   return cn(
@@ -71,8 +79,10 @@ function MarketingNavLink({ to, label }: { to: string; label: string }) {
   );
 }
 
-export function MarketingHeader({ user }: { user: { name?: string } | null }) {
+export function MarketingHeader({ user }: { user: SessionUser | null }) {
   const location = useLocation();
+  const audience = audienceLinks(user);
+  const allLinks = [...MARKETING_LINKS, ...audience];
   const elevated = useChromeElevated();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -106,8 +116,8 @@ export function MarketingHeader({ user }: { user: { name?: string } | null }) {
               <MarketingNavLink key={link.to} to={link.to} label={link.label} />
             ))}
             <span aria-hidden className="mx-2 h-4 w-px bg-paper/20" />
-            {AUDIENCE_LINKS.map((link) => (
-              <MarketingNavLink key={link.to} to={link.to} label={link.label} />
+            {audience.map((link) => (
+              <MarketingNavLink key={link.label} to={link.to} label={link.label} />
             ))}
           </nav>
 
@@ -184,9 +194,9 @@ export function MarketingHeader({ user }: { user: { name?: string } | null }) {
 
           <nav className="flex-1 overflow-y-auto px-3 py-4">
             <div className="space-y-1">
-              {ALL_MARKETING_LINKS.map((link) => (
+              {allLinks.map((link) => (
                 <NavLink
-                  key={link.to}
+                  key={link.label}
                   to={link.to}
                   className={({ isActive }) =>
                     cn(

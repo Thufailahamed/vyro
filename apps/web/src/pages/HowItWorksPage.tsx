@@ -1,7 +1,14 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { FlowCanvas } from '@/components/brand/FlowLine';
 import { BrandMark } from '@/components/brand/BrandMark';
+import {
+  Console,
+  DarkBackdrop,
+  GhostCta,
+  MarketingCta,
+  PrimaryCta,
+  usePrefersReducedMotion,
+} from '@/components/marketing/MarketingKit';
 import {
   SearchIcon,
   CheckIcon,
@@ -157,18 +164,6 @@ const CORRIDORS = [
     img: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
   },
 ];
-
-function usePrefersReducedMotion() {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReduced(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-  return reduced;
-}
 
 /** Staggered entrance for children of a stage visual. */
 function enter(i: number): CSSProperties {
@@ -481,49 +476,6 @@ function StageVisual({ index, animate }: { index: number; animate: boolean }) {
   }
 }
 
-/** Dark device frame used around stage visuals. */
-function Console({
-  route,
-  children,
-  header,
-  footer,
-  className,
-}: {
-  route: string;
-  children: ReactNode;
-  header?: ReactNode;
-  footer?: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        'relative overflow-hidden rounded-[28px] border border-paper/10 bg-gradient-to-b from-ink-2 to-void text-paper',
-        'shadow-[0_50px_120px_-40px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(250,247,240,0.06)]',
-        className,
-      )}
-    >
-      <div className="flex items-center gap-3 border-b border-paper/[0.07] px-5 py-3.5">
-        <span className="flex gap-1.5" aria-hidden>
-          <span className="size-2.5 rounded-full bg-paper/15" />
-          <span className="size-2.5 rounded-full bg-paper/15" />
-          <span className="size-2.5 rounded-full bg-paper/15" />
-        </span>
-        <span className="mx-auto truncate rounded-full bg-paper/[0.05] px-3 py-1 font-mono text-[10px] text-paper/50 ring-1 ring-inset ring-paper/[0.07]">
-          vyro / <span className="text-paper/80">{route}</span>
-        </span>
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-volt">
-          <span className="size-1.5 rounded-full bg-volt animate-pulse-soft" />
-          Live
-        </span>
-      </div>
-      {header}
-      {children}
-      {footer}
-    </div>
-  );
-}
-
 /* ------------------------------------------------------------------ */
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
@@ -551,12 +503,7 @@ export function HowItWorksPage() {
     <div className="bg-bone">
       {/* 1. HERO */}
       <section className="relative overflow-hidden bg-void text-paper grain">
-        <div className="absolute inset-0 opacity-25 [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]">
-          <FlowCanvas tone="paper" density="hero" />
-        </div>
-        <div className="pointer-events-none absolute -left-40 -top-40 size-[36rem] rounded-full bg-volt/[0.09] blur-[140px]" />
-        <div className="pointer-events-none absolute -right-32 bottom-[-12rem] size-[32rem] rounded-full bg-copper/[0.12] blur-[140px]" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-paper/15 to-transparent" />
+        <DarkBackdrop />
 
         <div className="relative mx-auto max-w-stage px-5 pb-20 pt-14 sm:px-8 sm:pt-20 lg:pb-28 lg:pt-24">
           <div className="grid items-center gap-14 lg:grid-cols-12 lg:gap-12">
@@ -582,19 +529,8 @@ export function HowItWorksPage() {
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Link
-                  to="/search"
-                  className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-volt px-6 text-sm font-semibold text-ink shadow-[0_10px_40px_-10px_rgba(198,220,74,0.6)] transition hover:bg-volt-glow"
-                >
-                  Search the wholesale catalog
-                  <ArrowRightIcon size={16} className="transition-transform group-hover:translate-x-0.5" />
-                </Link>
-                <Link
-                  to="/onboarding/business"
-                  className="inline-flex h-12 items-center justify-center rounded-full border border-paper/15 px-6 text-sm font-semibold text-paper transition hover:border-paper/40 hover:bg-paper/[0.05]"
-                >
-                  Register your business
-                </Link>
+                <PrimaryCta to="/search">Search the wholesale catalog</PrimaryCta>
+                <GhostCta to="/onboarding/business">Register your business</GhostCta>
               </div>
 
               <ul className="mt-10 grid max-w-xl grid-cols-1 gap-4 border-t border-paper/10 pt-6 sm:grid-cols-3">
@@ -862,54 +798,16 @@ export function HowItWorksPage() {
       </section>
 
       {/* 5. CTA */}
-      <section className="relative overflow-hidden bg-void text-paper grain">
-        <div className="absolute inset-0 opacity-20 [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]">
-          <FlowCanvas tone="paper" density="hero" />
-        </div>
-        <div className="relative mx-auto grid max-w-stage gap-4 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-2">
-          <div className="flex flex-col justify-between rounded-[28px] bg-volt p-8 text-ink sm:p-10">
-            <div>
-              <div className="flex items-center gap-2">
-                <BrandMark size={22} tone="ink" />
-                <span className="vyro-kicker text-ink/70">For buyers</span>
-              </div>
-              <h2 className="vyro-display mt-6 text-3xl sm:text-[2.75rem] text-balance">Move your buying to VYRO.</h2>
-              <p className="mt-4 max-w-md text-sm leading-relaxed text-ink/75 sm:text-base">
-                Register your business in minutes. Search wholesale prices, compare verified suppliers and issue
-                purchase orders with full delivery tracking.
-              </p>
-            </div>
-            <Link
-              to="/onboarding/business"
-              className="group mt-10 inline-flex h-12 items-center gap-2 self-start rounded-full bg-ink px-6 text-sm font-semibold text-paper transition hover:bg-ink-2"
-            >
-              Register your business
-              <ArrowRightIcon size={16} className="transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </div>
-
-          <div className="flex flex-col justify-between rounded-[28px] border border-paper/10 bg-paper/[0.03] p-8 backdrop-blur sm:p-10">
-            <div>
-              <div className="flex items-center gap-2">
-                <BrandMark size={22} tone="paper" />
-                <span className="vyro-kicker text-copper">For suppliers</span>
-              </div>
-              <h2 className="vyro-display mt-6 text-3xl sm:text-[2.75rem] text-balance">Put your catalog in the flow.</h2>
-              <p className="mt-4 max-w-md text-sm leading-relaxed text-paper/65 sm:text-base">
-                Receive purchase orders from hotels, restaurants and retailers across the island, without chasing
-                informal phone bids.
-              </p>
-            </div>
-            <Link
-              to="/onboarding/supplier"
-              className="group mt-10 inline-flex h-12 items-center gap-2 self-start rounded-full border border-paper/20 px-6 text-sm font-semibold text-paper transition hover:border-paper/50 hover:bg-paper/[0.05]"
-            >
-              List as a supplier
-              <ArrowRightIcon size={16} className="transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </div>
-        </div>
-      </section>
+      <MarketingCta
+        buyer={{
+          title: 'Move your buying to VYRO.',
+          body: 'Register your business in minutes. Search wholesale prices, compare verified suppliers and issue purchase orders with full delivery tracking.',
+        }}
+        supplier={{
+          title: 'Put your catalog in the flow.',
+          body: 'Receive purchase orders from hotels, restaurants and retailers across the island, without chasing informal phone bids.',
+        }}
+      />
     </div>
   );
 }

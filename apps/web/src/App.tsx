@@ -7,7 +7,7 @@ import { InstallBanner } from './components/InstallBanner';
 import { RedirectIfAuthed, RequireAuth, RequireBusiness } from './components/RequireAuth';
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
-const AboutPage = lazy(() => import('./pages/MarketingPages').then((m) => ({ default: m.AboutPage })));
+const AboutPage = lazy(() => import('./pages/AboutPage').then((m) => ({ default: m.AboutPage })));
 const SponsoredDisclosurePage = lazy(() => import('./pages/SponsoredDisclosure').then((m) => ({ default: m.SponsoredDisclosure })));
 const StorefrontPage = lazy(() => import('./storefront/StorefrontPage').then((m) => ({ default: m.StorefrontPage })));
 const HowItWorksPage = lazy(() => import('./pages/HowItWorksPage').then((m) => ({ default: m.HowItWorksPage })));
